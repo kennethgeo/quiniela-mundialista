@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion } from 'motion/react'
 import { Trophy, Crown, Medal } from 'lucide-react'
-import { supabase } from '../../lib/supabaseClient'
+import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import LeaderboardRow from './LeaderboardRow'
 import LoadingSpinner from '../ui/LoadingSpinner'

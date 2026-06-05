@@ -2,9 +2,9 @@
 import { useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'motion/react'
-import { useAuth } from '../../hooks/useAuth'
-import LoginForm from '../../components/auth/LoginForm'
-import RegisterForm from '../../components/auth/RegisterForm'
+import { useAuth } from '../hooks/useAuth'
+import LoginForm from '../components/auth/LoginForm'
+import RegisterForm from '../components/auth/RegisterForm'
 
 export default function AuthPage() {
   const { user, loading } = useAuth()
