@@ -1,0 +1,21 @@
+# Dependencias de Frontend (React/Vite)
+frontend/node_modules/
+frontend/dist/
+frontend/.eslintcache
+
+# Entornos y dependencias de Backend (Python)
+backend/__pycache__/
+backend/venv/
+backend/env/
+backend/.pytest_cache/
+
+# Variables de entorno y secretos (¡CRÍTICO!)
+.env
+.env.local
+.env.*.local
+frontend/.env
+backend/.env
+
+# Archivos del sistema operativo
+.DS_Store
+Thumbs.db
