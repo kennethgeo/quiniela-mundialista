@@ -55,6 +55,8 @@ class MatchResultUpdate(BaseModel):
     match_id: int
     home_goals_actual: int = Field(ge=0, description="Goles del equipo local")
     away_goals_actual: int = Field(ge=0, description="Goles del equipo visitante")
+    goes_to_penalties: bool = Field(default=False, description="Indica si el partido se definió en penales")
+    penalties_winner_real: Optional[str] = Field(default=None, description="Equipo ganador en penales (nombre o código)")
 
 
 class MatchStatusUpdate(BaseModel):
@@ -75,8 +77,11 @@ class PredictionCreate(BaseModel):
     """Datos para crear o actualizar una predicción."""
 
     match_id: int
-    home_goals_pred: int = Field(ge=0, description="Goles predichos para el local")
-    away_goals_pred: int = Field(ge=0, description="Goles predichos para el visitante")
+    prediction_type: str = Field(default="Marcador", description="Modalidad de predicción: 'Marcador' o 'Solo_Ganador'")
+    home_goals_pred: Optional[int] = Field(default=None, ge=0, description="Goles predichos para el local")
+    away_goals_pred: Optional[int] = Field(default=None, ge=0, description="Goles predichos para el visitante")
+    penalties_winner_pred: Optional[str] = Field(default=None, description="Equipo predicho para ganar en penales")
+    use_powerup_x2: bool = Field(default=False, description="Activar powerup x2 de puntos")
 
 
 class PredictionResponse(BaseModel):

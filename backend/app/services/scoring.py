@@ -1,160 +1,197 @@
 """
-Motor de puntuación de la Quiniela Mundialista.
+Motor de puntuación avanzado para la Quiniela Mundialista.
 
-Sistema de puntos:
-  - 3 puntos: Resultado exacto (marcador idéntico al real)
-  - 1 punto:  Resultado correcto (acertó ganador o empate, pero no el marcador)
-  - 0 puntos: Resultado incorrecto
+Evalúa predicciones comparándolas con el resultado real bajo las reglas:
+Modalidad A (Marcador):
+- Sin penales: 6 (Exacto), 4 (Ganador + 1 marcador), 3 (Solo Ganador), 1 (Falla ganador pero acierta 1 marcador). Empates: 6 (Exacto), 3 (No exacto).
+- Con penales: 9 (Empate exacto + penales), 6 (Empate exacto + falla penales o Empate no exacto + penales), 3 (Empate no exacto + falla penales), 0 (Exclusión si predijo ganador regular pero fue a penales).
 
-La lógica de desenlace:
-  - Victoria local:   goles_local > goles_visitante
-  - Victoria visitante: goles_visitante > goles_local
-  - Empate:           goles_local == goles_visitante
+Modalidad B (Solo Ganador):
+- 3 Pts: Acierta ganador en 90 mins o acierta que hay empate.
+- 5 Pts: Acierta empate + acierta ganador de penales.
+- 0 Pts: Falla.
+
+Modificador Global:
+- x2 si use_powerup_x2 es True.
 """
 
-from supabase import Client
-
-
-def _get_outcome(home_goals: int, away_goals: int) -> str:
-    """
-    Determina el desenlace de un partido o predicción.
-
-    Returns:
-        'home' si gana el local, 'away' si gana el visitante, 'draw' si empatan.
-    """
-    if home_goals > away_goals:
-        return "home"
-    elif away_goals > home_goals:
-        return "away"
-    else:
-        return "draw"
-
-
-def _calculate_points(
-    pred_home: int,
-    pred_away: int,
-    actual_home: int,
-    actual_away: int,
+def evaluate_prediction(
+    pred: dict,
+    home_actual: int,
+    away_actual: int,
+    goes_to_penalties: bool,
+    penalties_winner_real: str
 ) -> int:
+    
+    pred_type = pred.get("prediction_type", "Marcador")
+    home_pred = pred.get("home_goals_pred")
+    away_pred = pred.get("away_goals_pred")
+    penalties_winner_pred = pred.get("penalties_winner_pred")
+    use_powerup = pred.get("use_powerup_x2", False)
+    
+    # Determinar ganador real en tiempo regular
+    if home_actual > away_actual:
+        real_winner = "home"
+    elif away_actual > home_actual:
+        real_winner = "away"
+    else:
+        real_winner = "tie"
+        
+    points = 0
+    
+    if pred_type == "Marcador":
+        if home_pred is None or away_pred is None:
+            return 0  # Invalida
+            
+        # Determinar ganador predicho en tiempo regular
+        if home_pred > away_pred:
+            pred_winner = "home"
+        elif away_pred > home_pred:
+            pred_winner = "away"
+        else:
+            pred_winner = "tie"
+            
+        # Regla de exclusión para penales
+        # Si predijo que alguien ganaba en 90min, pero el partido fue a penales (empate real)
+        if goes_to_penalties and pred_winner != "tie":
+            points = 0
+        else:
+            if real_winner == "tie":
+                # Escenario de empate
+                if home_pred == home_actual and away_pred == away_actual:
+                    points = 6  # Empate exacto
+                elif pred_winner == "tie":
+                    points = 3  # Empate no exacto
+                else:
+                    points = 0
+                    
+                # Evaluar penales si aplica y predijo empate (ya validado por regla exclusión)
+                if goes_to_penalties and pred_winner == "tie" and penalties_winner_pred and penalties_winner_real:
+                    if penalties_winner_pred == penalties_winner_real:
+                        points += 3
+            else:
+                # Escenario donde hay ganador en 90 mins (Sin penales)
+                if home_pred == home_actual and away_pred == away_actual:
+                    points = 6  # Marcador exacto
+                elif pred_winner == real_winner:
+                    if home_pred == home_actual or away_pred == away_actual:
+                        points = 4  # Ganador correcto + 1 marcador
+                    else:
+                        points = 3  # Solo ganador correcto
+                else:
+                    if home_pred == home_actual or away_pred == away_actual:
+                        points = 1  # Falla ganador pero acierta 1 marcador
+                    else:
+                        points = 0
+                        
+    elif pred_type == "Solo_Ganador":
+        # En Solo_Ganador, los usuarios envían:
+        # home_goals_pred=1, away_goals_pred=0 para "Local"
+        # home_goals_pred=0, away_goals_pred=1 para "Visitante"
+        # home_goals_pred=0, away_goals_pred=0 para "Empate"
+        pred_winner = "tie"
+        if home_pred is not None and away_pred is not None:
+            if home_pred > away_pred: pred_winner = "home"
+            elif away_pred > home_pred: pred_winner = "away"
+            
+        if goes_to_penalties:
+            if pred_winner == "tie":
+                if penalties_winner_pred and penalties_winner_real and penalties_winner_pred == penalties_winner_real:
+                    points = 5  # Acierta empate + penales
+                else:
+                    points = 3  # Solo acierta empate
+            else:
+                points = 0  # Falla
+        else:
+            if pred_winner == real_winner:
+                points = 3  # Acierta ganador en 90min (o empate si no hubo penales)
+            else:
+                points = 0
+
+    # Multiplicador Powerup
+    if use_powerup:
+        points *= 2
+        
+    return points
+
+
+def calculate_and_update_scores(supabase, match_id: int) -> dict:
     """
-    Calcula los puntos obtenidos por una predicción individual.
-
-    Args:
-        pred_home: Goles predichos para el equipo local.
-        pred_away: Goles predichos para el equipo visitante.
-        actual_home: Goles reales del equipo local.
-        actual_away: Goles reales del equipo visitante.
-
-    Returns:
-        3 si acertó el marcador exacto,
-        1 si acertó el desenlace (ganador o empate),
-        0 si falló por completo.
+    Obtiene el resultado del partido, evalúa todas las predicciones
+    usando las nuevas reglas y actualiza los puntos de los usuarios.
     """
-    # Verificar resultado exacto (máxima puntuación)
-    if pred_home == actual_home and pred_away == actual_away:
-        return 3
-
-    # Verificar si acertó el desenlace (ganador o empate)
-    pred_outcome = _get_outcome(pred_home, pred_away)
-    actual_outcome = _get_outcome(actual_home, actual_away)
-
-    if pred_outcome == actual_outcome:
-        return 1
-
-    # No acertó nada
-    return 0
-
-
-async def calculate_and_update_scores(supabase: Client, match_id: int) -> None:
-    """
-    Calcula y actualiza los puntajes de todas las predicciones de un partido.
-
-    Proceso:
-    1. Obtiene el resultado real del partido
-    2. Obtiene TODAS las predicciones para este partido
-    3. Calcula los puntos de cada predicción
-    4. Actualiza los puntos de cada predicción en la BD
-    5. Recalcula el total de puntos de cada usuario afectado
-    6. Actualiza la columna total_points en la tabla users
-
-    Args:
-        supabase: Cliente de Supabase con permisos de servicio.
-        match_id: ID del partido a procesar.
-
-    Raises:
-        ValueError: Si el partido no existe o no tiene resultado registrado.
-    """
-    # Paso 1: Obtener el resultado real del partido
+    # 1. Obtener resultado real del partido
     match_response = (
         supabase.table("matches")
-        .select("home_goals_actual, away_goals_actual")
+        .select("id, home_goals_actual, away_goals_actual, status, goes_to_penalties, penalties_winner_real")
         .eq("id", match_id)
         .single()
         .execute()
     )
+    match = match_response.data
 
-    match_data = match_response.data
-    if not match_data:
-        raise ValueError(f"Partido con ID {match_id} no encontrado")
+    if not match or match.get("status") != "finished":
+        return {"status": "error", "message": "Partido no finalizado o no encontrado"}
 
-    actual_home = match_data["home_goals_actual"]
-    actual_away = match_data["away_goals_actual"]
+    home_actual = match["home_goals_actual"]
+    away_actual = match["away_goals_actual"]
+    goes_to_penalties = match.get("goes_to_penalties", False)
+    penalties_winner_real = match.get("penalties_winner_real")
 
-    if actual_home is None or actual_away is None:
-        raise ValueError(
-            f"El partido {match_id} no tiene resultado registrado"
-        )
+    if home_actual is None or away_actual is None:
+        return {"status": "error", "message": "El partido no tiene resultado válido"}
 
-    # Paso 2: Obtener todas las predicciones para este partido
+    # 2. Obtener todas las predicciones para este partido
     predictions_response = (
-        supabase.table("predictions")
-        .select("id, user_id, home_goals_pred, away_goals_pred")
-        .eq("match_id", match_id)
-        .execute()
+        supabase.table("predictions").select("*").eq("match_id", match_id).execute()
     )
-
-    predictions = predictions_response.data or []
+    predictions = predictions_response.data
 
     if not predictions:
-        # No hay predicciones para este partido, nada que calcular
-        return
+        return {"status": "ok", "message": "No hay predicciones para este partido"}
 
-    # Paso 3 y 4: Calcular puntos y actualizar cada predicción
-    # Recopilar los user_ids afectados para actualizar sus totales después
-    affected_user_ids: set[str] = set()
+    updates = []
+    user_points_delta = {}
 
-    for prediction in predictions:
-        points = _calculate_points(
-            pred_home=prediction["home_goals_pred"],
-            pred_away=prediction["away_goals_pred"],
-            actual_home=actual_home,
-            actual_away=actual_away,
+    # 3. Evaluar cada predicción
+    for pred in predictions:
+        pts = evaluate_prediction(
+            pred,
+            home_actual,
+            away_actual,
+            goes_to_penalties,
+            penalties_winner_real
         )
+        
+        # Calcular la diferencia si ya tenía puntos calculados antes
+        old_points = pred.get("points_earned") or 0
+        delta = pts - old_points
 
-        # Actualizar los puntos de esta predicción en la base de datos
-        supabase.table("predictions").update(
-            {"points_earned": points}
-        ).eq("id", prediction["id"]).execute()
+        if delta != 0:
+            updates.append({"id": pred["id"], "points_earned": pts})
+            user_id = pred["user_id"]
+            user_points_delta[user_id] = user_points_delta.get(user_id, 0) + delta
 
-        affected_user_ids.add(prediction["user_id"])
+    # 4. Guardar los nuevos puntos en la tabla predictions
+    if updates:
+        for chunk in [updates[i : i + 100] for i in range(0, len(updates), 100)]:
+            supabase.table("predictions").upsert(chunk).execute()
 
-    # Paso 5 y 6: Recalcular el total de puntos para cada usuario afectado
-    for user_id in affected_user_ids:
-        # Sumar todos los puntos ganados en todas las predicciones del usuario
-        user_predictions_response = (
-            supabase.table("predictions")
-            .select("points_earned")
-            .eq("user_id", user_id)
-            .not_.is_("points_earned", "null")
-            .execute()
-        )
+    # 5. Actualizar el total de puntos en la tabla users
+    updated_users = 0
+    for user_id, delta in user_points_delta.items():
+        if delta != 0:
+            user_res = (
+                supabase.table("users").select("total_points").eq("id", user_id).single().execute()
+            )
+            if user_res.data:
+                current_total = user_res.data.get("total_points") or 0
+                supabase.table("users").update({"total_points": current_total + delta}).eq("id", user_id).execute()
+                updated_users += 1
 
-        total_points = sum(
-            p["points_earned"]
-            for p in (user_predictions_response.data or [])
-        )
-
-        # Actualizar el total de puntos en la tabla de usuarios
-        supabase.table("users").update(
-            {"total_points": total_points}
-        ).eq("id", user_id).execute()
+    return {
+        "status": "ok",
+        "predictions_evaluated": len(predictions),
+        "predictions_updated": len(updates),
+        "users_updated": updated_users,
+    }

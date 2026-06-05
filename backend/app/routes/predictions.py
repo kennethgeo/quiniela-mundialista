@@ -61,8 +61,11 @@ async def save_prediction(
     data = {
         "user_id": user_id,
         "match_id": prediction.match_id,
+        "prediction_type": prediction.prediction_type,
         "home_goals_pred": prediction.home_goals_pred,
         "away_goals_pred": prediction.away_goals_pred,
+        "penalties_winner_pred": prediction.penalties_winner_pred,
+        "use_powerup_x2": prediction.use_powerup_x2,
         "updated_at": now.isoformat(),
     }
 

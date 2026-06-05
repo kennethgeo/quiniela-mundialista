@@ -18,16 +18,15 @@ async def update_match_result(
     """Actualiza el resultado real de un partido y calcula los puntos."""
     supabase = get_supabase()
 
-    # Actualizar resultado y estado del partido a finalizado
-    response = (
-        supabase.table("matches")
-        .update(
-            {
-                "home_goals_actual": result.home_goals_actual,
-                "away_goals_actual": result.away_goals_actual,
-                "status": "finished",
-            }
-        )
+    # Actualizar resultado y estado del partido
+    response = (supabase.table("matches")
+        .update({
+            "home_goals_actual": result.home_goals_actual,
+            "away_goals_actual": result.away_goals_actual,
+            "goes_to_penalties": result.goes_to_penalties,
+            "penalties_winner_real": result.penalties_winner_real,
+            "status": "finished"
+        })
         .eq("id", result.match_id)
         .execute()
     )
