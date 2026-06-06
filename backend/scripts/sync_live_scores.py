@@ -62,43 +62,52 @@ def sync_scores():
             
         home_team = home_comp["team"]["name"]
         away_team = away_comp["team"]["name"]
-        home_goals = int(home_comp.get("score", 0))
-        away_goals = int(away_comp.get("score", 0))
+        kickoff_at_utc = event.get("date")
         
         espn_state = event["status"]["type"]["state"]
         status = map_status(espn_state)
         
-        # Si el partido no ha empezado, no sobrescribimos goles para evitar mostrar ceros
-        if status == "scheduled":
-            continue
+        # Construir el payload de actualización base (estado y fecha en UTC)
+        update_payload = {
+            "status": status,
+        }
+        
+        if kickoff_at_utc:
+            update_payload["kickoff_at"] = kickoff_at_utc
 
-        print(f"🔄 Actualizando: {home_team} {home_goals} - {away_goals} {away_team} ({status})")
+        # Solo actualizar los goles y eventos si el partido ya está en progreso o finalizado
+        if status != "scheduled":
+            home_goals = int(home_comp.get("score", 0))
+            away_goals = int(away_comp.get("score", 0))
+            update_payload["home_goals_actual"] = home_goals
+            update_payload["away_goals_actual"] = away_goals
 
-        # Extraer eventos de gol (goalscorers)
-        events_json = []
-        if "details" in event["competitions"][0]:
-            for detail in event["competitions"][0]["details"]:
-                if detail.get("type", {}).get("text") == "goal":
-                    try:
-                        athlete_name = detail["participants"][0]["athlete"]["shortName"]
-                        time_clock = detail["clock"]["displayValue"]
-                        team_id = detail["team"]["id"]
-                        
-                        # Determinar si el gol es del equipo local o visitante
-                        home_team_id = home_comp["team"]["id"]
-                        team_side = "home" if team_id == home_team_id else "away"
-                        
-                        events_json.append({
-                            "athlete": athlete_name,
-                            "time": time_clock,
-                            "team": team_side
-                        })
-                    except Exception as e:
-                        print(f"Error parseando detalle de gol: {e}")
+            # Extraer eventos de gol (goalscorers)
+            events_json = []
+            if "details" in event["competitions"][0]:
+                for detail in event["competitions"][0]["details"]:
+                    if detail.get("type", {}).get("text") == "goal":
+                        try:
+                            athlete_name = detail["participants"][0]["athlete"]["shortName"]
+                            time_clock = detail["clock"]["displayValue"]
+                            team_id = detail["team"]["id"]
+                            
+                            home_team_id = home_comp["team"]["id"]
+                            team_side = "home" if team_id == home_team_id else "away"
+                            
+                            events_json.append({
+                                "athlete": athlete_name,
+                                "time": time_clock,
+                                "team": team_side
+                            })
+                        except Exception as e:
+                            print(f"Error parseando detalle de gol: {e}")
+                            
+            update_payload["events_json"] = events_json
+
+        print(f"🔄 Actualizando: {home_team} vs {away_team} ({status})")
 
         # Buscar el ID del partido en nuestra BD basado en los nombres de los equipos
-        # Nota: Los nombres en ESPN están en inglés. Si tu base de datos tiene los nombres
-        # en español, necesitarás un diccionario de traducción simple (ej: "Mexico" -> "México")
         query = supabase.table("matches")\
             .select("id")\
             .ilike("home_team", f"%{home_team}%")\
@@ -109,12 +118,7 @@ def sync_scores():
             match_id = query.data[0]["id"]
             
             # Actualizar la base de datos
-            supabase.table("matches").update({
-                "status": status,
-                "home_goals_actual": home_goals,
-                "away_goals_actual": away_goals,
-                "events_json": events_json
-            }).eq("id", match_id).execute()
+            supabase.table("matches").update(update_payload).eq("id", match_id).execute()
             
             print("✅ Actualizado en Supabase")
         else:
