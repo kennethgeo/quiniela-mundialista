@@ -1,7 +1,8 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
+import { ThemeProvider } from './contexts/ThemeContext'
+import { SettingsProvider } from './contexts/SettingsContext'
 import { AuthProvider } from './contexts/AuthContext'
 import { useAuth } from './hooks/useAuth'
-
 import Navbar from './components/ui/Navbar'
 import BottomNav from './components/ui/BottomNav'
 import ProtectedRoute from './components/auth/ProtectedRoute'
@@ -118,9 +119,6 @@ function AppRoutes() {
     </Routes>
   )
 }
-
-import { ThemeProvider } from './contexts/ThemeContext'
-import { SettingsProvider } from './contexts/SettingsContext'
 
 export default function App() {
   return (

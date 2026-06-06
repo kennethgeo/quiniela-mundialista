@@ -88,8 +88,8 @@ export default function AdminPage() {
   }
 
   const filteredMatches = matches.filter(m => 
-    m.home_team.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    m.away_team.toLowerCase().includes(searchTerm.toLowerCase())
+    m.home_team?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    m.away_team?.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
   return (
