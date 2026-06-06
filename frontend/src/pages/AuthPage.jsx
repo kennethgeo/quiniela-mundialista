@@ -156,9 +156,9 @@ export default function AuthPage() {
             {isLogin ? (
               <motion.div
                 key="login"
-                initial={{ opacity: 0, y: 20, filter: "blur(8px)" }}
-                animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-                exit={{ opacity: 0, y: -20, filter: "blur(8px)" }}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
                 transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
               >
                 <LoginForm onToggle={() => setIsLogin(false)} />
@@ -166,9 +166,9 @@ export default function AuthPage() {
             ) : (
               <motion.div
                 key="register"
-                initial={{ opacity: 0, y: 20, filter: "blur(8px)" }}
-                animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-                exit={{ opacity: 0, y: -20, filter: "blur(8px)" }}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
                 transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
               >
                 <RegisterForm onToggle={() => setIsLogin(true)} />
