@@ -147,19 +147,23 @@ export default function Sidebar({ isOpen, onClose }) {
                   </div>
                 </div>
                 
-                <div className="flex gap-2">
+                <div className="flex flex-col gap-3 pb-safe">
                   <button
                     onClick={toggleTheme}
-                    className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-xs font-semibold text-slate-400 hover:text-white hover:bg-white/10 transition-all border border-transparent hover:border-white/5"
+                    className="w-full flex items-center justify-center gap-3 px-4 py-3 rounded-2xl font-semibold bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white transition-all border border-white/5 shadow-sm"
                     title={`Cambiar a modo ${theme === 'light' ? 'oscuro' : 'claro'}`}
                   >
-                    {theme === 'light' ? <Moon size={16} /> : <Sun size={16} />}
+                    {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
+                    <span className="text-[13px]">
+                      Modo {theme === 'light' ? 'Oscuro' : 'Claro'}
+                    </span>
                   </button>
+                  
                   <button
                     onClick={() => { onClose(); handleSignOut(); }}
-                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-400 hover:text-white hover:bg-white/10 transition-all border border-transparent hover:border-white/5"
+                    className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-2xl text-[13px] font-semibold text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition-all border border-transparent"
                   >
-                    <LogOut size={16} />
+                    <LogOut size={18} />
                     Cerrar sesión
                   </button>
                 </div>
