@@ -46,8 +46,6 @@ export default function AdminPage() {
     const localISOTime = new Date(date.getTime() - tzOffset).toISOString().slice(0, 16)
 
     setFormState({
-      home_goals_actual: match.home_goals_actual ?? '',
-      away_goals_actual: match.away_goals_actual ?? '',
       status: match.status,
       kickoff_at: localISOTime
     })
@@ -63,8 +61,6 @@ export default function AdminPage() {
       const utcIsoTime = date.toISOString()
 
       const updates = {
-        home_goals_actual: formState.home_goals_actual === '' ? null : parseInt(formState.home_goals_actual),
-        away_goals_actual: formState.away_goals_actual === '' ? null : parseInt(formState.away_goals_actual),
         status: formState.status,
         kickoff_at: utcIsoTime
       }
@@ -190,31 +186,11 @@ export default function AdminPage() {
                     <span className="text-sm font-bold text-slate-900 dark:text-white truncate">{match.home_team}</span>
                   </div>
 
-                  {isEditing ? (
-                    <div className="flex items-center gap-2">
-                      <input 
-                        type="number" 
-                        value={formState.home_goals_actual} 
-                        onChange={(e) => setFormState({...formState, home_goals_actual: e.target.value})}
-                        className="w-10 h-8 bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-white/10 rounded text-center text-sm font-bold text-slate-900 dark:text-white"
-                        placeholder="-"
-                      />
-                      <span className="text-slate-500 font-bold">:</span>
-                      <input 
-                        type="number" 
-                        value={formState.away_goals_actual} 
-                        onChange={(e) => setFormState({...formState, away_goals_actual: e.target.value})}
-                        className="w-10 h-8 bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-white/10 rounded text-center text-sm font-bold text-slate-900 dark:text-white"
-                        placeholder="-"
-                      />
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-2 px-3 py-1 bg-slate-200 dark:bg-black/20 rounded-lg">
-                      <span className="text-lg font-black text-slate-900 dark:text-white">{match.home_goals_actual ?? '-'}</span>
-                      <span className="text-slate-500 font-bold">:</span>
-                      <span className="text-lg font-black text-slate-900 dark:text-white">{match.away_goals_actual ?? '-'}</span>
-                    </div>
-                  )}
+                  <div className="flex items-center gap-2 px-3 py-1 bg-slate-200 dark:bg-black/20 rounded-lg">
+                    <span className="text-lg font-black text-slate-900 dark:text-white">{match.home_goals_actual ?? '-'}</span>
+                    <span className="text-slate-500 font-bold">:</span>
+                    <span className="text-lg font-black text-slate-900 dark:text-white">{match.away_goals_actual ?? '-'}</span>
+                  </div>
 
                   <div className="flex items-center gap-2 flex-1 justify-end">
                     <span className="text-sm font-bold text-slate-900 dark:text-white truncate text-right">{match.away_team}</span>
