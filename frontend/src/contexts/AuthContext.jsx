@@ -62,12 +62,12 @@ export function AuthProvider({ children }) {
   /**
    * Cierra la sesión actual
    */
-  const signOut = async () => {
+  const signOut = useCallback(async () => {
     const { error } = await supabase.auth.signOut()
     if (error) throw error
     setUser(null)
     setProfile(null)
-  }
+  }, [])
 
   // Escuchar cambios en el estado de autenticación
   useEffect(() => {

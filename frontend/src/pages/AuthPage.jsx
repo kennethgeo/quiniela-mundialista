@@ -1,5 +1,5 @@
 /* Página de autenticación (login / registro) - Diseño Ultra Premium */
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Navigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'motion/react'
 import { Trophy } from 'lucide-react'
