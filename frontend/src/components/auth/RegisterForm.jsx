@@ -1,7 +1,7 @@
-// Formulario de registro con diseño glassmorphism ultra-premium
+// Formulario de registro - Diseño Premium Moderno
 import { useState } from 'react'
 import { motion } from 'motion/react'
-import { User, Mail, Lock, UserPlus, Eye, EyeOff, AlertCircle } from 'lucide-react'
+import { User, Mail, Lock, UserPlus, Eye, EyeOff, AlertCircle, ArrowRight, CheckCircle2 } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
 
 export default function RegisterForm({ onToggle }) {
@@ -13,6 +13,7 @@ export default function RegisterForm({ onToggle }) {
   const [error, setError] = useState('')
   const [successMsg, setSuccessMsg] = useState('')
   const [loading, setLoading] = useState(false)
+  const [focusedField, setFocusedField] = useState(null)
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -40,133 +41,177 @@ export default function RegisterForm({ onToggle }) {
     }
   }
 
+  const inputClasses = (field) => `relative flex items-center rounded-xl border transition-all duration-200 ${
+    focusedField === field 
+      ? 'border-purple-500/50 bg-white/[0.04] shadow-[0_0_0_3px_rgba(139,92,246,0.08)]' 
+      : 'border-white/[0.06] bg-white/[0.02] hover:border-white/[0.1]'
+  }`
+
+  const iconClasses = (field) => `transition-colors duration-200 ${focusedField === field ? 'text-purple-400' : 'text-slate-600'}`
+
   return (
     <div className="w-full">
-      <div className="relative p-8 sm:p-10 rounded-[2rem] bg-slate-900/40 backdrop-blur-3xl border border-white/10 shadow-[0_8px_32px_0_rgba(0,0,0,0.4)]">
+      {/* Card container with subtle gradient border */}
+      <div className="relative rounded-3xl overflow-hidden">
+        {/* Gradient border effect */}
+        <div className="absolute inset-0 bg-gradient-to-b from-white/[0.08] via-transparent to-white/[0.03] rounded-3xl" />
         
-        {/* Encabezado */}
-        <div className="text-center space-y-1 mb-8">
-          <h2 className="text-2xl font-bold text-white tracking-wide">Únete al Torneo</h2>
-          <p className="text-sm text-slate-400">Crea tu cuenta para empezar a predecir</p>
-        </div>
-
-        {/* Mensaje de error */}
-        {error && (
-          <motion.div
-            initial={{ opacity: 0, height: 0, scale: 0.9 }}
-            animate={{ opacity: 1, height: 'auto', scale: 1 }}
-            className="flex items-center gap-2 p-3 mb-6 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm"
-          >
-            <AlertCircle size={16} className="shrink-0" />
-            <span>{error}</span>
-          </motion.div>
-        )}
-
-        {/* Mensaje de éxito */}
-        {successMsg && (
-          <motion.div
-            initial={{ opacity: 0, height: 0, scale: 0.9 }}
-            animate={{ opacity: 1, height: 'auto', scale: 1 }}
-            className="flex items-center gap-2 p-3 mb-6 rounded-xl bg-teal-500/10 border border-teal-500/20 text-teal-400 text-sm"
-          >
-            <AlertCircle size={16} className="shrink-0" />
-            <span>{successMsg}</span>
-          </motion.div>
-        )}
-
-        {/* Formulario */}
-        <form onSubmit={handleSubmit} className="space-y-5">
-          {/* Campo username */}
-          <div className="space-y-2">
-            <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider ml-1">Nombre de Usuario</label>
-            <div className="relative group">
-              <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                <User size={18} className="text-slate-500 group-focus-within:text-accent transition-colors" />
-              </div>
-              <input
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder="Ej. GoalMaster"
-                required
-                minLength={3}
-                className="w-full pl-11 pr-4 py-3.5 bg-slate-950/50 border border-white/5 rounded-2xl text-white placeholder-slate-600 focus:outline-none focus:border-accent/50 focus:ring-1 focus:ring-accent/50 transition-all shadow-inner"
-              />
-            </div>
+        <div className="relative m-[1px] p-7 sm:p-9 rounded-[23px] bg-[#111118]/80 backdrop-blur-2xl">
+          
+          {/* Header */}
+          <div className="mb-7">
+            <h2 className="text-[1.65rem] font-bold text-white tracking-tight leading-tight">
+              Únete al Torneo
+            </h2>
+            <p className="text-sm text-slate-500 mt-1.5 font-medium">
+              Crea tu cuenta para empezar a predecir
+            </p>
           </div>
 
-          {/* Campo email */}
-          <div className="space-y-2">
-            <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider ml-1">Correo Electrónico</label>
-            <div className="relative group">
-              <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                <Mail size={18} className="text-slate-500 group-focus-within:text-accent transition-colors" />
+          {/* Error message */}
+          {error && (
+            <motion.div
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="flex items-start gap-2.5 p-3.5 mb-5 rounded-xl bg-red-500/8 border border-red-500/15 text-red-400 text-sm"
+            >
+              <AlertCircle size={16} className="shrink-0 mt-0.5" />
+              <span className="leading-snug">{error}</span>
+            </motion.div>
+          )}
+
+          {/* Success message */}
+          {successMsg && (
+            <motion.div
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="flex items-start gap-2.5 p-3.5 mb-5 rounded-xl bg-emerald-500/8 border border-emerald-500/15 text-emerald-400 text-sm"
+            >
+              <CheckCircle2 size={16} className="shrink-0 mt-0.5" />
+              <span className="leading-snug">{successMsg}</span>
+            </motion.div>
+          )}
+
+          {/* Form */}
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Username field */}
+            <div className="space-y-2">
+              <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-[0.08em] ml-0.5">
+                Nombre de Usuario
+              </label>
+              <div className={inputClasses('username')}>
+                <div className="pl-3.5 pr-0">
+                  <User size={16} className={iconClasses('username')} />
+                </div>
+                <input
+                  type="text"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  onFocus={() => setFocusedField('username')}
+                  onBlur={() => setFocusedField(null)}
+                  placeholder="Ej. GoalMaster"
+                  required
+                  minLength={3}
+                  className="w-full px-3 py-3.5 bg-transparent text-white placeholder-slate-600 focus:outline-none text-[15px]"
+                />
               </div>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="tu@email.com"
-                required
-                className="w-full pl-11 pr-4 py-3.5 bg-slate-950/50 border border-white/5 rounded-2xl text-white placeholder-slate-600 focus:outline-none focus:border-accent/50 focus:ring-1 focus:ring-accent/50 transition-all shadow-inner"
-              />
             </div>
+
+            {/* Email field */}
+            <div className="space-y-2">
+              <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-[0.08em] ml-0.5">
+                Correo Electrónico
+              </label>
+              <div className={inputClasses('email')}>
+                <div className="pl-3.5 pr-0">
+                  <Mail size={16} className={iconClasses('email')} />
+                </div>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  onFocus={() => setFocusedField('email')}
+                  onBlur={() => setFocusedField(null)}
+                  placeholder="tu@email.com"
+                  required
+                  className="w-full px-3 py-3.5 bg-transparent text-white placeholder-slate-600 focus:outline-none text-[15px]"
+                />
+              </div>
+            </div>
+
+            {/* Password field */}
+            <div className="space-y-2">
+              <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-[0.08em] ml-0.5">
+                Contraseña
+              </label>
+              <div className={inputClasses('password')}>
+                <div className="pl-3.5 pr-0">
+                  <Lock size={16} className={iconClasses('password')} />
+                </div>
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  onFocus={() => setFocusedField('password')}
+                  onBlur={() => setFocusedField(null)}
+                  placeholder="Mínimo 6 caracteres"
+                  required
+                  minLength={6}
+                  className="w-full px-3 py-3.5 bg-transparent text-white placeholder-slate-600 focus:outline-none text-[15px]"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="pr-3.5 pl-2 text-slate-600 hover:text-slate-400 transition-colors"
+                >
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+            </div>
+
+            {/* Submit button */}
+            <motion.button
+              type="submit"
+              disabled={loading}
+              whileHover={{ scale: 1.01 }}
+              whileTap={{ scale: 0.98 }}
+              className="w-full py-3.5 mt-3 relative group rounded-xl font-semibold text-[15px] flex items-center justify-center gap-2.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed overflow-hidden"
+            >
+              {/* Button gradient background */}
+              <div className="absolute inset-0 bg-gradient-to-r from-purple-600 to-purple-500 group-hover:from-purple-500 group-hover:to-purple-400 transition-all duration-300" />
+              
+              <span className="relative text-white flex items-center gap-2">
+                {loading ? (
+                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <>
+                    Crear Cuenta
+                    <ArrowRight size={18} className="group-hover:translate-x-0.5 transition-transform" />
+                  </>
+                )}
+              </span>
+            </motion.button>
+          </form>
+
+          {/* Divider */}
+          <div className="flex items-center gap-4 my-7">
+            <div className="flex-1 h-px bg-white/[0.06]" />
+            <span className="text-[11px] text-slate-600 font-medium uppercase tracking-wider">ó</span>
+            <div className="flex-1 h-px bg-white/[0.06]" />
           </div>
 
-          {/* Campo contraseña */}
-          <div className="space-y-2">
-            <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider ml-1">Contraseña</label>
-            <div className="relative group">
-              <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                <Lock size={18} className="text-slate-500 group-focus-within:text-accent transition-colors" />
-              </div>
-              <input
-                type={showPassword ? 'text' : 'password'}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Mínimo 6 caracteres"
-                required
-                minLength={6}
-                className="w-full pl-11 pr-12 py-3.5 bg-slate-950/50 border border-white/5 rounded-2xl text-white placeholder-slate-600 focus:outline-none focus:border-accent/50 focus:ring-1 focus:ring-accent/50 transition-all shadow-inner"
-              />
+          {/* Toggle to login */}
+          <div className="text-center">
+            <p className="text-sm text-slate-500">
+              ¿Ya estás participando?{' '}
               <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-500 hover:text-white transition-colors"
+                onClick={onToggle}
+                className="text-purple-400 hover:text-purple-300 font-semibold transition-colors"
               >
-                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                Inicia sesión
               </button>
-            </div>
+            </p>
           </div>
-
-          {/* Botón de envío */}
-          <motion.button
-            type="submit"
-            disabled={loading}
-            whileHover={{ scale: 1.02, boxShadow: "0 0 20px rgba(45,212,191,0.4)" }}
-            whileTap={{ scale: 0.98 }}
-            className="w-full py-4 mt-4 bg-gradient-to-r from-accent to-teal-400 text-slate-900 font-bold rounded-2xl flex items-center justify-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_4px_14px_0_rgba(45,212,191,0.39)]"
-          >
-            {loading ? (
-              <div className="w-6 h-6 border-2 border-slate-900/30 border-t-slate-900 rounded-full animate-spin" />
-            ) : (
-              <>
-                <UserPlus size={20} />
-                <span className="text-lg">Crear Cuenta</span>
-              </>
-            )}
-          </motion.button>
-        </form>
-
-        {/* Enlace a login */}
-        <div className="text-center text-sm text-slate-400 mt-8">
-          ¿Ya estás participando?{' '}
-          <button
-            onClick={onToggle}
-            className="text-teal-400 hover:text-teal-300 font-bold transition-colors underline decoration-teal-500/50 underline-offset-4"
-          >
-            Inicia sesión
-          </button>
         </div>
       </div>
     </div>

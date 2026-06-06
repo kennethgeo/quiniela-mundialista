@@ -1,8 +1,8 @@
-/* Página de autenticación (login / registro) - Diseño Ultra Premium */
+/* Página de autenticación (login / registro) - Diseño Premium 2026 */
 import { useState, useEffect } from 'react'
 import { Navigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'motion/react'
-import { Trophy } from 'lucide-react'
+import { Trophy, Star, Users, Target } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import LoginForm from '../components/auth/LoginForm'
 import RegisterForm from '../components/auth/RegisterForm'
@@ -30,104 +30,162 @@ export default function AuthPage() {
   // Si ya está autenticado (y no es un recién confirmado), redirigir al dashboard
   if (!loading && user && !confirmationMessage) return <Navigate to="/" replace />
 
+  const features = [
+    { icon: Target, text: 'Predice marcadores exactos' },
+    { icon: Users, text: 'Compite con tus amigos' },
+    { icon: Star, text: 'Escala en el ranking global' },
+  ]
+
   return (
-    <div className="relative min-h-screen flex flex-col lg:flex-row items-stretch justify-center overflow-hidden bg-slate-950 font-sans">
+    <div className="relative min-h-screen flex flex-col lg:flex-row items-stretch overflow-hidden bg-[#0a0a0f] font-sans">
       
-      {/* Fondo Premium - Ocupa toda la pantalla detrás */}
+      {/* ── Background layers ── */}
       <div className="absolute inset-0 z-0">
         <img 
           src="/bg-hero.png" 
-          alt="World Cup Background" 
-          className="w-full h-full object-cover opacity-50 mix-blend-screen scale-105"
+          alt="" 
+          aria-hidden="true"
+          className="w-full h-full object-cover opacity-30 scale-110"
         />
-        {/* Gradientes de oscurecimiento para dar contraste */}
-        <div className="absolute inset-0 bg-gradient-to-r from-slate-950 via-slate-950/80 lg:via-slate-950/50 to-slate-950/90" />
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-slate-950" />
+        {/* Multi-layer gradient overlay */}
+        <div className="absolute inset-0 bg-gradient-to-br from-[#0a0a0f] via-[#0a0a0f]/85 to-purple-950/40" />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0f] via-transparent to-[#0a0a0f]/60" />
       </div>
 
-      {/* Esferas de luz decorativas flotantes */}
-      <div className="absolute top-[-10%] left-[-10%] w-[40vw] h-[40vw] bg-accent/20 rounded-full blur-[120px] pointer-events-none z-0" />
-      <div className="absolute bottom-[-10%] right-[-5%] w-[35vw] h-[35vw] bg-indigo-600/20 rounded-full blur-[120px] pointer-events-none z-0" />
+      {/* ── Animated orbs ── */}
+      <motion.div 
+        animate={{ x: [0, 30, 0], y: [0, -20, 0] }}
+        transition={{ duration: 12, repeat: Infinity, ease: 'easeInOut' }}
+        className="absolute top-[10%] left-[5%] w-[500px] h-[500px] bg-purple-600/15 rounded-full blur-[150px] pointer-events-none z-0" 
+      />
+      <motion.div 
+        animate={{ x: [0, -20, 0], y: [0, 30, 0] }}
+        transition={{ duration: 15, repeat: Infinity, ease: 'easeInOut' }}
+        className="absolute bottom-[5%] right-[0%] w-[400px] h-[400px] bg-cyan-500/10 rounded-full blur-[130px] pointer-events-none z-0" 
+      />
+      <motion.div 
+        animate={{ scale: [1, 1.2, 1] }}
+        transition={{ duration: 8, repeat: Infinity, ease: 'easeInOut' }}
+        className="absolute top-[40%] left-[50%] w-[300px] h-[300px] bg-pink-500/8 rounded-full blur-[120px] pointer-events-none z-0" 
+      />
 
-      {/* MITAD IZQUIERDA (Texto y Presentación - Solo Desktop) */}
-      <div className="hidden lg:flex flex-col justify-center w-1/2 p-12 lg:p-24 relative z-10">
+      {/* ── LEFT: Hero text (Desktop only) ── */}
+      <div className="hidden lg:flex flex-col justify-center w-[55%] px-16 xl:px-24 relative z-10">
         <motion.div
-          initial={{ opacity: 0, x: -50 }}
+          initial={{ opacity: 0, x: -40 }}
           animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.8, ease: "easeOut" }}
+          transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
+          className="max-w-xl"
         >
-          {/* Logo Badge */}
-          <div className="inline-flex items-center gap-3 px-4 py-2 rounded-full bg-white/5 border border-white/10 backdrop-blur-md mb-8 shadow-lg shadow-black/20">
-            <Trophy size={18} className="text-accent" />
-            <span className="text-xs font-bold tracking-[0.2em] text-slate-300 uppercase">FIFA World Cup 2026</span>
-          </div>
+          {/* Badge */}
+          <motion.div 
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2, duration: 0.5 }}
+            className="inline-flex items-center gap-2.5 px-4 py-2 rounded-full bg-white/[0.04] border border-white/[0.08] backdrop-blur-lg mb-10"
+          >
+            <div className="w-5 h-5 rounded-full bg-gradient-to-br from-purple-500 to-cyan-400 flex items-center justify-center">
+              <Trophy size={10} className="text-white" />
+            </div>
+            <span className="text-[11px] font-semibold tracking-[0.15em] text-slate-300 uppercase">FIFA World Cup 2026</span>
+          </motion.div>
           
-          <h1 className="text-6xl xl:text-7xl font-extrabold text-transparent bg-clip-text bg-gradient-to-br from-white via-slate-100 to-slate-500 mb-6 leading-[1.1] drop-shadow-xl">
-            Vive la pasión.<br/>
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-accent to-teal-200">Predice el futuro.</span>
+          {/* Headline */}
+          <h1 className="text-[3.5rem] xl:text-[4.2rem] font-extrabold leading-[1.05] mb-8 tracking-tight">
+            <span className="text-white block">Vive la pasión.</span>
+            <span className="bg-gradient-to-r from-purple-400 via-cyan-400 to-purple-400 bg-clip-text text-transparent block mt-1">
+              Predice el futuro.
+            </span>
           </h1>
           
-          <p className="text-xl text-slate-400 max-w-lg leading-relaxed font-light">
-            Únete a la Quiniela Mundialista definitiva. Desafía a tus amigos, acierta marcadores exactos y conviértete en la leyenda del pronóstico.
+          {/* Subtitle */}
+          <p className="text-lg text-slate-400 leading-relaxed max-w-md font-light mb-12">
+            Únete a la quiniela mundialista definitiva. Desafía a tus amigos, acierta marcadores exactos y conviértete en leyenda.
           </p>
 
-          {/* Decorative Elements */}
-          <div className="mt-12 flex gap-4 opacity-60">
-            <div className="w-16 h-1 bg-accent rounded-full" />
-            <div className="w-4 h-1 bg-white/20 rounded-full" />
-            <div className="w-4 h-1 bg-white/20 rounded-full" />
+          {/* Feature pills */}
+          <div className="flex flex-col gap-3.5">
+            {features.map((feat, i) => (
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.4 + i * 0.1, duration: 0.5 }}
+                className="flex items-center gap-3 group"
+              >
+                <div className="w-9 h-9 rounded-xl bg-white/[0.04] border border-white/[0.06] flex items-center justify-center group-hover:bg-purple-500/10 group-hover:border-purple-500/20 transition-all duration-300">
+                  <feat.icon size={16} className="text-purple-400" />
+                </div>
+                <span className="text-sm text-slate-400 font-medium group-hover:text-slate-300 transition-colors">{feat.text}</span>
+              </motion.div>
+            ))}
           </div>
         </motion.div>
       </div>
 
-      {/* MITAD DERECHA (Formulario) */}
-      <div className="w-full lg:w-1/2 flex flex-col items-center justify-center p-6 sm:p-12 relative z-10">
+      {/* ── RIGHT: Form container ── */}
+      <div className="w-full lg:w-[45%] flex flex-col items-center justify-center px-5 sm:px-8 py-12 lg:py-8 relative z-10 min-h-screen lg:min-h-0">
         
-        {/* Cabecera Móvil (Oculta en Desktop) */}
+        {/* Mobile header */}
         <motion.div
-          initial={{ opacity: 0, y: -20 }}
+          initial={{ opacity: 0, y: -15 }}
           animate={{ opacity: 1, y: 0 }}
-          className="lg:hidden text-center mb-8 w-full"
+          transition={{ duration: 0.5 }}
+          className="lg:hidden text-center mb-10 w-full"
         >
-          <div className="inline-flex items-center justify-center w-16 h-16 mb-4 bg-gradient-to-tr from-accent to-indigo-500 rounded-2xl p-[2px] shadow-2xl shadow-accent/20">
-            <div className="w-full h-full bg-slate-950/90 rounded-[14px] flex items-center justify-center backdrop-blur-xl">
-              <Trophy size={28} className="text-white drop-shadow-lg" />
+          {/* Logo icon */}
+          <div className="relative inline-flex mb-5">
+            <div className="absolute inset-0 bg-purple-500/30 blur-2xl rounded-full scale-150" />
+            <div className="relative w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-500 to-cyan-500 p-[1.5px]">
+              <div className="w-full h-full bg-[#0a0a0f] rounded-[14px] flex items-center justify-center">
+                <Trophy size={26} className="text-white" />
+              </div>
             </div>
           </div>
-          <h1 className="text-3xl font-extrabold text-white tracking-tight drop-shadow-md">
+          <h1 className="text-2xl font-extrabold text-white tracking-tight">
             Quiniela Mundialista
           </h1>
-          <p className="text-xs font-bold text-accent tracking-[0.2em] uppercase mt-2">
+          <p className="text-[11px] font-bold bg-gradient-to-r from-purple-400 to-cyan-400 bg-clip-text text-transparent tracking-[0.2em] uppercase mt-2">
             World Cup 2026
           </p>
         </motion.div>
 
-        {/* Contenedor del Formulario */}
-        <div className="w-full max-w-[440px] perspective-1000">
+        {/* Form card */}
+        <div className="w-full max-w-[420px]">
           <AnimatePresence mode="wait">
             {isLogin ? (
               <motion.div
                 key="login"
-                initial={{ opacity: 0, rotateY: -10, filter: "blur(10px)", scale: 0.95 }}
-                animate={{ opacity: 1, rotateY: 0, filter: "blur(0px)", scale: 1 }}
-                exit={{ opacity: 0, rotateY: 10, filter: "blur(10px)", scale: 0.95 }}
-                transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+                initial={{ opacity: 0, y: 20, filter: "blur(8px)" }}
+                animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+                exit={{ opacity: 0, y: -20, filter: "blur(8px)" }}
+                transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
               >
                 <LoginForm onToggle={() => setIsLogin(false)} />
               </motion.div>
             ) : (
               <motion.div
                 key="register"
-                initial={{ opacity: 0, rotateY: 10, filter: "blur(10px)", scale: 0.95 }}
-                animate={{ opacity: 1, rotateY: 0, filter: "blur(0px)", scale: 1 }}
-                exit={{ opacity: 0, rotateY: -10, filter: "blur(10px)", scale: 0.95 }}
-                transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+                initial={{ opacity: 0, y: 20, filter: "blur(8px)" }}
+                animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+                exit={{ opacity: 0, y: -20, filter: "blur(8px)" }}
+                transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
               >
                 <RegisterForm onToggle={() => setIsLogin(true)} />
               </motion.div>
             )}
           </AnimatePresence>
         </div>
+
+        {/* Footer */}
+        <motion.p 
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.6 }}
+          className="text-[11px] text-slate-600 mt-10 text-center"
+        >
+          © 2026 Quiniela Mundialista. Todos los derechos reservados.
+        </motion.p>
       </div>
     </div>
   )

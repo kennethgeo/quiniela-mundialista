@@ -1,7 +1,7 @@
-// Formulario de inicio de sesión con diseño glassmorphism ultra-premium
+// Formulario de inicio de sesión - Diseño Premium Moderno
 import { useState } from 'react'
 import { motion } from 'motion/react'
-import { Mail, Lock, LogIn, Eye, EyeOff, AlertCircle } from 'lucide-react'
+import { Mail, Lock, LogIn, Eye, EyeOff, AlertCircle, ArrowRight } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
 
 export default function LoginForm({ onToggle }) {
@@ -11,6 +11,7 @@ export default function LoginForm({ onToggle }) {
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [focusedField, setFocusedField] = useState(null)
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -30,99 +31,141 @@ export default function LoginForm({ onToggle }) {
 
   return (
     <div className="w-full">
-      <div className="relative p-8 sm:p-10 rounded-[2rem] bg-slate-900/40 backdrop-blur-3xl border border-white/10 shadow-[0_8px_32px_0_rgba(0,0,0,0.4)]">
+      {/* Card container with subtle gradient border */}
+      <div className="relative rounded-3xl overflow-hidden">
+        {/* Gradient border effect */}
+        <div className="absolute inset-0 bg-gradient-to-b from-white/[0.08] via-transparent to-white/[0.03] rounded-3xl" />
         
-        {/* Encabezado */}
-        <div className="text-center space-y-1 mb-8">
-          <h2 className="text-2xl font-bold text-white tracking-wide">Bienvenido de vuelta</h2>
-          <p className="text-sm text-slate-400">Ingresa tus credenciales para continuar</p>
-        </div>
-
-        {/* Mensaje de error */}
-        {error && (
-          <motion.div
-            initial={{ opacity: 0, height: 0, scale: 0.9 }}
-            animate={{ opacity: 1, height: 'auto', scale: 1 }}
-            className="flex items-center gap-2 p-3 mb-6 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm"
-          >
-            <AlertCircle size={16} className="shrink-0" />
-            <span>{error}</span>
-          </motion.div>
-        )}
-
-        {/* Formulario */}
-        <form onSubmit={handleSubmit} className="space-y-5">
-          {/* Campo email */}
-          <div className="space-y-2">
-            <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider ml-1">Correo Electrónico</label>
-            <div className="relative group">
-              <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                <Mail size={18} className="text-slate-500 group-focus-within:text-accent transition-colors" />
-              </div>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="tu@email.com"
-                required
-                className="w-full pl-11 pr-4 py-3.5 bg-slate-950/50 border border-white/5 rounded-2xl text-white placeholder-slate-600 focus:outline-none focus:border-accent/50 focus:ring-1 focus:ring-accent/50 transition-all shadow-inner"
-              />
-            </div>
+        <div className="relative m-[1px] p-7 sm:p-9 rounded-[23px] bg-[#111118]/80 backdrop-blur-2xl">
+          
+          {/* Header */}
+          <div className="mb-8">
+            <h2 className="text-[1.65rem] font-bold text-white tracking-tight leading-tight">
+              Bienvenido de vuelta
+            </h2>
+            <p className="text-sm text-slate-500 mt-1.5 font-medium">
+              Ingresa tus credenciales para continuar
+            </p>
           </div>
 
-          {/* Campo contraseña */}
-          <div className="space-y-2">
-            <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider ml-1">Contraseña</label>
-            <div className="relative group">
-              <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                <Lock size={18} className="text-slate-500 group-focus-within:text-accent transition-colors" />
+          {/* Error message */}
+          {error && (
+            <motion.div
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="flex items-start gap-2.5 p-3.5 mb-6 rounded-xl bg-red-500/8 border border-red-500/15 text-red-400 text-sm"
+            >
+              <AlertCircle size={16} className="shrink-0 mt-0.5" />
+              <span className="leading-snug">{error}</span>
+            </motion.div>
+          )}
+
+          {/* Form */}
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Email field */}
+            <div className="space-y-2">
+              <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-[0.08em] ml-0.5">
+                Correo Electrónico
+              </label>
+              <div className={`relative flex items-center rounded-xl border transition-all duration-200 ${
+                focusedField === 'email' 
+                  ? 'border-purple-500/50 bg-white/[0.04] shadow-[0_0_0_3px_rgba(139,92,246,0.08)]' 
+                  : 'border-white/[0.06] bg-white/[0.02] hover:border-white/[0.1]'
+              }`}>
+                <div className="pl-3.5 pr-0">
+                  <Mail size={16} className={`transition-colors duration-200 ${focusedField === 'email' ? 'text-purple-400' : 'text-slate-600'}`} />
+                </div>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  onFocus={() => setFocusedField('email')}
+                  onBlur={() => setFocusedField(null)}
+                  placeholder="tu@email.com"
+                  required
+                  className="w-full px-3 py-3.5 bg-transparent text-white placeholder-slate-600 focus:outline-none text-[15px]"
+                />
               </div>
-              <input
-                type={showPassword ? 'text' : 'password'}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                required
-                className="w-full pl-11 pr-12 py-3.5 bg-slate-950/50 border border-white/5 rounded-2xl text-white placeholder-slate-600 focus:outline-none focus:border-accent/50 focus:ring-1 focus:ring-accent/50 transition-all shadow-inner"
-              />
+            </div>
+
+            {/* Password field */}
+            <div className="space-y-2">
+              <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-[0.08em] ml-0.5">
+                Contraseña
+              </label>
+              <div className={`relative flex items-center rounded-xl border transition-all duration-200 ${
+                focusedField === 'password' 
+                  ? 'border-purple-500/50 bg-white/[0.04] shadow-[0_0_0_3px_rgba(139,92,246,0.08)]' 
+                  : 'border-white/[0.06] bg-white/[0.02] hover:border-white/[0.1]'
+              }`}>
+                <div className="pl-3.5 pr-0">
+                  <Lock size={16} className={`transition-colors duration-200 ${focusedField === 'password' ? 'text-purple-400' : 'text-slate-600'}`} />
+                </div>
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  onFocus={() => setFocusedField('password')}
+                  onBlur={() => setFocusedField(null)}
+                  placeholder="••••••••"
+                  required
+                  className="w-full px-3 py-3.5 bg-transparent text-white placeholder-slate-600 focus:outline-none text-[15px]"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="pr-3.5 pl-2 text-slate-600 hover:text-slate-400 transition-colors"
+                >
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+            </div>
+
+            {/* Submit button */}
+            <motion.button
+              type="submit"
+              disabled={loading}
+              whileHover={{ scale: 1.01 }}
+              whileTap={{ scale: 0.98 }}
+              className="w-full py-3.5 mt-3 relative group rounded-xl font-semibold text-[15px] flex items-center justify-center gap-2.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed overflow-hidden"
+            >
+              {/* Button gradient background */}
+              <div className="absolute inset-0 bg-gradient-to-r from-purple-600 to-purple-500 group-hover:from-purple-500 group-hover:to-purple-400 transition-all duration-300" />
+              {/* Shine effect */}
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 translate-x-[-100%] group-hover:translate-x-[100%]" style={{ transition: 'transform 0.6s' }} />
+              
+              <span className="relative text-white flex items-center gap-2">
+                {loading ? (
+                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <>
+                    Entrar a la Quiniela
+                    <ArrowRight size={18} className="group-hover:translate-x-0.5 transition-transform" />
+                  </>
+                )}
+              </span>
+            </motion.button>
+          </form>
+
+          {/* Divider */}
+          <div className="flex items-center gap-4 my-7">
+            <div className="flex-1 h-px bg-white/[0.06]" />
+            <span className="text-[11px] text-slate-600 font-medium uppercase tracking-wider">ó</span>
+            <div className="flex-1 h-px bg-white/[0.06]" />
+          </div>
+
+          {/* Toggle to register */}
+          <div className="text-center">
+            <p className="text-sm text-slate-500">
+              ¿Nuevo en el torneo?{' '}
               <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-500 hover:text-white transition-colors"
+                onClick={onToggle}
+                className="text-purple-400 hover:text-purple-300 font-semibold transition-colors"
               >
-                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                Crea tu cuenta
               </button>
-            </div>
+            </p>
           </div>
-
-          {/* Botón de envío */}
-          <motion.button
-            type="submit"
-            disabled={loading}
-            whileHover={{ scale: 1.02, boxShadow: "0 0 20px rgba(45,212,191,0.4)" }}
-            whileTap={{ scale: 0.98 }}
-            className="w-full py-4 mt-4 bg-gradient-to-r from-accent to-teal-400 text-slate-900 font-bold rounded-2xl flex items-center justify-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_4px_14px_0_rgba(45,212,191,0.39)]"
-          >
-            {loading ? (
-              <div className="w-6 h-6 border-2 border-slate-900/30 border-t-slate-900 rounded-full animate-spin" />
-            ) : (
-              <>
-                <LogIn size={20} />
-                <span className="text-lg">Entrar a la Quiniela</span>
-              </>
-            )}
-          </motion.button>
-        </form>
-
-        {/* Enlace a registro */}
-        <div className="text-center text-sm text-slate-400 mt-8">
-          ¿Nuevo en el torneo?{' '}
-          <button
-            onClick={onToggle}
-            className="text-teal-400 hover:text-teal-300 font-bold transition-colors underline decoration-teal-500/50 underline-offset-4"
-          >
-            Crea tu cuenta aquí
-          </button>
         </div>
       </div>
     </div>
