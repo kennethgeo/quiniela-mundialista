@@ -37,7 +37,7 @@ export default function MatchList({ matches, predictions, onSavePrediction, isLo
             <div className="flex-1 h-px bg-gradient-to-r from-white/10 to-transparent" />
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 max-w-4xl">
             {groupMatches.map(match => (
               <MatchCard
                 key={match.id}
