@@ -95,7 +95,12 @@ export default function UpcomingMatches() {
 
 /** Tarjeta individual de partido próximo */
 function UpcomingMatchCard({ match, index }) {
-  const kickoff = new Date(match.kickoff_at)
+  // Asegurar que la fecha se parsea como UTC si Supabase omite la zona horaria
+  const dateString = match.kickoff_at.endsWith('Z') || match.kickoff_at.includes('+')
+    ? match.kickoff_at
+    : `${match.kickoff_at}Z`
+
+  const kickoff = new Date(dateString)
   const now = new Date()
   const isLocked = (kickoff - now) <= 15 * 60 * 1000 // 15 minutos
 

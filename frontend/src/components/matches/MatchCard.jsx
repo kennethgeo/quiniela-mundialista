@@ -17,7 +17,12 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
   
   const [countdown, setCountdown] = useState('')
 
-  const kickoff = new Date(match.kickoff_at)
+  // Asegurar que la fecha se parsea como UTC si Supabase omite la zona horaria
+  const dateString = match.kickoff_at.endsWith('Z') || match.kickoff_at.includes('+')
+    ? match.kickoff_at
+    : `${match.kickoff_at}Z`
+    
+  const kickoff = new Date(dateString)
   const now = new Date()
   const minutesUntil = differenceInMinutes(kickoff, now)
   const isLocked = minutesUntil <= 15
