@@ -1,9 +1,8 @@
-// Barra de navegación superior con nombre de la app y avatar del usuario
 import { useAuth } from '../../hooks/useAuth'
-import { LogOut, Star } from 'lucide-react'
+import { LogOut, Star, Menu } from 'lucide-react'
 import { motion } from 'motion/react'
 
-export default function Navbar() {
+export default function Navbar({ onMenuClick }) {
   const { profile, signOut } = useAuth()
 
   const handleSignOut = async () => {
@@ -15,18 +14,28 @@ export default function Navbar() {
   }
 
   return (
-    <header className="sticky top-0 z-40 glass-nav border-b border-white/[0.06] md:hidden">
-      <div className="flex items-center justify-between h-14 px-4 max-w-4xl mx-auto">
-        {/* Nombre de la app */}
-        <h1 className="text-lg font-bold text-white tracking-tight flex items-center gap-1.5">
-          <span className="text-xl">⚽</span>
-          <span className="bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent">
-            Quiniela
-          </span>
-          <span className="bg-gradient-to-r from-amber-400 to-amber-500 bg-clip-text text-transparent">
-            Mundialista
-          </span>
-        </h1>
+    <header className="sticky top-0 z-40 glass-nav border-b border-white/[0.06] w-full">
+      <div className="flex items-center justify-between h-14 px-4 w-full max-w-7xl mx-auto">
+        <div className="flex items-center gap-3">
+          {/* Botón de Menú (Hamburguesa) */}
+          <button 
+            onClick={onMenuClick}
+            className="p-1.5 -ml-1.5 rounded-xl text-slate-300 hover:text-white hover:bg-white/10 transition-colors md:mr-2"
+          >
+            <Menu size={22} />
+          </button>
+
+          {/* Nombre de la app */}
+          <h1 className="text-lg font-bold text-white tracking-tight flex items-center gap-1.5">
+            <span className="text-xl">⚽</span>
+            <span className="bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent hidden sm:inline-block">
+              Quiniela
+            </span>
+            <span className="bg-gradient-to-r from-amber-400 to-amber-500 bg-clip-text text-transparent">
+              Mundialista
+            </span>
+          </h1>
+        </div>
 
         {/* Info del usuario */}
         <div className="flex items-center gap-2.5">

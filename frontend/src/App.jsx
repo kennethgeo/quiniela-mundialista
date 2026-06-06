@@ -16,16 +16,20 @@ import LeaguesPage from './pages/LeaguesPage'
 
 import Sidebar from './components/ui/Sidebar'
 
+import { useState } from 'react'
+
 // Layout principal que envuelve las rutas protegidas
 function MainLayout({ children }) {
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+
   return (
-    <div className="min-h-dvh flex bg-primary text-slate-200 bg-world-cup relative">
-      <Navbar />
-      <Sidebar />
+    <div className="min-h-dvh flex flex-col bg-primary text-slate-200 bg-world-cup relative">
+      <Navbar onMenuClick={() => setIsSidebarOpen(true)} />
+      <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
       
-      {/* Contenido principal con padding para el nav inferior en móviles y nav lateral en desktop */}
-      <main className="flex-1 overflow-y-auto pb-20 md:pb-6 pt-0 md:pt-6 md:pl-64 relative z-0 min-h-dvh">
-        <div className="max-w-3xl mx-auto w-full md:rounded-3xl md:glass md:min-h-[calc(100vh-3rem)] md:shadow-2xl overflow-hidden relative">
+      {/* Contenido principal: padding top para nav, padding bottom para bottomnav, y expandido en PC */}
+      <main className="flex-1 w-full overflow-y-auto pb-20 md:pb-6 relative z-0 min-h-dvh">
+        <div className="w-full max-w-7xl mx-auto md:px-6 md:py-6 relative h-full">
           {children}
         </div>
       </main>
