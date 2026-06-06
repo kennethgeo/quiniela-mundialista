@@ -225,3 +225,13 @@ button, a, [role="button"] { -webkit-tap-highlight-color: transparent; }
   outline: 2px solid rgba(245, 158, 11, 0.6);
   outline-offset: 2px;
 }
+
+/* ── Webkit Autofill Fix for Dark Mode Glassmorphism ── */
+input:-webkit-autofill,
+input:-webkit-autofill:hover, 
+input:-webkit-autofill:focus, 
+input:-webkit-autofill:active {
+  -webkit-text-fill-color: white !important;
+  transition: background-color 5000s ease-in-out 0s !important;
+  font-family: inherit !important;
+}
