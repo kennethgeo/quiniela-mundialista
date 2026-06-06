@@ -163,7 +163,7 @@ export default function RegisterForm({ onToggle }) {
           ¿Ya estás participando?{' '}
           <button
             onClick={onToggle}
-            className="text-accent hover:text-white font-bold transition-colors underline decoration-accent/50 underline-offset-4"
+            className="text-teal-400 hover:text-teal-300 font-bold transition-colors underline decoration-teal-500/50 underline-offset-4"
           >
             Inicia sesión
           </button>
