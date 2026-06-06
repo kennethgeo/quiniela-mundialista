@@ -169,8 +169,8 @@ export default function Leaderboard() {
       {/* Podio top 3 */}
       {top3.length >= 3 && <Podium top3={top3} />}
 
-      {/* Tabla — sólo del 4° en adelante */}
-      {rest.length > 0 && (
+      {/* Tabla — mostrar si hay resto o si no se completó el podio */}
+      {((rest.length > 0 || top3.length < 3) && entries.length > 0) && (
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}

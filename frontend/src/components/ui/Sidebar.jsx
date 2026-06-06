@@ -40,9 +40,8 @@ export default function Sidebar({ isOpen, onClose }) {
         )}
       </AnimatePresence>
 
-      {/* Sidebar Drawer / Fixed on mobile, Static on desktop */}
       <aside
-        className={`fixed md:static top-0 left-0 w-64 h-dvh shrink-0 flex flex-col bg-slate-900 border-r border-accent/10 z-50 pt-6 pb-6 px-4 shadow-2xl md:shadow-none transition-transform duration-300 md:translate-x-0 ${
+        className={`fixed md:static top-0 left-0 w-64 h-dvh shrink-0 flex flex-col glass-nav border-r border-white/5 z-50 pt-6 pb-6 px-4 shadow-2xl md:shadow-none transition-transform duration-300 md:translate-x-0 ${
           isOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >

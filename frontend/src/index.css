@@ -59,10 +59,10 @@
 }
 
 .dark {
-  /* DARK MODE (Neon Style) */
-  --color-primary-val: #000000;
-  --color-primary-light-val: #111111;
-  --color-primary-lighter-val: #222222;
+  /* DARK MODE (Linear/Vercel Style) */
+  --color-primary-val: #050505;
+  --color-primary-light-val: #121212;
+  --color-primary-lighter-val: #1e1e1e;
   --color-accent-val: #a855f7; /* Neon Purple */
   --color-accent-light-val: #d8b4fe;
   --color-accent-dark-val: #7e22ce;
@@ -70,31 +70,31 @@
   --color-success-light-val: #30d158;
   
   --bg-body: #000000;
-  --text-body: #f5f5f7;
+  --text-body: #ededed;
 
   /* Glass Dark */
-  --glass-bg: rgba(18, 18, 20, 0.6);
-  --glass-border: rgba(255, 255, 255, 0.08);
-  --glass-strong-bg: rgba(30, 30, 34, 0.65);
-  --glass-strong-border: rgba(255, 255, 255, 0.1);
-  --glass-nav-bg: rgba(0, 0, 0, 0.75);
+  --glass-bg: rgba(255, 255, 255, 0.03);
+  --glass-border: rgba(255, 255, 255, 0.06);
+  --glass-strong-bg: rgba(255, 255, 255, 0.06);
+  --glass-strong-border: rgba(255, 255, 255, 0.08);
+  --glass-nav-bg: rgba(0, 0, 0, 0.85);
   
-  --glass-card-bg: rgba(18, 18, 20, 0.4);
-  --glass-card-border: rgba(255, 255, 255, 0.06);
-  --glass-card-hover-bg: rgba(30, 30, 34, 0.5);
-  --glass-card-hover-border: rgba(255, 255, 255, 0.12);
-  --glass-card-shadow: none;
-  --glass-card-hover-shadow: 0 10px 40px -10px rgba(168, 85, 247, 0.15);
+  --glass-card-bg: rgba(255, 255, 255, 0.02);
+  --glass-card-border: rgba(255, 255, 255, 0.04);
+  --glass-card-hover-bg: rgba(255, 255, 255, 0.05);
+  --glass-card-hover-border: rgba(255, 255, 255, 0.1);
+  --glass-card-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.05);
+  --glass-card-hover-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.1), 0 8px 30px -10px rgba(168, 85, 247, 0.15);
 
   /* Background Dark */
-  --bg-world-cup: #050505;
-  --bg-world-cup-grid: rgba(255, 255, 255, 0.02);
-  --bg-world-cup-glow-1: rgba(168, 85, 247, 0.35); /* Purple intenso */
-  --bg-world-cup-glow-2: rgba(14, 165, 233, 0.30); /* Cyan intenso */
-  --bg-world-cup-glow-3: rgba(236, 72, 153, 0.15); /* Pink centro */
-  --bg-world-cup-image-opacity: 0.08;
+  --bg-world-cup: #000000;
+  --bg-world-cup-grid: rgba(255, 255, 255, 0.03);
+  --bg-world-cup-glow-1: rgba(168, 85, 247, 0.25); /* Purple intenso */
+  --bg-world-cup-glow-2: rgba(14, 165, 233, 0.20); /* Cyan intenso */
+  --bg-world-cup-glow-3: rgba(236, 72, 153, 0.10); /* Pink centro */
+  --bg-world-cup-image-opacity: 0.05;
   --bg-world-cup-image-filter: grayscale(100%) blur(1px);
-  --bg-world-cup-image-blend: overlay;
+  --bg-world-cup-image-blend: screen;
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
