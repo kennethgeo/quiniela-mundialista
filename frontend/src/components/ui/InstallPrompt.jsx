@@ -65,56 +65,65 @@ export default function InstallPrompt() {
   return (
     <AnimatePresence>
       <motion.div
-        initial={{ opacity: 0, y: 50 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: 50 }}
-        className="fixed bottom-0 left-0 right-0 z-[100] p-4 flex justify-center pointer-events-none"
+        initial={{ opacity: 0, y: 50, scale: 0.9 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: 50, scale: 0.9 }}
+        className="fixed bottom-24 left-4 right-4 md:bottom-6 md:left-auto md:right-6 z-[100] flex justify-center md:justify-end pointer-events-none"
       >
-        <div className="glass-strong shadow-[0_0_40px_rgba(245,158,11,0.12)] w-full max-w-md p-5 relative overflow-hidden pointer-events-auto">
+        <div className="glass-strong shadow-[0_10px_40px_rgba(0,0,0,0.5)] w-full max-w-sm p-4 relative overflow-hidden pointer-events-auto border border-white/10 rounded-2xl">
           
-          {/* Brillo de fondo — amber glow */}
+          {/* Brillo de fondo — amber glow sutil */}
           <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
 
-          {/* Botón Cerrar */}
+          {/* Botón Cerrar (X) */}
           <button 
             onClick={dismissPrompt}
-            className="absolute top-3 right-3 text-slate-400 hover:text-white p-1.5 rounded-xl hover:bg-white/10 transition-all"
+            className="absolute top-2 right-2 text-slate-400 hover:text-white p-1.5 rounded-full hover:bg-white/10 transition-all"
+            aria-label="Cerrar"
           >
-            <X size={18} />
+            <X size={16} />
           </button>
 
-          <div className="flex gap-4 items-start relative z-10">
-            <div className="gradient-gold rounded-2xl p-3 shadow-lg shadow-amber-500/25 shrink-0">
-              <Download className="text-slate-950" size={24} />
+          <div className="flex gap-3 items-start relative z-10">
+            <div className="gradient-gold rounded-xl p-2.5 shadow-lg shadow-amber-500/20 shrink-0 mt-1">
+              <Download className="text-slate-950" size={20} />
             </div>
             
-            <div className="flex-1 pt-1">
-              <h3 className="font-bold text-white text-lg leading-tight">Instala la App</h3>
-              <p className="text-slate-400 text-sm mt-1 mb-3">
-                Agrega la Quiniela a tu inicio para una experiencia más rápida en pantalla completa.
+            <div className="flex-1">
+              <h3 className="font-bold text-white text-base leading-tight pr-5">App Quiniela</h3>
+              <p className="text-slate-400 text-xs mt-0.5 mb-3 leading-snug">
+                Instálala en tu inicio para una experiencia nativa y rápida.
               </p>
 
               {isIOS ? (
-                <div className="bg-white/5 rounded-2xl p-3.5 text-sm text-slate-300 border border-white/[0.06] space-y-2.5">
-                  <p className="font-semibold text-white mb-2">En tu iPhone/iPad:</p>
-                  <div className="flex items-center gap-2.5">
-                    <span className="bg-amber-500/10 text-amber-400 p-1.5 rounded-lg"><Share size={14} /></span>
-                    <span>1. Toca Compartir abajo</span>
+                <div className="bg-white/5 rounded-xl p-3 text-xs text-slate-300 border border-white/[0.06] mb-1">
+                  <p className="font-semibold text-white mb-1.5">En tu iPhone:</p>
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <span className="text-amber-400"><Share size={12} /></span>
+                    <span>1. Toca Compartir</span>
                   </div>
-                  <div className="flex items-center gap-2.5">
-                    <span className="bg-amber-500/10 text-amber-400 p-1.5 rounded-lg"><PlusSquare size={14} /></span>
-                    <span>2. Selecciona "Agregar a inicio"</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-amber-400"><PlusSquare size={12} /></span>
+                    <span>2. "Agregar a inicio"</span>
                   </div>
                 </div>
               ) : (
-                <motion.button
-                  whileTap={{ scale: 0.95 }}
-                  onClick={handleInstallClick}
-                  className="w-full gradient-gold text-slate-950 font-bold py-3 rounded-2xl transition-all shadow-lg shadow-amber-500/20 flex justify-center items-center gap-2"
-                >
-                  <Download size={18} />
-                  Instalar ahora
-                </motion.button>
+                <div className="flex items-center gap-2">
+                  <motion.button
+                    whileTap={{ scale: 0.95 }}
+                    onClick={dismissPrompt}
+                    className="flex-1 py-2 rounded-xl text-xs font-semibold text-slate-300 bg-white/5 hover:bg-white/10 border border-white/5 transition-all"
+                  >
+                    Ahora no
+                  </motion.button>
+                  <motion.button
+                    whileTap={{ scale: 0.95 }}
+                    onClick={handleInstallClick}
+                    className="flex-1 py-2 rounded-xl text-xs font-bold gradient-gold text-slate-950 shadow-md shadow-amber-500/20 transition-all"
+                  >
+                    Instalar
+                  </motion.button>
+                </div>
               )}
             </div>
           </div>
