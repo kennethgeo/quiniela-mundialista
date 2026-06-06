@@ -31,7 +31,7 @@ export default function RegisterForm({ onToggle }) {
 
   return (
     <div className="w-full">
-      <div className="relative p-8 rounded-3xl bg-slate-900/60 backdrop-blur-2xl border border-white/10 shadow-[0_8px_32px_0_rgba(0,0,0,0.5)]">
+      <div className="relative p-8 sm:p-10 rounded-[2rem] bg-slate-900/40 backdrop-blur-3xl border border-white/10 shadow-[0_8px_32px_0_rgba(0,0,0,0.4)]">
         
         {/* Encabezado */}
         <div className="text-center space-y-1 mb-8">
