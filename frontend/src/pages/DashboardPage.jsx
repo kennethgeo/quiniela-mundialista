@@ -14,7 +14,7 @@ export default function DashboardPage() {
     hour < 12 ? 'Buenos días' : hour < 19 ? 'Buenas tardes' : 'Buenas noches'
 
   return (
-    <div className="relative min-h-screen pb-4 bg-world-cup">
+    <div className="relative h-full pb-4 bg-world-cup">
       {/* ── Hero Section ── */}
       <div className="relative overflow-hidden">
         {/* Ambient gradient orbs */}

@@ -14,15 +14,18 @@ import BracketPage from './pages/BracketPage'
 import LeaderboardPage from './pages/LeaderboardPage'
 import LeaguesPage from './pages/LeaguesPage'
 
+import Sidebar from './components/ui/Sidebar'
+
 // Layout principal que envuelve las rutas protegidas
 function MainLayout({ children }) {
   return (
-    <div className="min-h-dvh flex flex-col bg-primary text-slate-200 bg-world-cup">
+    <div className="min-h-dvh flex bg-primary text-slate-200 bg-world-cup relative">
       <Navbar />
+      <Sidebar />
       
-      {/* Contenido principal con padding para el nav inferior en móviles */}
-      <main className="flex-1 overflow-y-auto pb-20 md:pb-6 relative z-0">
-        <div className="max-w-4xl mx-auto w-full">
+      {/* Contenido principal con padding para el nav inferior en móviles y nav lateral en desktop */}
+      <main className="flex-1 overflow-y-auto pb-20 md:pb-6 pt-0 md:pt-6 md:pl-64 relative z-0 min-h-dvh">
+        <div className="max-w-3xl mx-auto w-full md:rounded-3xl md:glass md:min-h-[calc(100vh-3rem)] md:shadow-2xl overflow-hidden relative">
           {children}
         </div>
       </main>

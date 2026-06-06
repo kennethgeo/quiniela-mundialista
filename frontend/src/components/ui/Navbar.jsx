@@ -15,7 +15,7 @@ export default function Navbar() {
   }
 
   return (
-    <header className="sticky top-0 z-40 glass-nav border-b border-white/[0.06]">
+    <header className="sticky top-0 z-40 glass-nav border-b border-white/[0.06] md:hidden">
       <div className="flex items-center justify-between h-14 px-4 max-w-4xl mx-auto">
         {/* Nombre de la app */}
         <h1 className="text-lg font-bold text-white tracking-tight flex items-center gap-1.5">

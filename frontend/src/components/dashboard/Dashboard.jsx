@@ -31,26 +31,21 @@ export default function Dashboard() {
       variants={containerVariants}
       initial="hidden"
       animate="visible"
-      className="space-y-6 pb-6"
+      className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-6"
     >
       {/* ── Puntos del usuario ── */}
-      <motion.div variants={itemVariants}>
+      <motion.div variants={itemVariants} className="md:col-span-1">
         <UserPoints />
       </motion.div>
 
-      {/* ── Próximos partidos ── */}
-      <motion.div variants={itemVariants}>
-        <UpcomingMatches />
-      </motion.div>
-
-      {/* ── Separador visual sutil ── */}
-      <motion.div variants={itemVariants}>
-        <div className="h-px bg-gradient-to-r from-transparent via-white/8 to-transparent" />
-      </motion.div>
-
-      {/* ── Top ranking ── */}
-      <motion.div variants={itemVariants}>
+      {/* ── Top ranking (pasó arriba en PC) ── */}
+      <motion.div variants={itemVariants} className="md:col-span-1 lg:col-span-2">
         <TopRanking />
+      </motion.div>
+
+      {/* ── Próximos partidos ── */}
+      <motion.div variants={itemVariants} className="md:col-span-2 lg:col-span-3">
+        <UpcomingMatches />
       </motion.div>
     </motion.div>
   )

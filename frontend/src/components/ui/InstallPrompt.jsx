@@ -68,9 +68,9 @@ export default function InstallPrompt() {
         initial={{ opacity: 0, y: 50 }}
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: 50 }}
-        className="fixed bottom-0 left-0 right-0 z-[100] p-4 flex justify-center"
+        className="fixed bottom-0 left-0 right-0 z-[100] p-4 flex justify-center pointer-events-none"
       >
-        <div className="glass-strong shadow-[0_0_40px_rgba(245,158,11,0.12)] w-full max-w-md p-5 relative overflow-hidden">
+        <div className="glass-strong shadow-[0_0_40px_rgba(245,158,11,0.12)] w-full max-w-md p-5 relative overflow-hidden pointer-events-auto">
           
           {/* Brillo de fondo — amber glow */}
           <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
