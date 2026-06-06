@@ -225,6 +225,7 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
                   ({prediction.home_goals_pred > prediction.away_goals_pred ? match.home_team : 
                     prediction.away_goals_pred > prediction.home_goals_pred ? match.away_team : 'Empate'})
                 </p>
+              )}
               {/* Goalscorers block */}
               {match.events_json && match.events_json.length > 0 && (
                 <div className="flex justify-between w-full mt-2 text-[10px] text-slate-400 max-w-[200px]">

@@ -85,6 +85,21 @@ body {
   z-index: 0;
 }
 
+.bg-world-cup::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url('/fifa26-bg.png');
+  background-size: 60vh auto;
+  background-position: center;
+  background-repeat: no-repeat;
+  opacity: 0.08;
+  filter: grayscale(100%) blur(1px);
+  mix-blend-mode: overlay;
+  pointer-events: none;
+  z-index: 0;
+}
+
 /* ── Scrollbar personalizado (Mac-like) ── */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
