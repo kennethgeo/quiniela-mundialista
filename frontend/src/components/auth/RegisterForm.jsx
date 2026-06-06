@@ -51,15 +51,11 @@ export default function RegisterForm({ onToggle }) {
 
   return (
     <div className="w-full">
-      {/* Card container with subtle gradient border */}
-      <div className="relative rounded-3xl overflow-hidden">
-        {/* Gradient border effect */}
-        <div className="absolute inset-0 bg-gradient-to-b from-white/[0.08] via-transparent to-white/[0.03] rounded-3xl" />
+      {/* Card container with subtle border */}
+      <div className="relative p-8 sm:p-10 rounded-[2rem] bg-[#111118]/80 backdrop-blur-2xl border border-white/[0.08] shadow-[0_8px_32px_0_rgba(0,0,0,0.5)]">
         
-        <div className="relative m-[1px] p-7 sm:p-9 rounded-[23px] bg-[#111118]/80 backdrop-blur-2xl">
-          
-          {/* Header */}
-          <div className="mb-7">
+        {/* Header */}
+        <div className="mb-7">
             <h2 className="text-[1.65rem] font-bold text-white tracking-tight leading-tight">
               Únete al Torneo
             </h2>
@@ -213,7 +209,6 @@ export default function RegisterForm({ onToggle }) {
             </p>
           </div>
         </div>
-      </div>
     </div>
   )
 }
