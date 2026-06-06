@@ -60,50 +60,66 @@ export default function GroupStandings({ matches }) {
       animate={{ opacity: 1, y: 0 }}
       className="glass-card mb-8 overflow-hidden relative"
     >
-      <div className="bg-slate-900/50 p-3 border-b border-white/5 flex items-center gap-2">
-        <Trophy size={14} className="text-amber-400" />
-        <h3 className="text-[11px] font-bold text-slate-300 uppercase tracking-widest">
+      <div className="bg-gradient-to-r from-accent/20 via-slate-900/50 to-transparent p-3.5 border-b border-accent/10 flex items-center gap-2">
+        <div className="w-6 h-6 rounded-lg bg-accent/20 flex items-center justify-center border border-accent/30 shadow-[0_0_10px_rgba(168,85,247,0.2)]">
+          <Trophy size={12} className="text-accent-light" />
+        </div>
+        <h3 className="text-[12px] font-black text-white uppercase tracking-widest drop-shadow-md">
           Tabla de Posiciones
         </h3>
       </div>
       
       <div className="overflow-x-auto scrollbar-hide">
         <table className="w-full text-sm text-left whitespace-nowrap">
-          <thead className="text-[10px] uppercase text-slate-500 font-bold bg-white/[0.02]">
+          <thead className="text-[10px] uppercase text-slate-400 font-bold bg-black/40">
             <tr>
-              <th className="px-4 py-2 w-8">#</th>
-              <th className="px-2 py-2">Equipo</th>
-              <th className="px-2 py-2 text-center">PJ</th>
-              <th className="px-2 py-2 text-center">GF</th>
-              <th className="px-2 py-2 text-center">GC</th>
-              <th className="px-2 py-2 text-center">DG</th>
-              <th className="px-4 py-2 text-center text-white">PTS</th>
+              <th className="px-4 py-3 w-8 text-center">Pos</th>
+              <th className="px-3 py-3">Selección</th>
+              <th className="px-2 py-3 text-center" title="Partidos Jugados">PJ</th>
+              <th className="px-2 py-3 text-center" title="Victorias">G</th>
+              <th className="px-2 py-3 text-center" title="Empates">E</th>
+              <th className="px-2 py-3 text-center" title="Derrotas">P</th>
+              <th className="px-2 py-3 text-center" title="Goles a Favor">GF</th>
+              <th className="px-2 py-3 text-center" title="Goles en Contra">GC</th>
+              <th className="px-2 py-3 text-center" title="Diferencia de Goles">DG</th>
+              <th className="px-4 py-3 text-center text-accent-light bg-accent/5">PTS</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-white/5">
             {standings.map((team, index) => {
-              // Highlight top 2
+              // Highlight top 2 (Clasifican)
               const isQualified = index < 2
               return (
-                <tr key={team.name} className="hover:bg-white/[0.02] transition-colors">
-                  <td className="px-4 py-2.5">
-                    <span className={`flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-bold ${
-                      isQualified ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : 'text-slate-500'
+                <tr key={team.name} className={`transition-colors relative group ${isQualified ? 'bg-accent/[0.03] hover:bg-accent/[0.08]' : 'hover:bg-white/[0.04]'}`}>
+                  {isQualified && (
+                    <td className="absolute left-0 top-0 bottom-0 w-0.5 bg-accent shadow-[0_0_8px_rgba(168,85,247,0.8)]"></td>
+                  )}
+                  <td className="px-4 py-3">
+                    <span className={`flex items-center justify-center w-6 h-6 rounded-full text-[11px] font-black mx-auto ${
+                      isQualified ? 'bg-gradient-to-br from-accent to-purple-600 text-white shadow-lg shadow-purple-500/30' : 'text-slate-500 bg-slate-800/50'
                     }`}>
                       {index + 1}
                     </span>
                   </td>
-                  <td className="px-2 py-2.5 font-bold text-white flex items-center gap-2">
-                    <img src={`https://flagcdn.com/w20/${team.code}.png`} className="w-4 h-3 rounded-sm object-cover" alt="" />
-                    {team.name}
+                  <td className="px-3 py-3 font-bold text-white flex items-center gap-3">
+                    <div className="relative">
+                      <img src={`https://flagcdn.com/w40/${team.code}.png`} className="w-6 h-4.5 rounded-sm object-cover shadow-md shadow-black/50" alt="" />
+                      {isQualified && <div className="absolute inset-0 rounded-sm ring-1 ring-accent/50 pointer-events-none"></div>}
+                    </div>
+                    <span className="drop-shadow-sm">{team.name}</span>
                   </td>
-                  <td className="px-2 py-2.5 text-center text-slate-400">{team.pld}</td>
-                  <td className="px-2 py-2.5 text-center text-slate-400">{team.gf}</td>
-                  <td className="px-2 py-2.5 text-center text-slate-400">{team.ga}</td>
-                  <td className="px-2 py-2.5 text-center text-slate-400 font-medium">
+                  <td className="px-2 py-3 text-center text-slate-300 font-semibold">{team.pld}</td>
+                  <td className="px-2 py-3 text-center text-success/90">{team.w}</td>
+                  <td className="px-2 py-3 text-center text-slate-400">{team.d}</td>
+                  <td className="px-2 py-3 text-center text-error/90">{team.l}</td>
+                  <td className="px-2 py-3 text-center text-slate-300">{team.gf}</td>
+                  <td className="px-2 py-3 text-center text-slate-300">{team.ga}</td>
+                  <td className={`px-2 py-3 text-center font-bold ${team.gd > 0 ? 'text-success' : team.gd < 0 ? 'text-error' : 'text-slate-400'}`}>
                     {team.gd > 0 ? `+${team.gd}` : team.gd}
                   </td>
-                  <td className="px-4 py-2.5 text-center font-black text-white">{team.pts}</td>
+                  <td className={`px-4 py-3 text-center font-black text-lg bg-accent/5 ${isQualified ? 'text-accent-light' : 'text-white'}`}>
+                    {team.pts}
+                  </td>
                 </tr>
               )
             })}
