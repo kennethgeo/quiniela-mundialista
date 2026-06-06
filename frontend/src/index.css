@@ -3,16 +3,14 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme {
-  --color-primary: var(--color-primary-val);
-  --color-primary-light: var(--color-primary-light-val);
-  --color-primary-lighter: var(--color-primary-lighter-val);
-  --color-accent: var(--color-accent-val);
-  --color-accent-light: var(--color-accent-light-val);
-  --color-accent-dark: var(--color-accent-dark-val);
-  --color-success: var(--color-success-val);
-  --color-success-light: var(--color-success-light-val);
-  --color-error: #ff3b30;
-  --color-error-light: #ff453a;
+  --color-primary: var(--bg-body);
+  --color-accent: #8b5cf6;
+  --color-accent-light: #a78bfa;
+  --color-accent-dark: #6d28d9;
+  --color-success: #10b981;
+  --color-success-light: #34d399;
+  --color-error: #ef4444;
+  --color-error-light: #f87171;
   --color-gold: #fbbf24;
   --color-silver: #94a3b8;
   --color-bronze: #d97706;
@@ -134,7 +132,7 @@ body {
   backdrop-filter: saturate(180%) blur(20px);
   -webkit-backdrop-filter: saturate(180%) blur(20px);
   border: 1px solid var(--glass-card-border);
-  border-radius: 24px;
+  border-radius: 16px;
   box-shadow: var(--glass-card-shadow);
   transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
 }

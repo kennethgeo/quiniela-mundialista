@@ -104,7 +104,7 @@ export default function TopRanking() {
         </h3>
         <button
           onClick={() => navigate('/leaderboard')}
-          className="text-xs text-accent flex items-center gap-1 hover:text-accent-light transition-colors font-semibold"
+          className="text-xs text-purple-600 dark:text-purple-400 flex items-center gap-1 hover:text-purple-500 transition-colors font-semibold"
         >
           Ver ranking <ChevronRight size={14} />
         </button>

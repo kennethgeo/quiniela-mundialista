@@ -77,7 +77,7 @@ export default function UpcomingMatches() {
         </h3>
         <button
           onClick={() => navigate('/matches')}
-          className="text-xs text-accent dark:text-purple-400 flex items-center gap-1 hover:text-accent-light transition-colors font-semibold"
+          className="text-xs text-purple-600 dark:text-purple-400 flex items-center gap-1 hover:text-purple-500 transition-colors font-semibold"
         >
           Ver todos <ChevronRight size={14} />
         </button>
@@ -146,7 +146,7 @@ function UpcomingMatchCard({ match, index }) {
               <img
                 src={`https://flagcdn.com/w80/${(match.home_team_code || 'xx').toLowerCase()}.png`}
                 alt={match.home_team}
-                className="relative w-12 h-8 object-cover rounded-md shadow-lg shadow-black/30 ring-1 ring-white/10"
+                className="relative w-12 h-8 object-contain rounded-md shadow-lg shadow-black/30 ring-1 ring-white/10"
                 onError={(e) => { e.target.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg"/>' }}
               />
             </div>

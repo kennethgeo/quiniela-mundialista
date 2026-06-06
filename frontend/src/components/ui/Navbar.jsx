@@ -20,15 +20,15 @@ export default function Navbar({ onMenuClick }) {
           {/* Botón de Menú (Hamburguesa) */}
           <button 
             onClick={onMenuClick}
-            className="p-1.5 -ml-1.5 rounded-xl text-slate-300 hover:text-white hover:bg-white/10 transition-colors md:mr-2"
+            className="p-1.5 -ml-1.5 rounded-xl text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-white/10 transition-colors md:mr-2"
           >
             <Menu size={22} />
           </button>
 
           {/* Nombre de la app */}
-          <h1 className="text-lg font-bold text-white tracking-tight flex items-center gap-1.5">
+          <h1 className="text-lg font-bold text-slate-900 dark:text-white tracking-tight flex items-center gap-1.5">
             <span className="text-xl">⚽</span>
-            <span className="bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent hidden sm:inline-block">
+            <span className="bg-gradient-to-r from-slate-900 to-slate-600 dark:from-white dark:to-slate-300 bg-clip-text text-transparent hidden sm:inline-block">
               Quiniela
             </span>
             <span className="bg-gradient-to-r from-amber-400 to-amber-500 bg-clip-text text-transparent">
