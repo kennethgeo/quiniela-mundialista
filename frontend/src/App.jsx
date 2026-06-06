@@ -24,12 +24,16 @@ function MainLayout({ children }) {
 
   return (
     <div className="min-h-dvh flex flex-col bg-primary text-slate-200 bg-world-cup relative">
-      <Navbar onMenuClick={() => setIsSidebarOpen(true)} />
+      {/* Navbar solo en móvil */}
+      <div className="md:hidden">
+        <Navbar onMenuClick={() => setIsSidebarOpen(true)} />
+      </div>
+      
       <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
       
-      {/* Contenido principal: padding top para nav, padding bottom para bottomnav, y expandido en PC */}
-      <main className="flex-1 w-full overflow-y-auto pb-20 md:pb-6 relative z-0 min-h-dvh">
-        <div className="w-full max-w-7xl mx-auto md:px-6 md:py-6 relative h-full">
+      {/* Contenido principal: expandido en PC con padding izquierdo para evadir el sidebar */}
+      <main className="flex-1 w-full overflow-y-auto pb-20 md:pb-6 md:pl-64 relative z-0 min-h-dvh">
+        <div className="w-full max-w-5xl mx-auto px-4 sm:px-6 md:py-8 relative h-full">
           {children}
         </div>
       </main>

@@ -22,29 +22,29 @@ export default function Sidebar({ isOpen, onClose }) {
   }
 
   return (
-    <AnimatePresence>
-      {isOpen && (
-        <>
-          {/* Backdrop overlay */}
+    <>
+      <AnimatePresence>
+        {isOpen && (
+          {/* Backdrop overlay para móvil */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.3 }}
             onClick={onClose}
-            className="fixed inset-0 bg-slate-950/80 z-40"
+            className="fixed inset-0 bg-slate-950/80 z-40 md:hidden"
           />
+        )}
+      </AnimatePresence>
 
-          {/* Sidebar Drawer */}
-          <motion.aside
-            initial={{ x: '-100%' }}
-            animate={{ x: 0 }}
-            exit={{ x: '-100%' }}
-            transition={{ type: 'tween', ease: 'easeInOut', duration: 0.3 }}
-            className="fixed top-0 left-0 w-64 h-dvh flex flex-col bg-slate-900 border-r border-white/[0.06] z-50 pt-6 pb-6 px-4 shadow-2xl"
-          >
-            {/* Header: Logo & Close Button */}
-            <div className="flex items-center justify-between mb-8 px-2">
+      {/* Sidebar Drawer / Fixed */}
+      <aside
+        className={`fixed top-0 left-0 w-64 h-dvh flex flex-col bg-slate-900 border-r border-white/[0.06] z-50 pt-6 pb-6 px-4 shadow-2xl transition-transform duration-300 md:translate-x-0 ${
+          isOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
+      >
+        {/* Header: Logo & Close Button */}
+        <div className="flex items-center justify-between mb-8 px-2">
               <div className="flex items-center gap-2.5">
                 <span className="text-2xl">⚽</span>
                 <h1 className="text-xl font-bold tracking-tight leading-tight">
@@ -154,9 +154,7 @@ export default function Sidebar({ isOpen, onClose }) {
                 </button>
               </div>
             )}
-          </motion.aside>
-        </>
-      )}
-    </AnimatePresence>
+          </aside>
+    </>
   )
 }
