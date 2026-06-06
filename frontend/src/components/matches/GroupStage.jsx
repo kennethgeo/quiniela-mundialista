@@ -5,6 +5,7 @@ import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import MatchList from './MatchList'
 import LoadingSpinner from '../ui/LoadingSpinner'
+import GroupStandings from './GroupStandings'
 
 const GROUPS = ['A','B','C','D','E','F','G','H','I','J','K','L']
 
@@ -146,12 +147,15 @@ export default function GroupStage() {
               <p className="text-slate-400 text-sm">No hay partidos en este grupo aún</p>
             </div>
           ) : (
-            <MatchList
-              matches={filteredMatches}
-              predictions={predictions}
-              onSavePrediction={handleSavePrediction}
-              isLoading={saving}
-            />
+            <>
+              <GroupStandings matches={filteredMatches} />
+              <MatchList
+                matches={filteredMatches}
+                predictions={predictions}
+                onSavePrediction={handleSavePrediction}
+                isLoading={saving}
+              />
+            </>
           )}
         </motion.div>
       </AnimatePresence>

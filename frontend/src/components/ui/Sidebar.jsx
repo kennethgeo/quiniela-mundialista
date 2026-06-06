@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import { Home, Calendar, GitBranch, Trophy, Users, LogOut, Star, X } from 'lucide-react'
+import { Home, Calendar, GitBranch, Trophy, Users, LogOut, Star, X, ShieldAlert } from 'lucide-react'
 import { motion, AnimatePresence } from 'motion/react'
 import { useAuth } from '../../hooks/useAuth'
 
@@ -96,6 +96,34 @@ export default function Sidebar({ isOpen, onClose }) {
                   )}
                 </NavLink>
               ))}
+
+              {profile?.is_admin && (
+                <NavLink
+                  to="/admin"
+                  className="block mt-4 pt-4 border-t border-white/[0.06]"
+                  onClick={onClose}
+                >
+                  {({ isActive }) => (
+                    <motion.div
+                      whileHover={{ x: 4 }}
+                      whileTap={{ scale: 0.98 }}
+                      className={`flex items-center gap-3.5 px-4 py-3 rounded-2xl transition-all duration-300 ${
+                        isActive 
+                          ? 'bg-rose-500/20 text-rose-400 shadow-[0_4px_24px_rgba(244,63,94,0.15)] border border-rose-500/30' 
+                          : 'text-rose-500/70 hover:text-rose-400 hover:bg-rose-500/10 border border-transparent'
+                      }`}
+                    >
+                      <div className="relative">
+                        <ShieldAlert size={20} strokeWidth={isActive ? 2.5 : 2} />
+                        {isActive && <div className="absolute inset-0 bg-rose-500/20 blur-md rounded-full" />}
+                      </div>
+                      <span className={`text-sm font-semibold ${isActive ? 'text-rose-400' : ''}`}>
+                        Panel Admin
+                      </span>
+                    </motion.div>
+                  )}
+                </NavLink>
+              )}
             </nav>
 
             {/* User Profile Footer */}

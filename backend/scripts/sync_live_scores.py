@@ -74,6 +74,28 @@ def sync_scores():
 
         print(f"🔄 Actualizando: {home_team} {home_goals} - {away_goals} {away_team} ({status})")
 
+        # Extraer eventos de gol (goalscorers)
+        events_json = []
+        if "details" in event["competitions"][0]:
+            for detail in event["competitions"][0]["details"]:
+                if detail.get("type", {}).get("text") == "goal":
+                    try:
+                        athlete_name = detail["participants"][0]["athlete"]["shortName"]
+                        time_clock = detail["clock"]["displayValue"]
+                        team_id = detail["team"]["id"]
+                        
+                        # Determinar si el gol es del equipo local o visitante
+                        home_team_id = home_comp["team"]["id"]
+                        team_side = "home" if team_id == home_team_id else "away"
+                        
+                        events_json.append({
+                            "athlete": athlete_name,
+                            "time": time_clock,
+                            "team": team_side
+                        })
+                    except Exception as e:
+                        print(f"Error parseando detalle de gol: {e}")
+
         # Buscar el ID del partido en nuestra BD basado en los nombres de los equipos
         # Nota: Los nombres en ESPN están en inglés. Si tu base de datos tiene los nombres
         # en español, necesitarás un diccionario de traducción simple (ej: "Mexico" -> "México")
@@ -90,7 +112,8 @@ def sync_scores():
             supabase.table("matches").update({
                 "status": status,
                 "home_goals_actual": home_goals,
-                "away_goals_actual": away_goals
+                "away_goals_actual": away_goals,
+                "events_json": events_json
             }).eq("id", match_id).execute()
             
             print("✅ Actualizado en Supabase")
