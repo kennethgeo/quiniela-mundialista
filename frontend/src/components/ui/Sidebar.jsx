@@ -25,7 +25,6 @@ export default function Sidebar({ isOpen, onClose }) {
     <>
       <AnimatePresence>
         {isOpen && (
-          {/* Backdrop overlay para móvil */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
