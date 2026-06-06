@@ -23,11 +23,11 @@ function MainLayout({ children }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
 
   return (
-    <div className="min-h-dvh flex bg-primary text-slate-200 bg-world-cup relative w-full overflow-hidden">
+    <div className="min-h-dvh flex bg-primary text-slate-900 dark:text-slate-200 bg-world-cup relative w-full overflow-hidden">
       <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
       
-      {/* Contenedor del contenido que toma el resto de la pantalla y se empuja a la derecha en PC */}
-      <div className="flex-1 flex flex-col min-w-0 md:ml-64 min-h-dvh transition-all duration-300 relative z-0">
+      {/* Contenedor del contenido que toma el resto de la pantalla */}
+      <div className="flex-1 flex flex-col min-w-0 min-h-dvh transition-all duration-300 relative z-0">
         
         {/* Navbar solo en móvil */}
         <div className="md:hidden flex-none w-full">
