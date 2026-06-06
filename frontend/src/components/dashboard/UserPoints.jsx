@@ -41,11 +41,11 @@ export default function UserPoints() {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.1 }}
-      className="relative overflow-hidden rounded-3xl"
+      className="relative overflow-hidden rounded-2xl"
     >
       {/* ── Neon gradient border (outer glow) ── */}
-      <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-purple-500/40 via-cyan-500/20 to-purple-600/30 p-[1px]">
-        <div className="w-full h-full rounded-3xl bg-slate-950/90" />
+      <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-purple-500/40 via-cyan-500/20 to-purple-600/30 p-[1px]">
+        <div className="w-full h-full rounded-2xl bg-slate-950/90" />
       </div>
 
       {/* ── Card content ── */}
@@ -72,7 +72,7 @@ export default function UserPoints() {
                 key={displayPoints}
                 initial={{ scale: 1.1, opacity: 0.7 }}
                 animate={{ scale: 1, opacity: 1 }}
-                className="text-5xl font-black tabular-nums bg-gradient-to-br from-purple-400 via-cyan-400 to-purple-500 bg-clip-text text-transparent drop-shadow-lg"
+                className="text-5xl font-black tabular-nums bg-gradient-to-br from-purple-400 via-cyan-400 to-purple-500 bg-clip-text text-transparent drop-shadow-lg px-1 -ml-1"
               >
                 {displayPoints}
               </motion.span>

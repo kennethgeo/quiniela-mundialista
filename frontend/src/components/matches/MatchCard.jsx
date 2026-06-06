@@ -117,7 +117,7 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
 
       {/* Live match subtle pulse */}
       {isInProgress && (
-        <div className="absolute inset-0 rounded-3xl animate-pulse bg-accent/[0.02] pointer-events-none" />
+        <div className="absolute inset-0 rounded-2xl animate-pulse bg-accent/[0.02] pointer-events-none" />
       )}
 
       {/* ═══ Header: phase, date, countdown ═══ */}
