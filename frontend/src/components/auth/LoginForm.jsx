@@ -32,7 +32,7 @@ export default function LoginForm({ onToggle }) {
   return (
     <div className="w-full">
       {/* Card container with subtle border */}
-      <div className="relative p-8 sm:p-10 rounded-[2rem] bg-[#111118]/80 backdrop-blur-2xl border border-white/[0.08] shadow-[0_8px_32px_0_rgba(0,0,0,0.5)]">
+      <div className="w-full box-border relative p-6 sm:p-10 rounded-[2rem] bg-[#111118]/80 backdrop-blur-2xl border border-white/[0.08] shadow-[0_8px_32px_0_rgba(0,0,0,0.5)]">
         
         {/* Header */}
         <div className="mb-8">
