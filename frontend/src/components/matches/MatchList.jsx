@@ -26,7 +26,10 @@ export default function MatchList({ matches, predictions, onSavePrediction, isLo
 
   return (
     <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-8">
-      {Object.entries(grouped).map(([label, groupMatches]) => (
+      {Object.entries(grouped).map(([label, groupMatches]) => {
+        const hasUsedPowerupInGroup = groupMatches.some(m => findPrediction(m.id)?.use_powerup_x2);
+        
+        return (
         <div key={label}>
           {/* Section header */}
           <div className="flex items-center gap-3 mb-4 px-1">
@@ -45,11 +48,14 @@ export default function MatchList({ matches, predictions, onSavePrediction, isLo
                 prediction={findPrediction(match.id)}
                 onSavePrediction={onSavePrediction}
                 isLoading={isLoading}
+                hasUsedPowerupInGroup={hasUsedPowerupInGroup}
               />
             ))}
           </div>
         </div>
-      ))}
+      );
+      })}
     </motion.div>
   )
 }
+

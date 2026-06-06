@@ -1,100 +1,192 @@
 import { createClient } from '@supabase/supabase-js';
-import dotenv from 'dotenv';
-import path from 'path';
-import { fileURLToPath } from 'url';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// Cargar variables de entorno desde .env.local
-dotenv.config({ path: path.resolve(__dirname, '../.env.local') });
-
-// IMPORTANTE: Asegúrate de poner tu SUPABASE_SERVICE_ROLE_KEY o la clave secreta aquí
-// para poder sobreescribir la base de datos saltándote el RLS.
 const supabaseUrl = process.env.VITE_SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY;
 
-if (!supabaseUrl || !supabaseKey || supabaseUrl.includes('example.supabase.co')) {
-  console.error("❌ ERROR: Debes configurar VITE_SUPABASE_URL y SUPABASE_SERVICE_ROLE_KEY en el archivo frontend/.env.local con tus claves reales.");
-  process.exit(1);
-}
-
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-// Horarios de los partidos en Hora Central de México (UTC-6)
-// Convertidos a UTC para guardarlos correctamente en la BD
-const DAILY_SLOTS_UTC = [
-  '16:00:00Z', // 10:00 AM CDMX
-  '19:00:00Z', // 13:00 PM CDMX
-  '22:00:00Z', // 16:00 PM CDMX
-  '01:00:00Z', // 19:00 PM CDMX (Técnicamente es al día siguiente en UTC, pero lo manejamos sumando 1 día si es necesario)
-];
+const teamNamesMap = {
+  "México": "Mexico",
+  "Sudáfrica": "South Africa",
+  "Corea del Sur": "South Korea",
+  "Chequia": "Czechia",
+  "Canadá": "Canada",
+  "Bosnia y Herz.": "Bosnia-Herzegovina",
+  "Qatar": "Qatar",
+  "Suiza": "Switzerland",
+  "Brasil": "Brazil",
+  "Marruecos": "Morocco",
+  "Haití": "Haiti",
+  "Escocia": "Scotland",
+  "Australia": "Australia",
+  "Türkiye": "Türkiye",
+  "EE.UU.": "USA",
+  "Paraguay": "Paraguay",
+  "Alemania": "Germany",
+  "Curazao": "Curaçao",
+  "Costa de Marfil": "Ivory Coast",
+  "Ecuador": "Ecuador",
+  "Países Bajos": "Netherlands",
+  "Japón": "Japan",
+  "Suecia": "Sweden",
+  "Túnez": "Tunisia",
+  "Bélgica": "Belgium",
+  "Egipto": "Egypt",
+  "Arabia Saudita": "Saudi Arabia",
+  "Uruguay": "Uruguay",
+  "España": "Spain",
+  "Cabo Verde": "Cape Verde",
+  "Nueva Zelanda": "New Zealand",
+  "Irán": "Iran",
+  "Francia": "France",
+  "Senegal": "Senegal",
+  "Noruega": "Norway",
+  "Irak": "Iraq",
+  "Argentina": "Argentina",
+  "Austria": "Austria",
+  "Argelia": "Algeria",
+  "Jordania": "Jordan",
+  "Portugal": "Portugal",
+  "Congo RD": "DR Congo",
+  "Inglaterra": "England",
+  "Croacia": "Croatia",
+  "Colombia": "Colombia",
+  "Ghana": "Ghana",
+  "Panamá": "Panama",
+  "Uzbekistán": "Uzbekistan"
+};
 
-async function updateSchedules() {
-  console.log("⚽ Obteniendo partidos de la base de datos...");
-  
-  const { data: matches, error } = await supabase
+const rawMatches = `
+2026-06-11T19:00:00Z | México vs Sudáfrica
+2026-06-12T02:00:00Z | Corea del Sur vs Chequia
+2026-06-18T16:00:00Z | Chequia vs Sudáfrica
+2026-06-19T01:00:00Z | México vs Corea del Sur
+2026-06-25T01:00:00Z | Chequia vs México
+2026-06-25T01:00:00Z | Sudáfrica vs Corea del Sur
+2026-06-12T19:00:00Z | Canadá vs Bosnia y Herz.
+2026-06-13T03:00:00Z | Qatar vs Suiza
+2026-06-18T19:00:00Z | Suiza vs Bosnia y Herz.
+2026-06-18T22:00:00Z | Canadá vs Qatar
+2026-06-25T19:00:00Z | Suiza vs Canadá
+2026-06-25T19:00:00Z | Bosnia y Herz. vs Qatar
+2026-06-13T22:00:00Z | Brasil vs Marruecos
+2026-06-14T01:00:00Z | Haití vs Escocia
+2026-06-19T22:00:00Z | Escocia vs Marruecos
+2026-06-20T01:00:00Z | Brasil vs Haití
+2026-06-25T22:00:00Z | Marruecos vs Haití
+2026-06-25T22:00:00Z | Escocia vs Brasil
+2026-06-13T01:00:00Z | Australia vs Türkiye
+2026-06-13T01:00:00Z | EE.UU. vs Paraguay
+2026-06-19T19:00:00Z | EE.UU. vs Australia
+2026-06-20T04:00:00Z | Türkiye vs Paraguay
+2026-06-26T01:00:00Z | EE.UU. vs Türkiye
+2026-06-26T01:00:00Z | Paraguay vs Australia
+2026-06-14T17:00:00Z | Alemania vs Curazao
+2026-06-14T23:00:00Z | Costa de Marfil vs Ecuador
+2026-06-20T17:00:00Z | Alemania vs Costa de Marfil
+2026-06-21T00:00:00Z | Ecuador vs Curazao
+2026-06-26T19:00:00Z | Alemania vs Ecuador
+2026-06-26T19:00:00Z | Costa de Marfil vs Curazao
+2026-06-14T20:00:00Z | Países Bajos vs Japón
+2026-06-15T02:00:00Z | Suecia vs Túnez
+2026-06-20T20:00:00Z | Países Bajos vs Suecia
+2026-06-21T04:00:00Z | Túnez vs Japón
+2026-06-26T22:00:00Z | Países Bajos vs Túnez
+2026-06-26T22:00:00Z | Suecia vs Japón
+2026-06-15T22:00:00Z | Bélgica vs Egipto
+2026-06-16T01:00:00Z | Arabia Saudita vs Uruguay
+2026-06-21T17:00:00Z | Bélgica vs Irán
+2026-06-22T01:00:00Z | Uruguay vs Cabo Verde
+2026-06-27T01:00:00Z | Bélgica vs Uruguay
+2026-06-27T01:00:00Z | Irán vs Arabia Saudita
+2026-06-15T16:00:00Z | España vs Cabo Verde
+2026-06-16T02:00:00Z | Arabia Saudita vs Nueva Zelanda
+2026-06-21T16:00:00Z | España vs Arabia Saudita
+2026-06-21T23:00:00Z | Cabo Verde vs Nueva Zelanda
+2026-06-26T22:00:00Z | España vs Nueva Zelanda
+2026-06-26T22:00:00Z | Cabo Verde vs Arabia Saudita
+2026-06-16T19:00:00Z | Francia vs Senegal
+2026-06-16T22:00:00Z | Irak vs Noruega
+2026-06-22T17:00:00Z | Argentina vs Austria
+2026-06-22T21:00:00Z | Francia vs Irak
+2026-06-27T21:00:00Z | Argentina vs Francia
+2026-06-27T21:00:00Z | Noruega vs Senegal
+2026-06-17T02:00:00Z | Austria vs Jordania
+2026-06-17T02:00:00Z | Argentina vs Argelia
+2026-06-23T01:00:00Z | Noruega vs Irak
+2026-06-23T01:00:00Z | Argelia vs Jordania
+2026-06-28T01:00:00Z | Argelia vs Irak
+2026-06-28T01:00:00Z | Jordania vs Austria
+2026-06-17T17:00:00Z | Portugal vs Congo RD
+2026-06-17T20:00:00Z | Inglaterra vs Croacia
+2026-06-23T17:00:00Z | Portugal vs Colombia
+2026-06-23T21:00:00Z | Inglaterra vs Ghana
+2026-06-28T19:00:00Z | Portugal vs Inglaterra
+2026-06-28T19:00:00Z | Congo RD vs Colombia
+2026-06-18T00:00:00Z | Ghana vs Panamá
+2026-06-18T03:00:00Z | Colombia vs Congo RD
+2026-06-24T17:00:00Z | Croacia vs Colombia
+2026-06-24T21:00:00Z | Panamá vs Congo RD
+2026-06-28T22:00:00Z | Croacia vs Ghana
+2026-06-28T22:00:00Z | Colombia vs Panamá
+`;
+
+async function applyRealSchedules() {
+  console.log("⚽ Obteniendo partidos actuales de la base de datos...");
+  const { data: dbMatches, error } = await supabase
     .from('matches')
-    .select('id, kickoff_at')
-    .order('kickoff_at', { ascending: true })
-    .order('id', { ascending: true });
+    .select('id, home_team, away_team');
 
   if (error) {
-    console.error("❌ Error obteniendo partidos:", error.message);
+    console.error("❌ Error conectando a Supabase:", error.message);
     return;
   }
 
-  console.log(`Encontrados ${matches.length} partidos. Re-programando horarios...`);
+  const lines = rawMatches.trim().split('\n');
+  let successCount = 0;
+  let notFoundCount = 0;
 
-  // Fecha de inicio oficial del Mundial: 11 de Junio de 2026
-  let currentDate = new Date('2026-06-11T00:00:00Z');
-  let slotIndex = 1; // El partido inaugural suele ser al mediodía (13:00 local -> slot 1)
+  for (const line of lines) {
+    const [utcDate, teamsPart] = line.split(' | ');
+    const [teamA_es, teamB_es] = teamsPart.split(' vs ');
 
-  let updatesCount = 0;
+    const teamA_en = teamNamesMap[teamA_es.trim()];
+    const teamB_en = teamNamesMap[teamB_es.trim()];
 
-  for (const match of matches) {
-    const slotTime = DAILY_SLOTS_UTC[slotIndex];
-    
-    // Si el slot es el de las 19:00 local (01:00 UTC), significa que la fecha UTC ya cruzó la medianoche,
-    // así que necesitamos agregar un día al currentDate para el formato UTC correcto de la hora de la tarde, 
-    // pero para mantenerlo simple sumaremos las horas a la fecha base.
-    
-    let baseDateStr = currentDate.toISOString().split('T')[0];
-    
-    // Excepción: si el slot es 01:00:00Z (que corresponde a las 19:00 hrs locales del mismo currentDate),
-    // el UTC de ese partido ya pertenece al día calendario de UTC siguiente.
-    if (slotTime === '01:00:00Z') {
-      let nextDay = new Date(currentDate);
-      nextDay.setUTCDate(nextDay.getUTCDate() + 1);
-      baseDateStr = nextDay.toISOString().split('T')[0];
+    if (!teamA_en || !teamB_en) {
+      console.warn(`⚠️ Cuidado: No se encontró traducción para ${teamA_es} o ${teamB_es}`);
+      continue;
     }
 
-    const newKickoffAt = `${baseDateStr}T${slotTime}`;
+    // Buscar en DB ignorando el orden de local/visitante
+    const matchInDb = dbMatches.find(m => 
+      (m.home_team === teamA_en && m.away_team === teamB_en) ||
+      (m.home_team === teamB_en && m.away_team === teamA_en)
+    );
 
-    // Actualizar en BD
-    const { error: updateError } = await supabase
-      .from('matches')
-      .update({ kickoff_at: newKickoffAt })
-      .eq('id', match.id);
+    if (matchInDb) {
+      const { error: updateErr } = await supabase
+        .from('matches')
+        .update({ kickoff_at: utcDate.trim() })
+        .eq('id', matchInDb.id);
 
-    if (updateError) {
-      console.error(`❌ Error actualizando partido ${match.id}:`, updateError.message);
+      if (updateErr) {
+        console.error(`❌ Error actualizando partido ${teamA_en} vs ${teamB_en}:`, updateErr.message);
+      } else {
+        console.log(`✅ ${teamA_en} vs ${teamB_en} -> ${utcDate.trim()}`);
+        successCount++;
+      }
     } else {
-      console.log(`✅ Partido ${match.id} reprogramado a -> ${newKickoffAt} (UTC)`);
-      updatesCount++;
-    }
-
-    // Avanzar al siguiente slot
-    slotIndex++;
-    if (slotIndex >= DAILY_SLOTS_UTC.length) {
-      slotIndex = 0;
-      // Avanzar al siguiente día
-      currentDate.setUTCDate(currentDate.getUTCDate() + 1);
+      console.warn(`⚠️ No se encontró en la BD el partido: ${teamA_en} vs ${teamB_en}`);
+      notFoundCount++;
     }
   }
 
-  console.log(`\n🎉 ¡Listo! Se corrigieron ${updatesCount} horarios en UTC.`);
-  console.log(`Al renderizarse en tu navegador, React usará la zona horaria de tu computadora automáticamente.`);
+  console.log(`\n🎉 PROCESO FINALIZADO`);
+  console.log(`✅ Actualizados exitosamente: ${successCount} partidos`);
+  if (notFoundCount > 0) {
+    console.log(`⚠️ Partidos no encontrados en BD: ${notFoundCount}`);
+  }
 }
 
-updateSchedules();
+applyRealSchedules();
