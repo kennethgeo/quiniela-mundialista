@@ -25,21 +25,29 @@ export default function MatchList({ matches, predictions, onSavePrediction, isLo
   }
 
   return (
-    <motion.div variants={containerVariants} initial="hidden" animate="visible">
+    <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-8">
       {Object.entries(grouped).map(([label, groupMatches]) => (
-        <div key={label} className="mb-6">
-          <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-3 px-1">
-            {label}
-          </h3>
-          {groupMatches.map(match => (
-            <MatchCard
-              key={match.id}
-              match={match}
-              prediction={findPrediction(match.id)}
-              onSavePrediction={onSavePrediction}
-              isLoading={isLoading}
-            />
-          ))}
+        <div key={label}>
+          {/* Section header */}
+          <div className="flex items-center gap-3 mb-4 px-1">
+            <div className="w-1.5 h-1.5 rounded-full bg-accent shadow-sm shadow-amber-500/50" />
+            <h3 className="text-sm font-bold text-slate-300 uppercase tracking-widest">
+              {label}
+            </h3>
+            <div className="flex-1 h-px bg-gradient-to-r from-white/10 to-transparent" />
+          </div>
+
+          <div className="space-y-4">
+            {groupMatches.map(match => (
+              <MatchCard
+                key={match.id}
+                match={match}
+                prediction={findPrediction(match.id)}
+                onSavePrediction={onSavePrediction}
+                isLoading={isLoading}
+              />
+            ))}
+          </div>
         </div>
       ))}
     </motion.div>

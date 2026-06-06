@@ -1,7 +1,7 @@
 /* Modal para crear una nueva liga */
 import { useState } from 'react'
 import { motion } from 'motion/react'
-import { X, Plus } from 'lucide-react'
+import { X, Plus, Shield } from 'lucide-react'
 import { api } from '../../lib/api'
 
 export default function CreateLeague({ onClose, onCreated }) {
@@ -30,46 +30,62 @@ export default function CreateLeague({ onClose, onCreated }) {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md"
       onClick={onClose}
     >
       <motion.div
-        initial={{ scale: 0.9, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        className="glass-strong p-6 w-full max-w-sm"
+        initial={{ scale: 0.85, opacity: 0, y: 20 }}
+        animate={{ scale: 1, opacity: 1, y: 0 }}
+        transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+        className="glass-strong p-6 w-full max-w-sm relative overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-bold text-white">Crear liga</h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-white">
-            <X size={20} />
-          </button>
+        {/* Background glow */}
+        <div className="absolute -top-10 -right-10 w-32 h-32 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
+
+        <div className="relative z-10">
+          <div className="flex items-center justify-between mb-5">
+            <div className="flex items-center gap-3">
+              <div className="gradient-gold p-2 rounded-xl shadow-md shadow-amber-500/20">
+                <Shield size={18} className="text-slate-950" />
+              </div>
+              <h2 className="text-lg font-bold text-white">Crear liga</h2>
+            </div>
+            <button onClick={onClose} className="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition-colors">
+              <X size={18} />
+            </button>
+          </div>
+
+          <form onSubmit={handleCreate}>
+            <div className="mb-4">
+              <label className="text-xs font-medium text-slate-400 mb-2 block">Nombre de la liga</label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Ej: Los Champions"
+                className="w-full px-4 py-3.5 rounded-2xl bg-white/5 border border-white/10 text-white placeholder-slate-600 text-sm focus:outline-none focus:border-accent/50 focus:bg-white/[0.07] transition-all"
+                maxLength={50}
+                autoFocus
+              />
+            </div>
+
+            {error && (
+              <div className="bg-error/10 border border-error/20 rounded-xl px-3 py-2 mb-4">
+                <p className="text-error text-xs">{error}</p>
+              </div>
+            )}
+
+            <motion.button
+              whileTap={{ scale: 0.95 }}
+              type="submit"
+              disabled={loading || !name.trim()}
+              className="w-full py-3.5 rounded-2xl gradient-gold text-slate-950 font-bold text-sm disabled:opacity-40 flex items-center justify-center gap-2 shadow-lg shadow-amber-500/20 transition-all"
+            >
+              <Plus size={16} strokeWidth={2.5} /> {loading ? 'Creando...' : 'Crear liga'}
+            </motion.button>
+          </form>
         </div>
-
-        <form onSubmit={handleCreate}>
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Nombre de la liga"
-            className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-accent/50 mb-4"
-            maxLength={50}
-            autoFocus
-          />
-
-          {error && (
-            <p className="text-error text-xs mb-3">{error}</p>
-          )}
-
-          <motion.button
-            whileTap={{ scale: 0.95 }}
-            type="submit"
-            disabled={loading || !name.trim()}
-            className="w-full py-3 rounded-xl bg-accent text-primary font-bold text-sm disabled:opacity-50 flex items-center justify-center gap-2"
-          >
-            <Plus size={16} /> {loading ? 'Creando...' : 'Crear liga'}
-          </motion.button>
-        </form>
       </motion.div>
     </motion.div>
   )

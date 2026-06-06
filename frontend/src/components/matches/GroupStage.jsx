@@ -63,30 +63,60 @@ export default function GroupStage() {
   if (loading) return <LoadingSpinner />
 
   return (
-    <div>
-      {/* Selector de grupo */}
-      <div className="flex gap-1.5 overflow-x-auto pb-3 mb-4 scrollbar-hide">
-        {GROUPS.map(group => (
-          <motion.button
-            key={group}
-            whileTap={{ scale: 0.92 }}
-            onClick={() => setSelectedGroup(group)}
-            className={`flex-shrink-0 w-10 h-10 rounded-xl font-bold text-sm transition-all ${
-              selectedGroup === group
-                ? 'bg-accent text-primary shadow-lg shadow-accent/30'
-                : 'glass text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            {group}
-          </motion.button>
-        ))}
+    <div className="relative z-10">
+      {/* Selector de grupo - Premium scrollable chips */}
+      <div className="mb-6">
+        <div className="flex gap-2 overflow-x-auto pb-3 scrollbar-hide px-0.5">
+          {GROUPS.map((group, i) => {
+            const isActive = selectedGroup === group
+            return (
+              <motion.button
+                key={group}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.03 }}
+                whileTap={{ scale: 0.9 }}
+                onClick={() => setSelectedGroup(group)}
+                className={`relative flex-shrink-0 w-12 h-12 rounded-2xl font-bold text-sm transition-all duration-300 ${
+                  isActive
+                    ? 'gradient-gold text-slate-900 shadow-lg shadow-amber-500/30'
+                    : 'glass-strong text-slate-400 hover:text-slate-200 hover:border-white/15'
+                }`}
+              >
+                {/* Active glow ring */}
+                {isActive && (
+                  <motion.div
+                    layoutId="group-glow"
+                    className="absolute inset-0 rounded-2xl ring-2 ring-amber-400/40"
+                    transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                  />
+                )}
+                <span className="relative z-10">{group}</span>
+              </motion.button>
+            )
+          })}
+        </div>
+
+        {/* Active group indicator label */}
+        <motion.p
+          key={selectedGroup}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="text-xs text-slate-500 mt-1 px-1"
+        >
+          Grupo {selectedGroup} · {filteredMatches.length} {filteredMatches.length === 1 ? 'partido' : 'partidos'}
+        </motion.p>
       </div>
 
       {/* Error */}
       {error && (
-        <div className="glass p-3 mb-4 border-error/30 text-error text-sm text-center">
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="glass-card p-4 mb-5 border-error/30 text-error text-sm text-center"
+        >
           {error}
-        </div>
+        </motion.div>
       )}
 
       {/* Lista de partidos */}
@@ -98,12 +128,18 @@ export default function GroupStage() {
           exit={{ opacity: 0, x: -20 }}
           transition={{ duration: 0.2 }}
         >
-          <MatchList
-            matches={filteredMatches}
-            predictions={predictions}
-            onSavePrediction={handleSavePrediction}
-            isLoading={saving}
-          />
+          {filteredMatches.length === 0 ? (
+            <div className="glass-card p-8 text-center">
+              <p className="text-slate-400 text-sm">No hay partidos en este grupo aún</p>
+            </div>
+          ) : (
+            <MatchList
+              matches={filteredMatches}
+              predictions={predictions}
+              onSavePrediction={handleSavePrediction}
+              isLoading={saving}
+            />
+          )}
         </motion.div>
       </AnimatePresence>
     </div>

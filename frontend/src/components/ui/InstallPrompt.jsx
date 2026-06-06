@@ -70,21 +70,21 @@ export default function InstallPrompt() {
         exit={{ opacity: 0, y: 50 }}
         className="fixed bottom-0 left-0 right-0 z-[100] p-4 flex justify-center"
       >
-        <div className="bg-slate-900 border border-accent/20 shadow-[0_0_40px_rgba(45,212,191,0.15)] rounded-2xl w-full max-w-md p-5 relative overflow-hidden">
+        <div className="glass-strong shadow-[0_0_40px_rgba(245,158,11,0.12)] w-full max-w-md p-5 relative overflow-hidden">
           
-          {/* Brillo de fondo */}
-          <div className="absolute top-0 right-0 w-32 h-32 bg-accent/10 rounded-full blur-3xl" />
+          {/* Brillo de fondo — amber glow */}
+          <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
 
           {/* Botón Cerrar */}
           <button 
             onClick={dismissPrompt}
-            className="absolute top-3 right-3 text-slate-400 hover:text-white p-1"
+            className="absolute top-3 right-3 text-slate-400 hover:text-white p-1.5 rounded-xl hover:bg-white/10 transition-all"
           >
             <X size={18} />
           </button>
 
           <div className="flex gap-4 items-start relative z-10">
-            <div className="bg-gradient-to-tr from-accent to-indigo-500 rounded-xl p-3 shadow-lg shadow-accent/20 shrink-0">
+            <div className="gradient-gold rounded-2xl p-3 shadow-lg shadow-amber-500/25 shrink-0">
               <Download className="text-slate-950" size={24} />
             </div>
             
@@ -95,25 +95,26 @@ export default function InstallPrompt() {
               </p>
 
               {isIOS ? (
-                <div className="bg-slate-800/80 rounded-lg p-3 text-sm text-slate-300 border border-white/5 space-y-2">
-                  <p className="font-medium text-white mb-2">En tu iPhone/iPad:</p>
-                  <div className="flex items-center gap-2">
-                    <span className="bg-slate-700 p-1.5 rounded-md"><Share size={14} /></span>
+                <div className="bg-white/5 rounded-2xl p-3.5 text-sm text-slate-300 border border-white/[0.06] space-y-2.5">
+                  <p className="font-semibold text-white mb-2">En tu iPhone/iPad:</p>
+                  <div className="flex items-center gap-2.5">
+                    <span className="bg-amber-500/10 text-amber-400 p-1.5 rounded-lg"><Share size={14} /></span>
                     <span>1. Toca Compartir abajo</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="bg-slate-700 p-1.5 rounded-md"><PlusSquare size={14} /></span>
+                  <div className="flex items-center gap-2.5">
+                    <span className="bg-amber-500/10 text-amber-400 p-1.5 rounded-lg"><PlusSquare size={14} /></span>
                     <span>2. Selecciona "Agregar a inicio"</span>
                   </div>
                 </div>
               ) : (
-                <button
+                <motion.button
+                  whileTap={{ scale: 0.95 }}
                   onClick={handleInstallClick}
-                  className="w-full bg-accent hover:bg-teal-400 text-slate-900 font-bold py-2.5 rounded-xl transition-all shadow-[0_2px_10px_rgba(45,212,191,0.2)] flex justify-center items-center gap-2"
+                  className="w-full gradient-gold text-slate-950 font-bold py-3 rounded-2xl transition-all shadow-lg shadow-amber-500/20 flex justify-center items-center gap-2"
                 >
                   <Download size={18} />
                   Instalar ahora
-                </button>
+                </motion.button>
               )}
             </div>
           </div>

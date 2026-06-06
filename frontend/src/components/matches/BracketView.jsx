@@ -1,6 +1,7 @@
 /* Vista de llaves/bracket para fases eliminatorias */
 import { useState, useEffect } from 'react'
 import { motion } from 'motion/react'
+import { Trophy, Swords } from 'lucide-react'
 import { api } from '../../lib/api'
 import LoadingSpinner from '../ui/LoadingSpinner'
 
@@ -17,56 +18,66 @@ function BracketMatch({ match, index }) {
   const isTBD = match.home_team === 'TBD'
   const isFinished = match.status === 'finished'
 
+  const TeamRow = ({ team, teamCode, goals, isWinner, isTbd }) => (
+    <div className={`flex items-center gap-2.5 py-2 px-2.5 rounded-xl transition-colors ${
+      isWinner ? 'bg-amber-500/10' : ''
+    }`}>
+      {!isTbd ? (
+        <img
+          src={`https://flagcdn.com/w40/${teamCode}.png`}
+          alt={team}
+          className="w-7 h-5 rounded-sm object-cover shadow-sm"
+          loading="lazy"
+        />
+      ) : (
+        <div className="w-7 h-5 rounded-sm bg-slate-700/60 shimmer" />
+      )}
+      <span className={`text-xs flex-1 truncate ${
+        isWinner ? 'text-white font-bold' : isTbd ? 'text-slate-600 italic' : 'text-slate-400'
+      }`}>
+        {team}
+      </span>
+      {isFinished && (
+        <span className={`text-sm font-bold tabular-nums ${
+          isWinner ? 'text-amber-400' : 'text-slate-500'
+        }`}>
+          {goals}
+        </span>
+      )}
+    </div>
+  )
+
+  const homeWins = isFinished && match.home_goals_actual > match.away_goals_actual
+  const awayWins = isFinished && match.away_goals_actual > match.home_goals_actual
+
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.9 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ delay: index * 0.05 }}
-      className={`glass p-3 min-w-[180px] ${isFinished ? 'border-success/20' : ''}`}
+      className={`glass-card p-1.5 min-w-[200px] ${
+        isFinished ? 'border-success/15' : ''
+      }`}
     >
       {/* Equipo local */}
-      <div className={`flex items-center gap-2 py-1.5 ${
-        isFinished && match.home_goals_actual > match.away_goals_actual
-          ? 'text-white font-bold' : 'text-slate-400'
-      }`}>
-        {!isTBD ? (
-          <img
-            src={`https://flagcdn.com/w40/${match.home_team_code}.png`}
-            alt={match.home_team}
-            className="w-6 h-4 rounded object-cover"
-            loading="lazy"
-          />
-        ) : (
-          <div className="w-6 h-4 rounded bg-slate-700" />
-        )}
-        <span className="text-xs flex-1 truncate">{match.home_team}</span>
-        {isFinished && (
-          <span className="text-xs font-bold">{match.home_goals_actual}</span>
-        )}
-      </div>
+      <TeamRow
+        team={match.home_team}
+        teamCode={match.home_team_code}
+        goals={match.home_goals_actual}
+        isWinner={homeWins}
+        isTbd={isTBD}
+      />
 
-      <div className="border-t border-white/5 my-0.5" />
+      <div className="border-t border-white/[0.04] mx-2" />
 
       {/* Equipo visitante */}
-      <div className={`flex items-center gap-2 py-1.5 ${
-        isFinished && match.away_goals_actual > match.home_goals_actual
-          ? 'text-white font-bold' : 'text-slate-400'
-      }`}>
-        {!isTBD ? (
-          <img
-            src={`https://flagcdn.com/w40/${match.away_team_code}.png`}
-            alt={match.away_team}
-            className="w-6 h-4 rounded object-cover"
-            loading="lazy"
-          />
-        ) : (
-          <div className="w-6 h-4 rounded bg-slate-700" />
-        )}
-        <span className="text-xs flex-1 truncate">{match.away_team}</span>
-        {isFinished && (
-          <span className="text-xs font-bold">{match.away_goals_actual}</span>
-        )}
-      </div>
+      <TeamRow
+        team={match.away_team}
+        teamCode={match.away_team_code}
+        goals={match.away_goals_actual}
+        isWinner={awayWins}
+        isTbd={isTBD}
+      />
     </motion.div>
   )
 }
@@ -98,17 +109,37 @@ export default function BracketView() {
     matches: matches.filter(m => m.phase === phase.key)
   })).filter(p => p.matches.length > 0)
 
+  if (phases.length === 0) {
+    return (
+      <div className="glass-card p-10 text-center">
+        <Swords size={32} className="text-slate-600 mx-auto mb-3" />
+        <p className="text-slate-400 text-sm">Las llaves se revelarán cuando termine la fase de grupos</p>
+      </div>
+    )
+  }
+
   return (
-    <div className="overflow-x-auto pb-4">
-      <div className="flex gap-4 min-w-max px-1">
+    <div className="overflow-x-auto pb-4 scrollbar-hide">
+      <div className="flex gap-5 min-w-max px-1 items-start">
         {phases.map((phase) => (
           <div key={phase.key} className="flex flex-col items-center">
             {/* Título de fase */}
-            <div className="mb-3 px-3 py-1 rounded-full bg-accent/10 border border-accent/20">
-              <span className="text-xs font-bold text-accent uppercase tracking-wider">
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className={`mb-4 px-4 py-1.5 rounded-2xl border ${
+                phase.key === 'final'
+                  ? 'gradient-gold text-slate-900 border-transparent shadow-lg shadow-amber-500/20'
+                  : 'glass-strong border-accent/20'
+              }`}
+            >
+              <span className={`text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 ${
+                phase.key === 'final' ? '' : 'text-accent'
+              }`}>
+                {phase.key === 'final' && <Trophy size={12} />}
                 {phase.label}
               </span>
-            </div>
+            </motion.div>
 
             {/* Partidos de esta fase */}
             <div className="flex flex-col gap-3 justify-center flex-1">
@@ -117,7 +148,7 @@ export default function BracketView() {
                   <BracketMatch match={match} index={i} />
                   {/* Línea conectora */}
                   {i < phase.matches.length - 1 && phase.key !== 'final' && phase.key !== 'third_place' && (
-                    <div className="absolute -right-4 top-1/2 w-4 h-px bg-white/10" />
+                    <div className="absolute -right-5 top-1/2 w-5 h-px bg-gradient-to-r from-white/15 to-white/5" />
                   )}
                 </div>
               ))}
@@ -127,9 +158,14 @@ export default function BracketView() {
       </div>
 
       {/* Hint para scroll horizontal */}
-      <p className="text-center text-xs text-slate-500 mt-4 md:hidden">
+      <motion.p
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.5 }}
+        className="text-center text-xs text-slate-600 mt-5 md:hidden"
+      >
         ← Desliza para ver todas las fases →
-      </p>
+      </motion.p>
     </div>
   )
 }

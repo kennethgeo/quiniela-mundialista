@@ -1,4 +1,4 @@
-/* Fila individual del leaderboard */
+/* Fila individual del leaderboard — Diseño Premium */
 import { motion } from 'motion/react'
 import { Trophy } from 'lucide-react'
 
@@ -14,49 +14,52 @@ const medalBg = {
   3: 'bg-bronze/10 border-bronze/30',
 }
 
-export default function LeaderboardRow({ entry, isCurrentUser }) {
-  const isTopThree = entry.rank <= 3
+export default function LeaderboardRow({ entry, position, isCurrentUser }) {
+  const isTopThree = position <= 3
 
   return (
     <motion.div
       layout
       initial={{ opacity: 0, x: -20 }}
       animate={{ opacity: 1, x: 0 }}
-      className={`flex items-center gap-3 p-3 rounded-xl transition-colors ${
+      transition={{ delay: Math.min(position * 0.03, 0.5) }}
+      className={`flex items-center gap-3 p-3.5 rounded-2xl transition-all duration-300 ${
         isCurrentUser
-          ? 'bg-accent/10 border border-accent/20'
-          : 'hover:bg-white/[0.03]'
+          ? 'bg-accent/10 border border-accent/20 shadow-[0_0_20px_rgba(245,158,11,0.08)]'
+          : 'hover:bg-white/[0.04]'
       }`}
     >
       {/* Posición */}
-      <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold ${
+      <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-sm font-bold shrink-0 ${
         isTopThree
-          ? `${medalBg[entry.rank]} border ${medalColors[entry.rank]}`
+          ? `${medalBg[position]} border ${medalColors[position]}`
           : 'bg-white/5 text-slate-500'
       }`}>
-        {isTopThree ? <Trophy size={14} /> : entry.rank}
+        {isTopThree ? <Trophy size={14} /> : position}
       </div>
 
       {/* Avatar */}
-      <div className="w-9 h-9 rounded-full bg-gradient-to-br from-accent/30 to-primary-lighter flex items-center justify-center text-sm font-bold text-accent overflow-hidden">
+      <div className={`w-10 h-10 rounded-full bg-gradient-to-br from-accent/30 to-primary-lighter flex items-center justify-center text-sm font-bold overflow-hidden shrink-0 ${
+        isCurrentUser ? 'ring-2 ring-accent/40' : ''
+      }`}>
         {entry.avatar_url ? (
           <img src={entry.avatar_url} alt="" className="w-full h-full object-cover" />
         ) : (
-          entry.display_name?.charAt(0).toUpperCase() || '?'
+          <span className={isTopThree ? medalColors[position] : 'text-accent'}>{entry.display_name?.charAt(0).toUpperCase() || '?'}</span>
         )}
       </div>
 
       {/* Nombre */}
       <div className="flex-1 min-w-0">
-        <p className={`text-sm font-medium truncate ${isCurrentUser ? 'text-accent' : 'text-slate-200'}`}>
+        <p className={`text-sm font-semibold truncate ${isCurrentUser ? 'text-accent' : 'text-slate-200'}`}>
           {entry.display_name}
-          {isCurrentUser && <span className="text-xs text-slate-400 ml-1">(tú)</span>}
+          {isCurrentUser && <span className="text-xs text-accent/60 ml-1.5">(tú)</span>}
         </p>
       </div>
 
       {/* Puntos */}
-      <div className={`text-right ${isTopThree ? medalColors[entry.rank] : 'text-slate-300'}`}>
-        <span className="text-lg font-bold">{entry.total_points}</span>
+      <div className={`text-right ${isTopThree ? medalColors[position] : 'text-slate-300'}`}>
+        <span className="text-lg font-bold tabular-nums">{entry.total_points}</span>
         <span className="text-xs text-slate-500 ml-1">pts</span>
       </div>
     </motion.div>

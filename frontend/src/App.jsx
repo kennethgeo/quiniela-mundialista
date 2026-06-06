@@ -17,12 +17,12 @@ import LeaguesPage from './pages/LeaguesPage'
 // Layout principal que envuelve las rutas protegidas
 function MainLayout({ children }) {
   return (
-    <div className="min-h-dvh flex flex-col bg-primary text-slate-200">
+    <div className="min-h-dvh flex flex-col bg-primary text-slate-200 bg-world-cup">
       <Navbar />
       
       {/* Contenido principal con padding para el nav inferior en móviles */}
       <main className="flex-1 overflow-y-auto pb-20 md:pb-6 relative z-0">
-        <div className="max-w-2xl mx-auto w-full">
+        <div className="max-w-4xl mx-auto w-full">
           {children}
         </div>
       </main>

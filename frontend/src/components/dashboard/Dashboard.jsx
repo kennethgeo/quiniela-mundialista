@@ -1,38 +1,57 @@
 // Dashboard principal - vista de inicio con resumen del estado del usuario
 import { motion } from 'motion/react'
-import { useAuth } from '../../hooks/useAuth'
 import UserPoints from './UserPoints'
 import UpcomingMatches from './UpcomingMatches'
 import TopRanking from './TopRanking'
 
-export default function Dashboard() {
-  const { profile } = useAuth()
-  const displayName = profile?.display_name || 'Jugador'
+/** Stagger container for child animations */
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.12,
+      delayChildren: 0.1,
+    },
+  },
+}
 
+const itemVariants = {
+  hidden: { opacity: 0, y: 24 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.5, ease: [0.22, 1, 0.36, 1] },
+  },
+}
+
+export default function Dashboard() {
   return (
-    <div className="space-y-6 pb-4">
-      {/* Saludo con animación */}
-      <motion.div
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="space-y-1"
-      >
-        <h2 className="text-2xl font-bold text-white">
-          ¡Hola, {displayName}! 👋
-        </h2>
-        <p className="text-sm text-slate-400">
-          Revisa tus predicciones y sube en el ranking
-        </p>
+    <motion.div
+      variants={containerVariants}
+      initial="hidden"
+      animate="visible"
+      className="space-y-6 pb-6"
+    >
+      {/* ── Puntos del usuario ── */}
+      <motion.div variants={itemVariants}>
+        <UserPoints />
       </motion.div>
 
-      {/* Tarjeta de puntos */}
-      <UserPoints />
+      {/* ── Próximos partidos ── */}
+      <motion.div variants={itemVariants}>
+        <UpcomingMatches />
+      </motion.div>
 
-      {/* Próximos partidos */}
-      <UpcomingMatches />
+      {/* ── Separador visual sutil ── */}
+      <motion.div variants={itemVariants}>
+        <div className="h-px bg-gradient-to-r from-transparent via-white/8 to-transparent" />
+      </motion.div>
 
-      {/* Top ranking */}
-      <TopRanking />
-    </div>
+      {/* ── Top ranking ── */}
+      <motion.div variants={itemVariants}>
+        <TopRanking />
+      </motion.div>
+    </motion.div>
   )
 }

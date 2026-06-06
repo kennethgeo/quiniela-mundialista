@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 
 @theme {
   --color-primary: #0f172a;
@@ -21,9 +22,9 @@
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
-html { font-family: var(--font-family-sans); -webkit-font-smoothing: antialiased; }
+html { font-family: var(--font-family-sans); -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
 body {
-  background: linear-gradient(135deg, #0f172a 0%, #0c1220 50%, #0f172a 100%);
+  background: linear-gradient(135deg, #0a0f1e 0%, #0f172a 30%, #0c1524 60%, #0a0f1e 100%);
   color: #e2e8f0;
   min-height: 100dvh;
   overflow-x: hidden;
@@ -32,38 +33,102 @@ body {
 
 /* ── Utilidades de glassmorphism ── */
 .glass {
-  background: rgba(255,255,255,0.05);
+  background: rgba(255,255,255,0.04);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255,255,255,0.1);
-  border-radius: 16px;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 20px;
 }
 .glass-strong {
-  background: rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.07);
   backdrop-filter: blur(40px);
   -webkit-backdrop-filter: blur(40px);
-  border: 1px solid rgba(255,255,255,0.15);
-  border-radius: 16px;
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 20px;
 }
 .glass-nav {
-  background: rgba(15,23,42,0.85);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  border-top: 1px solid rgba(255,255,255,0.08);
+  background: rgba(10,15,30,0.88);
+  backdrop-filter: blur(30px);
+  -webkit-backdrop-filter: blur(30px);
+  border-top: 1px solid rgba(255,255,255,0.06);
+}
+.glass-card {
+  background: rgba(255,255,255,0.03);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 24px;
+  transition: all 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.glass-card:hover {
+  background: rgba(255,255,255,0.05);
+  border-color: rgba(255,255,255,0.1);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+}
+
+/* ── Patrón de fondo mundialista ── */
+.bg-world-cup {
+  position: relative;
+}
+.bg-world-cup::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at 20% 0%, rgba(245,158,11,0.06) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 100%, rgba(99,102,241,0.04) 0%, transparent 50%),
+    radial-gradient(circle at 50% 50%, rgba(255,255,255,0.01) 0%, transparent 70%);
+  pointer-events: none;
+  z-index: 0;
 }
 
 /* ── Scrollbar personalizado ── */
-::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar { width: 4px; height: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 4px; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
+
+/* ── Ocultar scrollbar (usar con clase scrollbar-hide) ── */
+.scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+.scrollbar-hide::-webkit-scrollbar { display: none; }
 
 /* ── Animaciones ── */
 @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
 @keyframes pulse-glow { 0%,100% { box-shadow: 0 0 20px rgba(245,158,11,0.3); } 50% { box-shadow: 0 0 40px rgba(245,158,11,0.6); } }
 @keyframes float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
-.shimmer { background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.05) 50%, transparent 100%); background-size: 200% 100%; animation: shimmer 2s infinite; }
+@keyframes fade-up { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes scale-in { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
+@keyframes slide-in-right { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes glow-ring {
+  0%, 100% { box-shadow: 0 0 8px rgba(245,158,11,0.2), inset 0 0 8px rgba(245,158,11,0.05); }
+  50% { box-shadow: 0 0 20px rgba(245,158,11,0.4), inset 0 0 12px rgba(245,158,11,0.1); }
+}
+
+.shimmer { background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.04) 50%, transparent 100%); background-size: 200% 100%; animation: shimmer 2.5s infinite; }
 .pulse-glow { animation: pulse-glow 2s infinite; }
 .float { animation: float 3s ease-in-out infinite; }
+.fade-up { animation: fade-up 0.5s ease-out forwards; }
+.scale-in { animation: scale-in 0.3s ease-out forwards; }
+.slide-in-right { animation: slide-in-right 0.4s ease-out forwards; }
+
+/* ── Gradientes reutilizables ── */
+.gradient-gold { background: linear-gradient(135deg, #f59e0b, #fbbf24, #f59e0b); }
+.gradient-accent { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); }
+.gradient-glass-border {
+  position: relative;
+}
+.gradient-glass-border::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0.02));
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
 
 /* ── Safe area para dispositivos con notch ── */
 .pb-safe { padding-bottom: env(safe-area-inset-bottom, 16px); }
@@ -71,3 +136,12 @@ body {
 /* ── Ocultar flechas del input numérico ── */
 input[type='number']::-webkit-inner-spin-button, input[type='number']::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 input[type='number'] { -moz-appearance: textfield; }
+
+/* ── Tap highlight removal for mobile ── */
+button, a, [role="button"] { -webkit-tap-highlight-color: transparent; }
+
+/* ── Focus visible styling ── */
+:focus-visible {
+  outline: 2px solid rgba(245, 158, 11, 0.5);
+  outline-offset: 2px;
+}

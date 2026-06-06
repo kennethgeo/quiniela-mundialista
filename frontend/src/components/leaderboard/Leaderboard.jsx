@@ -1,7 +1,7 @@
 /* Tabla de posiciones con podio animado + Supabase Realtime */
 import { useState, useEffect, useRef } from 'react'
 import { motion } from 'motion/react'
-import { Trophy, Crown, Medal } from 'lucide-react'
+import { Trophy, Crown, Medal, Zap } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import LeaderboardRow from './LeaderboardRow'
@@ -11,60 +11,83 @@ function Podium({ top3 }) {
   if (top3.length < 3) return null
 
   const podiumOrder = [top3[1], top3[0], top3[2]] // Plata, Oro, Bronce
-  const heights = ['h-20', 'h-28', 'h-16']
+  const heights = ['h-24', 'h-36', 'h-20']
+  const avatarSizes = ['w-14 h-14', 'w-18 h-18', 'w-12 h-12']
   const colors = [
-    'from-silver/30 to-silver/5 border-silver/30',
-    'from-gold/30 to-gold/5 border-gold/30',
-    'from-bronze/30 to-bronze/5 border-bronze/30'
+    'from-silver/30 to-silver/5 border-silver/40',
+    'from-gold/40 to-gold/5 border-gold/50',
+    'from-bronze/30 to-bronze/5 border-bronze/40'
   ]
   const icons = [Medal, Crown, Medal]
   const iconColors = ['text-silver', 'text-gold', 'text-bronze']
+  const iconSizes = [18, 24, 16]
   const positions = ['2°', '1°', '3°']
+  const ringColors = ['ring-silver/40', 'ring-gold/50', 'ring-bronze/40']
+  const shadowColors = ['shadow-silver/10', 'shadow-amber-400/20', 'shadow-orange-400/10']
 
   return (
-    <div className="flex items-end justify-center gap-3 mb-8 pt-4">
-      {podiumOrder.map((entry, i) => {
-        const Icon = icons[i]
-        return (
-          <motion.div
-            key={entry.id}
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.15, type: 'spring', stiffness: 200 }}
-            className="flex flex-col items-center"
-          >
-            {/* Avatar */}
-            <div className={`w-12 h-12 rounded-full bg-gradient-to-br from-accent/30 to-primary-lighter flex items-center justify-center text-lg font-bold overflow-hidden mb-2 ${
-              i === 1 ? 'ring-2 ring-gold/50 w-14 h-14' : ''
-            }`}>
-              {entry.avatar_url ? (
-                <img src={entry.avatar_url} alt="" className="w-full h-full object-cover" />
-              ) : (
-                <span className={iconColors[i]}>{entry.display_name?.charAt(0).toUpperCase()}</span>
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.4 }}
+      className="glass-card p-5 mb-5"
+    >
+      <div className="flex items-end justify-center gap-3 pt-6 pb-2">
+        {podiumOrder.map((entry, i) => {
+          const Icon = icons[i]
+          const isFirst = i === 1
+          return (
+            <motion.div
+              key={entry.id}
+              initial={{ opacity: 0, y: 40, scale: 0.8 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              transition={{ delay: i === 1 ? 0 : 0.15 + i * 0.1, type: 'spring', stiffness: 180, damping: 18 }}
+              className="flex flex-col items-center"
+            >
+              {/* Crown glow for 1st place */}
+              {isFirst && (
+                <motion.div
+                  animate={{ y: [0, -4, 0] }}
+                  transition={{ repeat: Infinity, duration: 2, ease: 'easeInOut' }}
+                  className="mb-1"
+                >
+                  <Crown size={20} className="text-gold drop-shadow-[0_0_8px_rgba(255,215,0,0.6)]" />
+                </motion.div>
               )}
-            </div>
 
-            {/* Nombre */}
-            <p className="text-xs font-medium text-slate-300 mb-1 max-w-[80px] truncate text-center">
-              {entry.display_name}
-            </p>
-
-            {/* Puntos */}
-            <p className={`text-sm font-bold mb-2 ${iconColors[i]}`}>
-              {entry.total_points} pts
-            </p>
-
-            {/* Podio */}
-            <div className={`${heights[i]} w-20 rounded-t-xl bg-gradient-to-t ${colors[i]} border border-b-0 flex items-start justify-center pt-2`}>
-              <div className="flex flex-col items-center">
-                <Icon size={16} className={iconColors[i]} />
-                <span className={`text-xs font-bold ${iconColors[i]} mt-0.5`}>{positions[i]}</span>
+              {/* Avatar */}
+              <div className={`${isFirst ? 'w-16 h-16' : avatarSizes[i]} rounded-full bg-gradient-to-br from-accent/30 to-primary-lighter flex items-center justify-center text-lg font-bold overflow-hidden mb-2 ring-2 ${ringColors[i]} shadow-lg ${shadowColors[i]}`}>
+                {entry.avatar_url ? (
+                  <img src={entry.avatar_url} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  <span className={`${iconColors[i]} ${isFirst ? 'text-xl' : 'text-base'} font-bold`}>{entry.display_name?.charAt(0).toUpperCase()}</span>
+                )}
               </div>
-            </div>
-          </motion.div>
-        )
-      })}
-    </div>
+
+              {/* Nombre */}
+              <p className={`text-xs font-semibold text-slate-300 mb-0.5 max-w-[80px] truncate text-center ${isFirst ? 'text-sm text-white' : ''}`}>
+                {entry.display_name}
+              </p>
+
+              {/* Puntos */}
+              <p className={`text-sm font-bold mb-2 ${iconColors[i]}`}>
+                {entry.total_points} pts
+              </p>
+
+              {/* Podio - bloque 3D */}
+              <div className={`${heights[i]} ${isFirst ? 'w-24' : 'w-20'} rounded-t-2xl bg-gradient-to-t ${colors[i]} border border-b-0 flex items-start justify-center pt-3 relative overflow-hidden`}>
+                <div className="flex flex-col items-center relative z-10">
+                  <Icon size={iconSizes[i]} className={`${iconColors[i]} drop-shadow-lg`} />
+                  <span className={`text-sm font-bold ${iconColors[i]} mt-1`}>{positions[i]}</span>
+                </div>
+                {/* Inner shine effect */}
+                <div className="absolute inset-0 bg-gradient-to-b from-white/5 to-transparent pointer-events-none" />
+              </div>
+            </motion.div>
+          )
+        })}
+      </div>
+    </motion.div>
   )
 }
 
@@ -146,25 +169,35 @@ export default function Leaderboard() {
       {/* Podio top 3 */}
       {top3.length >= 3 && <Podium top3={top3} />}
 
-      {/* Tabla completa */}
-      <div className="glass p-2">
-        <div className="flex items-center gap-2 px-3 py-2 mb-1">
-          <Trophy size={16} className="text-accent" />
-          <h3 className="text-sm font-semibold text-slate-300">Ranking en vivo</h3>
-          <span className="text-xs text-slate-500 ml-auto">{entries.length} jugadores</span>
-        </div>
+      {/* Tabla — sólo del 4° en adelante */}
+      {rest.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          className="glass-card p-4"
+        >
+          <div className="flex items-center gap-2 px-2 py-2 mb-2">
+            <div className="flex items-center gap-2">
+              <Zap size={14} className="text-accent" />
+              <h3 className="text-sm font-bold text-white">Clasificación general</h3>
+            </div>
+            <div className="flex-1 h-px bg-gradient-to-r from-white/10 to-transparent ml-2" />
+            <span className="text-xs text-slate-500 font-medium">{entries.length} jugadores</span>
+          </div>
 
-        <div className="space-y-0.5">
-          {entries.map((entry, idx) => (
-            <LeaderboardRow
-              key={entry.id}
-              entry={entry}
-              position={idx + 1}
-              isCurrentUser={entry.id === user?.id}
-            />
-          ))}
-        </div>
-      </div>
+          <div className="space-y-0.5">
+            {rest.map((entry, idx) => (
+              <LeaderboardRow
+                key={entry.id}
+                entry={entry}
+                position={idx + 4}
+                isCurrentUser={entry.id === user?.id}
+              />
+            ))}
+          </div>
+        </motion.div>
+      )}
     </div>
   )
 }
