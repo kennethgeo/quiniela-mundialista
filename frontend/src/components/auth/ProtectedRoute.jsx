@@ -4,7 +4,7 @@ import { useAuth } from '../../hooks/useAuth'
 import { supabase } from '../../lib/supabase'
 import LoadingSpinner from '../ui/LoadingSpinner'
 
-export default function ProtectedRoute() {
+export default function ProtectedRoute({ children }) {
   const { user, loading: authLoading } = useAuth()
   const [isEmailVerified, setIsEmailVerified] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
@@ -81,5 +81,5 @@ export default function ProtectedRoute() {
     )
   }
 
-  return <Outlet />
+  return children ? children : <Outlet />
 }
