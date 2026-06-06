@@ -23,22 +23,27 @@ function MainLayout({ children }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
 
   return (
-    <div className="min-h-dvh flex flex-col bg-primary text-slate-200 bg-world-cup relative">
-      {/* Navbar solo en móvil */}
-      <div className="md:hidden">
-        <Navbar onMenuClick={() => setIsSidebarOpen(true)} />
-      </div>
-      
+    <div className="min-h-dvh flex bg-primary text-slate-200 bg-world-cup relative w-full overflow-hidden">
       <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
       
-      {/* Contenido principal: expandido en PC con padding izquierdo para evadir el sidebar */}
-      <main className="flex-1 w-full overflow-y-auto pb-20 md:pb-6 md:pl-64 relative z-0 min-h-dvh">
-        <div className="w-full max-w-5xl mx-auto px-4 sm:px-6 md:py-8 relative h-full">
-          {children}
+      {/* Contenedor del contenido que toma el resto de la pantalla y se empuja a la derecha en PC */}
+      <div className="flex-1 flex flex-col min-w-0 md:ml-64 min-h-dvh transition-all duration-300 relative z-0">
+        
+        {/* Navbar solo en móvil */}
+        <div className="md:hidden flex-none w-full">
+          <Navbar onMenuClick={() => setIsSidebarOpen(true)} />
         </div>
-      </main>
+        
+        <main className="flex-1 w-full overflow-y-auto pb-20 md:pb-6 relative z-0">
+          <div className="w-full max-w-5xl mx-auto px-4 sm:px-6 md:py-8 h-full">
+            {children}
+          </div>
+        </main>
 
-      <BottomNav />
+        <div className="md:hidden">
+          <BottomNav />
+        </div>
+      </div>
     </div>
   )
 }
