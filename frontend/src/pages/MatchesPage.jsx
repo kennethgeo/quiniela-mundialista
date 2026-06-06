@@ -18,8 +18,8 @@ export default function MatchesPage() {
             <Trophy size={20} className="text-slate-900" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-white tracking-tight">Fase de Grupos</h1>
-            <p className="text-xs text-slate-400 flex items-center gap-1.5">
+            <h1 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight">Fase de Grupos</h1>
+            <p className="text-xs text-slate-600 dark:text-slate-400 flex items-center gap-1.5">
               <Calendar size={12} />
               <span>FIFA World Cup 2026™</span>
               <span className="w-1 h-1 rounded-full bg-accent inline-block" />
@@ -29,7 +29,7 @@ export default function MatchesPage() {
         </div>
 
         {/* Decorative line */}
-        <div className="mt-4 h-px w-full bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+        <div className="mt-4 h-px w-full bg-gradient-to-r from-transparent via-slate-300 dark:via-white/10 to-transparent" />
       </motion.div>
 
       <GroupStage />

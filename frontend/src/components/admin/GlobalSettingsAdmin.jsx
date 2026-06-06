@@ -132,7 +132,7 @@ export default function GlobalSettingsAdmin() {
               rows="3"
               value={formState.prizes_text}
               onChange={(e) => setFormState({...formState, prizes_text: e.target.value})}
-              className="w-full bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-accent"
+              className="w-full bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-white/10 rounded-xl px-4 py-3 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-accent"
               placeholder="Detalla qué ganarán los primeros lugares..."
             />
           </div>
@@ -143,7 +143,7 @@ export default function GlobalSettingsAdmin() {
               rows="3"
               value={formState.rules_text}
               onChange={(e) => setFormState({...formState, rules_text: e.target.value})}
-              className="w-full bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-accent"
+              className="w-full bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-white/10 rounded-xl px-4 py-3 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-accent"
               placeholder="Explica cómo funcionan los puntos..."
             />
           </div>
@@ -154,7 +154,7 @@ export default function GlobalSettingsAdmin() {
               rows="3"
               value={formState.powers_text}
               onChange={(e) => setFormState({...formState, powers_text: e.target.value})}
-              className="w-full bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-accent"
+              className="w-full bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-white/10 rounded-xl px-4 py-3 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-accent"
               placeholder="Explica qué son los poderes especiales..."
             />
           </div>
@@ -170,7 +170,7 @@ export default function GlobalSettingsAdmin() {
               type="url"
               value={formState.whatsapp_link}
               onChange={(e) => setFormState({...formState, whatsapp_link: e.target.value})}
-              className="w-full bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-accent"
+              className="w-full bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-white/10 rounded-xl px-4 py-3 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-accent"
               placeholder="https://chat.whatsapp.com/..."
             />
           </div>
@@ -183,7 +183,7 @@ export default function GlobalSettingsAdmin() {
               type="datetime-local"
               value={formState.prediction_deadline}
               onChange={(e) => setFormState({...formState, prediction_deadline: e.target.value})}
-              className="w-full bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-accent"
+              className="w-full bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-white/10 rounded-xl px-4 py-3 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-accent"
             />
           </div>
         </div>

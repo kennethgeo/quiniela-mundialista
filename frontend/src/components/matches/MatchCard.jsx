@@ -104,7 +104,7 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className={`glass-card p-5 relative overflow-hidden ${
+      className={`glass-card bg-white dark:bg-transparent border border-slate-200 dark:border-white/10 shadow-sm dark:shadow-none p-5 relative overflow-hidden ${
         usePowerup
           ? 'ring-1 ring-accent/60 shadow-[0_0_25px_rgba(245,158,11,0.15)]'
           : ''
@@ -137,11 +137,11 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
               EN VIVO
             </span>
           ) : isFinished ? (
-            <span className="flex items-center gap-1 text-[11px] text-slate-500 bg-white/5 px-2 py-0.5 rounded-full">
+            <span className="flex items-center gap-1 text-[11px] text-slate-600 dark:text-slate-500 bg-slate-100 dark:bg-white/5 px-2 py-0.5 rounded-full">
               <Check size={11} /> Finalizado
             </span>
           ) : (
-            <span className="flex items-center gap-1 text-[11px] text-slate-400 font-medium bg-white/5 px-2 py-0.5 rounded-full tabular-nums">
+            <span className="flex items-center gap-1 text-[11px] text-slate-600 dark:text-slate-400 font-medium bg-slate-100 dark:bg-white/5 px-2 py-0.5 rounded-full tabular-nums">
               <Timer size={11} /> {countdown}
             </span>
           )}
@@ -156,13 +156,13 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
       {/* ═══ Modalidad Toggle ═══ */}
       {!isLocked && !isFinished && !isInProgress && (
         <div className="flex justify-center mb-6 relative z-10">
-          <div className="glass-strong p-1 rounded-2xl flex gap-1">
+          <div className="bg-slate-100 dark:glass-strong p-1 rounded-2xl flex gap-1 border border-slate-200 dark:border-transparent">
             <button
               onClick={() => setPredictionType('Marcador')}
               className={`px-4 py-1.5 text-xs font-bold rounded-xl transition-all duration-200 ${
                 predictionType === 'Marcador'
-                  ? 'gradient-2026 text-slate-900 shadow-sm shadow-purple-500/20'
-                  : 'text-slate-400 hover:text-white'
+                  ? 'gradient-2026 text-white dark:text-slate-900 shadow-sm shadow-purple-500/20'
+                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
               Marcador Exacto
@@ -171,8 +171,8 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
               onClick={() => setPredictionType('Solo_Ganador')}
               className={`px-4 py-1.5 text-xs font-bold rounded-xl transition-all duration-200 ${
                 predictionType === 'Solo_Ganador'
-                  ? 'gradient-2026 text-slate-900 shadow-sm shadow-purple-500/20'
-                  : 'text-slate-400 hover:text-white'
+                  ? 'gradient-2026 text-white dark:text-slate-900 shadow-sm shadow-purple-500/20'
+                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
               Solo Ganador
@@ -193,7 +193,7 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
               loading="lazy"
             />
           </div>
-          <p className="text-sm font-bold text-slate-200 truncate leading-tight">{match.home_team}</p>
+          <p className="text-sm font-bold text-slate-900 dark:text-slate-200 truncate leading-tight">{match.home_team}</p>
         </div>
 
         {/* Input area */}
@@ -207,29 +207,29 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
                 </div>
               )}
               <div className="flex items-center gap-3">
-                <span className="text-3xl font-black text-white tabular-nums">
+                <span className="text-3xl font-black text-slate-900 dark:text-white tabular-nums">
                   {match.home_goals_actual ?? '-'}
                 </span>
-                <span className="text-slate-600 text-xl font-light">:</span>
-                <span className="text-3xl font-black text-white tabular-nums">
+                <span className="text-slate-400 dark:text-slate-600 text-xl font-light">:</span>
+                <span className="text-3xl font-black text-slate-900 dark:text-white tabular-nums">
                   {match.away_goals_actual ?? '-'}
                 </span>
               </div>
               {prediction && prediction.prediction_type === 'Marcador' && (
-                <p className="text-[11px] text-slate-500 mt-1.5 bg-white/5 px-2 py-0.5 rounded-full inline-block">
+                <p className="text-[11px] text-slate-600 dark:text-slate-500 mt-1.5 bg-slate-100 dark:bg-white/5 px-2 py-0.5 rounded-full inline-block">
                   ({prediction.home_goals_pred} - {prediction.away_goals_pred})
                 </p>
               )}
               {prediction && prediction.prediction_type === 'Solo_Ganador' && (
-                <p className="text-[11px] text-slate-500 mt-1.5 bg-white/5 px-2 py-0.5 rounded-full inline-block">
+                <p className="text-[11px] text-slate-600 dark:text-slate-500 mt-1.5 bg-slate-100 dark:bg-white/5 px-2 py-0.5 rounded-full inline-block">
                   ({prediction.home_goals_pred > prediction.away_goals_pred ? match.home_team : 
                     prediction.away_goals_pred > prediction.home_goals_pred ? match.away_team : 'Empate'})
                 </p>
               )}
               {/* Goalscorers block */}
               {match.events_json && match.events_json.length > 0 && (
-                <div className="flex justify-between w-full mt-2 text-[10px] text-slate-400 max-w-[200px]">
-                  <div className="flex-1 text-right pr-2 border-r border-white/10">
+                <div className="flex justify-between w-full mt-2 text-[10px] text-slate-600 dark:text-slate-400 max-w-[200px]">
+                  <div className="flex-1 text-right pr-2 border-r border-slate-200 dark:border-white/10">
                     {match.events_json.filter(e => e.team === 'home').map((e, idx) => (
                       <div key={idx}>⚽ {e.athlete} {e.time}</div>
                     ))}
@@ -254,7 +254,7 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
                   className="flex items-center gap-3"
                 >
                   <GoalCounter value={homeGoals} onChange={setHomeGoals} disabled={isLocked} />
-                  <span className="text-slate-600 text-2xl font-light mt-0.5">:</span>
+                  <span className="text-slate-400 dark:text-slate-600 text-2xl font-light mt-0.5">:</span>
                   <GoalCounter value={awayGoals} onChange={setAwayGoals} disabled={isLocked} />
                 </motion.div>
               ) : (
@@ -269,8 +269,8 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
                     onClick={() => setWinnerSolo('home')}
                     className={`py-2 text-xs font-bold rounded-xl border transition-all duration-200 ${
                       winnerSolo === 'home'
-                        ? 'gradient-2026 text-slate-900 border-transparent shadow-sm shadow-purple-500/20'
-                        : 'glass-strong border-white/5 text-slate-400 hover:text-white'
+                        ? 'gradient-2026 text-white dark:text-slate-900 border-transparent shadow-sm shadow-purple-500/20'
+                        : 'bg-slate-100 dark:glass-strong border-slate-200 dark:border-white/5 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                     }`}
                   >
                     Local
@@ -279,8 +279,8 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
                     onClick={() => setWinnerSolo('tie')}
                     className={`py-2 text-xs font-bold rounded-xl border transition-all duration-200 ${
                       winnerSolo === 'tie'
-                        ? 'gradient-2026 text-slate-900 border-transparent shadow-sm shadow-purple-500/20'
-                        : 'glass-strong border-white/5 text-slate-400 hover:text-white'
+                        ? 'gradient-2026 text-white dark:text-slate-900 border-transparent shadow-sm shadow-purple-500/20'
+                        : 'bg-slate-100 dark:glass-strong border-slate-200 dark:border-white/5 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                     }`}
                   >
                     Empate
@@ -289,8 +289,8 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
                     onClick={() => setWinnerSolo('away')}
                     className={`py-2 text-xs font-bold rounded-xl border transition-all duration-200 ${
                       winnerSolo === 'away'
-                        ? 'gradient-2026 text-slate-900 border-transparent shadow-sm shadow-purple-500/20'
-                        : 'glass-strong border-white/5 text-slate-400 hover:text-white'
+                        ? 'gradient-2026 text-white dark:text-slate-900 border-transparent shadow-sm shadow-purple-500/20'
+                        : 'bg-slate-100 dark:glass-strong border-slate-200 dark:border-white/5 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                     }`}
                   >
                     Visitante
@@ -311,7 +311,7 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
               loading="lazy"
             />
           </div>
-          <p className="text-sm font-bold text-slate-200 truncate leading-tight">{match.away_team}</p>
+          <p className="text-sm font-bold text-slate-900 dark:text-slate-200 truncate leading-tight">{match.away_team}</p>
         </div>
       </div>
 
@@ -320,9 +320,9 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
         <motion.div
           initial={{ opacity: 0, height: 0 }}
           animate={{ opacity: 1, height: 'auto' }}
-          className="mt-5 p-3.5 glass-strong rounded-2xl"
+          className="mt-5 p-3.5 bg-slate-100 dark:glass-strong rounded-2xl"
         >
-          <p className="text-[11px] text-center text-slate-400 mb-2.5 uppercase tracking-wider font-semibold">
+          <p className="text-[11px] text-center text-slate-600 dark:text-slate-400 mb-2.5 uppercase tracking-wider font-semibold">
             ¿Quién gana en penales?
           </p>
           <div className="flex gap-2">
@@ -330,8 +330,8 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
               onClick={() => setPenaltiesWinner(match.home_team)}
               className={`flex-1 py-2.5 text-xs font-bold rounded-xl transition-all duration-200 border ${
                 penaltiesWinner === match.home_team
-                  ? 'gradient-2026 text-slate-900 border-transparent shadow-sm'
-                  : 'bg-white/5 border-white/5 text-slate-300 hover:bg-white/10'
+                  ? 'gradient-2026 text-white dark:text-slate-900 border-transparent shadow-sm'
+                  : 'bg-white dark:bg-white/5 border-slate-200 dark:border-white/5 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/10'
               }`}
             >
               {match.home_team}
@@ -340,8 +340,8 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
               onClick={() => setPenaltiesWinner(match.away_team)}
               className={`flex-1 py-2.5 text-xs font-bold rounded-xl transition-all duration-200 border ${
                 penaltiesWinner === match.away_team
-                  ? 'gradient-2026 text-slate-900 border-transparent shadow-sm'
-                  : 'bg-white/5 border-white/5 text-slate-300 hover:bg-white/10'
+                  ? 'gradient-2026 text-white dark:text-slate-900 border-transparent shadow-sm'
+                  : 'bg-white dark:bg-white/5 border-slate-200 dark:border-white/5 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/10'
               }`}
             >
               {match.away_team}
@@ -365,7 +365,7 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
       )}
 
       {/* ═══ Separator ═══ */}
-      <div className="mt-5 mb-4 h-px w-full bg-gradient-to-r from-transparent via-white/[0.06] to-transparent relative z-10" />
+      <div className="mt-5 mb-4 h-px w-full bg-gradient-to-r from-transparent via-slate-200 dark:via-white/[0.06] to-transparent relative z-10" />
 
       {/* ═══ Footer: Powerup y Guardar / Resultados ═══ */}
       <div className="flex items-center justify-between relative z-10">
@@ -390,7 +390,7 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
               className={`flex items-center gap-1.5 px-3.5 py-2.5 rounded-2xl text-xs font-bold transition-all duration-200 border ${
                 usePowerup
                   ? 'bg-accent/15 text-accent border-accent/40 shadow-sm shadow-purple-500/10'
-                  : 'glass-strong text-slate-400 border-white/5 hover:text-white hover:border-white/10'
+                  : 'bg-slate-100 dark:glass-strong text-slate-600 dark:text-slate-400 border-slate-200 dark:border-white/5 hover:text-slate-900 dark:hover:text-white hover:border-slate-300 dark:hover:border-white/10'
               }`}
             >
               <Zap size={14} className={usePowerup ? 'fill-current' : ''} />
@@ -402,7 +402,7 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
               whileTap={{ scale: 0.95 }}
               onClick={handleSave}
               disabled={isLoading || (predictionType === 'Solo_Ganador' && !winnerSolo) || (isKnockout && isTiePredicted && !penaltiesWinner)}
-              className="flex-1 ml-3 py-2.5 rounded-2xl gradient-2026 text-slate-900 font-bold text-sm shadow-lg shadow-purple-500/20 hover:shadow-purple-500/30 transition-all duration-200 disabled:opacity-40 disabled:shadow-none disabled:bg-slate-700 disabled:text-slate-400 disabled:bg-none"
+              className="flex-1 ml-3 py-2.5 rounded-2xl gradient-2026 text-white dark:text-slate-900 font-bold text-sm shadow-lg shadow-purple-500/20 hover:shadow-purple-500/30 transition-all duration-200 disabled:opacity-40 disabled:shadow-none disabled:bg-slate-200 dark:disabled:bg-slate-700 disabled:text-slate-500 dark:disabled:text-slate-400 disabled:bg-none"
             >
               {isLoading ? '...' : prediction ? 'Actualizar' : 'Guardar'}
             </motion.button>

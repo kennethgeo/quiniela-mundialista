@@ -16,8 +16,8 @@ export default function LeaderboardPage() {
           <Crown size={22} className="text-slate-950" />
         </div>
         <div>
-          <h1 className="text-xl font-bold text-white tracking-tight">Ranking</h1>
-          <p className="text-xs text-slate-500 flex items-center gap-1">
+          <h1 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight">Ranking</h1>
+          <p className="text-xs text-slate-600 dark:text-slate-400 flex items-center gap-1.5">
             <Sparkles size={10} className="text-amber-400" />
             Tabla de posiciones en vivo
           </p>

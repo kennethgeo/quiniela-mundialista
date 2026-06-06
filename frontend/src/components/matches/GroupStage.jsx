@@ -94,7 +94,7 @@ export default function GroupStage() {
                 className={`relative flex-shrink-0 w-12 h-12 rounded-2xl font-bold text-sm transition-all duration-300 ${
                   isActive
                     ? 'gradient-gold text-slate-900 shadow-lg shadow-amber-500/30'
-                    : 'glass-strong text-slate-400 hover:text-slate-200 hover:border-white/15'
+                    : 'glass-strong text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:border-slate-300 dark:hover:border-white/15 bg-white dark:bg-transparent'
                 }`}
               >
                 {/* Active glow ring */}
@@ -143,8 +143,8 @@ export default function GroupStage() {
           transition={{ duration: 0.2 }}
         >
           {filteredMatches.length === 0 ? (
-            <div className="glass-card p-8 text-center">
-              <p className="text-slate-400 text-sm">No hay partidos en este grupo aún</p>
+            <div className="glass-card bg-white dark:bg-transparent p-8 text-center">
+              <p className="text-slate-600 dark:text-slate-400 text-sm">No hay partidos en este grupo aún</p>
             </div>
           ) : (
             <>

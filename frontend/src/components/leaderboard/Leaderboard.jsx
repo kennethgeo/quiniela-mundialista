@@ -65,7 +65,7 @@ function Podium({ top3 }) {
               </div>
 
               {/* Nombre */}
-              <p className={`text-xs font-semibold text-slate-300 mb-0.5 max-w-[80px] truncate text-center ${isFirst ? 'text-sm text-white' : ''}`}>
+              <p className={`text-xs font-semibold text-slate-600 dark:text-slate-300 mb-0.5 max-w-[80px] truncate text-center ${isFirst ? 'text-sm text-slate-900 dark:text-white' : ''}`}>
                 {entry.display_name}
               </p>
 
@@ -181,7 +181,7 @@ export default function Leaderboard() {
           <div className="glass p-3">
             <div className="flex items-center gap-2 px-3 py-2.5 mb-2">
               <Trophy size={16} className="text-accent" />
-              <h3 className="text-sm font-bold text-slate-300">Ranking en vivo</h3>
+              <h3 className="text-sm font-bold text-slate-900 dark:text-slate-300">Ranking en vivo</h3>
               <span className="text-xs text-slate-500 ml-auto">{entries.length} jugadores</span>
             </div>
 

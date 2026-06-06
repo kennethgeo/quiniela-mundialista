@@ -187,7 +187,7 @@ export default function AdminPage() {
                 <div className="flex items-center justify-between gap-4">
                   <div className="flex items-center gap-2 flex-1">
                     <img src={`https://flagcdn.com/w40/${match.home_team_code}.png`} alt="" className="w-6 h-4 rounded-sm object-cover" />
-                    <span className="text-sm font-bold text-white truncate">{match.home_team}</span>
+                    <span className="text-sm font-bold text-slate-900 dark:text-white truncate">{match.home_team}</span>
                   </div>
 
                   {isEditing ? (
@@ -196,7 +196,7 @@ export default function AdminPage() {
                         type="number" 
                         value={formState.home_goals_actual} 
                         onChange={(e) => setFormState({...formState, home_goals_actual: e.target.value})}
-                        className="w-10 h-8 bg-slate-900 border border-white/10 rounded text-center text-sm font-bold text-white"
+                        className="w-10 h-8 bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-white/10 rounded text-center text-sm font-bold text-slate-900 dark:text-white"
                         placeholder="-"
                       />
                       <span className="text-slate-500 font-bold">:</span>
@@ -204,20 +204,20 @@ export default function AdminPage() {
                         type="number" 
                         value={formState.away_goals_actual} 
                         onChange={(e) => setFormState({...formState, away_goals_actual: e.target.value})}
-                        className="w-10 h-8 bg-slate-900 border border-white/10 rounded text-center text-sm font-bold text-white"
+                        className="w-10 h-8 bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-white/10 rounded text-center text-sm font-bold text-slate-900 dark:text-white"
                         placeholder="-"
                       />
                     </div>
                   ) : (
-                    <div className="flex items-center gap-2 px-3 py-1 bg-black/20 rounded-lg">
-                      <span className="text-lg font-black text-white">{match.home_goals_actual ?? '-'}</span>
+                    <div className="flex items-center gap-2 px-3 py-1 bg-slate-200 dark:bg-black/20 rounded-lg">
+                      <span className="text-lg font-black text-slate-900 dark:text-white">{match.home_goals_actual ?? '-'}</span>
                       <span className="text-slate-500 font-bold">:</span>
-                      <span className="text-lg font-black text-white">{match.away_goals_actual ?? '-'}</span>
+                      <span className="text-lg font-black text-slate-900 dark:text-white">{match.away_goals_actual ?? '-'}</span>
                     </div>
                   )}
 
                   <div className="flex items-center gap-2 flex-1 justify-end">
-                    <span className="text-sm font-bold text-white truncate text-right">{match.away_team}</span>
+                    <span className="text-sm font-bold text-slate-900 dark:text-white truncate text-right">{match.away_team}</span>
                     <img src={`https://flagcdn.com/w40/${match.away_team_code}.png`} alt="" className="w-6 h-4 rounded-sm object-cover" />
                   </div>
                 </div>
@@ -229,7 +229,7 @@ export default function AdminPage() {
                       <select 
                         value={formState.status}
                         onChange={(e) => setFormState({...formState, status: e.target.value})}
-                        className="w-full bg-slate-900 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-accent"
+                        className="w-full bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-accent"
                       >
                         <option value="pending">Pendiente / Programado</option>
                         <option value="in_progress">En Vivo</option>
@@ -242,7 +242,7 @@ export default function AdminPage() {
                         type="datetime-local"
                         value={formState.kickoff_at}
                         onChange={(e) => setFormState({...formState, kickoff_at: e.target.value})}
-                        className="w-full bg-slate-900 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-accent"
+                        className="w-full bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-accent"
                       />
                     </div>
                   </div>
@@ -254,7 +254,7 @@ export default function AdminPage() {
                        <Clock size={10} /> 
                        {new Date(match.kickoff_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
                      </span>
-                     <span className={`font-semibold ${match.status === 'in_progress' ? 'text-accent' : match.status === 'finished' ? 'text-slate-400' : 'text-slate-300'}`}>
+                     <span className={`font-semibold ${match.status === 'in_progress' ? 'text-accent' : match.status === 'finished' ? 'text-slate-500 dark:text-slate-400' : 'text-slate-600 dark:text-slate-300'}`}>
                        {match.status === 'in_progress' ? 'En Vivo' : match.status === 'finished' ? 'Finalizado' : 'Pendiente'}
                      </span>
                    </div>

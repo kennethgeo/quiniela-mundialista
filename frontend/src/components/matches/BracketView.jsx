@@ -33,7 +33,7 @@ function BracketMatch({ match, index }) {
         <div className="w-7 h-5 rounded-sm bg-slate-700/60 shimmer" />
       )}
       <span className={`text-xs flex-1 truncate ${
-        isWinner ? 'text-white font-bold' : isTbd ? 'text-slate-600 italic' : 'text-slate-400'
+        isWinner ? 'text-slate-900 dark:text-white font-bold' : isTbd ? 'text-slate-500 dark:text-slate-600 italic' : 'text-slate-600 dark:text-slate-400'
       }`}>
         {team}
       </span>

@@ -18,8 +18,8 @@ export default function BracketPage() {
             <Swords size={20} className="text-slate-900" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-white tracking-tight">Fases Eliminatorias</h1>
-            <p className="text-xs text-slate-400 flex items-center gap-1.5">
+            <h1 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight">Fases Eliminatorias</h1>
+            <p className="text-xs text-slate-600 dark:text-slate-400 flex items-center gap-1.5">
               <Sparkles size={12} className="text-accent" />
               <span>FIFA World Cup 2026™</span>
               <span className="w-1 h-1 rounded-full bg-accent inline-block" />
