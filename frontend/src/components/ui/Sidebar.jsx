@@ -80,8 +80,8 @@ export default function Sidebar({ isOpen, onClose }) {
                       whileTap={{ scale: 0.98 }}
                       className={`flex items-center gap-3.5 px-4 py-3 rounded-2xl transition-all duration-300 ${
                         isActive 
-                          ? 'bg-white/10 text-white shadow-[0_4px_24px_rgba(255,255,255,0.05)] border border-white/10' 
-                          : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 border border-transparent'
+                          ? 'bg-slate-200/80 dark:bg-white/10 text-slate-900 dark:text-white shadow-[0_4px_24px_rgba(0,0,0,0.05)] dark:shadow-[0_4px_24px_rgba(255,255,255,0.05)] border border-slate-300/50 dark:border-white/10' 
+                          : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/5 border border-transparent'
                       }`}
                     >
                       <div className="relative">
@@ -90,7 +90,7 @@ export default function Sidebar({ isOpen, onClose }) {
                           <div className="absolute inset-0 bg-accent/20 blur-md rounded-full" />
                         )}
                       </div>
-                      <span className={`text-sm font-semibold ${isActive ? 'text-white' : ''}`}>
+                      <span className={`text-sm font-semibold ${isActive ? 'text-slate-900 dark:text-white' : ''}`}>
                         {label}
                       </span>
                     </motion.div>

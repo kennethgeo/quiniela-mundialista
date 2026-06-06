@@ -91,10 +91,10 @@ export default function GroupStandings({ matches }) {
               const isQualified = index < 2
               return (
                 <tr key={team.name} className={`transition-colors relative group ${isQualified ? 'bg-accent/[0.03] hover:bg-accent/[0.08]' : 'hover:bg-slate-50 dark:hover:bg-white/[0.04]'}`}>
-                  {isQualified && (
-                    <td className="absolute left-0 top-0 bottom-0 w-0.5 bg-accent shadow-[0_0_8px_rgba(168,85,247,0.8)]"></td>
-                  )}
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-3 relative">
+                    {isQualified && (
+                      <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-accent shadow-[0_0_8px_rgba(168,85,247,0.8)]"></div>
+                    )}
                     <span className={`flex items-center justify-center w-6 h-6 rounded-full text-[11px] font-black mx-auto ${
                       isQualified ? 'bg-gradient-to-br from-accent to-purple-600 text-white shadow-lg shadow-purple-500/30' : 'text-slate-500 bg-slate-100 dark:bg-slate-800/50'
                     }`}>
