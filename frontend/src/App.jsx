@@ -5,6 +5,7 @@ import { useAuth } from './hooks/useAuth'
 import Navbar from './components/ui/Navbar'
 import BottomNav from './components/ui/BottomNav'
 import ProtectedRoute from './components/auth/ProtectedRoute'
+import InstallPrompt from './components/ui/InstallPrompt'
 
 import AuthPage from './pages/AuthPage'
 import DashboardPage from './pages/DashboardPage'
@@ -105,6 +106,7 @@ function App() {
   return (
     <Router>
       <AuthProvider>
+        <InstallPrompt />
         <AppRoutes />
       </AuthProvider>
     </Router>
