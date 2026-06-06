@@ -1,13 +1,15 @@
 /* Vista de fase de grupos con filtro por grupo */
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
-import { api } from '../../lib/api'
+import { supabase } from '../../lib/supabase'
+import { useAuth } from '../../hooks/useAuth'
 import MatchList from './MatchList'
 import LoadingSpinner from '../ui/LoadingSpinner'
 
 const GROUPS = ['A','B','C','D','E','F','G','H','I','J','K','L']
 
 export default function GroupStage() {
+  const { profile } = useAuth()
   const [selectedGroup, setSelectedGroup] = useState('A')
   const [matches, setMatches] = useState([])
   const [predictions, setPredictions] = useState([])
@@ -18,14 +20,19 @@ export default function GroupStage() {
   // Cargar partidos de fase de grupos
   useEffect(() => {
     const fetchData = async () => {
+      if (!profile) return
       try {
         setLoading(true)
-        const [matchesData, predsData] = await Promise.all([
-          api.get('/api/matches?phase=groups'),
-          api.get('/api/predictions/mine')
+        const [matchesRes, predsRes] = await Promise.all([
+          supabase.from('matches').select('*').eq('phase', 'groups'),
+          supabase.from('predictions').select('*').eq('user_id', profile.id)
         ])
-        setMatches(matchesData)
-        setPredictions(predsData)
+        
+        if (matchesRes.error) throw matchesRes.error
+        if (predsRes.error) throw predsRes.error
+        
+        setMatches(matchesRes.data || [])
+        setPredictions(predsRes.data || [])
       } catch (err) {
         setError(err.message)
       } finally {
@@ -33,7 +40,7 @@ export default function GroupStage() {
       }
     }
     fetchData()
-  }, [])
+  }, [profile])
 
   // Filtrar partidos por grupo seleccionado
   const filteredMatches = matches.filter(m => m.group_name === selectedGroup)
@@ -42,7 +49,13 @@ export default function GroupStage() {
   const handleSavePrediction = async (prediction) => {
     try {
       setSaving(true)
-      const result = await api.post('/api/predictions', prediction)
+      const { data: result, error: saveError } = await supabase
+        .from('predictions')
+        .upsert({ ...prediction, user_id: profile.id }, { onConflict: 'user_id, match_id' })
+        .select()
+        
+      if (saveError) throw saveError
+      
       // Actualizar predicciones locales
       setPredictions(prev => {
         const existing = prev.findIndex(p => p.match_id === prediction.match_id)
@@ -51,7 +64,7 @@ export default function GroupStage() {
           updated[existing] = { ...updated[existing], ...prediction }
           return updated
         }
-        return [...prev, result.data?.[0] || prediction]
+        return [...prev, result?.[0] || prediction]
       })
     } catch (err) {
       setError(err.message)

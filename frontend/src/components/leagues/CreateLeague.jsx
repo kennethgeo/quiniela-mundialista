@@ -2,21 +2,39 @@
 import { useState } from 'react'
 import { motion } from 'motion/react'
 import { X, Plus, Shield } from 'lucide-react'
-import { api } from '../../lib/api'
+import { supabase } from '../../lib/supabase'
+import { useAuth } from '../../hooks/useAuth'
 
 export default function CreateLeague({ onClose, onCreated }) {
+  const { profile } = useAuth()
   const [name, setName] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
   const handleCreate = async (e) => {
     e.preventDefault()
-    if (!name.trim()) return
+    if (!name.trim() || !profile) return
 
     try {
       setLoading(true)
       setError(null)
-      await api.post('/api/leagues', { name: name.trim() })
+      
+      const code = Math.random().toString(36).substring(2, 8).toUpperCase()
+      
+      const { data: league, error: createError } = await supabase
+        .from('leagues')
+        .insert({ name: name.trim(), created_by: profile.id, invitation_code: code, member_count: 1 })
+        .select()
+        .single()
+        
+      if (createError) throw createError
+      
+      const { error: joinError } = await supabase
+        .from('league_members')
+        .insert({ league_id: league.id, user_id: profile.id, role: 'admin', points: 0 })
+        
+      if (joinError) throw joinError
+      
       onCreated()
     } catch (err) {
       setError(err.message)

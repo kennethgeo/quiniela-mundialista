@@ -2,12 +2,14 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'motion/react'
 import { Users, Plus, LogIn, Copy, Check, Shield, Sparkles } from 'lucide-react'
-import { api } from '../../lib/api'
+import { supabase } from '../../lib/supabase'
+import { useAuth } from '../../hooks/useAuth'
 import CreateLeague from './CreateLeague'
 import JoinLeague from './JoinLeague'
 import LoadingSpinner from '../ui/LoadingSpinner'
 
 export default function LeagueList() {
+  const { profile } = useAuth()
   const [leagues, setLeagues] = useState([])
   const [loading, setLoading] = useState(true)
   const [showCreate, setShowCreate] = useState(false)
@@ -15,10 +17,26 @@ export default function LeagueList() {
   const [copiedCode, setCopiedCode] = useState(null)
 
   const fetchLeagues = async () => {
+    if (!profile) return
     try {
       setLoading(true)
-      const data = await api.get('/api/leagues/mine')
-      setLeagues(data)
+      const { data, error } = await supabase
+        .from('league_members')
+        .select(`
+          leagues (
+            id,
+            name,
+            invitation_code,
+            member_count,
+            created_at
+          )
+        `)
+        .eq('user_id', profile.id)
+
+      if (error) throw error
+      
+      const userLeagues = data?.map(d => d.leagues).filter(Boolean) || []
+      setLeagues(userLeagues)
     } catch (err) {
       console.error('Error cargando ligas:', err)
     } finally {

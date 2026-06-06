@@ -5,7 +5,7 @@ import { Clock, Lock, ChevronRight, Calendar } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { useNavigate } from 'react-router-dom'
-import { api } from '../../lib/api'
+import { supabase } from '../../lib/supabase'
 
 export default function UpcomingMatches() {
   const [matches, setMatches] = useState([])
@@ -15,10 +15,17 @@ export default function UpcomingMatches() {
   useEffect(() => {
     const fetchMatches = async () => {
       try {
-        const data = await api.get('/api/matches?status=scheduled&limit=6')
-        setMatches(data)
-      } catch {
-        // Si falla la API, mostramos estado vacío
+        const { data, error } = await supabase
+          .from('matches')
+          .select('*')
+          .in('status', ['pending', 'scheduled', 'in_progress'])
+          .order('kickoff_at', { ascending: true })
+          .limit(6)
+        
+        if (error) throw error
+        setMatches(data || [])
+      } catch (err) {
+        console.error('Error fetching matches:', err)
         setMatches([])
       } finally {
         setLoading(false)
@@ -88,7 +95,7 @@ export default function UpcomingMatches() {
 
 /** Tarjeta individual de partido próximo */
 function UpcomingMatchCard({ match, index }) {
-  const kickoff = new Date(match.kickoff)
+  const kickoff = new Date(match.kickoff_at)
   const now = new Date()
   const isLocked = (kickoff - now) <= 15 * 60 * 1000 // 15 minutos
 
@@ -132,14 +139,14 @@ function UpcomingMatchCard({ match, index }) {
             <div className="relative">
               <div className="absolute inset-0 bg-white/10 blur-lg rounded-full scale-110" />
               <img
-                src={`https://flagcdn.com/w80/${match.home_team?.code?.toLowerCase() || 'xx'}.png`}
-                alt={match.home_team?.name}
+                src={`https://flagcdn.com/w80/${(match.home_team_code || 'xx').toLowerCase()}.png`}
+                alt={match.home_team}
                 className="relative w-12 h-8 object-cover rounded-md shadow-lg shadow-black/30 ring-1 ring-white/10"
                 onError={(e) => { e.target.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg"/>' }}
               />
             </div>
             <span className="text-[11px] text-white font-semibold text-center leading-tight truncate max-w-[80px]">
-              {match.home_team?.name || 'Local'}
+              {match.home_team || 'Local'}
             </span>
           </div>
 
@@ -155,14 +162,14 @@ function UpcomingMatchCard({ match, index }) {
             <div className="relative">
               <div className="absolute inset-0 bg-white/10 blur-lg rounded-full scale-110" />
               <img
-                src={`https://flagcdn.com/w80/${match.away_team?.code?.toLowerCase() || 'xx'}.png`}
-                alt={match.away_team?.name}
+                src={`https://flagcdn.com/w80/${(match.away_team_code || 'xx').toLowerCase()}.png`}
+                alt={match.away_team}
                 className="relative w-12 h-8 object-cover rounded-md shadow-lg shadow-black/30 ring-1 ring-white/10"
                 onError={(e) => { e.target.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg"/>' }}
               />
             </div>
             <span className="text-[11px] text-white font-semibold text-center leading-tight truncate max-w-[80px]">
-              {match.away_team?.name || 'Visitante'}
+              {match.away_team || 'Visitante'}
             </span>
           </div>
         </div>

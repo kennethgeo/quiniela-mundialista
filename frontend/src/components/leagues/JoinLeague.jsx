@@ -2,21 +2,42 @@
 import { useState } from 'react'
 import { motion } from 'motion/react'
 import { X, LogIn, Ticket } from 'lucide-react'
-import { api } from '../../lib/api'
+import { supabase } from '../../lib/supabase'
+import { useAuth } from '../../hooks/useAuth'
 
 export default function JoinLeague({ onClose, onJoined }) {
+  const { profile } = useAuth()
   const [code, setCode] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
   const handleJoin = async (e) => {
     e.preventDefault()
-    if (!code.trim()) return
+    if (!code.trim() || !profile) return
 
     try {
       setLoading(true)
       setError(null)
-      await api.post('/api/leagues/join', { invitation_code: code.trim().toUpperCase() })
+      
+      const cleanCode = code.trim().toUpperCase()
+      
+      const { data: league, error: findError } = await supabase
+        .from('leagues')
+        .select('id, member_count')
+        .eq('invitation_code', cleanCode)
+        .single()
+        
+      if (findError || !league) throw new Error('Código de liga no válido')
+      
+      const { error: joinError } = await supabase
+        .from('league_members')
+        .insert({ league_id: league.id, user_id: profile.id, role: 'member', points: 0 })
+        
+      if (joinError) throw new Error('Ya eres miembro o hubo un error')
+      
+      // Intentar actualizar conteo (si falla por RLS no importa, podría actualizarse con triggers)
+      await supabase.from('leagues').update({ member_count: league.member_count + 1 }).eq('id', league.id)
+      
       onJoined()
     } catch (err) {
       setError(err.message)

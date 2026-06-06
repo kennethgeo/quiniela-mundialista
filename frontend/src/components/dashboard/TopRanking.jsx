@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react'
 import { motion } from 'motion/react'
 import { Trophy, Crown, ChevronRight, Medal } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
-import { api } from '../../lib/api'
+import { supabase } from '../../lib/supabase'
 
 /** Colores y estilos para cada posición del podio */
 const podiumStyles = {
@@ -62,9 +62,16 @@ export default function TopRanking() {
   useEffect(() => {
     const fetchTop = async () => {
       try {
-        const data = await api.get('/api/leaderboard?limit=3')
-        setTopUsers(data)
-      } catch {
+        const { data, error } = await supabase
+          .from('users')
+          .select('id, display_name, avatar_url, total_points')
+          .order('total_points', { ascending: false })
+          .limit(3)
+          
+        if (error) throw error
+        setTopUsers(data || [])
+      } catch (err) {
+        console.error('Error fetching leaderboard:', err)
         setTopUsers([])
       } finally {
         setLoading(false)

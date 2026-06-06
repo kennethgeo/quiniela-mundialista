@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'motion/react'
 import { Trophy, Swords } from 'lucide-react'
-import { api } from '../../lib/api'
+import { supabase } from '../../lib/supabase'
 import LoadingSpinner from '../ui/LoadingSpinner'
 
 const KNOCKOUT_PHASES = [
@@ -24,7 +24,7 @@ function BracketMatch({ match, index }) {
     }`}>
       {!isTbd ? (
         <img
-          src={`https://flagcdn.com/w40/${teamCode}.png`}
+          src={`https://flagcdn.com/w40/${(teamCode || 'xx').toLowerCase()}.png`}
           alt={team}
           className="w-7 h-5 rounded-sm object-cover shadow-sm"
           loading="lazy"
@@ -89,9 +89,14 @@ export default function BracketView() {
   useEffect(() => {
     const fetchMatches = async () => {
       try {
-        const data = await api.get('/api/matches')
-        // Filtrar solo partidos eliminatorios
-        setMatches(data.filter(m => m.phase !== 'groups'))
+        const { data, error } = await supabase
+          .from('matches')
+          .select('*')
+          .neq('phase', 'groups')
+          .order('kickoff_at', { ascending: true })
+          
+        if (error) throw error
+        setMatches(data || [])
       } catch (err) {
         console.error('Error cargando bracket:', err)
       } finally {
