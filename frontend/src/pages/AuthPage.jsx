@@ -8,11 +8,27 @@ import LoginForm from '../components/auth/LoginForm'
 import RegisterForm from '../components/auth/RegisterForm'
 
 export default function AuthPage() {
-  const { user, loading } = useAuth()
+  const { user, loading, signOut } = useAuth()
   const [isLogin, setIsLogin] = useState(true)
+  const [confirmationMessage, setConfirmationMessage] = useState('')
 
-  // Si ya está autenticado, redirigir al dashboard
-  if (!loading && user) return <Navigate to="/" replace />
+  // Detectar si venimos de un link de confirmación de email
+  useEffect(() => {
+    const hash = window.location.hash
+    if (hash && hash.includes('type=signup')) {
+      setConfirmationMessage('¡Tu correo ha sido confirmado con éxito! Por favor, inicia sesión.')
+      setIsLogin(true)
+      // Si Supabase intentó autologuearnos, cerramos la sesión para forzar el login
+      if (user) {
+        signOut()
+      }
+      // Limpiar el hash de la URL para no repetir
+      window.history.replaceState(null, '', window.location.pathname)
+    }
+  }, [user, signOut])
+
+  // Si ya está autenticado (y no es un recién confirmado), redirigir al dashboard
+  if (!loading && user && !confirmationMessage) return <Navigate to="/" replace />
 
   return (
     <div className="relative min-h-screen flex flex-col lg:flex-row items-stretch justify-center overflow-hidden bg-slate-950 font-sans">

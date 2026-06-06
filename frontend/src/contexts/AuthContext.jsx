@@ -109,6 +109,36 @@ export function AuthProvider({ children }) {
     return () => subscription.unsubscribe()
   }, [fetchProfile])
 
+  // Lógica de inactividad (30 minutos)
+  useEffect(() => {
+    let inactivityTimer
+
+    const resetTimer = () => {
+      if (inactivityTimer) clearTimeout(inactivityTimer)
+      // 30 minutos = 30 * 60 * 1000 = 1800000 ms
+      inactivityTimer = setTimeout(() => {
+        if (user) {
+          console.log('Sesión expirada por inactividad')
+          signOut()
+        }
+      }, 1800000)
+    }
+
+    if (user) {
+      // Iniciar el temporizador
+      resetTimer()
+      
+      // Eventos que reinician el temporizador de inactividad
+      const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart']
+      events.forEach((event) => window.addEventListener(event, resetTimer))
+
+      return () => {
+        if (inactivityTimer) clearTimeout(inactivityTimer)
+        events.forEach((event) => window.removeEventListener(event, resetTimer))
+      }
+    }
+  }, [user])
+
   const value = {
     user,
     profile,
