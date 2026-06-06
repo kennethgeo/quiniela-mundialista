@@ -11,15 +11,26 @@ export default function RegisterForm({ onToggle }) {
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
+  const [successMsg, setSuccessMsg] = useState('')
   const [loading, setLoading] = useState(false)
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
+    setSuccessMsg('')
     setLoading(true)
 
     try {
-      await signUp(email, password, username)
+      const data = await signUp(email, password, username)
+      if (data && !data.session) {
+        setSuccessMsg('¡Cuenta creada exitosamente! Revisa tu bandeja de entrada para verificar tu correo.')
+        // Limpiamos el formulario
+        setUsername('')
+        setEmail('')
+        setPassword('')
+      } else {
+        setSuccessMsg('¡Cuenta creada con éxito! Entrando...')
+      }
     } catch (err) {
       setError(err.message === 'User already registered'
         ? 'El correo electrónico ya está registrado.'
@@ -48,6 +59,18 @@ export default function RegisterForm({ onToggle }) {
           >
             <AlertCircle size={16} className="shrink-0" />
             <span>{error}</span>
+          </motion.div>
+        )}
+
+        {/* Mensaje de éxito */}
+        {successMsg && (
+          <motion.div
+            initial={{ opacity: 0, height: 0, scale: 0.9 }}
+            animate={{ opacity: 1, height: 'auto', scale: 1 }}
+            className="flex items-center gap-2 p-3 mb-6 rounded-xl bg-teal-500/10 border border-teal-500/20 text-teal-400 text-sm"
+          >
+            <AlertCircle size={16} className="shrink-0" />
+            <span>{successMsg}</span>
           </motion.div>
         )}
 
