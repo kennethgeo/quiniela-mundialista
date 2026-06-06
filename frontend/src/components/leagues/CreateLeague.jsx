@@ -23,7 +23,7 @@ export default function CreateLeague({ onClose, onCreated }) {
       
       const { data: league, error: createError } = await supabase
         .from('leagues')
-        .insert({ name: name.trim(), created_by: profile.id, invitation_code: code, member_count: 1 })
+        .insert({ name: name.trim(), admin_id: profile.id, invitation_code: code })
         .select()
         .single()
         
