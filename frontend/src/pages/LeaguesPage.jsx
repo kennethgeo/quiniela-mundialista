@@ -5,7 +5,7 @@ import LeagueList from '../components/leagues/LeagueList'
 
 export default function LeaguesPage() {
   return (
-    <div className="px-4 py-6">
+    <div className="px-4 py-5 bg-world-cup min-h-screen relative">
       {/* Premium header */}
       <motion.div
         initial={{ opacity: 0, y: -10 }}

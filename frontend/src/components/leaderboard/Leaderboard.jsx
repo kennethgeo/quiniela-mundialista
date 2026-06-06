@@ -177,24 +177,35 @@ export default function Leaderboard() {
           transition={{ delay: 0.3 }}
           className="glass-card p-4"
         >
-          <div className="flex items-center gap-2 px-2 py-2 mb-2">
-            <div className="flex items-center gap-2">
-              <Zap size={14} className="text-accent" />
-              <h3 className="text-sm font-bold text-white">Clasificación general</h3>
+          {/* Tabla completa (sin repetir el podio) */}
+          <div className="glass p-3">
+            <div className="flex items-center gap-2 px-3 py-2.5 mb-2">
+              <Trophy size={16} className="text-accent" />
+              <h3 className="text-sm font-bold text-slate-300">Ranking en vivo</h3>
+              <span className="text-xs text-slate-500 ml-auto">{entries.length} jugadores</span>
             </div>
-            <div className="flex-1 h-px bg-gradient-to-r from-white/10 to-transparent ml-2" />
-            <span className="text-xs text-slate-500 font-medium">{entries.length} jugadores</span>
-          </div>
 
-          <div className="space-y-0.5">
-            {rest.map((entry, idx) => (
-              <LeaderboardRow
-                key={entry.id}
-                entry={entry}
-                position={idx + 4}
-                isCurrentUser={entry.id === user?.id}
-              />
-            ))}
+            <div className="space-y-1">
+              {rest.length === 0 && top3.length < 3 ? (
+                entries.map((entry, idx) => (
+                  <LeaderboardRow
+                    key={entry.id}
+                    entry={entry}
+                    position={idx + 1}
+                    isCurrentUser={entry.id === user?.id}
+                  />
+                ))
+              ) : (
+                rest.map((entry, idx) => (
+                  <LeaderboardRow
+                    key={entry.id}
+                    entry={entry}
+                    position={idx + 4}
+                    isCurrentUser={entry.id === user?.id}
+                  />
+                ))
+              )}
+            </div>
           </div>
         </motion.div>
       )}
