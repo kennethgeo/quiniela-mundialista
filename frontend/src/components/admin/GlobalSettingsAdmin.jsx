@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 import { motion } from 'motion/react'
-import { Save, Settings, MessageSquare, AlertCircle, Link as LinkIcon, Trophy } from 'lucide-react'
+import { Save, Settings, MessageSquare, AlertCircle, Link as LinkIcon, Trophy, Clock } from 'lucide-react'
 import { useSettings } from '../../contexts/SettingsContext'
 
 export default function GlobalSettingsAdmin() {
