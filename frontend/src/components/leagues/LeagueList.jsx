@@ -62,7 +62,7 @@ export default function LeagueList() {
           whileTap={{ scale: 0.95 }}
           whileHover={{ scale: 1.02 }}
           onClick={() => setShowCreate(true)}
-          className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-2xl gradient-gold text-slate-950 font-bold text-sm shadow-lg shadow-amber-500/20 transition-all"
+          className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-2xl gradient-2026 text-slate-950 font-bold text-sm shadow-lg shadow-purple-500/20 transition-all"
         >
           <Plus size={18} strokeWidth={2.5} /> Crear liga
         </motion.button>
@@ -100,7 +100,7 @@ export default function LeagueList() {
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.06, type: 'spring', stiffness: 200 }}
-              className="glass-card p-5 hover:shadow-lg hover:shadow-amber-500/5 transition-all duration-300"
+              className="glass-card p-5 hover:shadow-lg hover:shadow-purple-500/5 transition-all duration-300"
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">

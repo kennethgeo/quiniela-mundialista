@@ -97,14 +97,14 @@ export default function TopRanking() {
       {/* Header */}
       <div className="flex items-center justify-between px-1">
         <h3 className="text-sm font-bold text-slate-200 uppercase tracking-[0.15em] flex items-center gap-2">
-          <div className="w-6 h-6 rounded-lg gradient-gold flex items-center justify-center">
-            <Trophy size={12} className="text-slate-900" />
+          <div className="w-6 h-6 rounded-lg gradient-2026 flex items-center justify-center">
+            <Trophy size={12} className="text-slate-100" />
           </div>
           Top Ranking
         </h3>
         <button
           onClick={() => navigate('/leaderboard')}
-          className="text-xs text-amber-400 flex items-center gap-1 hover:text-amber-300 transition-colors font-semibold"
+          className="text-xs text-accent flex items-center gap-1 hover:text-accent-light transition-colors font-semibold"
         >
           Ver ranking <ChevronRight size={14} />
         </button>

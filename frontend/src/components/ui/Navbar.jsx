@@ -44,16 +44,16 @@ export default function Navbar({ onMenuClick }) {
             <motion.div
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
-              className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-amber-500/10 border border-amber-500/20"
+              className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-accent/10 border border-accent/20"
             >
-              <Star size={12} fill="currentColor" className="text-amber-400" />
-              <span className="text-amber-400 font-bold text-xs tabular-nums">{profile.total_points ?? 0}</span>
+              <Star size={12} fill="currentColor" className="text-accent" />
+              <span className="text-accent font-bold text-xs tabular-nums">{profile.total_points ?? 0}</span>
             </motion.div>
           )}
 
           {/* Avatar del usuario */}
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-accent/25 to-accent/5 border border-accent/25 flex items-center justify-center text-accent font-bold text-sm shadow-md shadow-amber-500/10">
+            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-accent/25 to-accent/5 border border-accent/25 flex items-center justify-center text-accent font-bold text-sm shadow-md shadow-accent/10">
               {profile?.display_name?.charAt(0)?.toUpperCase() || '?'}
             </div>
 

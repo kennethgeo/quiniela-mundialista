@@ -101,7 +101,7 @@ export default function Sidebar({ isOpen, onClose }) {
             {profile && (
               <div className="mt-auto pt-6 border-t border-white/[0.06]">
                 <div className="flex items-center gap-3 mb-4 px-2">
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-accent/25 to-accent/5 border border-accent/25 flex items-center justify-center text-accent font-bold shadow-lg shadow-amber-500/10">
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-accent/25 to-accent/5 border border-accent/25 flex items-center justify-center text-accent font-bold shadow-lg shadow-accent/10">
                     {profile?.display_name?.charAt(0)?.toUpperCase() || '?'}
                   </div>
                   <div className="flex-1 min-w-0">
@@ -109,8 +109,8 @@ export default function Sidebar({ isOpen, onClose }) {
                       {profile?.display_name || 'Jugador'}
                     </p>
                     <div className="flex items-center gap-1 mt-0.5">
-                      <Star size={10} fill="currentColor" className="text-amber-400" />
-                      <span className="text-amber-400 font-bold text-xs tabular-nums">
+                      <Star size={10} fill="currentColor" className="text-accent" />
+                      <span className="text-accent font-bold text-xs tabular-nums">
                         {profile?.total_points ?? 0} pts
                       </span>
                     </div>

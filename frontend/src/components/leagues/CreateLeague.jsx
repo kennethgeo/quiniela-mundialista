@@ -59,12 +59,12 @@ export default function CreateLeague({ onClose, onCreated }) {
         onClick={(e) => e.stopPropagation()}
       >
         {/* Background glow */}
-        <div className="absolute -top-10 -right-10 w-32 h-32 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -top-10 -right-10 w-32 h-32 bg-purple-500/10 rounded-full blur-3xl pointer-events-none" />
 
         <div className="relative z-10">
           <div className="flex items-center justify-between mb-5">
             <div className="flex items-center gap-3">
-              <div className="gradient-gold p-2 rounded-xl shadow-md shadow-amber-500/20">
+              <div className="gradient-2026 p-2 rounded-xl shadow-md shadow-purple-500/20">
                 <Shield size={18} className="text-slate-950" />
               </div>
               <h2 className="text-lg font-bold text-white">Crear liga</h2>
@@ -98,7 +98,7 @@ export default function CreateLeague({ onClose, onCreated }) {
               whileTap={{ scale: 0.95 }}
               type="submit"
               disabled={loading || !name.trim()}
-              className="w-full py-3.5 rounded-2xl gradient-gold text-slate-950 font-bold text-sm disabled:opacity-40 flex items-center justify-center gap-2 shadow-lg shadow-amber-500/20 transition-all"
+              className="w-full py-3.5 rounded-2xl gradient-2026 text-slate-950 font-bold text-sm disabled:opacity-40 flex items-center justify-center gap-2 shadow-lg shadow-purple-500/20 transition-all"
             >
               <Plus size={16} strokeWidth={2.5} /> {loading ? 'Creando...' : 'Crear liga'}
             </motion.button>

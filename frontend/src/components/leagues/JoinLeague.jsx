@@ -62,12 +62,12 @@ export default function JoinLeague({ onClose, onJoined }) {
         onClick={(e) => e.stopPropagation()}
       >
         {/* Background glow */}
-        <div className="absolute -top-10 -left-10 w-32 h-32 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -top-10 -left-10 w-32 h-32 bg-purple-500/10 rounded-full blur-3xl pointer-events-none" />
 
         <div className="relative z-10">
           <div className="flex items-center justify-between mb-5">
             <div className="flex items-center gap-3">
-              <div className="gradient-gold p-2 rounded-xl shadow-md shadow-amber-500/20">
+              <div className="gradient-2026 p-2 rounded-xl shadow-md shadow-purple-500/20">
                 <Ticket size={18} className="text-slate-950" />
               </div>
               <h2 className="text-lg font-bold text-white">Unirse a liga</h2>
@@ -104,7 +104,7 @@ export default function JoinLeague({ onClose, onJoined }) {
               whileTap={{ scale: 0.95 }}
               type="submit"
               disabled={loading || code.length < 6}
-              className="w-full py-3.5 rounded-2xl gradient-gold text-slate-950 font-bold text-sm disabled:opacity-40 flex items-center justify-center gap-2 shadow-lg shadow-amber-500/20 transition-all"
+              className="w-full py-3.5 rounded-2xl gradient-2026 text-slate-950 font-bold text-sm disabled:opacity-40 flex items-center justify-center gap-2 shadow-lg shadow-purple-500/20 transition-all"
             >
               <LogIn size={16} /> {loading ? 'Uniéndose...' : 'Unirse'}
             </motion.button>

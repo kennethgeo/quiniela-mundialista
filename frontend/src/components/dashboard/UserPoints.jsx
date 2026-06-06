@@ -43,22 +43,22 @@ export default function UserPoints() {
       transition={{ delay: 0.1 }}
       className="relative overflow-hidden rounded-3xl"
     >
-      {/* ── Golden gradient border (outer glow) ── */}
-      <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-amber-400/30 via-yellow-500/10 to-amber-600/20 p-[1px]">
+      {/* ── Neon gradient border (outer glow) ── */}
+      <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-purple-500/40 via-cyan-500/20 to-purple-600/30 p-[1px]">
         <div className="w-full h-full rounded-3xl bg-slate-950/90" />
       </div>
 
       {/* ── Card content ── */}
       <div className="relative p-6">
         {/* Decorative ambient glows */}
-        <div className="absolute -top-16 -right-16 w-40 h-40 rounded-full bg-amber-400/10 blur-3xl pointer-events-none" />
-        <div className="absolute -bottom-12 -left-12 w-32 h-32 rounded-full bg-amber-500/8 blur-3xl pointer-events-none" />
-        <div className="absolute top-0 left-1/3 w-24 h-24 rounded-full bg-gold/5 blur-2xl pointer-events-none" />
+        <div className="absolute -top-16 -right-16 w-40 h-40 rounded-full bg-purple-500/15 blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-12 -left-12 w-32 h-32 rounded-full bg-cyan-500/15 blur-3xl pointer-events-none" />
+        <div className="absolute top-0 left-1/3 w-24 h-24 rounded-full bg-pink-500/10 blur-2xl pointer-events-none" />
 
         {/* Header label */}
         <div className="relative flex items-center gap-2 mb-4">
-          <Zap size={12} className="text-amber-400" />
-          <p className="text-[11px] text-amber-400/80 uppercase tracking-[0.2em] font-bold">
+          <Zap size={12} className="text-purple-400" />
+          <p className="text-[11px] text-purple-400/90 uppercase tracking-[0.2em] font-bold">
             Tus Puntos
           </p>
         </div>
@@ -72,11 +72,11 @@ export default function UserPoints() {
                 key={displayPoints}
                 initial={{ scale: 1.1, opacity: 0.7 }}
                 animate={{ scale: 1, opacity: 1 }}
-                className="text-5xl font-black tabular-nums bg-gradient-to-br from-amber-300 via-yellow-400 to-amber-500 bg-clip-text text-transparent drop-shadow-lg"
+                className="text-5xl font-black tabular-nums bg-gradient-to-br from-purple-400 via-cyan-400 to-purple-500 bg-clip-text text-transparent drop-shadow-lg"
               >
                 {displayPoints}
               </motion.span>
-              <span className="text-sm font-semibold text-amber-400/50 uppercase tracking-wider">
+              <span className="text-sm font-semibold text-purple-400/60 uppercase tracking-wider">
                 pts
               </span>
             </div>
@@ -89,9 +89,9 @@ export default function UserPoints() {
             className="relative"
           >
             {/* Glow ring */}
-            <div className="absolute inset-0 rounded-2xl bg-amber-400/20 blur-xl scale-125" />
-            <div className="relative w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-400/20 to-amber-600/10 border border-amber-400/20 flex items-center justify-center shadow-lg shadow-amber-500/10">
-              <Star size={30} className="text-amber-400" fill="currentColor" />
+            <div className="absolute inset-0 rounded-2xl bg-purple-500/20 blur-xl scale-125" />
+            <div className="relative w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-500/30 to-cyan-500/20 border border-purple-500/30 flex items-center justify-center shadow-lg shadow-purple-500/20">
+              <Star size={30} className="text-cyan-400" fill="currentColor" />
             </div>
           </motion.div>
         </div>

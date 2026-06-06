@@ -77,7 +77,7 @@ export default function UpcomingMatches() {
         </h3>
         <button
           onClick={() => navigate('/matches')}
-          className="text-xs text-amber-400 flex items-center gap-1 hover:text-amber-300 transition-colors font-semibold"
+          className="text-xs text-purple-400 flex items-center gap-1 hover:text-amber-300 transition-colors font-semibold"
         >
           Ver todos <ChevronRight size={14} />
         </button>
@@ -119,7 +119,7 @@ function UpcomingMatchCard({ match, index }) {
       className="glass-card min-w-[260px] snap-start cursor-pointer group relative overflow-hidden"
     >
       {/* Top accent line */}
-      <div className={`absolute top-0 left-0 right-0 h-[2px] ${isLocked ? 'bg-gradient-to-r from-rose-500/50 via-rose-400/30 to-transparent' : 'bg-gradient-to-r from-amber-400/50 via-amber-500/20 to-transparent'}`} />
+      <div className={`absolute top-0 left-0 right-0 h-[2px] ${isLocked ? 'bg-gradient-to-r from-rose-500/50 via-rose-400/30 to-transparent' : 'bg-gradient-to-r from-purple-400/50 via-purple-500/20 to-transparent'}`} />
 
       <div className="p-4 pt-5">
         {/* Match date/time header */}
@@ -178,7 +178,7 @@ function UpcomingMatchCard({ match, index }) {
         <div className={`flex items-center justify-center gap-1.5 text-[11px] font-bold rounded-xl py-1.5 ${
           isLocked
             ? 'bg-rose-500/10 text-rose-400 border border-rose-500/15'
-            : 'bg-amber-400/8 text-amber-400 border border-amber-400/10'
+            : 'bg-purple-400/8 text-purple-400 border border-purple-400/10'
         }`}>
           {isLocked ? <Lock size={12} /> : <Clock size={12} />}
           <span>{isLocked ? 'Bloqueado' : `En ${countdown}`}</span>

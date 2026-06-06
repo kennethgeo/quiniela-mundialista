@@ -156,7 +156,7 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
               onClick={() => setPredictionType('Marcador')}
               className={`px-4 py-1.5 text-xs font-bold rounded-xl transition-all duration-200 ${
                 predictionType === 'Marcador'
-                  ? 'gradient-gold text-slate-900 shadow-sm shadow-amber-500/20'
+                  ? 'gradient-2026 text-slate-900 shadow-sm shadow-purple-500/20'
                   : 'text-slate-400 hover:text-white'
               }`}
             >
@@ -166,7 +166,7 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
               onClick={() => setPredictionType('Solo_Ganador')}
               className={`px-4 py-1.5 text-xs font-bold rounded-xl transition-all duration-200 ${
                 predictionType === 'Solo_Ganador'
-                  ? 'gradient-gold text-slate-900 shadow-sm shadow-amber-500/20'
+                  ? 'gradient-2026 text-slate-900 shadow-sm shadow-purple-500/20'
                   : 'text-slate-400 hover:text-white'
               }`}
             >
@@ -248,7 +248,7 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
                     onClick={() => setWinnerSolo('home')}
                     className={`py-2 text-xs font-bold rounded-xl border transition-all duration-200 ${
                       winnerSolo === 'home'
-                        ? 'gradient-gold text-slate-900 border-transparent shadow-sm shadow-amber-500/20'
+                        ? 'gradient-2026 text-slate-900 border-transparent shadow-sm shadow-purple-500/20'
                         : 'glass-strong border-white/5 text-slate-400 hover:text-white'
                     }`}
                   >
@@ -258,7 +258,7 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
                     onClick={() => setWinnerSolo('tie')}
                     className={`py-2 text-xs font-bold rounded-xl border transition-all duration-200 ${
                       winnerSolo === 'tie'
-                        ? 'gradient-gold text-slate-900 border-transparent shadow-sm shadow-amber-500/20'
+                        ? 'gradient-2026 text-slate-900 border-transparent shadow-sm shadow-purple-500/20'
                         : 'glass-strong border-white/5 text-slate-400 hover:text-white'
                     }`}
                   >
@@ -268,7 +268,7 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
                     onClick={() => setWinnerSolo('away')}
                     className={`py-2 text-xs font-bold rounded-xl border transition-all duration-200 ${
                       winnerSolo === 'away'
-                        ? 'gradient-gold text-slate-900 border-transparent shadow-sm shadow-amber-500/20'
+                        ? 'gradient-2026 text-slate-900 border-transparent shadow-sm shadow-purple-500/20'
                         : 'glass-strong border-white/5 text-slate-400 hover:text-white'
                     }`}
                   >
@@ -309,7 +309,7 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
               onClick={() => setPenaltiesWinner(match.home_team)}
               className={`flex-1 py-2.5 text-xs font-bold rounded-xl transition-all duration-200 border ${
                 penaltiesWinner === match.home_team
-                  ? 'gradient-gold text-slate-900 border-transparent shadow-sm'
+                  ? 'gradient-2026 text-slate-900 border-transparent shadow-sm'
                   : 'bg-white/5 border-white/5 text-slate-300 hover:bg-white/10'
               }`}
             >
@@ -319,7 +319,7 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
               onClick={() => setPenaltiesWinner(match.away_team)}
               className={`flex-1 py-2.5 text-xs font-bold rounded-xl transition-all duration-200 border ${
                 penaltiesWinner === match.away_team
-                  ? 'gradient-gold text-slate-900 border-transparent shadow-sm'
+                  ? 'gradient-2026 text-slate-900 border-transparent shadow-sm'
                   : 'bg-white/5 border-white/5 text-slate-300 hover:bg-white/10'
               }`}
             >
@@ -368,7 +368,7 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
               onClick={() => setUsePowerup(!usePowerup)}
               className={`flex items-center gap-1.5 px-3.5 py-2.5 rounded-2xl text-xs font-bold transition-all duration-200 border ${
                 usePowerup
-                  ? 'bg-accent/15 text-accent border-accent/40 shadow-sm shadow-amber-500/10'
+                  ? 'bg-accent/15 text-accent border-accent/40 shadow-sm shadow-purple-500/10'
                   : 'glass-strong text-slate-400 border-white/5 hover:text-white hover:border-white/10'
               }`}
             >
@@ -381,7 +381,7 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
               whileTap={{ scale: 0.95 }}
               onClick={handleSave}
               disabled={isLoading || (predictionType === 'Solo_Ganador' && !winnerSolo) || (isKnockout && isTiePredicted && !penaltiesWinner)}
-              className="flex-1 ml-3 py-2.5 rounded-2xl gradient-gold text-slate-900 font-bold text-sm shadow-lg shadow-amber-500/20 hover:shadow-amber-500/30 transition-all duration-200 disabled:opacity-40 disabled:shadow-none disabled:bg-slate-700 disabled:text-slate-400 disabled:bg-none"
+              className="flex-1 ml-3 py-2.5 rounded-2xl gradient-2026 text-slate-900 font-bold text-sm shadow-lg shadow-purple-500/20 hover:shadow-purple-500/30 transition-all duration-200 disabled:opacity-40 disabled:shadow-none disabled:bg-slate-700 disabled:text-slate-400 disabled:bg-none"
             >
               {isLoading ? '...' : prediction ? 'Actualizar' : 'Guardar'}
             </motion.button>
