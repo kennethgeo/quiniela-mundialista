@@ -49,8 +49,8 @@ export default function DashboardPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3, duration: 0.5 }}
           >
-            <p className="text-sm text-slate-400 font-medium">{greeting},</p>
-            <h1 className="text-3xl font-extrabold text-white mt-0.5 tracking-tight">
+            <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">{greeting},</p>
+            <h1 className="text-3xl font-extrabold text-slate-900 dark:text-white mt-0.5 tracking-tight">
               {displayName}{' '}
               <motion.span
                 animate={{ rotate: [0, 14, -8, 14, 0] }}
@@ -70,7 +70,7 @@ export default function DashboardPage() {
             className="flex items-center gap-2 mt-3 glass-card px-3.5 py-2.5 w-fit"
           >
             <Sparkles size={14} className="text-accent shrink-0" />
-            <p className="text-xs text-slate-300 font-medium">
+            <p className="text-xs text-slate-700 dark:text-slate-300 font-medium">
               ¡Predice los resultados y compite por la gloria! ⚽🏆
             </p>
           </motion.div>

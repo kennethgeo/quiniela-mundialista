@@ -39,7 +39,7 @@ export default function UpcomingMatches() {
   if (loading) {
     return (
       <div className="space-y-3">
-        <h3 className="text-sm font-semibold text-slate-300 uppercase tracking-wider px-1">
+        <h3 className="text-sm font-semibold text-slate-500 dark:text-slate-300 uppercase tracking-wider px-1">
           Próximos Partidos
         </h3>
         <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
@@ -54,11 +54,11 @@ export default function UpcomingMatches() {
   if (matches.length === 0) {
     return (
       <div className="space-y-3">
-        <h3 className="text-sm font-semibold text-slate-300 uppercase tracking-wider px-1">
+        <h3 className="text-sm font-semibold text-slate-500 dark:text-slate-300 uppercase tracking-wider px-1">
           Próximos Partidos
         </h3>
         <div className="glass-card p-8 text-center">
-          <Calendar size={28} className="text-slate-600 mx-auto mb-2" />
+          <Calendar size={28} className="text-slate-400 dark:text-slate-600 mx-auto mb-2" />
           <p className="text-slate-500 text-sm">No hay partidos próximos</p>
         </div>
       </div>
@@ -69,7 +69,7 @@ export default function UpcomingMatches() {
     <div className="space-y-3">
       {/* Header */}
       <div className="flex items-center justify-between px-1">
-        <h3 className="text-sm font-bold text-slate-200 uppercase tracking-[0.15em] flex items-center gap-2">
+        <h3 className="text-sm font-bold text-slate-900 dark:text-slate-200 uppercase tracking-[0.15em] flex items-center gap-2">
           <div className="w-6 h-6 rounded-lg bg-emerald-500/20 flex items-center justify-center">
             <span className="text-xs">⚽</span>
           </div>
@@ -77,7 +77,7 @@ export default function UpcomingMatches() {
         </h3>
         <button
           onClick={() => navigate('/matches')}
-          className="text-xs text-purple-400 flex items-center gap-1 hover:text-amber-300 transition-colors font-semibold"
+          className="text-xs text-accent dark:text-purple-400 flex items-center gap-1 hover:text-accent-light transition-colors font-semibold"
         >
           Ver todos <ChevronRight size={14} />
         </button>
@@ -150,7 +150,7 @@ function UpcomingMatchCard({ match, index }) {
                 onError={(e) => { e.target.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg"/>' }}
               />
             </div>
-            <span className="text-[11px] text-white font-semibold text-center leading-tight truncate max-w-[80px]">
+            <span className="text-[11px] text-slate-900 dark:text-white font-semibold text-center leading-tight truncate max-w-[80px]">
               {match.home_team || 'Local'}
             </span>
           </div>
@@ -173,7 +173,7 @@ function UpcomingMatchCard({ match, index }) {
                 onError={(e) => { e.target.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg"/>' }}
               />
             </div>
-            <span className="text-[11px] text-white font-semibold text-center leading-tight truncate max-w-[80px]">
+            <span className="text-[11px] text-slate-900 dark:text-white font-semibold text-center leading-tight truncate max-w-[80px]">
               {match.away_team || 'Visitante'}
             </span>
           </div>

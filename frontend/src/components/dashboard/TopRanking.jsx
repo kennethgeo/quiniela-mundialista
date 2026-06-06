@@ -96,9 +96,9 @@ export default function TopRanking() {
     <div className="space-y-3">
       {/* Header */}
       <div className="flex items-center justify-between px-1">
-        <h3 className="text-sm font-bold text-slate-200 uppercase tracking-[0.15em] flex items-center gap-2">
+        <h3 className="text-sm font-bold text-slate-900 dark:text-slate-200 uppercase tracking-[0.15em] flex items-center gap-2">
           <div className="w-6 h-6 rounded-lg gradient-2026 flex items-center justify-center">
-            <Trophy size={12} className="text-slate-100" />
+            <Trophy size={12} className="text-white" />
           </div>
           Top Ranking
         </h3>
@@ -118,7 +118,7 @@ export default function TopRanking() {
 
         {topUsers.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-8 gap-3">
-            <Medal size={32} className="text-slate-600" />
+            <Medal size={32} className="text-slate-400 dark:text-slate-600" />
             <p className="text-center text-slate-500 text-sm">
               Aún no hay datos de ranking
             </p>
@@ -155,7 +155,7 @@ export default function TopRanking() {
                     {/* Glow behind avatar */}
                     <div className={`absolute inset-0 ${style.avatarGlow} rounded-full blur-lg scale-150`} />
                     <div
-                      className={`relative ${style.size} rounded-full ${style.bg} border-2 ${style.border} flex items-center justify-center font-bold ${style.text} text-lg ring-2 ${style.ringColor} ring-offset-2 ring-offset-slate-950/80`}
+                      className={`relative ${style.size} rounded-full ${style.bg} border-2 ${style.border} flex items-center justify-center font-bold ${style.text} text-lg ring-2 ${style.ringColor} ring-offset-2 ring-offset-primary`}
                     >
                       {user.display_name?.charAt(0)?.toUpperCase() || '?'}
                     </div>
@@ -163,7 +163,7 @@ export default function TopRanking() {
 
                   {/* Nombre y puntos */}
                   <div className="text-center mt-1">
-                    <p className="text-xs font-semibold text-white truncate max-w-[80px]">
+                    <p className="text-xs font-semibold text-slate-900 dark:text-white truncate max-w-[80px]">
                       {user.display_name || 'Anónimo'}
                     </p>
                     <p className={`text-sm font-bold ${style.text} mt-0.5`}>
@@ -172,7 +172,7 @@ export default function TopRanking() {
                   </div>
 
                   {/* Pedestal */}
-                  <div className={`w-16 ${style.pedestalH} rounded-t-xl bg-gradient-to-t ${style.pedestalGradient} border border-white/5 border-b-0 flex items-start justify-center pt-2`}>
+                  <div className={`w-16 ${style.pedestalH} rounded-t-xl bg-gradient-to-t ${style.pedestalGradient} border border-accent/10 border-b-0 flex items-start justify-center pt-2`}>
                     <span className="text-xl">{style.label}</span>
                   </div>
                 </motion.div>
