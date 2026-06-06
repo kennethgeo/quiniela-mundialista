@@ -12,7 +12,6 @@ import DashboardPage from './pages/DashboardPage'
 import MatchesPage from './pages/MatchesPage'
 import BracketPage from './pages/BracketPage'
 import LeaderboardPage from './pages/LeaderboardPage'
-import LeaguesPage from './pages/LeaguesPage'
 import AdminPage from './pages/AdminPage'
 
 import Sidebar from './components/ui/Sidebar'
@@ -93,16 +92,7 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
-      <Route
-        path="/leagues"
-        element={
-          <ProtectedRoute>
-            <MainLayout>
-              <LeaguesPage />
-            </MainLayout>
-          </ProtectedRoute>
-        }
-      />
+
       <Route
         path="/admin"
         element={

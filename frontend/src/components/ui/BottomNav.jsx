@@ -8,7 +8,6 @@ const tabs = [
   { to: '/matches', icon: Calendar, label: 'Partidos' },
   { to: '/bracket', icon: GitBranch, label: 'Bracket' },
   { to: '/leaderboard', icon: Trophy, label: 'Ranking' },
-  { to: '/leagues', icon: Users, label: 'Ligas' },
 ]
 
 export default function BottomNav() {
