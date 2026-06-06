@@ -120,18 +120,19 @@ function AppRoutes() {
 }
 
 import { ThemeProvider } from './contexts/ThemeContext'
+import { SettingsProvider } from './contexts/SettingsContext'
 
-function App() {
+export default function App() {
   return (
     <Router>
       <ThemeProvider>
-        <AuthProvider>
-          <InstallPrompt />
-          <AppRoutes />
-        </AuthProvider>
+        <SettingsProvider>
+          <AuthProvider>
+            <InstallPrompt />
+            <AppRoutes />
+          </AuthProvider>
+        </SettingsProvider>
       </ThemeProvider>
     </Router>
   )
 }
-
-export default App

@@ -3,7 +3,11 @@ import { supabase } from '../lib/supabase'
 import { motion } from 'motion/react'
 import { ShieldAlert, Save, Clock, Search, X } from 'lucide-react'
 
+import GlobalSettingsAdmin from '../components/admin/GlobalSettingsAdmin'
+
 export default function AdminPage() {
+  const [activeTab, setActiveTab] = useState('settings') // 'settings' or 'matches'
+
   const [matches, setMatches] = useState([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -100,26 +104,52 @@ export default function AdminPage() {
             <ShieldAlert size={20} className="text-rose-500" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-white tracking-tight">Panel de Administración</h1>
-            <p className="text-xs text-slate-400">Solo usuarios con is_admin = true</p>
+            <h1 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight">Panel de Administración</h1>
+            <p className="text-xs text-slate-500">Solo usuarios con is_admin = true</p>
           </div>
         </div>
-        <div className="mt-4 h-px w-full bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+        
+        {/* Tabs */}
+        <div className="flex gap-4 mt-6 border-b border-white/10 pb-1">
+          <button 
+            onClick={() => setActiveTab('settings')}
+            className={`pb-3 text-sm font-bold transition-colors relative ${activeTab === 'settings' ? 'text-accent' : 'text-slate-500 hover:text-slate-300'}`}
+          >
+            Configuración Global
+            {activeTab === 'settings' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-accent rounded-t-full" />}
+          </button>
+          <button 
+            onClick={() => setActiveTab('matches')}
+            className={`pb-3 text-sm font-bold transition-colors relative ${activeTab === 'matches' ? 'text-accent' : 'text-slate-500 hover:text-slate-300'}`}
+          >
+            Partidos / Resultados
+            {activeTab === 'matches' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-accent rounded-t-full" />}
+          </button>
+        </div>
       </motion.div>
 
-      {/* Control Panel */}
-      <div className="mb-6 relative z-10 glass-card p-4">
-        <div className="relative">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input
-            type="text"
-            placeholder="Buscar por país..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full bg-slate-900/50 border border-white/10 rounded-xl pl-9 pr-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-accent"
-          />
-        </div>
-      </div>
+      {/* Conditional Rendering based on activeTab */}
+      {activeTab === 'settings' && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+          <GlobalSettingsAdmin />
+        </motion.div>
+      )}
+
+      {activeTab === 'matches' && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4 relative z-10 pb-20">
+          {/* Control Panel */}
+          <div className="mb-4 glass-card p-4">
+            <div className="relative">
+              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Buscar por país..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full bg-slate-100 dark:bg-slate-900/50 border border-slate-200 dark:border-white/10 rounded-xl pl-9 pr-4 py-2.5 text-sm text-slate-900 dark:text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-accent"
+              />
+            </div>
+          </div>
 
       {/* Matches List */}
       <div className="space-y-4 relative z-10 pb-20">
@@ -234,6 +264,8 @@ export default function AdminPage() {
           })
         )}
       </div>
+      </motion.div>
+      )}
     </div>
   )
 }
