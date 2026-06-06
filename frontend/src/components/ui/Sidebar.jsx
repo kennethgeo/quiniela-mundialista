@@ -1,7 +1,8 @@
-import { NavLink } from 'react-router-dom'
-import { Home, Calendar, GitBranch, Trophy, Users, LogOut, Star, X, ShieldAlert } from 'lucide-react'
+import { NavLink, useNavigate } from 'react-router-dom'
+import { Home, Calendar, GitBranch, Trophy, Star, X, ShieldAlert, Moon, Sun, LogOut } from 'lucide-react'
 import { motion, AnimatePresence } from 'motion/react'
 import { useAuth } from '../../hooks/useAuth'
+import { useTheme } from '../../contexts/ThemeContext'
 
 const tabs = [
   { to: '/', icon: Home, label: 'Inicio' },
@@ -12,10 +13,13 @@ const tabs = [
 
 export default function Sidebar({ isOpen, onClose }) {
   const { profile, signOut } = useAuth()
+  const navigate = useNavigate()
+  const { theme, toggleTheme } = useTheme()
 
   const handleSignOut = async () => {
     try {
       await signOut()
+      navigate('/login')
     } catch (err) {
       console.error('Error al cerrar sesión:', err.message)
     }
@@ -144,13 +148,22 @@ export default function Sidebar({ isOpen, onClose }) {
                   </div>
                 </div>
                 
-                <button
-                  onClick={() => { onClose(); handleSignOut(); }}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-400 hover:text-white hover:bg-white/10 transition-all border border-transparent hover:border-white/5"
-                >
-                  <LogOut size={16} />
-                  Cerrar sesión
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={toggleTheme}
+                    className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-xs font-semibold text-slate-400 hover:text-white hover:bg-white/10 transition-all border border-transparent hover:border-white/5"
+                    title={`Cambiar a modo ${theme === 'light' ? 'oscuro' : 'claro'}`}
+                  >
+                    {theme === 'light' ? <Moon size={16} /> : <Sun size={16} />}
+                  </button>
+                  <button
+                    onClick={() => { onClose(); handleSignOut(); }}
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-400 hover:text-white hover:bg-white/10 transition-all border border-transparent hover:border-white/5"
+                  >
+                    <LogOut size={16} />
+                    Cerrar sesión
+                  </button>
+                </div>
               </div>
             )}
           </aside>

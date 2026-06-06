@@ -119,13 +119,17 @@ function AppRoutes() {
   )
 }
 
+import { ThemeProvider } from './contexts/ThemeContext'
+
 function App() {
   return (
     <Router>
-      <AuthProvider>
-        <InstallPrompt />
-        <AppRoutes />
-      </AuthProvider>
+      <ThemeProvider>
+        <AuthProvider>
+          <InstallPrompt />
+          <AppRoutes />
+        </AuthProvider>
+      </ThemeProvider>
     </Router>
   )
 }
