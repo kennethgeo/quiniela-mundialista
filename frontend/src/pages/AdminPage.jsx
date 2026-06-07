@@ -76,6 +76,17 @@ export default function AdminPage() {
 
       if (error) throw error
       
+      // If status is finished, calculate points!
+      if (formState.status === 'finished') {
+        const { calculateAndUpdateScores } = await import('../lib/scoring')
+        const result = await calculateAndUpdateScores(id)
+        if (result.status === 'error') {
+            console.error("Error calculating scores:", result.message)
+        } else {
+            console.log("Scores calculated:", result)
+        }
+      }
+
       // Update local state
       setMatches(prev => prev.map(m => m.id === id ? { ...m, ...updates } : m))
       setEditingId(null)
