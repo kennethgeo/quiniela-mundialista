@@ -37,7 +37,7 @@ export default function DashboardPage() {
           >
             <div className="relative">
               <div className="absolute inset-0 bg-accent/30 blur-2xl rounded-full" />
-              <img src="/logo.png" alt="World Cup Logo" className="w-20 h-20 object-contain drop-shadow-[0_0_20px_rgba(168,85,247,0.6)] relative z-10" />
+              <img src="/logo.png" alt="World Cup Logo" className="w-28 h-28 object-contain drop-shadow-[0_0_20px_rgba(168,85,247,0.6)] relative z-10" />
             </div>
             <span className="text-2xl font-black uppercase tracking-[0.25em] font-['Russo_One'] italic text-transparent bg-clip-text bg-gradient-to-r from-amber-400 via-amber-500 to-accent mt-3 drop-shadow-md">
               Mundial 2026

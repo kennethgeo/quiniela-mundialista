@@ -49,7 +49,7 @@ export default function Sidebar({ isOpen, onClose }) {
         {/* Header: Logo & Close Button */}
         <div className="flex items-center justify-between mb-8 px-2 relative">
               <div className="flex flex-col items-center justify-center w-full relative pt-2">
-                <img src="/logo.png" alt="Logo Quiniela" className="w-16 h-16 object-contain mb-2 drop-shadow-[0_0_15px_rgba(168,85,247,0.5)]" />
+                <img src="/logo.png" alt="Logo Quiniela" className="w-24 h-24 object-contain mb-2 drop-shadow-[0_0_20px_rgba(168,85,247,0.4)]" />
                 <h1 className="text-3xl font-black tracking-tighter leading-none text-center font-['Russo_One'] italic transform -skew-x-6 drop-shadow-md">
                   <span className="text-white block">QUINIELA</span>
                   <span className="bg-gradient-to-r from-amber-400 via-amber-500 to-accent bg-clip-text text-transparent block mt-0.5">
