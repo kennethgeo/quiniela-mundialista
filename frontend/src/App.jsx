@@ -15,6 +15,7 @@ import BracketPage from './pages/BracketPage'
 import LeaderboardPage from './pages/LeaderboardPage'
 import ProfilePage from './pages/ProfilePage'
 import AdminPage from './pages/AdminPage'
+import MatchDetailPage from './pages/MatchDetailPage'
 
 import Sidebar from './components/ui/Sidebar'
 
@@ -109,6 +110,16 @@ function AppRoutes() {
           <ProtectedRoute>
             <MainLayout>
               <ProfilePage />
+            </MainLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/match/:id"
+        element={
+          <ProtectedRoute>
+            <MainLayout>
+              <MatchDetailPage />
             </MainLayout>
           </ProtectedRoute>
         }

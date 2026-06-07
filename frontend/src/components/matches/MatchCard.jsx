@@ -1,12 +1,15 @@
 /* Tarjeta de partido con predicción y resultado (Motor Avanzado) */
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
-import { Lock, Check, X, Zap, Timer } from 'lucide-react'
+import { Lock, Check, X, Zap, Timer, Info } from 'lucide-react'
 import { format, differenceInMinutes, differenceInSeconds } from 'date-fns'
 import { es } from 'date-fns/locale'
+import { useNavigate } from 'react-router-dom'
 import GoalCounter from './GoalCounter'
 
 export default function MatchCard({ match, prediction, onSavePrediction, isLoading, hasUsedPowerupInGroup }) {
+  const navigate = useNavigate()
+  
   // Estado local basado en props
   const [homeGoals, setHomeGoals] = useState(prediction?.home_goals_pred ?? 0)
   const [awayGoals, setAwayGoals] = useState(prediction?.away_goals_pred ?? 0)
@@ -98,10 +101,19 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
 
       {/* ═══ Header: phase, date, countdown ═══ */}
       <div className="flex items-center justify-between mb-2 relative z-10">
-        <span className="text-[11px] uppercase tracking-widest font-semibold text-slate-500">
-          {match.group_name ? `Grupo ${match.group_name}` : match.phase.replace(/_/g, ' ')}
-          {match.matchday && ` · J${match.matchday}`}
-        </span>
+        <div className="flex items-center gap-2">
+          <button 
+            onClick={() => navigate(`/match/${match.id}`)} 
+            className="p-1 hover:bg-slate-100 dark:hover:bg-white/10 rounded-full transition-colors text-slate-400 hover:text-accent"
+            title="Ver detalles del partido"
+          >
+            <Info size={14} />
+          </button>
+          <span className="text-[11px] uppercase tracking-widest font-semibold text-slate-500">
+            {match.group_name ? `Grupo ${match.group_name}` : match.phase.replace(/_/g, ' ')}
+            {match.matchday && ` · J${match.matchday}`}
+          </span>
+        </div>
         <div className="flex items-center gap-1.5">
           {isLocked && !isFinished ? (
             <span className="flex items-center gap-1 text-[11px] font-semibold text-error-light bg-error/10 px-2 py-0.5 rounded-full">

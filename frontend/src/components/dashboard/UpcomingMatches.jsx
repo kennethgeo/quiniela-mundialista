@@ -95,6 +95,8 @@ export default function UpcomingMatches() {
 
 /** Tarjeta individual de partido próximo */
 function UpcomingMatchCard({ match, index }) {
+  const navigate = useNavigate()
+
   // Asegurar que la fecha se parsea como UTC si Supabase omite la zona horaria
   const dateString = match.kickoff_at.endsWith('Z') || match.kickoff_at.includes('+')
     ? match.kickoff_at
@@ -121,7 +123,8 @@ function UpcomingMatchCard({ match, index }) {
       initial={{ opacity: 0, x: 30 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ delay: index * 0.08 }}
-      className="glass-card min-w-[260px] snap-start cursor-pointer group relative overflow-hidden"
+      onClick={() => navigate(`/match/${match.id}`)}
+      className="glass-card min-w-[260px] snap-start cursor-pointer group relative overflow-hidden hover:ring-1 hover:ring-accent/50 transition-all"
     >
       {/* Top accent line */}
       <div className={`absolute top-0 left-0 right-0 h-[2px] ${isLocked ? 'bg-gradient-to-r from-rose-500/50 via-rose-400/30 to-transparent' : 'bg-gradient-to-r from-purple-400/50 via-purple-500/20 to-transparent'}`} />
