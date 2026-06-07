@@ -47,7 +47,9 @@ export default function AdminPage() {
 
     setFormState({
       status: match.status,
-      kickoff_at: localISOTime
+      kickoff_at: localISOTime,
+      home_goals_actual: match.home_goals_actual,
+      away_goals_actual: match.away_goals_actual
     })
     setEditingId(match.id)
   }
@@ -62,7 +64,9 @@ export default function AdminPage() {
 
       const updates = {
         status: formState.status,
-        kickoff_at: utcIsoTime
+        kickoff_at: utcIsoTime,
+        home_goals_actual: formState.home_goals_actual,
+        away_goals_actual: formState.away_goals_actual
       }
 
       const { error } = await supabase
@@ -199,27 +203,53 @@ export default function AdminPage() {
                 </div>
 
                 {isEditing && (
-                  <div className="mt-4 pt-4 border-t border-white/5 flex flex-col sm:flex-row gap-3">
-                    <div className="flex-1">
-                      <label className="block text-[10px] text-slate-400 mb-1 font-semibold uppercase">Estado</label>
-                      <select 
-                        value={formState.status}
-                        onChange={(e) => setFormState({...formState, status: e.target.value})}
-                        className="w-full bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-accent"
-                      >
-                        <option value="pending">Pendiente / Programado</option>
-                        <option value="in_progress">En Vivo</option>
-                        <option value="finished">Finalizado</option>
-                      </select>
+                  <div className="mt-4 pt-4 border-t border-white/5 flex flex-col gap-4">
+                    <div className="flex items-center justify-center gap-4 bg-slate-100 dark:bg-black/20 p-3 rounded-xl">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-slate-500 uppercase">{match.home_team}</span>
+                        <input 
+                          type="number" 
+                          min="0"
+                          value={formState.home_goals_actual ?? ''}
+                          onChange={(e) => setFormState({...formState, home_goals_actual: e.target.value ? parseInt(e.target.value) : null})}
+                          className="w-14 text-center bg-white dark:bg-slate-900 border border-slate-300 dark:border-white/10 rounded-lg py-1.5 text-lg font-black text-slate-900 dark:text-white focus:outline-none focus:border-accent"
+                        />
+                      </div>
+                      <span className="text-slate-400 font-bold">-</span>
+                      <div className="flex items-center gap-2">
+                        <input 
+                          type="number" 
+                          min="0"
+                          value={formState.away_goals_actual ?? ''}
+                          onChange={(e) => setFormState({...formState, away_goals_actual: e.target.value ? parseInt(e.target.value) : null})}
+                          className="w-14 text-center bg-white dark:bg-slate-900 border border-slate-300 dark:border-white/10 rounded-lg py-1.5 text-lg font-black text-slate-900 dark:text-white focus:outline-none focus:border-accent"
+                        />
+                        <span className="text-xs font-bold text-slate-500 uppercase">{match.away_team}</span>
+                      </div>
                     </div>
-                    <div className="flex-1">
-                      <label className="block text-[10px] text-slate-400 mb-1 font-semibold uppercase">Fecha y Hora</label>
-                      <input 
-                        type="datetime-local"
-                        value={formState.kickoff_at}
-                        onChange={(e) => setFormState({...formState, kickoff_at: e.target.value})}
-                        className="w-full bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-accent"
-                      />
+                    
+                    <div className="flex flex-col sm:flex-row gap-3">
+                      <div className="flex-1">
+                        <label className="block text-[10px] text-slate-400 mb-1 font-semibold uppercase">Estado</label>
+                        <select 
+                          value={formState.status}
+                          onChange={(e) => setFormState({...formState, status: e.target.value})}
+                          className="w-full bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-accent"
+                        >
+                          <option value="pending">Pendiente / Programado</option>
+                          <option value="in_progress">En Vivo</option>
+                          <option value="finished">Finalizado</option>
+                        </select>
+                      </div>
+                      <div className="flex-1">
+                        <label className="block text-[10px] text-slate-400 mb-1 font-semibold uppercase">Fecha y Hora</label>
+                        <input 
+                          type="datetime-local"
+                          value={formState.kickoff_at}
+                          onChange={(e) => setFormState({...formState, kickoff_at: e.target.value})}
+                          className="w-full bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-accent"
+                        />
+                      </div>
                     </div>
                   </div>
                 )}
