@@ -13,6 +13,7 @@ import DashboardPage from './pages/DashboardPage'
 import MatchesPage from './pages/MatchesPage'
 import BracketPage from './pages/BracketPage'
 import LeaderboardPage from './pages/LeaderboardPage'
+import ProfilePage from './pages/ProfilePage'
 import AdminPage from './pages/AdminPage'
 
 import Sidebar from './components/ui/Sidebar'
@@ -98,6 +99,16 @@ function AppRoutes() {
           <ProtectedRoute>
             <MainLayout>
               <LeaderboardPage />
+            </MainLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/profile"
+        element={
+          <ProtectedRoute>
+            <MainLayout>
+              <ProfilePage />
             </MainLayout>
           </ProtectedRoute>
         }

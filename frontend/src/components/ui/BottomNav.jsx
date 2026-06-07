@@ -1,6 +1,6 @@
 // Barra de navegación inferior estilo iOS con 5 pestañas
 import { NavLink } from 'react-router-dom'
-import { Home, Calendar, GitBranch, Trophy, Users } from 'lucide-react'
+import { Home, Calendar, GitBranch, Trophy, User } from 'lucide-react'
 import { motion } from 'motion/react'
 
 const tabs = [
@@ -8,6 +8,7 @@ const tabs = [
   { to: '/matches', icon: Calendar, label: 'Partidos' },
   { to: '/bracket', icon: GitBranch, label: 'Bracket' },
   { to: '/leaderboard', icon: Trophy, label: 'Ranking' },
+  { to: '/profile', icon: User, label: 'Perfil' },
 ]
 
 export default function BottomNav() {

@@ -7,11 +7,13 @@ import MatchList from './MatchList'
 import LoadingSpinner from '../ui/LoadingSpinner'
 import GroupStandings from './GroupStandings'
 
-const GROUPS = ['A','B','C','D','E','F','G','H','I','J','K','L']
+const GROUPS = ['Todos', 'A','B','C','D','E','F','G','H','I','J','K','L']
+const MATCHDAYS = ['Todas', 1, 2, 3]
 
 export default function GroupStage() {
   const { profile } = useAuth()
-  const [selectedGroup, setSelectedGroup] = useState('A')
+  const [selectedGroup, setSelectedGroup] = useState('Todos')
+  const [selectedMatchday, setSelectedMatchday] = useState(1)
   const [matches, setMatches] = useState([])
   const [predictions, setPredictions] = useState([])
   const [loading, setLoading] = useState(true)
@@ -46,8 +48,14 @@ export default function GroupStage() {
   // Asegurar orden cronologico estricto en el cliente
   const sortedMatches = [...matches].sort((a, b) => new Date(a.kickoff_at) - new Date(b.kickoff_at))
 
-  // Filtrar partidos por grupo seleccionado
-  const filteredMatches = sortedMatches.filter(m => m.group_name === selectedGroup)
+  // Filtrar partidos por grupo y jornada seleccionados
+  let filteredMatches = sortedMatches
+  if (selectedGroup !== 'Todos') {
+    filteredMatches = filteredMatches.filter(m => m.group_name === selectedGroup)
+  }
+  if (selectedMatchday !== 'Todas') {
+    filteredMatches = filteredMatches.filter(m => m.matchday === selectedMatchday)
+  }
 
   // Guardar predicción
   const handleSavePrediction = async (prediction) => {
@@ -108,7 +116,40 @@ export default function GroupStage() {
                     transition={{ type: 'spring', stiffness: 400, damping: 30 }}
                   />
                 )}
-                <span className="relative z-10">{group}</span>
+                <span className="relative z-10">{group === 'Todos' ? 'ALL' : group}</span>
+              </motion.button>
+            )
+          })}
+        </div>
+
+        {/* Selector de Jornada */}
+        <div className="flex gap-2 overflow-x-auto pb-3 scrollbar-hide px-0.5 mt-2">
+          {MATCHDAYS.map((md, i) => {
+            const isActive = selectedMatchday === md
+            return (
+              <motion.button
+                key={md}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.05 }}
+                whileTap={{ scale: 0.9 }}
+                onClick={() => setSelectedMatchday(md)}
+                className={`relative px-4 py-2 flex-shrink-0 rounded-2xl font-bold text-xs transition-all duration-300 ${
+                  isActive
+                    ? 'bg-accent text-white shadow-lg shadow-accent/30'
+                    : 'glass-strong text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:border-slate-300 dark:hover:border-white/15 bg-white dark:bg-transparent'
+                }`}
+              >
+                {isActive && (
+                  <motion.div
+                    layoutId="matchday-glow"
+                    className="absolute inset-0 rounded-2xl ring-2 ring-accent/40"
+                    transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                  />
+                )}
+                <span className="relative z-10">
+                  {md === 'Todas' ? 'Todas las Jornadas' : `Jornada ${md}`}
+                </span>
               </motion.button>
             )
           })}
@@ -116,12 +157,12 @@ export default function GroupStage() {
 
         {/* Active group indicator label */}
         <motion.p
-          key={selectedGroup}
+          key={`${selectedGroup}-${selectedMatchday}`}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           className="text-xs text-slate-500 mt-1 px-1"
         >
-          Grupo {selectedGroup} · {filteredMatches.length} {filteredMatches.length === 1 ? 'partido' : 'partidos'}
+          {selectedGroup === 'Todos' ? 'Todos los grupos' : `Grupo ${selectedGroup}`} · {filteredMatches.length} {filteredMatches.length === 1 ? 'partido' : 'partidos'}
         </motion.p>
       </div>
 
@@ -147,11 +188,11 @@ export default function GroupStage() {
         >
           {filteredMatches.length === 0 ? (
             <div className="glass-card bg-white dark:bg-transparent p-8 text-center">
-              <p className="text-slate-600 dark:text-slate-400 text-sm">No hay partidos en este grupo aún</p>
+              <p className="text-slate-600 dark:text-slate-400 text-sm">No hay partidos para estos filtros</p>
             </div>
           ) : (
             <>
-              <GroupStandings matches={filteredMatches} />
+              {selectedGroup !== 'Todos' && <GroupStandings matches={filteredMatches} />}
               <MatchList
                 matches={filteredMatches}
                 predictions={predictions}
