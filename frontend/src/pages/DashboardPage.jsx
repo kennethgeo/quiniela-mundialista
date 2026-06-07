@@ -26,19 +26,20 @@ export default function DashboardPage() {
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-          className="relative z-10 px-5 pt-6 pb-2"
+          className="relative z-10 px-5 pt-8 pb-4 flex flex-col items-center text-center"
         >
           {/* World Cup badge */}
           <motion.div
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: 0.2, duration: 0.5 }}
-            className="flex items-center gap-2 mb-4"
+            className="flex flex-col items-center justify-center gap-1 mb-6"
           >
-            <div className="w-8 h-8 rounded-xl gradient-gold flex items-center justify-center shadow-lg shadow-amber-500/20">
-              <Trophy size={16} className="text-slate-900" />
+            <div className="relative">
+              <div className="absolute inset-0 bg-accent/30 blur-2xl rounded-full" />
+              <img src="/logo.png" alt="World Cup Logo" className="w-20 h-20 object-contain drop-shadow-[0_0_20px_rgba(168,85,247,0.6)] relative z-10" />
             </div>
-            <span className="text-xs font-bold uppercase tracking-[0.2em] text-amber-400/80">
+            <span className="text-2xl font-black uppercase tracking-[0.25em] font-['Russo_One'] italic text-transparent bg-clip-text bg-gradient-to-r from-amber-400 via-amber-500 to-accent mt-3 drop-shadow-md">
               Mundial 2026
             </span>
           </motion.div>
@@ -49,8 +50,8 @@ export default function DashboardPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3, duration: 0.5 }}
           >
-            <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">{greeting},</p>
-            <h1 className="text-3xl font-extrabold text-slate-900 dark:text-white mt-0.5 tracking-tight">
+            <p className="text-lg text-slate-500 dark:text-slate-400 font-medium uppercase tracking-widest">{greeting},</p>
+            <h1 className="text-5xl font-black text-slate-900 dark:text-white mt-1 tracking-tighter font-['Russo_One']">
               {displayName}{' '}
               <motion.span
                 animate={{ rotate: [0, 14, -8, 14, 0] }}
@@ -67,10 +68,10 @@ export default function DashboardPage() {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.45, duration: 0.5 }}
-            className="flex items-center gap-2 mt-3 glass-card px-3.5 py-2.5 w-fit"
+            className="flex items-center justify-center gap-2 mt-4 glass-card px-4 py-3 w-fit"
           >
-            <Sparkles size={14} className="text-accent shrink-0" />
-            <p className="text-xs text-slate-700 dark:text-slate-300 font-medium">
+            <Sparkles size={16} className="text-accent shrink-0" />
+            <p className="text-xs sm:text-sm text-slate-700 dark:text-slate-300 font-bold">
               ¡Predice los resultados y compite por la gloria! ⚽🏆
             </p>
           </motion.div>
