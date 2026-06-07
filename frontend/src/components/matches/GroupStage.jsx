@@ -25,7 +25,7 @@ export default function GroupStage() {
       try {
         setLoading(true)
         const [matchesRes, predsRes] = await Promise.all([
-          supabase.from('matches').select('*').eq('phase', 'groups'),
+          supabase.from('matches').select('*').eq('phase', 'groups').order('kickoff_at', { ascending: true }),
           supabase.from('predictions').select('*').eq('user_id', profile.id)
         ])
         

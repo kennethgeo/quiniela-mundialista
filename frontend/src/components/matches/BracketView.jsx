@@ -15,14 +15,20 @@ const KNOCKOUT_PHASES = [
 ]
 
 function BracketMatch({ match, index }) {
-  const isTBD = match.home_team === 'TBD'
-  const isFinished = match.status === 'finished'
+  const homeTeamName = match.home_team_resolved || match.home_team;
+  const awayTeamName = match.away_team_resolved || match.away_team;
+  const homeTeamCode = match.home_team_code_resolved || match.home_team_code;
+  const awayTeamCode = match.away_team_code_resolved || match.away_team_code;
 
-  const TeamRow = ({ team, teamCode, goals, isWinner, isTbd }) => (
+  const isTBDHome = homeTeamName === 'TBD' || homeTeamName.match(/^[123W][A-Z0-9]/);
+  const isTBDAway = awayTeamName === 'TBD' || awayTeamName.match(/^[123W][A-Z0-9]/);
+  const isFinished = match.status === 'finished';
+
+  const TeamRow = ({ team, teamCode, goals, isWinner, isTbd, isPartial }) => (
     <div className={`flex items-center gap-2.5 py-2 px-2.5 rounded-xl transition-colors ${
       isWinner ? 'bg-amber-500/10' : ''
-    }`}>
-      {!isTbd ? (
+    } ${isPartial ? 'opacity-60' : ''}`}>
+      {!isTbd && teamCode ? (
         <img
           src={`https://flagcdn.com/w40/${(teamCode || 'xx').toLowerCase()}.png`}
           alt={team}
@@ -30,16 +36,18 @@ function BracketMatch({ match, index }) {
           loading="lazy"
         />
       ) : (
-        <div className="w-7 h-5 rounded-sm bg-slate-700/60 shimmer" />
+        <div className={`w-7 h-5 rounded-sm flex items-center justify-center text-[8px] font-bold text-slate-500 bg-slate-200 dark:bg-slate-800 ${isTbd ? 'shimmer' : ''}`}>
+          {isTbd ? '-' : ''}
+        </div>
       )}
       <span className={`text-xs flex-1 truncate ${
-        isWinner ? 'text-slate-900 dark:text-white font-bold' : isTbd ? 'text-slate-500 dark:text-slate-600 italic' : 'text-slate-600 dark:text-slate-400'
+        isWinner ? 'text-slate-900 dark:text-white font-bold' : isTbd ? 'text-slate-500 dark:text-slate-600 italic font-mono text-[10px]' : 'text-slate-700 dark:text-slate-300'
       }`}>
         {team}
       </span>
-      {isFinished && (
+      {isFinished && goals !== null && (
         <span className={`text-sm font-bold tabular-nums ${
-          isWinner ? 'text-amber-400' : 'text-slate-500'
+          isWinner ? 'text-amber-500 dark:text-amber-400' : 'text-slate-500'
         }`}>
           {goals}
         </span>
@@ -61,29 +69,33 @@ function BracketMatch({ match, index }) {
     >
       {/* Equipo local */}
       <TeamRow
-        team={match.home_team}
-        teamCode={match.home_team_code}
+        team={homeTeamName}
+        teamCode={homeTeamCode}
         goals={match.home_goals_actual}
         isWinner={homeWins}
-        isTbd={isTBD}
+        isTbd={isTBDHome}
+        isPartial={match.home_is_partial}
       />
 
       <div className="border-t border-white/[0.04] mx-2" />
 
       {/* Equipo visitante */}
       <TeamRow
-        team={match.away_team}
-        teamCode={match.away_team_code}
+        team={awayTeamName}
+        teamCode={awayTeamCode}
         goals={match.away_goals_actual}
         isWinner={awayWins}
-        isTbd={isTBD}
+        isTbd={isTBDAway}
+        isPartial={match.away_is_partial}
       />
     </motion.div>
   )
 }
 
+import { resolveKnockoutTeams } from '../../lib/bracketResolver'
+
 export default function BracketView() {
-  const [matches, setMatches] = useState([])
+  const [allMatches, setAllMatches] = useState([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -92,11 +104,11 @@ export default function BracketView() {
         const { data, error } = await supabase
           .from('matches')
           .select('*')
-          .neq('phase', 'groups')
+          // Removed neq('phase', 'groups') so we can calculate group standings
           .order('kickoff_at', { ascending: true })
           
         if (error) throw error
-        setMatches(data || [])
+        setAllMatches(data || [])
       } catch (err) {
         console.error('Error cargando bracket:', err)
       } finally {
@@ -108,10 +120,15 @@ export default function BracketView() {
 
   if (loading) return <LoadingSpinner />
 
-  // Agrupar por fase
+  // Resolver los equipos dinamicamente en base a las posiciones de fase de grupos
+  const resolvedKnockouts = resolveKnockoutTeams(allMatches)
+
+  // Agrupar por fase y asegurar orden cronologico
   const phases = KNOCKOUT_PHASES.map(phase => ({
     ...phase,
-    matches: matches.filter(m => m.phase === phase.key)
+    matches: resolvedKnockouts
+      .filter(m => m.phase === phase.key)
+      .sort((a, b) => new Date(a.kickoff_at) - new Date(b.kickoff_at))
   })).filter(p => p.matches.length > 0)
 
   if (phases.length === 0) {
