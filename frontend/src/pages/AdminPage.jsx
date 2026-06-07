@@ -4,6 +4,7 @@ import { motion } from 'motion/react'
 import { ShieldAlert, Save, Clock, Search, X, RefreshCw } from 'lucide-react'
 
 import GlobalSettingsAdmin from '../components/admin/GlobalSettingsAdmin'
+import BracketAdmin from '../components/admin/BracketAdmin'
 
 export default function AdminPage() {
   const [activeTab, setActiveTab] = useState('settings') // 'settings' or 'matches'
@@ -233,6 +234,13 @@ export default function AdminPage() {
             Partidos / Resultados
             {activeTab === 'matches' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-accent rounded-t-full" />}
           </button>
+          <button 
+            onClick={() => setActiveTab('bracket')}
+            className={`pb-3 text-sm font-bold transition-colors relative ${activeTab === 'bracket' ? 'text-accent' : 'text-slate-500 hover:text-slate-300'}`}
+          >
+            Bracket (Eliminatorias)
+            {activeTab === 'bracket' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-accent rounded-t-full" />}
+          </button>
         </div>
       </motion.div>
 
@@ -240,6 +248,12 @@ export default function AdminPage() {
       {activeTab === 'settings' && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
           <GlobalSettingsAdmin />
+        </motion.div>
+      )}
+
+      {activeTab === 'bracket' && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="relative z-10 pb-20">
+          <BracketAdmin />
         </motion.div>
       )}
 

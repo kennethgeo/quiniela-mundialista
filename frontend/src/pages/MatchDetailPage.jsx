@@ -6,6 +6,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
+import MatchChat from '../components/matches/MatchChat'
 
 export default function MatchDetailPage() {
   const { id } = useParams()
@@ -204,12 +205,14 @@ export default function MatchDetailPage() {
         </div>
       </motion.div>
 
-      {/* ── Predicciones de la Liga ── */}
-      <div className="space-y-4">
-        <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-          <TrendingUp className="text-accent" />
-          Predicciones de la Liga
-        </h2>
+      {/* ── Predicciones de la Liga y Chat ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Columna Izquierda/Principal: Predicciones */}
+        <div className="lg:col-span-2 space-y-4">
+          <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+            <TrendingUp className="text-accent" />
+            Predicciones de la Liga
+          </h2>
 
         {!isLocked ? (
           <motion.div
@@ -288,8 +291,17 @@ export default function MatchDetailPage() {
                 </motion.div>
               );
             })}
-          </div>
-        )}
+            </div>
+          )}
+        </div>
+
+        {/* Columna Derecha: Banter Box (Chat) */}
+        <div className="space-y-4">
+          <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+            💬 Comentarios en Vivo
+          </h2>
+          <MatchChat matchId={Number(id)} />
+        </div>
       </div>
     </div>
   )

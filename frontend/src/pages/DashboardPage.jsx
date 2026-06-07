@@ -39,7 +39,7 @@ export default function DashboardPage() {
               <div className="absolute inset-0 bg-accent/30 blur-2xl rounded-full" />
               <img src="/logo.png" alt="World Cup Logo" className="w-28 h-28 object-contain drop-shadow-[0_0_20px_rgba(168,85,247,0.6)] relative z-10" />
             </div>
-            <span className="text-2xl font-black uppercase tracking-[0.25em] font-['Russo_One'] italic text-transparent bg-clip-text bg-gradient-to-r from-amber-400 via-amber-500 to-accent mt-3 drop-shadow-md">
+            <span className="text-2xl font-black uppercase tracking-[0.25em] font-['Russo_One'] italic text-transparent bg-clip-text bg-gradient-to-r from-amber-600 via-amber-500 to-accent-dark dark:from-amber-400 dark:via-amber-500 dark:to-accent mt-3 drop-shadow-sm dark:drop-shadow-md">
               Mundial 2026
             </span>
           </motion.div>
@@ -50,7 +50,7 @@ export default function DashboardPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3, duration: 0.5 }}
           >
-            <p className="text-lg text-slate-500 dark:text-slate-400 font-medium uppercase tracking-widest">{greeting},</p>
+            <p className="text-lg text-slate-700 dark:text-slate-400 font-medium uppercase tracking-widest">{greeting},</p>
             <h1 className="text-5xl font-black text-slate-900 dark:text-white mt-1 tracking-tighter font-['Russo_One']">
               {displayName}{' '}
               <motion.span

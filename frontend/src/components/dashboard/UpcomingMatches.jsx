@@ -132,10 +132,10 @@ function UpcomingMatchCard({ match, index }) {
       <div className="p-4 pt-5">
         {/* Match date/time header */}
         <div className="flex items-center justify-between mb-4">
-          <span className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider">
+          <span className="text-[10px] text-slate-600 dark:text-slate-500 font-semibold uppercase tracking-wider">
             {matchDate}
           </span>
-          <span className="text-[10px] text-slate-400 font-mono font-bold bg-white/5 rounded-md px-2 py-0.5">
+          <span className="text-[10px] text-slate-600 dark:text-slate-400 font-mono font-bold bg-slate-100 dark:bg-white/5 rounded-md px-2 py-0.5">
             {matchTime}
           </span>
         </div>
@@ -160,8 +160,8 @@ function UpcomingMatchCard({ match, index }) {
 
           {/* VS Divider */}
           <div className="flex flex-col items-center gap-1 px-3">
-            <div className="w-9 h-9 rounded-full bg-white/5 border border-white/10 flex items-center justify-center">
-              <span className="text-[10px] font-black text-slate-400 tracking-wider">VS</span>
+            <div className="w-9 h-9 rounded-full bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-center">
+              <span className="text-[10px] font-black text-slate-500 dark:text-slate-400 tracking-wider">VS</span>
             </div>
           </div>
 
@@ -185,8 +185,8 @@ function UpcomingMatchCard({ match, index }) {
         {/* Cuenta regresiva / estado bloqueado */}
         <div className={`flex items-center justify-center gap-1.5 text-[11px] font-bold rounded-xl py-1.5 ${
           isLocked
-            ? 'bg-rose-500/10 text-rose-400 border border-rose-500/15'
-            : 'bg-purple-400/8 text-purple-400 border border-purple-400/10'
+            ? 'bg-rose-500/10 text-rose-600 border border-rose-500/20 dark:text-rose-400 dark:border-rose-500/15'
+            : 'bg-purple-500/10 text-purple-600 border border-purple-500/20 dark:bg-purple-400/10 dark:text-purple-400 dark:border-purple-400/10'
         }`}>
           {isLocked ? <Lock size={12} /> : <Clock size={12} />}
           <span>{isLocked ? 'Bloqueado' : `En ${countdown}`}</span>
