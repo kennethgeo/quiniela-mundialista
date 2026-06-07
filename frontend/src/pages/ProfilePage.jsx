@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
-import { User, Activity, Trophy, Clock, Search, History } from 'lucide-react'
+import { User, Activity, Trophy, Clock, Search, History, Target, Zap, CheckCircle2, XCircle, PieChart } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 
@@ -11,6 +11,15 @@ export default function ProfilePage() {
   const [predictions, setPredictions] = useState([])
   const [logs, setLogs] = useState([])
   const [loading, setLoading] = useState(true)
+  
+  const [stats, setStats] = useState({
+    exact: 0,
+    correct: 0,
+    miss: 0,
+    powerups: 0,
+    totalFinished: 0,
+    predictedCount: 0
+  })
 
   useEffect(() => {
     if (profile?.id) {
@@ -36,6 +45,27 @@ export default function ProfilePage() {
         // Ordenar por fecha del partido (descendente: los más recientes/futuros primero)
         enrichedPreds.sort((a,b) => new Date(b.match.kickoff_at) - new Date(a.match.kickoff_at))
         setPredictions(enrichedPreds)
+
+        // Calcular estadísticas
+        let exact = 0, correct = 0, miss = 0, powerups = 0, totalFinished = 0
+        enrichedPreds.forEach(pred => {
+          if (pred.use_powerup_x2) powerups++
+          if (pred.match.status === 'finished') {
+            totalFinished++
+            const pts = pred.points_earned || 0
+            if (pts >= 6) exact++
+            else if (pts >= 3) correct++
+            else miss++
+          }
+        })
+        setStats({
+          exact,
+          correct,
+          miss,
+          powerups,
+          totalFinished,
+          predictedCount: enrichedPreds.length
+        })
       }
 
       // 2. Obtener logs
@@ -78,6 +108,71 @@ export default function ProfilePage() {
           </div>
         </div>
         
+        {/* Métricas / Dashboard */}
+        {!loading && (
+          <motion.div 
+            initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
+            className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-6"
+          >
+            {/* Tasa de Efectividad */}
+            <div className="glass-card p-4 flex flex-col items-center justify-center relative overflow-hidden group">
+              <div className="absolute -right-4 -top-4 w-16 h-16 bg-accent/10 rounded-full blur-xl group-hover:bg-accent/20 transition-colors" />
+              <PieChart size={20} className="text-accent mb-2" />
+              <span className="text-2xl font-black text-slate-900 dark:text-white">
+                {stats.totalFinished > 0 ? Math.round(((stats.exact + stats.correct) / stats.totalFinished) * 100) : 0}%
+              </span>
+              <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider text-center">Efectividad</span>
+            </div>
+
+            {/* Plenos */}
+            <div className="glass-card p-4 flex flex-col items-center justify-center relative overflow-hidden group">
+              <div className="absolute -right-4 -top-4 w-16 h-16 bg-amber-500/10 rounded-full blur-xl group-hover:bg-amber-500/20 transition-colors" />
+              <Target size={20} className="text-amber-500 mb-2" />
+              <span className="text-2xl font-black text-slate-900 dark:text-white">{stats.exact}</span>
+              <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider text-center">Marcador Exacto</span>
+            </div>
+
+            {/* Aciertos */}
+            <div className="glass-card p-4 flex flex-col items-center justify-center relative overflow-hidden group">
+              <div className="absolute -right-4 -top-4 w-16 h-16 bg-emerald-500/10 rounded-full blur-xl group-hover:bg-emerald-500/20 transition-colors" />
+              <CheckCircle2 size={20} className="text-emerald-500 mb-2" />
+              <span className="text-2xl font-black text-slate-900 dark:text-white">{stats.correct}</span>
+              <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider text-center">Acierto Ganador</span>
+            </div>
+
+            {/* Desaciertos */}
+            <div className="glass-card p-4 flex flex-col items-center justify-center relative overflow-hidden group">
+              <div className="absolute -right-4 -top-4 w-16 h-16 bg-rose-500/10 rounded-full blur-xl group-hover:bg-rose-500/20 transition-colors" />
+              <XCircle size={20} className="text-rose-500 mb-2" />
+              <span className="text-2xl font-black text-slate-900 dark:text-white">{stats.miss}</span>
+              <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider text-center">Desaciertos</span>
+            </div>
+
+            {/* Barra Inferior de Métricas Secundarias */}
+            <div className="glass-card p-3 col-span-2 md:col-span-4 flex flex-wrap justify-around items-center gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-amber-500/20 flex items-center justify-center text-amber-500">
+                  <Zap size={16} fill="currentColor" />
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-slate-900 dark:text-white">{stats.powerups}</p>
+                  <p className="text-[10px] text-slate-500 uppercase font-bold">Comodines Usados</p>
+                </div>
+              </div>
+              <div className="hidden sm:block w-px h-8 bg-slate-200 dark:bg-white/10" />
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-500">
+                  <Activity size={16} />
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-slate-900 dark:text-white">{stats.predictedCount} <span className="text-slate-400 font-normal">/ 104</span></p>
+                  <p className="text-[10px] text-slate-500 uppercase font-bold">Partidos Pronosticados</p>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+
         <div className="flex gap-4 mt-6 border-b border-white/10 pb-1">
           <button 
             onClick={() => setActiveTab('predictions')}
