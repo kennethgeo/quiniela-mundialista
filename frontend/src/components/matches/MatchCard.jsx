@@ -192,6 +192,7 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
               )}
 
             </div>
+          ) : (
             <div className="flex items-center gap-3">
               <GoalCounter value={homeGoals} onChange={setHomeGoals} disabled={isLocked} />
               <span className="text-slate-400 dark:text-slate-600 text-2xl font-light mt-0.5">:</span>
