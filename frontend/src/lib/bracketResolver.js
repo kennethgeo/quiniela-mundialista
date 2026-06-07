@@ -123,8 +123,8 @@ export function resolveKnockoutTeams(allMatches) {
   resolvedKnockouts.forEach(m => {
     if (m.status === 'finished' && m.home_goals_actual !== null) {
       const homeWins = m.home_goals_actual > m.away_goals_actual;
-      matchResults[\`W\${m.id}\`] = homeWins ? { name: m.home_team, code: m.home_team_code } : { name: m.away_team, code: m.away_team_code };
-      matchResults[\`L\${m.id}\`] = homeWins ? { name: m.away_team, code: m.away_team_code } : { name: m.home_team, code: m.home_team_code };
+      matchResults[`W${m.id}`] = homeWins ? { name: m.home_team, code: m.home_team_code } : { name: m.away_team, code: m.away_team_code };
+      matchResults[`L${m.id}`] = homeWins ? { name: m.away_team, code: m.away_team_code } : { name: m.home_team, code: m.home_team_code };
     }
   });
 
