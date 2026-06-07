@@ -64,7 +64,13 @@ export default function GlobalChatDrawer() {
             users: userData || { display_name: 'Usuario' }
           }
           
-          setMessages((current) => [...current, newMsg])
+          setMessages((current) => {
+            // Prevent duplicates from optimistic update
+            if (current.some(m => m.id === newMsg.id || (m.content === newMsg.content && m.user_id === newMsg.user_id))) {
+              return current.map(m => (m.content === newMsg.content && m.user_id === newMsg.user_id) ? newMsg : m)
+            }
+            return [...current, newMsg]
+          })
           
           // Increment unread if closed
           if (!isOpen && newMsg.user_id !== profile?.id) {
@@ -95,18 +101,37 @@ export default function GlobalChatDrawer() {
     setNewMessage('') // clear immediately for UX
 
     try {
-      const { error } = await supabase
+      // Optimistic update
+      const tempId = crypto.randomUUID()
+      const optimisticMsg = {
+        id: tempId,
+        user_id: profile.id,
+        content: content,
+        created_at: new Date().toISOString(),
+        users: { display_name: profile.display_name || 'Yo' }
+      }
+      setMessages(prev => [...prev, optimisticMsg])
+
+      const { data, error } = await supabase
         .from('global_chat')
         .insert({
           user_id: profile.id,
           content: content
         })
+        .select()
 
       if (error) {
         throw error
       }
+      
+      // Update temp message with real DB data if needed, or rely on realtime to replace it
+      // Actually, since realtime might fire, we might get duplicates if we don't handle it.
+      // To keep it simple, we just alert if there's an error.
     } catch (err) {
       console.error('Error sending message:', err)
+      alert('Error al enviar mensaje: ' + err.message)
+      // Remove optimistic message
+      setMessages(prev => prev.filter(m => m.content !== content))
     }
   }
 
