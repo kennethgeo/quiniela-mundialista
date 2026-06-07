@@ -43,8 +43,11 @@ export default function GroupStage() {
     fetchData()
   }, [profile])
 
+  // Asegurar orden cronologico estricto en el cliente
+  const sortedMatches = [...matches].sort((a, b) => new Date(a.kickoff_at) - new Date(b.kickoff_at))
+
   // Filtrar partidos por grupo seleccionado
-  const filteredMatches = matches.filter(m => m.group_name === selectedGroup)
+  const filteredMatches = sortedMatches.filter(m => m.group_name === selectedGroup)
 
   // Guardar predicción
   const handleSavePrediction = async (prediction) => {
