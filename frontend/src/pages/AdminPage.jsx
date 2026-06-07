@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { motion } from 'motion/react'
-import { ShieldAlert, Save, Clock, Search, X } from 'lucide-react'
+import { ShieldAlert, Save, Clock, Search, X, RefreshCw } from 'lucide-react'
 
 import GlobalSettingsAdmin from '../components/admin/GlobalSettingsAdmin'
 
@@ -13,6 +13,7 @@ export default function AdminPage() {
   const [saving, setSaving] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [editingId, setEditingId] = useState(null)
+  const [syncing, setSyncing] = useState(false)
   
   // Form state
   const [formState, setFormState] = useState({})
@@ -98,6 +99,102 @@ export default function AdminPage() {
     }
   }
 
+  const handleSyncAPI = async () => {
+    try {
+      setSyncing(true)
+      const res = await fetch('https://worldcup26.ir/get/games')
+      const apiData = await res.json()
+      const apiGames = apiData.games || []
+
+      const teamAlias = {
+        'Czech Republic': 'Czechia',
+        'Bosnia and Herzegovina': 'Bosnia-Herzegovina',
+        'Democratic Republic of the Congo': 'DR Congo',
+        'United States': 'USA',
+        'Ivory Coast': 'Ivory Coast',
+        'Curaçao': 'Curaçao',
+        'Saudi Arabia': 'Saudi Arabia'
+      }
+
+      const getSupabaseTeam = (name) => teamAlias[name] || name
+
+      let updatedCount = 0
+
+      // Groups mapping (API id 1 to 72)
+      const apiGroups = apiGames.filter(g => g.type === 'group')
+      for (const apiGame of apiGroups) {
+        const dbMatch = matches.find(m => 
+          m.phase === 'groups' && 
+          m.group_name === apiGame.group && 
+          m.matchday === parseInt(apiGame.matchday) && 
+          (m.home_team === getSupabaseTeam(apiGame.home_team_name_en) || m.away_team === getSupabaseTeam(apiGame.home_team_name_en))
+        )
+
+        if (dbMatch) {
+          const newStatus = apiGame.finished === "TRUE" ? 'finished' : (apiGame.time_elapsed !== 'notstarted' ? 'in_progress' : 'pending')
+          const newHomeGoals = apiGame.home_score ? parseInt(apiGame.home_score) : null
+          const newAwayGoals = apiGame.away_score ? parseInt(apiGame.away_score) : null
+
+          const hasChanged = dbMatch.status !== newStatus || dbMatch.home_goals_actual !== newHomeGoals || dbMatch.away_goals_actual !== newAwayGoals
+
+          if (hasChanged && newStatus !== 'pending') {
+            await supabase.from('matches').update({
+              status: newStatus,
+              home_goals_actual: newHomeGoals,
+              away_goals_actual: newAwayGoals
+            }).eq('id', dbMatch.id)
+
+            if (newStatus === 'finished' && dbMatch.status !== 'finished') {
+              const { calculateAndUpdateScores } = await import('../lib/scoring')
+              await calculateAndUpdateScores(dbMatch.id)
+            }
+            updatedCount++
+          }
+        }
+      }
+
+      // Knockouts mapping (API id 73 to 104)
+      const apiKnockouts = apiGames.filter(g => g.type !== 'group').sort((a,b) => parseInt(a.id) - parseInt(b.id))
+      const dbKnockouts = matches.filter(m => m.phase !== 'groups').sort((a,b) => a.id - b.id)
+      
+      for (let i = 0; i < apiKnockouts.length; i++) {
+        const apiGame = apiKnockouts[i]
+        const dbMatch = dbKnockouts[i]
+
+        if (apiGame && dbMatch) {
+          const newStatus = apiGame.finished === "TRUE" ? 'finished' : (apiGame.time_elapsed !== 'notstarted' ? 'in_progress' : 'pending')
+          const newHomeGoals = apiGame.home_score ? parseInt(apiGame.home_score) : null
+          const newAwayGoals = apiGame.away_score ? parseInt(apiGame.away_score) : null
+
+          const hasChanged = dbMatch.status !== newStatus || dbMatch.home_goals_actual !== newHomeGoals || dbMatch.away_goals_actual !== newAwayGoals
+
+          if (hasChanged && newStatus !== 'pending') {
+            await supabase.from('matches').update({
+              status: newStatus,
+              home_goals_actual: newHomeGoals,
+              away_goals_actual: newAwayGoals
+            }).eq('id', dbMatch.id)
+
+            if (newStatus === 'finished' && dbMatch.status !== 'finished') {
+              const { calculateAndUpdateScores } = await import('../lib/scoring')
+              await calculateAndUpdateScores(dbMatch.id)
+            }
+            updatedCount++
+          }
+        }
+      }
+
+      alert(`Sincronización completada. Se actualizaron ${updatedCount} partidos.`)
+      await fetchMatches()
+
+    } catch (err) {
+      console.error('Error syncing:', err)
+      alert('Error sincronizando la API: ' + err.message)
+    } finally {
+      setSyncing(false)
+    }
+  }
+
   const filteredMatches = matches.filter(m => 
     m.home_team?.toLowerCase().includes(searchTerm.toLowerCase()) || 
     m.away_team?.toLowerCase().includes(searchTerm.toLowerCase())
@@ -149,8 +246,8 @@ export default function AdminPage() {
       {activeTab === 'matches' && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4 relative z-10 pb-20">
           {/* Control Panel */}
-          <div className="mb-4 glass-card p-4">
-            <div className="relative">
+          <div className="mb-4 glass-card p-4 flex flex-col md:flex-row gap-3 items-center">
+            <div className="relative flex-1 w-full">
               <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
                 type="text"
@@ -160,6 +257,14 @@ export default function AdminPage() {
                 className="w-full bg-slate-100 dark:bg-slate-900/50 border border-slate-200 dark:border-white/10 rounded-xl pl-9 pr-4 py-2.5 text-sm text-slate-900 dark:text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-accent"
               />
             </div>
+            <button
+              onClick={handleSyncAPI}
+              disabled={syncing}
+              className="w-full md:w-auto px-4 py-2.5 bg-accent hover:bg-accent/90 disabled:opacity-50 text-slate-900 font-bold text-sm rounded-xl flex items-center justify-center gap-2 transition-colors"
+            >
+              <RefreshCw size={16} className={syncing ? 'animate-spin' : ''} />
+              {syncing ? 'Sincronizando...' : 'Sincronizar API en Vivo'}
+            </button>
           </div>
 
       {/* Matches List */}
