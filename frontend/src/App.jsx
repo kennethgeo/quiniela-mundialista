@@ -19,6 +19,7 @@ import AdminPage from './pages/AdminPage'
 import MatchDetailPage from './pages/MatchDetailPage'
 
 import Sidebar from './components/ui/Sidebar'
+import GlobalChatDrawer from './components/chat/GlobalChatDrawer'
 
 import { useState } from 'react'
 
@@ -48,6 +49,9 @@ function MainLayout({ children }) {
           <BottomNav />
         </div>
       </div>
+      
+      {/* Botón flotante y drawer del chat global */}
+      <GlobalChatDrawer />
     </div>
   )
 }

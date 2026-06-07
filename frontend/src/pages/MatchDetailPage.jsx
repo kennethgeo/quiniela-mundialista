@@ -6,7 +6,6 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
-import MatchChat from '../components/matches/MatchChat'
 
 export default function MatchDetailPage() {
   const { id } = useParams()
@@ -205,14 +204,12 @@ export default function MatchDetailPage() {
         </div>
       </motion.div>
 
-      {/* ── Predicciones de la Liga y Chat ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Columna Izquierda/Principal: Predicciones */}
-        <div className="lg:col-span-2 space-y-4">
-          <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-            <TrendingUp className="text-accent" />
-            Predicciones de la Liga
-          </h2>
+      {/* ── Predicciones de la Liga ── */}
+      <div className="space-y-4 max-w-4xl mx-auto">
+        <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+          <TrendingUp className="text-accent" />
+          Predicciones de la Liga
+        </h2>
 
         {!isLocked ? (
           <motion.div
@@ -223,9 +220,9 @@ export default function MatchDetailPage() {
             <div className="w-16 h-16 rounded-full bg-purple-500/10 flex items-center justify-center mb-4">
               <span className="text-3xl">🤫</span>
             </div>
-            <h3 className="text-xl font-bold text-white mb-2">Modo Incógnito</h3>
-            <p className="text-slate-400 max-w-sm mx-auto leading-relaxed">
-              Las predicciones de los demás jugadores están ocultas para evitar copias. Se revelarán exactamente <span className="text-white font-bold">15 minutos antes</span> de que comience el partido.
+            <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Modo Incógnito</h3>
+            <p className="text-slate-500 dark:text-slate-400 max-w-sm mx-auto leading-relaxed">
+              Las predicciones de los demás jugadores están ocultas para evitar copias. Se revelarán exactamente <span className="text-slate-900 dark:text-white font-bold">15 minutos antes</span> de que comience el partido.
             </p>
           </motion.div>
         ) : predictions.length === 0 ? (
@@ -253,7 +250,7 @@ export default function MatchDetailPage() {
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="font-bold text-white">
+                        <span className="font-bold text-slate-900 dark:text-white">
                           {pred.users?.display_name}
                         </span>
                         {isMe && (
@@ -268,21 +265,21 @@ export default function MatchDetailPage() {
                           </span>
                         )}
                       </div>
-                      <span className="text-xs text-slate-400">
+                      <span className="text-xs text-slate-500 dark:text-slate-400">
                         Puntos totales: {pred.users?.total_points}
                       </span>
                     </div>
                   </div>
 
                   <div className="flex flex-col items-end gap-1">
-                    <div className="px-4 py-1.5 rounded-xl bg-slate-900/80 border border-white/5 font-mono text-lg font-bold text-white shadow-inner">
+                    <div className="px-4 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-900/80 border border-slate-300 dark:border-white/5 font-mono text-lg font-bold text-slate-900 dark:text-white shadow-inner">
                       {pred.home_score} - {pred.away_score}
                     </div>
                     {isFinished && (
                       <span className={`text-xs font-bold px-2 py-0.5 rounded-md ${
                         pred.points_earned > 0 
-                          ? 'bg-emerald-500/20 text-emerald-400' 
-                          : 'bg-rose-500/20 text-rose-400'
+                          ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400' 
+                          : 'bg-rose-500/20 text-rose-600 dark:text-rose-400'
                       }`}>
                         +{pred.points_earned} pts
                       </span>
@@ -291,17 +288,8 @@ export default function MatchDetailPage() {
                 </motion.div>
               );
             })}
-            </div>
-          )}
-        </div>
-
-        {/* Columna Derecha: Banter Box (Chat) */}
-        <div className="space-y-4">
-          <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-            💬 Comentarios en Vivo
-          </h2>
-          <MatchChat matchId={Number(id)} />
-        </div>
+          </div>
+        )}
       </div>
     </div>
   )
