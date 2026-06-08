@@ -103,7 +103,7 @@ export default function AdminPage() {
   const handleSyncAPI = async () => {
     try {
       setSyncing(true)
-      const res = await fetch('/api/games')
+      const res = await fetch('https://api.allorigins.win/raw?url=' + encodeURIComponent('https://worldcup26.ir/get/games'))
       const apiData = await res.json()
       const apiGames = apiData.games || []
 

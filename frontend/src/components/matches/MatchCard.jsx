@@ -83,7 +83,7 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className={`glass-card bg-white dark:bg-transparent border border-slate-200 dark:border-white/10 shadow-sm dark:shadow-none p-6 md:p-7 relative overflow-hidden ${
+      className={`glass-card bg-white dark:bg-transparent border border-slate-200 dark:border-white/10 shadow-sm dark:shadow-none p-4 md:p-5 relative overflow-hidden ${
         usePowerup
           ? 'ring-1 ring-accent/60 shadow-[0_0_25px_rgba(245,158,11,0.15)]'
           : ''
@@ -156,7 +156,7 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
             <img
               src={match.home_flag_url || `https://flagcdn.com/w80/${match.home_team_code}.png`}
               alt={match.home_team}
-              className="w-14 h-10 mx-auto rounded-lg object-cover shadow-lg shadow-black/30 border border-white/10"
+              className="w-12 h-8 mx-auto rounded-md object-cover shadow-md shadow-black/30 border border-white/10"
               loading="lazy"
             />
           </div>
@@ -174,11 +174,11 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
                 </div>
               )}
               <div className="flex items-center gap-3">
-                <span className="text-3xl font-black text-slate-900 dark:text-white tabular-nums">
+                <span className="text-2xl font-black text-slate-900 dark:text-white tabular-nums">
                   {match.home_goals_actual ?? '-'}
                 </span>
-                <span className="text-slate-400 dark:text-slate-600 text-xl font-light">:</span>
-                <span className="text-3xl font-black text-slate-900 dark:text-white tabular-nums">
+                <span className="text-slate-400 dark:text-slate-600 text-lg font-light">:</span>
+                <span className="text-2xl font-black text-slate-900 dark:text-white tabular-nums">
                   {match.away_goals_actual ?? '-'}
                 </span>
               </div>
@@ -219,7 +219,7 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
             <img
               src={match.away_flag_url || `https://flagcdn.com/w80/${match.away_team_code}.png`}
               alt={match.away_team}
-              className="w-14 h-10 mx-auto rounded-lg object-cover shadow-lg shadow-black/30 border border-white/10"
+              className="w-12 h-8 mx-auto rounded-md object-cover shadow-md shadow-black/30 border border-white/10"
               loading="lazy"
             />
           </div>
@@ -306,7 +306,7 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
                   setUsePowerup(!usePowerup)
                 }}
                 disabled={!usePowerup && hasReachedLimit && !prediction?.use_powerup_x2}
-                className={`flex items-center gap-1.5 px-4 py-3 rounded-2xl text-xs font-bold transition-all duration-200 border ${
+                className={`flex items-center gap-1 px-3 py-2.5 rounded-xl text-[11px] font-bold transition-all duration-200 border ${
                   usePowerup
                     ? 'bg-accent/15 text-accent border-accent/40 shadow-sm shadow-purple-500/10'
                     : (!usePowerup && hasReachedLimit && !prediction?.use_powerup_x2)
@@ -327,7 +327,7 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
               whileTap={{ scale: 0.95 }}
               onClick={handleSave}
               disabled={isLoading || (isKnockout && isTiePredicted && !penaltiesWinner)}
-              className="flex-1 ml-3 py-3 px-5 rounded-2xl gradient-2026 text-white dark:text-slate-900 font-bold text-sm shadow-lg shadow-purple-500/20 hover:shadow-purple-500/30 transition-all duration-200 disabled:opacity-40 disabled:shadow-none disabled:bg-slate-200 dark:disabled:bg-slate-700 disabled:text-slate-500 dark:disabled:text-slate-400 disabled:bg-none"
+              className="flex-1 ml-2 py-2.5 px-4 rounded-xl gradient-2026 text-white dark:text-slate-900 font-bold text-[13px] shadow-lg shadow-purple-500/20 hover:shadow-purple-500/30 transition-all duration-200 disabled:opacity-40 disabled:shadow-none disabled:bg-slate-200 dark:disabled:bg-slate-700 disabled:text-slate-500 dark:disabled:text-slate-400 disabled:bg-none"
             >
               {isLoading ? '...' : prediction ? 'Actualizar' : 'Guardar'}
             </motion.button>
