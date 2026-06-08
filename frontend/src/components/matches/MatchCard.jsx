@@ -150,7 +150,7 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
       </div>
 
       {/* Wrapper para el contenido principal con padding superior para no tapar los elementos absolutos */}
-      <div className="pt-12">
+      <div className="pt-16">
         {/* ═══ Equipos y predicción ═══ */}
       <div className="flex items-center justify-between gap-1 relative z-10">
         {/* Equipo local */}
@@ -349,14 +349,16 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
             </div>
 
             {/* Botón Guardar (con margen para no pisar el absolute izquierdo) */}
-            <motion.button
-              whileTap={{ scale: 0.95 }}
-              onClick={handleSave}
-              disabled={isLoading || (isKnockout && isTiePredicted && !penaltiesWinner)}
-              className="flex-1 ml-[72px] py-2.5 px-4 rounded-xl gradient-2026 text-white dark:text-slate-900 font-bold text-[13px] shadow-lg shadow-purple-500/20 hover:shadow-purple-500/30 transition-all duration-200 disabled:opacity-40 disabled:shadow-none disabled:bg-slate-200 dark:disabled:bg-slate-700 disabled:text-slate-500 dark:disabled:text-slate-400 disabled:bg-none"
-            >
-              {isLoading ? '...' : prediction ? 'Actualizar' : 'Guardar'}
-            </motion.button>
+            <div className="w-full flex justify-end">
+              <motion.button
+                whileTap={{ scale: 0.95 }}
+                onClick={handleSave}
+                disabled={isLoading || (isKnockout && isTiePredicted && !penaltiesWinner)}
+                className="w-[calc(100%-84px)] py-2.5 px-4 rounded-xl gradient-2026 text-white dark:text-slate-900 font-bold text-[13px] shadow-lg shadow-purple-500/20 hover:shadow-purple-500/30 transition-all duration-200 disabled:opacity-40 disabled:shadow-none disabled:bg-slate-200 dark:disabled:bg-slate-700 disabled:text-slate-500 dark:disabled:text-slate-400 disabled:bg-none"
+              >
+                {isLoading ? '...' : prediction ? 'Actualizar' : 'Guardar'}
+              </motion.button>
+            </div>
           </>
         ) : null}
       </div>
