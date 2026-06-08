@@ -5,6 +5,7 @@ import { ShieldAlert, Save, Clock, Search, X, RefreshCw } from 'lucide-react'
 
 import GlobalSettingsAdmin from '../components/admin/GlobalSettingsAdmin'
 import BracketAdmin from '../components/admin/BracketAdmin'
+import PowerupsAdmin from '../components/admin/PowerupsAdmin'
 
 export default function AdminPage() {
   const [activeTab, setActiveTab] = useState('settings') // 'settings' or 'matches'
@@ -235,6 +236,13 @@ export default function AdminPage() {
             {activeTab === 'matches' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-accent rounded-t-full" />}
           </button>
           <button 
+            onClick={() => setActiveTab('powerups')}
+            className={`pb-3 text-sm font-bold transition-colors relative ${activeTab === 'powerups' ? 'text-accent' : 'text-slate-500 hover:text-slate-300'}`}
+          >
+            Comodines (x2)
+            {activeTab === 'powerups' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-accent rounded-t-full" />}
+          </button>
+          <button 
             onClick={() => setActiveTab('bracket')}
             className={`pb-3 text-sm font-bold transition-colors relative ${activeTab === 'bracket' ? 'text-accent' : 'text-slate-500 hover:text-slate-300'}`}
           >
@@ -248,6 +256,12 @@ export default function AdminPage() {
       {activeTab === 'settings' && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
           <GlobalSettingsAdmin />
+        </motion.div>
+      )}
+
+      {activeTab === 'powerups' && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-4">
+          <PowerupsAdmin />
         </motion.div>
       )}
 

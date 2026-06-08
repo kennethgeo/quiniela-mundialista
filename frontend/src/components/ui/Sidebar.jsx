@@ -1,5 +1,5 @@
 import { NavLink, useNavigate } from 'react-router-dom'
-import { Home, Calendar, GitBranch, Trophy, Star, X, ShieldAlert, Moon, Sun, LogOut, User } from 'lucide-react'
+import { Home, Calendar, GitBranch, Trophy, Star, X, ShieldAlert, Moon, Sun, LogOut, User, BookOpen } from 'lucide-react'
 import { motion, AnimatePresence } from 'motion/react'
 import { useAuth } from '../../hooks/useAuth'
 import { useTheme } from '../../contexts/ThemeContext'
@@ -9,6 +9,7 @@ const tabs = [
   { to: '/matches', icon: Calendar, label: 'Partidos' },
   { to: '/bracket', icon: GitBranch, label: 'Bracket' },
   { to: '/leaderboard', icon: Trophy, label: 'Ranking' },
+  { to: '/rules', icon: BookOpen, label: 'Reglas' },
   { to: '/profile', icon: User, label: 'Mi Perfil' },
 ]
 

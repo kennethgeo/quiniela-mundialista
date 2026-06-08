@@ -140,7 +140,7 @@ export default function GlobalChatDrawer() {
       {/* ── Botón Flotante ── */}
       <button
         onClick={() => setIsOpen(true)}
-        className={`fixed bottom-6 right-6 md:bottom-10 md:right-10 z-40 w-14 h-14 rounded-full flex items-center justify-center shadow-[0_0_20px_rgba(168,85,247,0.4)] hover:scale-105 transition-transform ${
+        className={`fixed bottom-20 right-4 md:bottom-10 md:right-10 z-40 w-14 h-14 rounded-full flex items-center justify-center shadow-[0_0_20px_rgba(168,85,247,0.4)] hover:scale-105 transition-transform ${
           isOpen ? 'hidden' : 'flex'
         } bg-gradient-to-br from-accent to-accent-dark text-white`}
       >
@@ -170,7 +170,7 @@ export default function GlobalChatDrawer() {
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: '100%', opacity: 0 }}
               transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="fixed bottom-0 sm:bottom-6 sm:right-6 md:bottom-10 md:right-10 w-full sm:w-80 md:w-[350px] h-[500px] max-h-[80vh] z-50 flex flex-col glass-strong shadow-2xl sm:rounded-2xl border-t sm:border border-white/10 overflow-hidden"
+              className="fixed bottom-0 sm:bottom-6 sm:right-6 md:bottom-10 md:right-10 w-full sm:w-80 md:w-[350px] h-[500px] max-h-[80vh] z-50 flex flex-col bg-white dark:bg-slate-900 shadow-2xl sm:rounded-2xl border-t sm:border border-slate-200 dark:border-white/10 overflow-hidden"
             >
               {/* Header */}
               <div className="bg-white/5 border-b border-white/10 p-3 flex items-center justify-between">
@@ -187,7 +187,7 @@ export default function GlobalChatDrawer() {
               </div>
 
               {/* Messages list */}
-              <div className="flex-1 p-4 overflow-y-auto space-y-4 scrollbar-hide bg-slate-50 dark:bg-black/20">
+              <div className="flex-1 p-4 overflow-y-auto space-y-4 scrollbar-hide bg-slate-50 dark:bg-slate-800">
                 {loading ? (
                   <div className="flex justify-center items-center h-full text-slate-500">
                     <div className="animate-spin text-xl">⚽</div>

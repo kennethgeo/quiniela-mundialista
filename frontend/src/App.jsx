@@ -17,6 +17,7 @@ import LeaderboardPage from './pages/LeaderboardPage'
 import ProfilePage from './pages/ProfilePage'
 import AdminPage from './pages/AdminPage'
 import MatchDetailPage from './pages/MatchDetailPage'
+import RulesPage from './pages/RulesPage'
 
 import Sidebar from './components/ui/Sidebar'
 import GlobalChatDrawer from './components/chat/GlobalChatDrawer'
@@ -136,6 +137,16 @@ function AppRoutes() {
           <ProtectedRoute>
             <MainLayout>
               <AdminPage />
+            </MainLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/rules"
+        element={
+          <ProtectedRoute>
+            <MainLayout>
+              <RulesPage />
             </MainLayout>
           </ProtectedRoute>
         }

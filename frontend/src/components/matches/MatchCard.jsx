@@ -114,18 +114,7 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
         </span>
       </div>
 
-      {/* ═══ Top Center: Date/Time ═══ */}
-      <p className="absolute top-3 left-1/2 -translate-x-1/2 text-[11px] text-slate-600 text-center z-10 capitalize whitespace-nowrap">
-        {kickoff.toLocaleString('es-CR', {
-          timeZone: 'America/Costa_Rica',
-          month: 'long',
-          day: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit',
-          hour12: false
-        }).replace(',', ' ·')}
-        {match.venue && ` · ${match.city}`}
-      </p>
+
 
       {/* ═══ Top Right: Status/Timer ═══ */}
       <div className="absolute top-3 right-3 flex items-center gap-1.5 z-10">
@@ -149,8 +138,25 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
         )}
       </div>
 
-      {/* Wrapper para el contenido principal con padding superior para no tapar los elementos absolutos */}
-      <div className="pt-16">
+      {/* Wrapper para el contenido principal */}
+      <div className="pt-8 relative z-10">
+        {/* Fecha y Fase en flujo normal arriba */}
+        <div className="text-center mb-4">
+          <p className="text-[11px] text-slate-600 dark:text-slate-400 capitalize font-medium flex items-center justify-center gap-1.5 flex-wrap">
+            <span>
+              {kickoff.toLocaleString('es-CR', {
+                timeZone: 'America/Costa_Rica',
+                month: 'long',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: false
+              }).replace(',', ' ·')}
+            </span>
+            {match.venue && <span className="opacity-75">· {match.city}</span>}
+          </p>
+        </div>
+
         {/* ═══ Equipos y predicción ═══ */}
       <div className="flex items-center justify-between gap-1 relative z-10">
         {/* Equipo local */}
