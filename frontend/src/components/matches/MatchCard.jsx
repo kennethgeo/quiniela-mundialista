@@ -317,7 +317,30 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
                     : 'bg-slate-100 dark:glass-strong text-slate-600 dark:text-slate-400 border-slate-200 dark:border-white/5 hover:text-slate-900 dark:hover:text-white hover:border-slate-300 dark:hover:border-white/10'
                 }`}
               >
-                <Zap size={14} className={usePowerup ? 'fill-current' : ''} />
+                <motion.div
+                  initial={false}
+                  animate={usePowerup ? "active" : "inactive"}
+                  variants={{
+                    active: { 
+                      scale: [1, 1.6, 1], 
+                      rotate: [0, -15, 15, -10, 0],
+                      filter: [
+                        'drop-shadow(0px 0px 0px rgba(245,158,11,0))',
+                        'drop-shadow(0px 0px 12px rgba(245,158,11,0.9))',
+                        'drop-shadow(0px 0px 6px rgba(245,158,11,0.5))'
+                      ]
+                    },
+                    inactive: { 
+                      scale: [1, 0.7, 1],
+                      opacity: [1, 0.4, 1],
+                      rotate: [0, 5, 0],
+                      filter: 'drop-shadow(0px 0px 0px rgba(245,158,11,0))'
+                    }
+                  }}
+                  transition={{ duration: 0.5, type: "spring", bounce: 0.4 }}
+                >
+                  <Zap size={14} className={usePowerup ? 'fill-current' : ''} />
+                </motion.div>
                 x2
               </motion.button>
               <span className="text-[9px] mt-1 text-slate-400 font-medium tracking-wide">
