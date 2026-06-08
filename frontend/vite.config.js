@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
-// Configuración de Vite para Quiniela Mundialista PWA
+// Configuración de Vite para Quiniela Mundialista PWA - Version 1.0.1 (Cache Bust)
 export default defineConfig({
   plugins: [
     react(),
