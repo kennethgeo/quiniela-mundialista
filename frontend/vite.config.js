@@ -59,5 +59,14 @@ export default defineConfig({
         ]
       }
     })
-  ]
+  ],
+  server: {
+    proxy: {
+      '/api/games': {
+        target: 'https://worldcup26.ir',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/games/, '/get/games')
+      }
+    }
+  }
 })

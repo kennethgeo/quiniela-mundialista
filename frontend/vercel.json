@@ -2,6 +2,10 @@
   "version": 2,
   "rewrites": [
     {
+      "source": "/api/games",
+      "destination": "https://worldcup26.ir/get/games"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
