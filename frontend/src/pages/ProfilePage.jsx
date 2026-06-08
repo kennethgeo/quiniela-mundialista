@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'motion/react'
 import { User, Activity, Trophy, Clock, Search, History, Target, Zap, CheckCircle2, XCircle, PieChart } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
+import PushNotificationToggle from '../components/ui/PushNotificationToggle'
 
 export default function ProfilePage() {
   const { profile } = useAuth()
@@ -20,6 +21,9 @@ export default function ProfilePage() {
     totalFinished: 0,
     predictedCount: 0
   })
+
+  const [badges, setBadges] = useState(null)
+  const [advancedStats, setAdvancedStats] = useState(null)
 
   useEffect(() => {
     if (profile?.id) {
@@ -83,6 +87,13 @@ export default function ProfilePage() {
         })).filter(l => l.match)
         setLogs(enrichedLogs)
       }
+
+      // 3. Obtener Gamification Stats
+      const { data: bData } = await supabase.from('user_badges_view').select('*').eq('user_id', profile.id).maybeSingle()
+      const { data: sData } = await supabase.from('user_stats_view').select('*').eq('user_id', profile.id).maybeSingle()
+      
+      if (bData) setBadges(bData)
+      if (sData) setAdvancedStats(sData)
 
     } catch (err) {
       console.error('Error fetching profile data', err)
@@ -148,30 +159,85 @@ export default function ProfilePage() {
               <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider text-center">Desaciertos</span>
             </div>
 
-            {/* Barra Inferior de Métricas Secundarias */}
-            <div className="glass-card p-3 col-span-2 md:col-span-4 flex flex-wrap justify-around items-center gap-4">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-amber-500/20 flex items-center justify-center text-amber-500">
-                  <Zap size={16} fill="currentColor" />
+            {/* Barra Inferior de Métricas Secundarias e Históricas */}
+            <div className="glass-card p-3 col-span-2 md:col-span-4 flex flex-col sm:flex-row flex-wrap justify-between items-center gap-4">
+              <div className="flex w-full sm:w-auto justify-around flex-1 gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-amber-500/20 flex items-center justify-center text-amber-500">
+                    <Zap size={16} fill="currentColor" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-slate-900 dark:text-white">{stats.powerups}</p>
+                    <p className="text-[10px] text-slate-500 uppercase font-bold">Comodines Usados</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-sm font-bold text-slate-900 dark:text-white">{stats.powerups}</p>
-                  <p className="text-[10px] text-slate-500 uppercase font-bold">Comodines Usados</p>
+                <div className="w-px h-8 bg-slate-200 dark:bg-white/10" />
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-500">
+                    <Activity size={16} />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-slate-900 dark:text-white">{stats.predictedCount} <span className="text-slate-400 font-normal">/ 104</span></p>
+                    <p className="text-[10px] text-slate-500 uppercase font-bold">Partidos Pronosticados</p>
+                  </div>
                 </div>
               </div>
-              <div className="hidden sm:block w-px h-8 bg-slate-200 dark:bg-white/10" />
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-500">
-                  <Activity size={16} />
-                </div>
-                <div>
-                  <p className="text-sm font-bold text-slate-900 dark:text-white">{stats.predictedCount} <span className="text-slate-400 font-normal">/ 104</span></p>
-                  <p className="text-[10px] text-slate-500 uppercase font-bold">Partidos Pronosticados</p>
-                </div>
-              </div>
+
+              {advancedStats && (advancedStats.talisman_team || advancedStats.maldito_team) && (
+                <>
+                  <div className="hidden sm:block w-px h-8 bg-slate-200 dark:bg-white/10" />
+                  <div className="flex w-full sm:w-auto justify-around flex-1 gap-4 pt-3 sm:pt-0 border-t border-slate-200 dark:border-white/10 sm:border-t-0">
+                    {advancedStats.talisman_team && (
+                      <div className="flex items-center gap-2">
+                        <img src={`https://flagcdn.com/w20/${advancedStats.talisman_team.substring(0,2).toLowerCase()}.png`} alt="Talisman" className="w-5 h-5 rounded-full object-cover" onError={(e) => { e.target.style.display = 'none' }} />
+                        <div>
+                          <p className="text-xs font-bold text-emerald-600 dark:text-emerald-400">{advancedStats.talisman_team}</p>
+                          <p className="text-[9px] text-slate-500 uppercase font-bold">Tu Talismán</p>
+                        </div>
+                      </div>
+                    )}
+                    {advancedStats.maldito_team && (
+                      <div className="flex items-center gap-2">
+                        <img src={`https://flagcdn.com/w20/${advancedStats.maldito_team.substring(0,2).toLowerCase()}.png`} alt="Maldito" className="w-5 h-5 rounded-full object-cover" onError={(e) => { e.target.style.display = 'none' }} />
+                        <div>
+                          <p className="text-xs font-bold text-rose-600 dark:text-rose-400">{advancedStats.maldito_team}</p>
+                          <p className="text-[9px] text-slate-500 uppercase font-bold">Tu Maldición</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
             </div>
           </motion.div>
         )}
+
+        {/* Medallas (Badges) */}
+        {badges && (
+          <motion.div 
+            initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
+            className="mt-6 glass-card p-4 flex gap-3 overflow-x-auto scrollbar-hide"
+          >
+            <div className="flex items-center gap-2 text-slate-500 mr-2 flex-shrink-0">
+              <Trophy size={16} />
+              <span className="text-xs font-bold uppercase tracking-wider">Logros:</span>
+            </div>
+            
+            {badges.is_nostradamus && <Badge emoji="🎯" name="Nostradamus" desc="3+ Exactos" color="amber" />}
+            {badges.is_rey_empate && <Badge emoji="🤝" name="Rey del Empate" desc="3+ Empates exactos" color="blue" />}
+            {badges.is_francotirador && <Badge emoji="🔥" name="Francotirador" desc="Exacto con x2" color="rose" />}
+            {badges.is_pecho_frio && <Badge emoji="🥶" name="Pecho Frío" desc="0 pts con x2" color="cyan" />}
+            {badges.is_mas_conocedor && <Badge emoji="🤡" name="El Más Conocedor" desc="5+ ceros" color="purple" />}
+            {badges.is_tortuga && <Badge emoji="🐢" name="La Tortuga" desc="Predijo a última hora" color="emerald" />}
+            {badges.is_taylor && <Badge emoji="💩" name="0T" desc="Por ser tan Tay" color="stone" />}
+            
+            {(!badges.is_nostradamus && !badges.is_rey_empate && !badges.is_francotirador && !badges.is_pecho_frio && !badges.is_mas_conocedor && !badges.is_tortuga && !badges.is_taylor) && (
+              <span className="text-xs text-slate-400 flex items-center italic">Aún no has desbloqueado logros</span>
+            )}
+          </motion.div>
+        )}
+
+        <PushNotificationToggle />
 
         <div className="flex gap-4 mt-6 border-b border-white/10 pb-1">
           <button 
@@ -295,6 +361,29 @@ export default function ProfilePage() {
             )}
           </AnimatePresence>
         )}
+      </div>
+    </div>
+  )
+}
+
+// Helper para dibujar las medallas
+function Badge({ emoji, name, desc, color }) {
+  const colors = {
+    amber: 'bg-amber-500/10 border-amber-500/20 text-amber-700 dark:text-amber-400',
+    blue: 'bg-blue-500/10 border-blue-500/20 text-blue-700 dark:text-blue-400',
+    rose: 'bg-rose-500/10 border-rose-500/20 text-rose-700 dark:text-rose-400',
+    cyan: 'bg-cyan-500/10 border-cyan-500/20 text-cyan-700 dark:text-cyan-400',
+    purple: 'bg-purple-500/10 border-purple-500/20 text-purple-700 dark:text-purple-400',
+    emerald: 'bg-emerald-500/10 border-emerald-500/20 text-emerald-700 dark:text-emerald-400',
+    stone: 'bg-stone-500/10 border-stone-500/20 text-stone-700 dark:text-stone-400',
+  }
+  
+  return (
+    <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border flex-shrink-0 ${colors[color]}`}>
+      <span className="text-lg leading-none">{emoji}</span>
+      <div className="flex flex-col">
+        <span className="text-[10px] font-black uppercase tracking-wide leading-tight">{name}</span>
+        <span className="text-[9px] opacity-80 leading-tight">{desc}</span>
       </div>
     </div>
   )

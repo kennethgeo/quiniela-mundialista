@@ -27,7 +27,14 @@ export default function MatchList({ matches, predictions, onSavePrediction, isLo
   return (
     <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-8">
       {Object.entries(grouped).map(([label, groupMatches]) => {
-        const hasUsedPowerupInGroup = groupMatches.some(m => findPrediction(m.id)?.use_powerup_x2);
+        const powerupsUsed = groupMatches.filter(m => findPrediction(m.id)?.use_powerup_x2).length;
+        let limit = 1;
+        const phaseLabel = label.toLowerCase();
+        if (phaseLabel.includes('jornada')) limit = 4;
+        else if (phaseLabel.includes('round of 32')) limit = 3;
+        else if (phaseLabel.includes('round of 16')) limit = 2;
+        
+        const hasReachedLimit = powerupsUsed >= limit;
         
         return (
         <div key={label}>
@@ -48,7 +55,9 @@ export default function MatchList({ matches, predictions, onSavePrediction, isLo
                 prediction={findPrediction(match.id)}
                 onSavePrediction={onSavePrediction}
                 isLoading={isLoading}
-                hasUsedPowerupInGroup={hasUsedPowerupInGroup}
+                hasReachedLimit={hasReachedLimit}
+                powerupsUsed={powerupsUsed}
+                powerupLimit={limit}
               />
             ))}
           </div>

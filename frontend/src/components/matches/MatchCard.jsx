@@ -7,7 +7,7 @@ import { es } from 'date-fns/locale'
 import { useNavigate } from 'react-router-dom'
 import GoalCounter from './GoalCounter'
 
-export default function MatchCard({ match, prediction, onSavePrediction, isLoading, hasUsedPowerupInGroup }) {
+export default function MatchCard({ match, prediction, onSavePrediction, isLoading, hasReachedLimit, powerupsUsed, powerupLimit }) {
   const navigate = useNavigate()
   
   // Estado local basado en props
@@ -295,27 +295,32 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
         ) : !isLocked && !isFinished && !isInProgress ? (
           <>
             {/* Toggle Powerup */}
-            <motion.button
-              type="button"
-              whileTap={{ scale: 0.92 }}
-              onClick={() => {
-                if (!usePowerup && hasUsedPowerupInGroup && !prediction?.use_powerup_x2) {
-                  return; // Está bloqueado
-                }
-                setUsePowerup(!usePowerup)
-              }}
-              disabled={!usePowerup && hasUsedPowerupInGroup && !prediction?.use_powerup_x2}
-              className={`flex items-center gap-1.5 px-4 py-3 rounded-2xl text-xs font-bold transition-all duration-200 border ${
-                usePowerup
-                  ? 'bg-accent/15 text-accent border-accent/40 shadow-sm shadow-purple-500/10'
-                  : (!usePowerup && hasUsedPowerupInGroup && !prediction?.use_powerup_x2)
-                  ? 'bg-slate-100 dark:bg-white/5 text-slate-400 dark:text-slate-600 border-slate-200 dark:border-white/5 cursor-not-allowed opacity-50'
-                  : 'bg-slate-100 dark:glass-strong text-slate-600 dark:text-slate-400 border-slate-200 dark:border-white/5 hover:text-slate-900 dark:hover:text-white hover:border-slate-300 dark:hover:border-white/10'
-              }`}
-            >
-              <Zap size={14} className={usePowerup ? 'fill-current' : ''} />
-              x2
-            </motion.button>
+            <div className="flex flex-col items-center">
+              <motion.button
+                type="button"
+                whileTap={{ scale: 0.92 }}
+                onClick={() => {
+                  if (!usePowerup && hasReachedLimit && !prediction?.use_powerup_x2) {
+                    return; // Está bloqueado
+                  }
+                  setUsePowerup(!usePowerup)
+                }}
+                disabled={!usePowerup && hasReachedLimit && !prediction?.use_powerup_x2}
+                className={`flex items-center gap-1.5 px-4 py-3 rounded-2xl text-xs font-bold transition-all duration-200 border ${
+                  usePowerup
+                    ? 'bg-accent/15 text-accent border-accent/40 shadow-sm shadow-purple-500/10'
+                    : (!usePowerup && hasReachedLimit && !prediction?.use_powerup_x2)
+                    ? 'bg-slate-100 dark:bg-white/5 text-slate-400 dark:text-slate-600 border-slate-200 dark:border-white/5 cursor-not-allowed opacity-50'
+                    : 'bg-slate-100 dark:glass-strong text-slate-600 dark:text-slate-400 border-slate-200 dark:border-white/5 hover:text-slate-900 dark:hover:text-white hover:border-slate-300 dark:hover:border-white/10'
+                }`}
+              >
+                <Zap size={14} className={usePowerup ? 'fill-current' : ''} />
+                x2
+              </motion.button>
+              <span className="text-[9px] mt-1 text-slate-400 font-medium tracking-wide">
+                {powerupsUsed}/{powerupLimit} usados
+              </span>
+            </div>
 
             {/* Botón Guardar */}
             <motion.button
