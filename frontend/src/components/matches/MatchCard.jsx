@@ -99,44 +99,23 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
         <div className="absolute inset-0 rounded-2xl animate-pulse bg-accent/[0.02] pointer-events-none" />
       )}
 
-      {/* ═══ Header: phase, date, countdown ═══ */}
-      <div className="flex items-center justify-between mb-2 relative z-10">
-        <div className="flex items-center gap-2">
-          <button 
-            onClick={() => navigate(`/match/${match.id}`)} 
-            className="p-1 hover:bg-slate-100 dark:hover:bg-white/10 rounded-full transition-colors text-slate-400 hover:text-accent"
-            title="Ver detalles del partido"
-          >
-            <Info size={14} />
-          </button>
-          <span className="text-[11px] uppercase tracking-widest font-semibold text-slate-500">
-            {match.group_name ? `Grupo ${match.group_name}` : match.phase.replace(/_/g, ' ')}
-            {match.matchday && ` · J${match.matchday}`}
-          </span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          {isLocked && !isFinished ? (
-            <span className="flex items-center gap-1 text-[11px] font-semibold text-error-light bg-error/10 px-2 py-0.5 rounded-full">
-              <Lock size={11} /> Bloqueado
-            </span>
-          ) : isInProgress ? (
-            <span className="flex items-center gap-1 text-[11px] font-bold text-accent bg-accent/10 px-2 py-0.5 rounded-full animate-pulse">
-              <span className="w-1.5 h-1.5 rounded-full bg-accent" />
-              EN VIVO
-            </span>
-          ) : isFinished ? (
-            <span className="flex items-center gap-1 text-[11px] text-slate-600 dark:text-slate-500 bg-slate-100 dark:bg-white/5 px-2 py-0.5 rounded-full">
-              <Check size={11} /> Finalizado
-            </span>
-          ) : (
-            <span className="flex items-center gap-1 text-[11px] text-slate-600 dark:text-slate-400 font-medium bg-slate-100 dark:bg-white/5 px-2 py-0.5 rounded-full tabular-nums">
-              <Timer size={11} /> {countdown}
-            </span>
-          )}
-        </div>
+      {/* ═══ Top Left: Info & Phase ═══ */}
+      <div className="absolute top-3 left-3 flex items-center gap-2 z-10">
+        <button 
+          onClick={() => navigate(`/match/${match.id}`)} 
+          className="p-1 hover:bg-slate-100 dark:hover:bg-white/10 rounded-full transition-colors text-slate-400 hover:text-accent"
+          title="Ver detalles del partido"
+        >
+          <Info size={14} />
+        </button>
+        <span className="text-[11px] uppercase tracking-widest font-semibold text-slate-500">
+          {match.group_name ? `Grupo ${match.group_name}` : match.phase.replace(/_/g, ' ')}
+          {match.matchday && ` · J${match.matchday}`}
+        </span>
       </div>
 
-      <p className="text-[11px] text-slate-600 mb-5 text-center relative z-10 capitalize">
+      {/* ═══ Top Center: Date/Time ═══ */}
+      <p className="absolute top-3 left-1/2 -translate-x-1/2 text-[11px] text-slate-600 text-center z-10 capitalize whitespace-nowrap">
         {kickoff.toLocaleString('es-CR', {
           timeZone: 'America/Costa_Rica',
           month: 'long',
@@ -148,7 +127,31 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
         {match.venue && ` · ${match.city}`}
       </p>
 
-      {/* ═══ Equipos y predicción ═══ */}
+      {/* ═══ Top Right: Status/Timer ═══ */}
+      <div className="absolute top-3 right-3 flex items-center gap-1.5 z-10">
+        {isLocked && !isFinished ? (
+          <span className="flex items-center gap-1 text-[11px] font-semibold text-error-light bg-error/10 px-2 py-0.5 rounded-full">
+            <Lock size={11} /> Bloqueado
+          </span>
+        ) : isInProgress ? (
+          <span className="flex items-center gap-1 text-[11px] font-bold text-accent bg-accent/10 px-2 py-0.5 rounded-full animate-pulse">
+            <span className="w-1.5 h-1.5 rounded-full bg-accent" />
+            EN VIVO
+          </span>
+        ) : isFinished ? (
+          <span className="flex items-center gap-1 text-[11px] text-slate-600 dark:text-slate-500 bg-slate-100 dark:bg-white/5 px-2 py-0.5 rounded-full">
+            <Check size={11} /> Finalizado
+          </span>
+        ) : (
+          <span className="flex items-center gap-1 text-[11px] text-slate-600 dark:text-slate-400 font-medium bg-slate-100 dark:bg-white/5 px-2 py-0.5 rounded-full tabular-nums">
+            <Timer size={11} /> {countdown}
+          </span>
+        )}
+      </div>
+
+      {/* Wrapper para el contenido principal con padding superior para no tapar los elementos absolutos */}
+      <div className="pt-8">
+        {/* ═══ Equipos y predicción ═══ */}
       <div className="flex items-center justify-between gap-1 relative z-10">
         {/* Equipo local */}
         <div className="flex-1 text-center">
@@ -294,8 +297,8 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
           </div>
         ) : !isLocked && !isFinished && !isInProgress ? (
           <>
-            {/* Toggle Powerup */}
-            <div className="flex flex-col items-center">
+            {/* Toggle Powerup Absoluto */}
+            <div className="absolute bottom-3 left-3 flex flex-col items-center z-20">
               <motion.button
                 type="button"
                 whileTap={{ scale: 0.92 }}
@@ -322,18 +325,22 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
               </span>
             </div>
 
-            {/* Botón Guardar */}
-            <motion.button
-              whileTap={{ scale: 0.95 }}
-              onClick={handleSave}
-              disabled={isLoading || (isKnockout && isTiePredicted && !penaltiesWinner)}
-              className="flex-1 ml-2 py-2.5 px-4 rounded-xl gradient-2026 text-white dark:text-slate-900 font-bold text-[13px] shadow-lg shadow-purple-500/20 hover:shadow-purple-500/30 transition-all duration-200 disabled:opacity-40 disabled:shadow-none disabled:bg-slate-200 dark:disabled:bg-slate-700 disabled:text-slate-500 dark:disabled:text-slate-400 disabled:bg-none"
-            >
-              {isLoading ? '...' : prediction ? 'Actualizar' : 'Guardar'}
-            </motion.button>
+            {/* Botón Guardar (con margen para no pisar el absolute izquierdo) */}
+            <div className="w-full pl-[72px]">
+              <motion.button
+                whileTap={{ scale: 0.95 }}
+                onClick={handleSave}
+                disabled={isLoading || (isKnockout && isTiePredicted && !penaltiesWinner)}
+                className="w-full py-2.5 px-4 rounded-xl gradient-2026 text-white dark:text-slate-900 font-bold text-[13px] shadow-lg shadow-purple-500/20 hover:shadow-purple-500/30 transition-all duration-200 disabled:opacity-40 disabled:shadow-none disabled:bg-slate-200 dark:disabled:bg-slate-700 disabled:text-slate-500 dark:disabled:text-slate-400 disabled:bg-none"
+              >
+                {isLoading ? '...' : prediction ? 'Actualizar' : 'Guardar'}
+              </motion.button>
+            </div>
           </>
         ) : null}
       </div>
+      
+      </div> {/* Fin del wrapper pt-8 */}
     </motion.div>
   )
 }
