@@ -69,6 +69,17 @@ function Podium({ top3 }) {
                 {entry.display_name}
               </p>
 
+              {/* Logros */}
+              <div className="flex items-center gap-0.5 mb-0.5 min-h-[16px]">
+                {entry.is_nostradamus && <span className="text-[10px]" title="Nostradamus (3 pts exactos)">🔮</span>}
+                {entry.is_rey_empate && <span className="text-[10px]" title="Rey del Empate">⚖️</span>}
+                {entry.is_francotirador && <span className="text-[10px]" title="Francotirador (x2 acertado)">🎯</span>}
+                {entry.is_pecho_frio && <span className="text-[10px]" title="Pecho Frío (x2 fallado)">🧊</span>}
+                {entry.is_mas_conocedor && <span className="text-[10px]" title="El Más Conocedor (5 fallos)">🤡</span>}
+                {entry.is_tortuga && <span className="text-[10px]" title="La Tortuga (predicción al límite)">🐢</span>}
+                {entry.is_taylor && <span className="text-[10px]" title="Taylor (0T)">💩</span>}
+              </div>
+
               {/* Puntos */}
               <p className={`text-sm font-bold mb-2 ${iconColors[i]}`}>
                 {entry.total_points} pts

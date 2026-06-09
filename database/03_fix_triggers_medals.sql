@@ -17,22 +17,23 @@ SELECT
     u.display_name,
     u.avatar_url,
     u.total_points,
-    (COUNT(p.id) FILTER (WHERE p.points_earned >= 3) >= 3) AS is_nostradamus,
-    (COUNT(p.id) FILTER (WHERE p.home_goals_pred = p.away_goals_pred AND p.points_earned > 0) >= 3) AS is_rey_empate,
-    (COUNT(p.id) FILTER (WHERE p.use_powerup_x2 = true AND p.points_earned > 0) >= 1) AS is_francotirador,
-    (COUNT(p.id) FILTER (WHERE p.use_powerup_x2 = true AND p.points_earned = 0) >= 1) AS is_pecho_frio,
-    (COUNT(p.id) FILTER (WHERE p.points_earned = 0) >= 5) AS is_mas_conocedor,
+    (COUNT(p.id) FILTER (WHERE m.id IS NOT NULL AND p.points_earned >= 3) >= 3) AS is_nostradamus,
+    (COUNT(p.id) FILTER (WHERE m.id IS NOT NULL AND p.home_goals_pred = p.away_goals_pred AND p.points_earned > 0) >= 3) AS is_rey_empate,
+    (COUNT(p.id) FILTER (WHERE m.id IS NOT NULL AND p.use_powerup_x2 = true AND p.points_earned > 0) >= 1) AS is_francotirador,
+    (COUNT(p.id) FILTER (WHERE m.id IS NOT NULL AND p.use_powerup_x2 = true AND p.points_earned = 0) >= 1) AS is_pecho_frio,
+    (COUNT(p.id) FILTER (WHERE m.id IS NOT NULL AND p.points_earned = 0) >= 5) AS is_mas_conocedor,
     (EXISTS (
         SELECT 1 FROM public.predictions p2 
         JOIN public.matches m2 ON p2.match_id = m2.id
         WHERE p2.user_id = u.id 
+        AND m2.status = 'finished'
         AND m2.kickoff_at - p2.created_at <= interval '45 minutes'
     )) AS is_tortuga,
     (u.display_name ILIKE '%Taylor%') AS is_taylor
 FROM public.users u
 LEFT JOIN public.predictions p ON p.user_id = u.id
 LEFT JOIN public.matches m ON p.match_id = m.id AND m.status = 'finished'
-GROUP BY u.id, u.display_name;
+GROUP BY u.id, u.display_name, u.avatar_url, u.total_points;
 
 -- Refrescar la caché de PostgREST
 NOTIFY pgrst, 'reload schema';
