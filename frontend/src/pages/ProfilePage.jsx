@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
-import { User, Activity, Trophy, Clock, Search, History, Target, Zap, CheckCircle2, XCircle, PieChart } from 'lucide-react'
+import { User, Activity, Trophy, Clock, Search, History, Target, Zap, CheckCircle2, XCircle, PieChart, Camera, Trash2, Loader2 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import PushNotificationToggle from '../components/ui/PushNotificationToggle'
@@ -24,6 +24,68 @@ export default function ProfilePage() {
 
   const [badges, setBadges] = useState(null)
   const [advancedStats, setAdvancedStats] = useState(null)
+  
+  const [uploadingAvatar, setUploadingAvatar] = useState(false)
+  const fileInputRef = useRef(null)
+
+  const handleAvatarUpload = async (event) => {
+    try {
+      setUploadingAvatar(true)
+      const file = event.target.files[0]
+      if (!file) return
+
+      const fileExt = file.name.split('.').pop()
+      const fileName = `${profile.id}-${Math.random()}.${fileExt}`
+      const filePath = `${fileName}`
+
+      // Upload to storage
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, file)
+
+      if (uploadError) throw uploadError
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(filePath)
+
+      // Update user record
+      const { error: updateError } = await supabase
+        .from('users')
+        .update({ avatar_url: publicUrl })
+        .eq('id', profile.id)
+
+      if (updateError) throw updateError
+
+      // Reload window to reflect changes globally
+      window.location.reload()
+    } catch (error) {
+      console.error('Error uploading avatar:', error)
+      alert('Error subiendo la foto: ' + error.message)
+    } finally {
+      setUploadingAvatar(false)
+    }
+  }
+
+  const handleAvatarRemove = async () => {
+    try {
+      setUploadingAvatar(true)
+      const { error: updateError } = await supabase
+        .from('users')
+        .update({ avatar_url: null })
+        .eq('id', profile.id)
+
+      if (updateError) throw updateError
+      
+      window.location.reload()
+    } catch (error) {
+      console.error('Error removing avatar:', error)
+      alert('Error eliminando la foto: ' + error.message)
+    } finally {
+      setUploadingAvatar(false)
+    }
+  }
 
   useEffect(() => {
     if (profile?.id) {
@@ -109,9 +171,48 @@ export default function ProfilePage() {
         animate={{ opacity: 1, y: 0 }}
         className="mb-6 relative z-10"
       >
-        <div className="flex items-center gap-3 mb-1.5">
-          <div className="w-10 h-10 rounded-2xl bg-accent/20 flex items-center justify-center border border-accent/30">
-            <User size={20} className="text-accent" />
+        <div className="flex items-center gap-4 mb-1.5">
+          <div className="relative group">
+            <div 
+              className="w-16 h-16 rounded-2xl bg-gradient-to-br from-accent/30 to-primary-lighter flex items-center justify-center border border-accent/40 shadow-lg shadow-accent/10 overflow-hidden cursor-pointer transition-transform hover:scale-105"
+              onClick={() => !uploadingAvatar && fileInputRef.current?.click()}
+            >
+              {uploadingAvatar ? (
+                <Loader2 size={24} className="text-accent animate-spin" />
+              ) : profile?.avatar_url ? (
+                <>
+                  <img src={profile.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
+                  <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Camera size={20} className="text-white" />
+                  </div>
+                </>
+              ) : (
+                <>
+                  <User size={28} className="text-accent" />
+                  <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Camera size={20} className="text-white" />
+                  </div>
+                </>
+              )}
+            </div>
+            
+            {profile?.avatar_url && !uploadingAvatar && (
+              <button
+                onClick={handleAvatarRemove}
+                className="absolute -top-1 -right-1 bg-red-500 rounded-full p-1 shadow-md hover:bg-red-600 transition-colors"
+                title="Eliminar foto"
+              >
+                <Trash2 size={12} className="text-white" />
+              </button>
+            )}
+
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleAvatarUpload}
+              accept="image/*"
+              className="hidden"
+            />
           </div>
           <div>
             <h1 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight">Mi Perfil</h1>
