@@ -11,5 +11,11 @@
       "builder": "@vercel/python",
       "entrypoint": "app/main.py"
     }
-  }
+  },
+  "rewrites": [
+    {
+      "source": "/api/games",
+      "destination": "https://worldcup26.ir/get/games"
+    }
+  ]
 }
