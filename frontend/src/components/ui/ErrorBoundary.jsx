@@ -19,8 +19,20 @@ class ErrorBoundary extends React.Component {
       error.message?.includes('Importing a module script failed')
     ) {
       this.setState({ isReloading: true })
-      // Forzar recarga ignorando la caché para traer la nueva versión de index.html
-      window.location.reload(true)
+      
+      // Desregistrar service workers para limpiar el caché corrupto antes de recargar
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then((registrations) => {
+          const unregisterPromises = registrations.map(r => r.unregister())
+          Promise.all(unregisterPromises).then(() => {
+            window.location.reload(true)
+          })
+        }).catch(() => {
+          window.location.reload(true)
+        })
+      } else {
+        window.location.reload(true)
+      }
     }
   }
 

@@ -30,18 +30,18 @@ function MainLayout({ children }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
 
   return (
-    <div className="min-h-dvh flex bg-primary text-slate-900 dark:text-slate-200 bg-world-cup relative w-full overflow-hidden">
+    <div className="min-h-dvh flex bg-primary text-slate-900 dark:text-slate-200 bg-world-cup relative w-full">
       <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
       
       {/* Contenedor del contenido que toma el resto de la pantalla */}
       <div className="flex-1 flex flex-col min-w-0 min-h-dvh transition-all duration-300 relative z-0">
         
         {/* Navbar solo en móvil */}
-        <div className="md:hidden flex-none w-full">
+        <div className="md:hidden flex-none w-full sticky top-0 z-40 bg-primary/90 backdrop-blur-md">
           <Navbar onMenuClick={() => setIsSidebarOpen(true)} />
         </div>
         
-        <main className="flex-1 w-full overflow-y-auto pb-32 md:pb-6 relative z-0">
+        <main className="flex-1 w-full pb-32 md:pb-6 relative z-0">
           <div className="w-full px-4 sm:px-6 lg:px-8 md:py-8 h-full">
             {children}
           </div>
