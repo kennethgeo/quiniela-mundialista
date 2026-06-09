@@ -50,9 +50,11 @@ export async function calculateAndUpdateScores(matchId) {
 
     // 4. Guardar nuevos puntos en predicciones
     if (updates.length > 0) {
-      // Chunk updates if necessary, Supabase allows batch upsert
-      const { error: updateError } = await supabase.from('predictions').upsert(updates)
-      if (updateError) console.error('Error updating predictions', updateError)
+      await Promise.all(
+        updates.map(u => 
+          supabase.from('predictions').update({ points_earned: u.points_earned }).eq('id', u.id)
+        )
+      )
     }
 
     // 5. Actualizar usuarios
