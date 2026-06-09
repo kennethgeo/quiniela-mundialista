@@ -1,5 +1,5 @@
 import { useAuth } from '../../hooks/useAuth'
-import { LogOut, Star, Menu } from 'lucide-react'
+import { LogOut, Star, Menu, RefreshCw } from 'lucide-react'
 import { motion } from 'motion/react'
 
 export default function Navbar({ onMenuClick }) {
@@ -52,7 +52,17 @@ export default function Navbar({ onMenuClick }) {
           )}
 
           {/* Avatar del usuario */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            {/* Botón refrescar (útil para PWA en iOS) */}
+            <motion.button
+              whileTap={{ scale: 0.9 }}
+              onClick={() => window.location.reload()}
+              className="p-1.5 rounded-xl text-slate-500 hover:text-slate-300 hover:bg-white/5 transition-all"
+              title="Refrescar datos"
+            >
+              <RefreshCw size={16} />
+            </motion.button>
+
             <div className="w-8 h-8 rounded-full bg-gradient-to-br from-accent/25 to-accent/5 border border-accent/25 flex items-center justify-center text-accent font-bold text-sm shadow-md shadow-accent/10">
               {profile?.display_name?.charAt(0)?.toUpperCase() || '?'}
             </div>
