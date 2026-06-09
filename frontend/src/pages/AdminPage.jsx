@@ -140,7 +140,7 @@ export default function AdminPage() {
 
           const hasChanged = dbMatch.status !== newStatus || dbMatch.home_goals_actual !== newHomeGoals || dbMatch.away_goals_actual !== newAwayGoals
 
-          if (hasChanged && newStatus !== 'pending') {
+          if (hasChanged) {
             await supabase.from('matches').update({
               status: newStatus,
               home_goals_actual: newHomeGoals,
@@ -170,7 +170,7 @@ export default function AdminPage() {
 
           const hasChanged = dbMatch.status !== newStatus || dbMatch.home_goals_actual !== newHomeGoals || dbMatch.away_goals_actual !== newAwayGoals
 
-          if (hasChanged && newStatus !== 'pending') {
+          if (hasChanged) {
             await supabase.from('matches').update({
               status: newStatus,
               home_goals_actual: newHomeGoals,
