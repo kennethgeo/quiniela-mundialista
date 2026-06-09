@@ -58,6 +58,8 @@ function MainLayout({ children }) {
   )
 }
 
+import ErrorBoundary from './components/ui/ErrorBoundary'
+
 function AppRoutes() {
   const { user, loading } = useAuth()
 
@@ -66,12 +68,13 @@ function AppRoutes() {
   }
 
   return (
-    <Suspense fallback={
-      <div className="min-h-dvh bg-primary flex items-center justify-center">
-        <LoadingSpinner />
-      </div>
-    }>
-      <Routes>
+    <ErrorBoundary>
+      <Suspense fallback={
+        <div className="min-h-dvh bg-primary flex items-center justify-center">
+          <LoadingSpinner />
+        </div>
+      }>
+        <Routes>
         {/* Rutas públicas */}
         <Route path="/auth" element={<AuthPage />} />
 
@@ -162,6 +165,7 @@ function AppRoutes() {
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
     </Suspense>
+    </ErrorBoundary>
   )
 }
 
