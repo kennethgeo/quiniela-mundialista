@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import { calculateAndUpdateScores } from '../lib/scoring'
 import { motion } from 'motion/react'
 import { ShieldAlert, Save, Clock, Search, X, RefreshCw } from 'lucide-react'
 
@@ -81,7 +82,6 @@ export default function AdminPage() {
       
       // If status is finished, calculate points!
       if (formState.status === 'finished') {
-        const { calculateAndUpdateScores } = await import('../lib/scoring')
         const result = await calculateAndUpdateScores(id)
         if (result.status === 'error') {
             console.error("Error calculating scores:", result.message)
@@ -147,7 +147,6 @@ export default function AdminPage() {
             }).eq('id', dbMatch.id)
 
             if (newStatus === 'finished' && dbMatch.status !== 'finished') {
-              const { calculateAndUpdateScores } = await import('../lib/scoring')
               await calculateAndUpdateScores(dbMatch.id)
             }
             updatedCount++
@@ -178,7 +177,6 @@ export default function AdminPage() {
             }).eq('id', dbMatch.id)
 
             if (newStatus === 'finished' && dbMatch.status !== 'finished') {
-              const { calculateAndUpdateScores } = await import('../lib/scoring')
               await calculateAndUpdateScores(dbMatch.id)
             }
             updatedCount++
