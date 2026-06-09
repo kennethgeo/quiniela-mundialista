@@ -140,7 +140,7 @@ export default function GlobalChatDrawer() {
       {/* ── Botón Flotante ── */}
       <button
         onClick={() => setIsOpen(true)}
-        className={`fixed bottom-20 right-4 md:bottom-10 md:right-10 z-40 w-14 h-14 rounded-full flex items-center justify-center shadow-[0_0_20px_rgba(168,85,247,0.4)] hover:scale-105 transition-transform ${
+        className={`fixed bottom-[85px] right-4 md:bottom-10 md:right-10 z-[60] w-14 h-14 rounded-full flex items-center justify-center shadow-[0_0_20px_rgba(168,85,247,0.4)] hover:scale-105 transition-transform ${
           isOpen ? 'hidden' : 'flex'
         } bg-gradient-to-br from-accent to-accent-dark text-white`}
       >
@@ -162,7 +162,7 @@ export default function GlobalChatDrawer() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setIsOpen(false)}
-              className="fixed inset-0 bg-black/20 z-40 sm:bg-transparent"
+              className="fixed inset-0 bg-black/40 z-[55] sm:bg-transparent"
             />
 
             <motion.div
@@ -170,24 +170,24 @@ export default function GlobalChatDrawer() {
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: '100%', opacity: 0 }}
               transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="fixed bottom-0 sm:bottom-6 sm:right-6 md:bottom-10 md:right-10 w-full sm:w-80 md:w-[350px] h-[500px] max-h-[80vh] z-50 flex flex-col bg-white dark:bg-slate-900 shadow-2xl sm:rounded-2xl border-t sm:border border-slate-200 dark:border-white/10 overflow-hidden"
+              className="fixed bottom-[70px] sm:bottom-6 sm:right-6 md:bottom-10 md:right-10 w-full sm:w-80 md:w-[350px] h-[500px] max-h-[80vh] z-[60] flex flex-col bg-white dark:bg-slate-900 shadow-2xl sm:rounded-2xl border-t sm:border border-slate-200 dark:border-white/10 overflow-hidden"
             >
               {/* Header */}
-              <div className="bg-white/5 border-b border-white/10 p-3 flex items-center justify-between">
+              <div className="bg-slate-100 dark:bg-slate-800 border-b border-slate-200 dark:border-white/10 p-3 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <MessageSquare size={16} className="text-accent" />
                   <h3 className="font-bold text-slate-900 dark:text-white text-sm">Chat de la Liga</h3>
                 </div>
                 <button 
                   onClick={() => setIsOpen(false)}
-                  className="p-1 rounded-full hover:bg-white/10 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white transition-colors"
+                  className="p-1 rounded-full hover:bg-slate-200 dark:hover:bg-white/10 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white transition-colors"
                 >
                   <X size={16} />
                 </button>
               </div>
 
               {/* Messages list */}
-              <div className="flex-1 p-4 overflow-y-auto space-y-4 scrollbar-hide bg-slate-50 dark:bg-slate-800">
+              <div className="flex-1 p-4 overflow-y-auto space-y-4 bg-white dark:bg-slate-900">
                 {loading ? (
                   <div className="flex justify-center items-center h-full text-slate-500">
                     <div className="animate-spin text-xl">⚽</div>
@@ -216,7 +216,7 @@ export default function GlobalChatDrawer() {
                           className={`px-3 py-2 rounded-2xl max-w-[85%] text-sm shadow-sm ${
                             isMe
                               ? 'bg-accent text-white rounded-tr-sm'
-                              : 'bg-white dark:bg-white/10 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-white/5 rounded-tl-sm'
+                              : 'bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-white/5 rounded-tl-sm'
                           }`}
                         >
                           {msg.content}
@@ -229,7 +229,7 @@ export default function GlobalChatDrawer() {
               </div>
 
               {/* Input area */}
-              <form onSubmit={handleSend} className="p-3 bg-white/50 dark:bg-black/40 border-t border-slate-200 dark:border-white/10 backdrop-blur-md">
+              <form onSubmit={handleSend} className="p-3 bg-slate-50 dark:bg-slate-800 border-t border-slate-200 dark:border-white/10">
                 <div className="relative flex items-center">
                   <input
                     type="text"
@@ -237,7 +237,7 @@ export default function GlobalChatDrawer() {
                     onChange={(e) => setNewMessage(e.target.value)}
                     placeholder="Escribe un mensaje..."
                     maxLength={500}
-                    className="w-full bg-white dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-full pl-4 pr-10 py-2.5 text-sm text-slate-900 dark:text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-accent/50 focus:border-accent transition-all shadow-inner"
+                    className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-white/10 rounded-full pl-4 pr-10 py-2.5 text-sm text-slate-900 dark:text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-accent/50 focus:border-accent transition-all shadow-inner"
                   />
                   <button
                     type="submit"

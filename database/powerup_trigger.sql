@@ -7,7 +7,8 @@ RETURNS TRIGGER AS $$
 DECLARE
   v_matchday INTEGER;
   v_phase TEXT;
-  v_existing_powerup UUID;
+  v_powerups_used INTEGER;
+  v_limit INTEGER;
 BEGIN
   -- Si el usuario no está intentando usar powerup, no hay problema
   IF NOT NEW.use_powerup_x2 THEN
@@ -19,9 +20,19 @@ BEGIN
   FROM public.matches
   WHERE id = NEW.match_id;
 
-  -- Buscar si ya existe otra predicción del mismo usuario con powerup
-  -- en la misma fase/jornada
-  SELECT p.id INTO v_existing_powerup
+  -- Obtener el límite configurado dinámico
+  SELECT max_uses INTO v_limit
+  FROM public.powerup_limits
+  WHERE phase = v_phase
+    AND (matchday = v_matchday OR (matchday IS NULL AND v_matchday IS NULL));
+
+  -- Si no hay límite configurado en la tabla, se asume 0
+  IF v_limit IS NULL THEN
+    v_limit := 0;
+  END IF;
+
+  -- Contar cuántos comodines ya usó el usuario en esta fase/jornada
+  SELECT count(*) INTO v_powerups_used
   FROM public.predictions p
   JOIN public.matches m ON p.match_id = m.id
   WHERE p.user_id = NEW.user_id
@@ -30,9 +41,9 @@ BEGIN
     AND m.phase = v_phase
     AND (m.matchday = v_matchday OR (m.matchday IS NULL AND v_matchday IS NULL));
 
-  -- Si encontró otra predicción con x2, aborta la operación
-  IF v_existing_powerup IS NOT NULL THEN
-    RAISE EXCEPTION 'Ya has utilizado tu comodín (x2) en esta jornada o fase.';
+  -- Si ya alcanzó o superó el límite, se bloquea la operación
+  IF v_powerups_used >= v_limit THEN
+    RAISE EXCEPTION 'Ya has utilizado el límite de comodines (x2) permitidos en esta jornada o fase.';
   END IF;
 
   RETURN NEW;

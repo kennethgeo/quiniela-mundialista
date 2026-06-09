@@ -49,12 +49,23 @@ export default function LeaderboardRow({ entry, position, isCurrentUser }) {
         )}
       </div>
 
-      {/* Nombre */}
-      <div className="flex-1 min-w-0">
-        <p className={`text-sm font-semibold truncate ${isCurrentUser ? 'text-accent' : 'text-slate-200'}`}>
-          {entry.display_name}
-          {isCurrentUser && <span className="text-xs text-accent/60 ml-1.5">(tú)</span>}
-        </p>
+      {/* Nombre y Medallas */}
+      <div className="flex-1 min-w-0 flex flex-col justify-center">
+        <div className="flex items-center gap-1">
+          <p className={`text-sm font-semibold truncate ${isCurrentUser ? 'text-accent' : 'text-slate-200'}`}>
+            {entry.display_name}
+            {isCurrentUser && <span className="text-xs text-accent/60 ml-1.5">(tú)</span>}
+          </p>
+        </div>
+        <div className="flex items-center gap-1 mt-0.5">
+          {entry.is_nostradamus && <span title="Nostradamus (3 pts exactos)">🔮</span>}
+          {entry.is_rey_empate && <span title="Rey del Empate">⚖️</span>}
+          {entry.is_francotirador && <span title="Francotirador (x2 acertado)">🎯</span>}
+          {entry.is_pecho_frio && <span title="Pecho Frío (x2 fallado)">🧊</span>}
+          {entry.is_mas_conocedor && <span title="El Más Conocedor (5 fallos)">🤡</span>}
+          {entry.is_tortuga && <span title="La Tortuga (predicción al límite)">🐢</span>}
+          {entry.is_taylor && <span title="Taylor (0T)">0T 💩</span>}
+        </div>
       </div>
 
       {/* Puntos */}

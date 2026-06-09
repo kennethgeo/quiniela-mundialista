@@ -124,18 +124,19 @@ function UpcomingMatchCard({ match, index }) {
       animate={{ opacity: 1, x: 0 }}
       transition={{ delay: index * 0.08 }}
       onClick={() => navigate(`/match/${match.id}`)}
-      className="glass-card min-w-[260px] snap-start cursor-pointer group relative overflow-hidden hover:ring-1 hover:ring-accent/50 transition-all"
+      className="glass-card min-w-[280px] snap-start cursor-pointer group relative hover:ring-1 hover:ring-accent/50 transition-all"
     >
       {/* Top accent line */}
-      <div className={`absolute top-0 left-0 right-0 h-[2px] ${isLocked ? 'bg-gradient-to-r from-rose-500/50 via-rose-400/30 to-transparent' : 'bg-gradient-to-r from-purple-400/50 via-purple-500/20 to-transparent'}`} />
+      <div className={`absolute top-0 left-0 right-0 h-[2px] rounded-t-2xl ${isLocked ? 'bg-gradient-to-r from-rose-500/50 via-rose-400/30 to-transparent' : 'bg-gradient-to-r from-purple-400/50 via-purple-500/20 to-transparent'}`} />
 
-      <div className="p-4 pt-5">
+      {/* Usar style para garantizar el padding incluso si Tailwind no recompila la clase */}
+      <div className="p-4" style={{ paddingTop: '8px' }}>
         {/* Match date/time header */}
-        <div className="flex items-center justify-between mb-4">
-          <span className="text-[10px] text-slate-600 dark:text-slate-500 font-semibold uppercase tracking-wider">
+        <div className="flex items-center justify-between gap-2 mb-4">
+          <span className="text-[10px] text-slate-600 dark:text-slate-500 font-semibold uppercase tracking-wider whitespace-nowrap">
             {matchDate}
           </span>
-          <span className="text-[10px] text-slate-600 dark:text-slate-400 font-mono font-bold bg-slate-100 dark:bg-white/5 rounded-md px-2 py-0.5">
+          <span className="text-[10px] text-slate-600 dark:text-slate-400 font-mono font-bold bg-slate-100 dark:bg-white/5 rounded-md px-2 py-0.5 whitespace-nowrap">
             {matchTime}
           </span>
         </div>

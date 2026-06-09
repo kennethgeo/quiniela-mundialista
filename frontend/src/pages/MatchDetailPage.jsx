@@ -120,13 +120,14 @@ export default function MatchDetailPage() {
       >
         <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-accent via-purple-500 to-amber-500" />
         
-        <div className="p-6">
-          <div className="flex justify-between items-center mb-6">
-            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 bg-white/5 px-3 py-1.5 rounded-full">
+        {/* Usar style para garantizar un buen padding top */}
+        <div className="p-6" style={{ paddingTop: '8px' }}>
+          <div className="flex flex-wrap justify-between items-center gap-2 mb-6">
+            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 bg-white/5 px-3 py-1.5 rounded-full shrink-0">
               <Calendar size={14} />
               {format(kickoff, "EEEE d 'de' MMMM", { locale: es })}
             </div>
-            <div className={`flex items-center gap-1.5 text-xs font-bold uppercase px-3 py-1.5 rounded-full ${
+            <div className={`flex items-center gap-1.5 text-xs font-bold uppercase px-3 py-1.5 rounded-full shrink-0 ${
               match.status === 'finished' ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' :
               match.status === 'in_progress' ? 'bg-rose-500/10 text-rose-500 border border-rose-500/20 animate-pulse' :
               'bg-slate-500/10 text-slate-500 border border-slate-500/20'

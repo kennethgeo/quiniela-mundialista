@@ -226,12 +226,19 @@ button, a, [role="button"] { -webkit-tap-highlight-color: transparent; }
   outline-offset: 2px;
 }
 
-/* ── Webkit Autofill Fix for Dark Mode Glassmorphism ── */
+/* ── Webkit Autofill Fix for Light and Dark Mode Glassmorphism ── */
 input:-webkit-autofill,
 input:-webkit-autofill:hover, 
 input:-webkit-autofill:focus, 
 input:-webkit-autofill:active {
-  -webkit-text-fill-color: white !important;
+  -webkit-text-fill-color: var(--text-body) !important;
   transition: background-color 5000s ease-in-out 0s !important;
   font-family: inherit !important;
+}
+
+.dark input:-webkit-autofill,
+.dark input:-webkit-autofill:hover, 
+.dark input:-webkit-autofill:focus, 
+.dark input:-webkit-autofill:active {
+  -webkit-text-fill-color: white !important;
 }

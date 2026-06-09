@@ -102,8 +102,8 @@ export default function Leaderboard() {
     const fetchLeaderboard = async () => {
       try {
         const { data, error } = await supabase
-          .from('users')
-          .select('id, display_name, avatar_url, total_points')
+          .from('user_badges_view')
+          .select('*')
           .order('total_points', { ascending: false })
 
         if (error) throw error

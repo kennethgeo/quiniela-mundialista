@@ -16,26 +16,40 @@ export default function GroupStage() {
   const [selectedMatchday, setSelectedMatchday] = useState(1)
   const [matches, setMatches] = useState([])
   const [predictions, setPredictions] = useState([])
+  const [powerupLimits, setPowerupLimits] = useState({})
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
 
-  // Cargar partidos de fase de grupos
+  // Cargar partidos de fase de grupos y límites de comodines
   useEffect(() => {
     const fetchData = async () => {
       if (!profile) return
       try {
         setLoading(true)
-        const [matchesRes, predsRes] = await Promise.all([
+        const [matchesRes, predsRes, limitsRes] = await Promise.all([
           supabase.from('matches').select('*').eq('phase', 'groups').order('kickoff_at', { ascending: true }),
-          supabase.from('predictions').select('*').eq('user_id', profile.id)
+          supabase.from('predictions').select('*').eq('user_id', profile.id),
+          supabase.from('powerup_limits').select('*')
         ])
         
         if (matchesRes.error) throw matchesRes.error
         if (predsRes.error) throw predsRes.error
+        if (limitsRes.error) throw limitsRes.error
         
         setMatches(matchesRes.data || [])
         setPredictions(predsRes.data || [])
+
+        // Procesar límites en un diccionario fácil de consultar
+        const limitsObj = {}
+        if (limitsRes.data) {
+          limitsRes.data.forEach(l => {
+            const key = l.matchday ? `${l.phase}_${l.matchday}` : l.phase
+            limitsObj[key] = l.max_uses
+          })
+        }
+        setPowerupLimits(limitsObj)
+
       } catch (err) {
         setError(err.message)
       } finally {
@@ -46,7 +60,26 @@ export default function GroupStage() {
   }, [profile])
 
   // Asegurar orden cronologico estricto en el cliente
-  const sortedMatches = [...matches].sort((a, b) => new Date(a.kickoff_at) - new Date(b.kickoff_at))
+  const chronologicallySortedMatches = [...matches].sort((a, b) => new Date(a.kickoff_at) - new Date(b.kickoff_at))
+
+  // Recalcular matchday basado en el orden cronológico por grupo (para evitar errores de la API)
+  const matchesByGroup = {}
+  chronologicallySortedMatches.forEach(m => {
+    if (!matchesByGroup[m.group_name]) matchesByGroup[m.group_name] = []
+    matchesByGroup[m.group_name].push(m)
+  })
+  
+  const fixedMatches = []
+  Object.keys(matchesByGroup).forEach(group => {
+    matchesByGroup[group].forEach((m, idx) => {
+      // En un grupo de 4 equipos, hay 6 partidos. Los partidos 0,1 son J1; 2,3 son J2; 4,5 son J3.
+      const calculatedMatchday = Math.floor(idx / 2) + 1
+      fixedMatches.push({ ...m, matchday: calculatedMatchday })
+    })
+  })
+  
+  // Volver a ordenar cronológicamente todo junto
+  const sortedMatches = fixedMatches.sort((a, b) => new Date(a.kickoff_at) - new Date(b.kickoff_at))
 
   // Filtrar partidos por grupo y jornada seleccionados
   let filteredMatches = sortedMatches
@@ -198,6 +231,7 @@ export default function GroupStage() {
                 predictions={predictions}
                 onSavePrediction={handleSavePrediction}
                 isLoading={saving}
+                powerupLimits={powerupLimits}
               />
             </>
           )}

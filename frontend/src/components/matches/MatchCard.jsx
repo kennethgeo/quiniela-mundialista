@@ -100,7 +100,7 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
       )}
 
       {/* ═══ Top Left: Info & Phase ═══ */}
-      <div className="absolute top-3 left-3 flex items-center gap-2 z-10">
+      <div className="absolute top-4 left-4 flex items-center gap-2 z-10">
         <button 
           onClick={() => navigate(`/match/${match.id}`)} 
           className="p-1 hover:bg-slate-100 dark:hover:bg-white/10 rounded-full transition-colors text-slate-400 hover:text-accent"
@@ -117,7 +117,7 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
 
 
       {/* ═══ Top Right: Status/Timer ═══ */}
-      <div className="absolute top-3 right-3 flex items-center gap-1.5 z-10">
+      <div className="absolute top-4 right-4 flex items-center gap-1.5 z-10">
         {isLocked && !isFinished ? (
           <span className="flex items-center gap-1 text-[11px] font-semibold text-error-light bg-error/10 px-2 py-0.5 rounded-full">
             <Lock size={11} /> Bloqueado

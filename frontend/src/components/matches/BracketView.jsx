@@ -3,6 +3,9 @@ import { useState, useEffect } from 'react'
 import { motion } from 'motion/react'
 import { Trophy, Swords } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
+import { format } from 'date-fns'
+import { es } from 'date-fns/locale'
+import { useNavigate } from 'react-router-dom'
 import LoadingSpinner from '../ui/LoadingSpinner'
 
 const KNOCKOUT_PHASES = [
@@ -15,13 +18,15 @@ const KNOCKOUT_PHASES = [
 ]
 
 function BracketMatch({ match, index }) {
+  const navigate = useNavigate()
+  
   const homeTeamName = match.home_team_resolved || match.home_team;
   const awayTeamName = match.away_team_resolved || match.away_team;
   const homeTeamCode = match.home_team_code_resolved || match.home_team_code;
   const awayTeamCode = match.away_team_code_resolved || match.away_team_code;
 
-  const isTBDHome = homeTeamName === 'TBD' || homeTeamName.match(/^[123W][A-Z0-9]/);
-  const isTBDAway = awayTeamName === 'TBD' || awayTeamName.match(/^[123W][A-Z0-9]/);
+  const isTBDHome = homeTeamName === 'TBD' || homeTeamName.match(/^[123WL][A-Z0-9]/);
+  const isTBDAway = awayTeamName === 'TBD' || awayTeamName.match(/^[123WL][A-Z0-9]/);
   const isFinished = match.status === 'finished';
 
   const TeamRow = ({ team, teamCode, goals, isWinner, isTbd, isPartial }) => (
@@ -34,6 +39,7 @@ function BracketMatch({ match, index }) {
           alt={team}
           className="w-7 h-5 rounded-sm object-cover shadow-sm"
           loading="lazy"
+          onError={(e) => { e.target.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg"/>' }}
         />
       ) : (
         <div className={`w-7 h-5 rounded-sm flex items-center justify-center text-[8px] font-bold text-slate-500 bg-slate-200 dark:bg-slate-800 ${isTbd ? 'shimmer' : ''}`}>
@@ -58,15 +64,35 @@ function BracketMatch({ match, index }) {
   const homeWins = isFinished && match.home_goals_actual > match.away_goals_actual
   const awayWins = isFinished && match.away_goals_actual > match.home_goals_actual
 
+  const dateString = match.kickoff_at.endsWith('Z') || match.kickoff_at.includes('+')
+    ? match.kickoff_at
+    : `${match.kickoff_at}Z`
+  const kickoff = new Date(dateString)
+
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.9 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ delay: index * 0.05 }}
-      className={`glass-card p-1.5 min-w-[200px] ${
-        isFinished ? 'border-success/15' : ''
+      onClick={() => navigate(`/match/${match.id}`)}
+      className={`glass-card min-w-[220px] relative overflow-hidden group cursor-pointer hover:ring-1 hover:ring-accent/50 transition-all ${
+        isFinished ? 'border-success/20 ring-1 ring-success/10' : 'border-white/10'
       }`}
     >
+      {/* Glow background */}
+      <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent pointer-events-none" />
+
+      <div className="p-2" style={{ paddingTop: '8px' }}>
+        {/* Fecha superior */}
+        <div className="flex justify-between items-center mb-2 px-1">
+          <span className="text-[9px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">
+            {format(kickoff, "d MMM", { locale: es })}
+          </span>
+        <span className="text-[9px] font-mono font-bold bg-slate-100 dark:bg-white/5 text-slate-500 rounded px-1.5 py-0.5">
+          {format(kickoff, "HH:mm")}
+        </span>
+      </div>
+
       {/* Equipo local */}
       <TeamRow
         team={homeTeamName}
@@ -77,7 +103,7 @@ function BracketMatch({ match, index }) {
         isPartial={match.home_is_partial}
       />
 
-      <div className="border-t border-white/[0.04] mx-2" />
+      <div className="border-t border-slate-200 dark:border-white/10 mx-2 my-0.5" />
 
       {/* Equipo visitante */}
       <TeamRow
@@ -88,6 +114,7 @@ function BracketMatch({ match, index }) {
         isTbd={isTBDAway}
         isPartial={match.away_is_partial}
       />
+      </div>
     </motion.div>
   )
 }
@@ -142,20 +169,20 @@ export default function BracketView() {
 
   return (
     <div className="overflow-x-auto pb-4 scrollbar-hide">
-      <div className="flex gap-5 min-w-max px-1 items-start">
+      <div className="flex flex-row gap-8 min-w-max px-2 items-stretch">
         {phases.map((phase) => (
-          <div key={phase.key} className="flex flex-col items-center">
+          <div key={phase.key} className="flex flex-col w-[240px]">
             {/* Título de fase */}
             <motion.div
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
-              className={`mb-4 px-4 py-1.5 rounded-2xl border ${
+              className={`mb-6 px-4 py-1.5 rounded-2xl border text-center ${
                 phase.key === 'final'
                   ? 'gradient-gold text-slate-900 border-transparent shadow-lg shadow-amber-500/20'
                   : 'glass-strong border-accent/20'
               }`}
             >
-              <span className={`text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 ${
+              <span className={`text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 ${
                 phase.key === 'final' ? '' : 'text-accent'
               }`}>
                 {phase.key === 'final' && <Trophy size={12} />}
@@ -164,13 +191,15 @@ export default function BracketView() {
             </motion.div>
 
             {/* Partidos de esta fase */}
-            <div className="flex flex-col gap-3 justify-center flex-1">
+            <div className="flex flex-col gap-4 justify-around flex-1">
               {phase.matches.map((match, i) => (
-                <div key={match.id} className="relative">
+                <div key={match.id} className="relative w-full">
                   <BracketMatch match={match} index={i} />
-                  {/* Línea conectora */}
-                  {i < phase.matches.length - 1 && phase.key !== 'final' && phase.key !== 'third_place' && (
-                    <div className="absolute -right-5 top-1/2 w-5 h-px bg-gradient-to-r from-white/15 to-white/5" />
+                  {/* Línea conectora rediseñada */}
+                  {phase.key !== 'final' && phase.key !== 'third_place' && (
+                    <div className="absolute -right-8 top-1/2 w-8 flex items-center justify-center pointer-events-none">
+                      <div className="w-full h-[2px] bg-gradient-to-r from-accent/50 to-transparent" />
+                    </div>
                   )}
                 </div>
               ))}
