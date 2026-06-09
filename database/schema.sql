@@ -389,20 +389,20 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.matches;
 -- Jornada 1
 INSERT INTO public.matches (home_team, away_team, home_flag_url, away_flag_url, home_team_code, away_team_code, kickoff_at, phase, group_name, matchday)
 VALUES
-  ('Mexico', 'South Africa', 'https://flagcdn.com/w80/mx.png', 'https://flagcdn.com/w80/za.png', 'mx', 'za', '2026-06-11T13:00:00Z', 'groups', 'A', 1),
-  ('South Korea', 'Czechia', 'https://flagcdn.com/w80/kr.png', 'https://flagcdn.com/w80/cz.png', 'kr', 'cz', '2026-06-11T16:00:00Z', 'groups', 'A', 1);
+  ('Mexico', 'South Africa', 'https://flagcdn.com/w80/mx.png', 'https://flagcdn.com/w80/za.png', 'mx', 'za', '2026-06-11T17:00:00Z', 'groups', 'A', 1),
+  ('South Korea', 'Czechia', 'https://flagcdn.com/w80/kr.png', 'https://flagcdn.com/w80/cz.png', 'kr', 'cz', '2026-06-11T20:00:00Z', 'groups', 'A', 1);
 
 -- Jornada 2
 INSERT INTO public.matches (home_team, away_team, home_flag_url, away_flag_url, home_team_code, away_team_code, kickoff_at, phase, group_name, matchday)
 VALUES
-  ('Mexico', 'South Korea', 'https://flagcdn.com/w80/mx.png', 'https://flagcdn.com/w80/kr.png', 'mx', 'kr', '2026-06-16T13:00:00Z', 'groups', 'A', 2),
-  ('South Africa', 'Czechia', 'https://flagcdn.com/w80/za.png', 'https://flagcdn.com/w80/cz.png', 'za', 'cz', '2026-06-16T16:00:00Z', 'groups', 'A', 2);
+  ('Mexico', 'South Korea', 'https://flagcdn.com/w80/mx.png', 'https://flagcdn.com/w80/kr.png', 'mx', 'kr', '2026-06-16T17:00:00Z', 'groups', 'A', 2),
+  ('South Africa', 'Czechia', 'https://flagcdn.com/w80/za.png', 'https://flagcdn.com/w80/cz.png', 'za', 'cz', '2026-06-16T20:00:00Z', 'groups', 'A', 2);
 
 -- Jornada 3
 INSERT INTO public.matches (home_team, away_team, home_flag_url, away_flag_url, home_team_code, away_team_code, kickoff_at, phase, group_name, matchday)
 VALUES
-  ('Mexico', 'Czechia', 'https://flagcdn.com/w80/mx.png', 'https://flagcdn.com/w80/cz.png', 'mx', 'cz', '2026-06-23T13:00:00Z', 'groups', 'A', 3),
-  ('South Africa', 'South Korea', 'https://flagcdn.com/w80/za.png', 'https://flagcdn.com/w80/kr.png', 'za', 'kr', '2026-06-23T16:00:00Z', 'groups', 'A', 3);
+  ('Mexico', 'Czechia', 'https://flagcdn.com/w80/mx.png', 'https://flagcdn.com/w80/cz.png', 'mx', 'cz', '2026-06-23T17:00:00Z', 'groups', 'A', 3),
+  ('South Africa', 'South Korea', 'https://flagcdn.com/w80/za.png', 'https://flagcdn.com/w80/kr.png', 'za', 'kr', '2026-06-23T20:00:00Z', 'groups', 'A', 3);
 
 -- -----------------------------------------
 -- Grupo B: Canadá, Suiza, Qatar, Bosnia-Herzegovina
@@ -411,19 +411,19 @@ VALUES
 -- Jornada 1
 INSERT INTO public.matches (home_team, away_team, home_flag_url, away_flag_url, home_team_code, away_team_code, kickoff_at, phase, group_name, matchday)
 VALUES
-  ('Canada', 'Switzerland', 'https://flagcdn.com/w80/ca.png', 'https://flagcdn.com/w80/ch.png', 'ca', 'ch', '2026-06-11T19:00:00Z', 'groups', 'B', 1),
+  ('Canada', 'Switzerland', 'https://flagcdn.com/w80/ca.png', 'https://flagcdn.com/w80/ch.png', 'ca', 'ch', '2026-06-11T23:00:00Z', 'groups', 'B', 1),
   ('Qatar', 'Bosnia-Herzegovina', 'https://flagcdn.com/w80/qa.png', 'https://flagcdn.com/w80/ba.png', 'qa', 'ba', '2026-06-11T22:00:00Z', 'groups', 'B', 1);
 
 -- Jornada 2
 INSERT INTO public.matches (home_team, away_team, home_flag_url, away_flag_url, home_team_code, away_team_code, kickoff_at, phase, group_name, matchday)
 VALUES
-  ('Canada', 'Qatar', 'https://flagcdn.com/w80/ca.png', 'https://flagcdn.com/w80/qa.png', 'ca', 'qa', '2026-06-16T19:00:00Z', 'groups', 'B', 2),
+  ('Canada', 'Qatar', 'https://flagcdn.com/w80/ca.png', 'https://flagcdn.com/w80/qa.png', 'ca', 'qa', '2026-06-16T23:00:00Z', 'groups', 'B', 2),
   ('Switzerland', 'Bosnia-Herzegovina', 'https://flagcdn.com/w80/ch.png', 'https://flagcdn.com/w80/ba.png', 'ch', 'ba', '2026-06-16T22:00:00Z', 'groups', 'B', 2);
 
 -- Jornada 3
 INSERT INTO public.matches (home_team, away_team, home_flag_url, away_flag_url, home_team_code, away_team_code, kickoff_at, phase, group_name, matchday)
 VALUES
-  ('Canada', 'Bosnia-Herzegovina', 'https://flagcdn.com/w80/ca.png', 'https://flagcdn.com/w80/ba.png', 'ca', 'ba', '2026-06-23T19:00:00Z', 'groups', 'B', 3),
+  ('Canada', 'Bosnia-Herzegovina', 'https://flagcdn.com/w80/ca.png', 'https://flagcdn.com/w80/ba.png', 'ca', 'ba', '2026-06-23T23:00:00Z', 'groups', 'B', 3),
   ('Switzerland', 'Qatar', 'https://flagcdn.com/w80/ch.png', 'https://flagcdn.com/w80/qa.png', 'ch', 'qa', '2026-06-23T22:00:00Z', 'groups', 'B', 3);
 
 -- -----------------------------------------
@@ -433,20 +433,20 @@ VALUES
 -- Jornada 1
 INSERT INTO public.matches (home_team, away_team, home_flag_url, away_flag_url, home_team_code, away_team_code, kickoff_at, phase, group_name, matchday)
 VALUES
-  ('Brazil', 'Morocco', 'https://flagcdn.com/w80/br.png', 'https://flagcdn.com/w80/ma.png', 'br', 'ma', '2026-06-12T13:00:00Z', 'groups', 'C', 1),
-  ('Scotland', 'Haiti', 'https://flagcdn.com/w80/gb-sct.png', 'https://flagcdn.com/w80/ht.png', 'gb-sct', 'ht', '2026-06-12T16:00:00Z', 'groups', 'C', 1);
+  ('Brazil', 'Morocco', 'https://flagcdn.com/w80/br.png', 'https://flagcdn.com/w80/ma.png', 'br', 'ma', '2026-06-12T17:00:00Z', 'groups', 'C', 1),
+  ('Scotland', 'Haiti', 'https://flagcdn.com/w80/gb-sct.png', 'https://flagcdn.com/w80/ht.png', 'gb-sct', 'ht', '2026-06-12T20:00:00Z', 'groups', 'C', 1);
 
 -- Jornada 2
 INSERT INTO public.matches (home_team, away_team, home_flag_url, away_flag_url, home_team_code, away_team_code, kickoff_at, phase, group_name, matchday)
 VALUES
-  ('Brazil', 'Scotland', 'https://flagcdn.com/w80/br.png', 'https://flagcdn.com/w80/gb-sct.png', 'br', 'gb-sct', '2026-06-17T13:00:00Z', 'groups', 'C', 2),
-  ('Morocco', 'Haiti', 'https://flagcdn.com/w80/ma.png', 'https://flagcdn.com/w80/ht.png', 'ma', 'ht', '2026-06-17T16:00:00Z', 'groups', 'C', 2);
+  ('Brazil', 'Scotland', 'https://flagcdn.com/w80/br.png', 'https://flagcdn.com/w80/gb-sct.png', 'br', 'gb-sct', '2026-06-17T17:00:00Z', 'groups', 'C', 2),
+  ('Morocco', 'Haiti', 'https://flagcdn.com/w80/ma.png', 'https://flagcdn.com/w80/ht.png', 'ma', 'ht', '2026-06-17T20:00:00Z', 'groups', 'C', 2);
 
 -- Jornada 3
 INSERT INTO public.matches (home_team, away_team, home_flag_url, away_flag_url, home_team_code, away_team_code, kickoff_at, phase, group_name, matchday)
 VALUES
-  ('Brazil', 'Haiti', 'https://flagcdn.com/w80/br.png', 'https://flagcdn.com/w80/ht.png', 'br', 'ht', '2026-06-24T13:00:00Z', 'groups', 'C', 3),
-  ('Morocco', 'Scotland', 'https://flagcdn.com/w80/ma.png', 'https://flagcdn.com/w80/gb-sct.png', 'ma', 'gb-sct', '2026-06-24T16:00:00Z', 'groups', 'C', 3);
+  ('Brazil', 'Haiti', 'https://flagcdn.com/w80/br.png', 'https://flagcdn.com/w80/ht.png', 'br', 'ht', '2026-06-24T17:00:00Z', 'groups', 'C', 3),
+  ('Morocco', 'Scotland', 'https://flagcdn.com/w80/ma.png', 'https://flagcdn.com/w80/gb-sct.png', 'ma', 'gb-sct', '2026-06-24T20:00:00Z', 'groups', 'C', 3);
 
 -- -----------------------------------------
 -- Grupo D: Estados Unidos, Paraguay, Australia, Türkiye
@@ -455,19 +455,19 @@ VALUES
 -- Jornada 1
 INSERT INTO public.matches (home_team, away_team, home_flag_url, away_flag_url, home_team_code, away_team_code, kickoff_at, phase, group_name, matchday)
 VALUES
-  ('USA', 'Paraguay', 'https://flagcdn.com/w80/us.png', 'https://flagcdn.com/w80/py.png', 'us', 'py', '2026-06-12T19:00:00Z', 'groups', 'D', 1),
+  ('USA', 'Paraguay', 'https://flagcdn.com/w80/us.png', 'https://flagcdn.com/w80/py.png', 'us', 'py', '2026-06-12T23:00:00Z', 'groups', 'D', 1),
   ('Australia', 'Türkiye', 'https://flagcdn.com/w80/au.png', 'https://flagcdn.com/w80/tr.png', 'au', 'tr', '2026-06-12T22:00:00Z', 'groups', 'D', 1);
 
 -- Jornada 2
 INSERT INTO public.matches (home_team, away_team, home_flag_url, away_flag_url, home_team_code, away_team_code, kickoff_at, phase, group_name, matchday)
 VALUES
-  ('USA', 'Australia', 'https://flagcdn.com/w80/us.png', 'https://flagcdn.com/w80/au.png', 'us', 'au', '2026-06-17T19:00:00Z', 'groups', 'D', 2),
+  ('USA', 'Australia', 'https://flagcdn.com/w80/us.png', 'https://flagcdn.com/w80/au.png', 'us', 'au', '2026-06-17T23:00:00Z', 'groups', 'D', 2),
   ('Paraguay', 'Türkiye', 'https://flagcdn.com/w80/py.png', 'https://flagcdn.com/w80/tr.png', 'py', 'tr', '2026-06-17T22:00:00Z', 'groups', 'D', 2);
 
 -- Jornada 3
 INSERT INTO public.matches (home_team, away_team, home_flag_url, away_flag_url, home_team_code, away_team_code, kickoff_at, phase, group_name, matchday)
 VALUES
-  ('USA', 'Türkiye', 'https://flagcdn.com/w80/us.png', 'https://flagcdn.com/w80/tr.png', 'us', 'tr', '2026-06-24T19:00:00Z', 'groups', 'D', 3),
+  ('USA', 'Türkiye', 'https://flagcdn.com/w80/us.png', 'https://flagcdn.com/w80/tr.png', 'us', 'tr', '2026-06-24T23:00:00Z', 'groups', 'D', 3),
   ('Paraguay', 'Australia', 'https://flagcdn.com/w80/py.png', 'https://flagcdn.com/w80/au.png', 'py', 'au', '2026-06-24T22:00:00Z', 'groups', 'D', 3);
 
 -- -----------------------------------------
@@ -477,20 +477,20 @@ VALUES
 -- Jornada 1
 INSERT INTO public.matches (home_team, away_team, home_flag_url, away_flag_url, home_team_code, away_team_code, kickoff_at, phase, group_name, matchday)
 VALUES
-  ('Germany', 'Ecuador', 'https://flagcdn.com/w80/de.png', 'https://flagcdn.com/w80/ec.png', 'de', 'ec', '2026-06-13T13:00:00Z', 'groups', 'E', 1),
-  ('Ivory Coast', 'Curaçao', 'https://flagcdn.com/w80/ci.png', 'https://flagcdn.com/w80/cw.png', 'ci', 'cw', '2026-06-13T16:00:00Z', 'groups', 'E', 1);
+  ('Germany', 'Ecuador', 'https://flagcdn.com/w80/de.png', 'https://flagcdn.com/w80/ec.png', 'de', 'ec', '2026-06-13T17:00:00Z', 'groups', 'E', 1),
+  ('Ivory Coast', 'Curaçao', 'https://flagcdn.com/w80/ci.png', 'https://flagcdn.com/w80/cw.png', 'ci', 'cw', '2026-06-13T20:00:00Z', 'groups', 'E', 1);
 
 -- Jornada 2
 INSERT INTO public.matches (home_team, away_team, home_flag_url, away_flag_url, home_team_code, away_team_code, kickoff_at, phase, group_name, matchday)
 VALUES
-  ('Germany', 'Ivory Coast', 'https://flagcdn.com/w80/de.png', 'https://flagcdn.com/w80/ci.png', 'de', 'ci', '2026-06-18T13:00:00Z', 'groups', 'E', 2),
-  ('Ecuador', 'Curaçao', 'https://flagcdn.com/w80/ec.png', 'https://flagcdn.com/w80/cw.png', 'ec', 'cw', '2026-06-18T16:00:00Z', 'groups', 'E', 2);
+  ('Germany', 'Ivory Coast', 'https://flagcdn.com/w80/de.png', 'https://flagcdn.com/w80/ci.png', 'de', 'ci', '2026-06-18T17:00:00Z', 'groups', 'E', 2),
+  ('Ecuador', 'Curaçao', 'https://flagcdn.com/w80/ec.png', 'https://flagcdn.com/w80/cw.png', 'ec', 'cw', '2026-06-18T20:00:00Z', 'groups', 'E', 2);
 
 -- Jornada 3
 INSERT INTO public.matches (home_team, away_team, home_flag_url, away_flag_url, home_team_code, away_team_code, kickoff_at, phase, group_name, matchday)
 VALUES
-  ('Germany', 'Curaçao', 'https://flagcdn.com/w80/de.png', 'https://flagcdn.com/w80/cw.png', 'de', 'cw', '2026-06-25T13:00:00Z', 'groups', 'E', 3),
-  ('Ecuador', 'Ivory Coast', 'https://flagcdn.com/w80/ec.png', 'https://flagcdn.com/w80/ci.png', 'ec', 'ci', '2026-06-25T16:00:00Z', 'groups', 'E', 3);
+  ('Germany', 'Curaçao', 'https://flagcdn.com/w80/de.png', 'https://flagcdn.com/w80/cw.png', 'de', 'cw', '2026-06-25T17:00:00Z', 'groups', 'E', 3),
+  ('Ecuador', 'Ivory Coast', 'https://flagcdn.com/w80/ec.png', 'https://flagcdn.com/w80/ci.png', 'ec', 'ci', '2026-06-25T20:00:00Z', 'groups', 'E', 3);
 
 -- -----------------------------------------
 -- Grupo F: Países Bajos, Japón, Túnez, Suecia
@@ -499,19 +499,19 @@ VALUES
 -- Jornada 1
 INSERT INTO public.matches (home_team, away_team, home_flag_url, away_flag_url, home_team_code, away_team_code, kickoff_at, phase, group_name, matchday)
 VALUES
-  ('Netherlands', 'Japan', 'https://flagcdn.com/w80/nl.png', 'https://flagcdn.com/w80/jp.png', 'nl', 'jp', '2026-06-13T19:00:00Z', 'groups', 'F', 1),
+  ('Netherlands', 'Japan', 'https://flagcdn.com/w80/nl.png', 'https://flagcdn.com/w80/jp.png', 'nl', 'jp', '2026-06-13T23:00:00Z', 'groups', 'F', 1),
   ('Tunisia', 'Sweden', 'https://flagcdn.com/w80/tn.png', 'https://flagcdn.com/w80/se.png', 'tn', 'se', '2026-06-13T22:00:00Z', 'groups', 'F', 1);
 
 -- Jornada 2
 INSERT INTO public.matches (home_team, away_team, home_flag_url, away_flag_url, home_team_code, away_team_code, kickoff_at, phase, group_name, matchday)
 VALUES
-  ('Netherlands', 'Tunisia', 'https://flagcdn.com/w80/nl.png', 'https://flagcdn.com/w80/tn.png', 'nl', 'tn', '2026-06-18T19:00:00Z', 'groups', 'F', 2),
+  ('Netherlands', 'Tunisia', 'https://flagcdn.com/w80/nl.png', 'https://flagcdn.com/w80/tn.png', 'nl', 'tn', '2026-06-18T23:00:00Z', 'groups', 'F', 2),
   ('Japan', 'Sweden', 'https://flagcdn.com/w80/jp.png', 'https://flagcdn.com/w80/se.png', 'jp', 'se', '2026-06-18T22:00:00Z', 'groups', 'F', 2);
 
 -- Jornada 3
 INSERT INTO public.matches (home_team, away_team, home_flag_url, away_flag_url, home_team_code, away_team_code, kickoff_at, phase, group_name, matchday)
 VALUES
-  ('Netherlands', 'Sweden', 'https://flagcdn.com/w80/nl.png', 'https://flagcdn.com/w80/se.png', 'nl', 'se', '2026-06-25T19:00:00Z', 'groups', 'F', 3),
+  ('Netherlands', 'Sweden', 'https://flagcdn.com/w80/nl.png', 'https://flagcdn.com/w80/se.png', 'nl', 'se', '2026-06-25T23:00:00Z', 'groups', 'F', 3),
   ('Japan', 'Tunisia', 'https://flagcdn.com/w80/jp.png', 'https://flagcdn.com/w80/tn.png', 'jp', 'tn', '2026-06-25T22:00:00Z', 'groups', 'F', 3);
 
 -- -----------------------------------------
@@ -521,20 +521,20 @@ VALUES
 -- Jornada 1
 INSERT INTO public.matches (home_team, away_team, home_flag_url, away_flag_url, home_team_code, away_team_code, kickoff_at, phase, group_name, matchday)
 VALUES
-  ('Belgium', 'Iran', 'https://flagcdn.com/w80/be.png', 'https://flagcdn.com/w80/ir.png', 'be', 'ir', '2026-06-14T13:00:00Z', 'groups', 'G', 1),
-  ('Egypt', 'New Zealand', 'https://flagcdn.com/w80/eg.png', 'https://flagcdn.com/w80/nz.png', 'eg', 'nz', '2026-06-14T16:00:00Z', 'groups', 'G', 1);
+  ('Belgium', 'Iran', 'https://flagcdn.com/w80/be.png', 'https://flagcdn.com/w80/ir.png', 'be', 'ir', '2026-06-14T17:00:00Z', 'groups', 'G', 1),
+  ('Egypt', 'New Zealand', 'https://flagcdn.com/w80/eg.png', 'https://flagcdn.com/w80/nz.png', 'eg', 'nz', '2026-06-14T20:00:00Z', 'groups', 'G', 1);
 
 -- Jornada 2
 INSERT INTO public.matches (home_team, away_team, home_flag_url, away_flag_url, home_team_code, away_team_code, kickoff_at, phase, group_name, matchday)
 VALUES
-  ('Belgium', 'Egypt', 'https://flagcdn.com/w80/be.png', 'https://flagcdn.com/w80/eg.png', 'be', 'eg', '2026-06-19T13:00:00Z', 'groups', 'G', 2),
-  ('Iran', 'New Zealand', 'https://flagcdn.com/w80/ir.png', 'https://flagcdn.com/w80/nz.png', 'ir', 'nz', '2026-06-19T16:00:00Z', 'groups', 'G', 2);
+  ('Belgium', 'Egypt', 'https://flagcdn.com/w80/be.png', 'https://flagcdn.com/w80/eg.png', 'be', 'eg', '2026-06-19T17:00:00Z', 'groups', 'G', 2),
+  ('Iran', 'New Zealand', 'https://flagcdn.com/w80/ir.png', 'https://flagcdn.com/w80/nz.png', 'ir', 'nz', '2026-06-19T20:00:00Z', 'groups', 'G', 2);
 
 -- Jornada 3
 INSERT INTO public.matches (home_team, away_team, home_flag_url, away_flag_url, home_team_code, away_team_code, kickoff_at, phase, group_name, matchday)
 VALUES
-  ('Belgium', 'New Zealand', 'https://flagcdn.com/w80/be.png', 'https://flagcdn.com/w80/nz.png', 'be', 'nz', '2026-06-26T13:00:00Z', 'groups', 'G', 3),
-  ('Iran', 'Egypt', 'https://flagcdn.com/w80/ir.png', 'https://flagcdn.com/w80/eg.png', 'ir', 'eg', '2026-06-26T16:00:00Z', 'groups', 'G', 3);
+  ('Belgium', 'New Zealand', 'https://flagcdn.com/w80/be.png', 'https://flagcdn.com/w80/nz.png', 'be', 'nz', '2026-06-26T17:00:00Z', 'groups', 'G', 3),
+  ('Iran', 'Egypt', 'https://flagcdn.com/w80/ir.png', 'https://flagcdn.com/w80/eg.png', 'ir', 'eg', '2026-06-26T20:00:00Z', 'groups', 'G', 3);
 
 -- -----------------------------------------
 -- Grupo H: España, Uruguay, Arabia Saudita, Cabo Verde
@@ -543,19 +543,19 @@ VALUES
 -- Jornada 1
 INSERT INTO public.matches (home_team, away_team, home_flag_url, away_flag_url, home_team_code, away_team_code, kickoff_at, phase, group_name, matchday)
 VALUES
-  ('Spain', 'Uruguay', 'https://flagcdn.com/w80/es.png', 'https://flagcdn.com/w80/uy.png', 'es', 'uy', '2026-06-14T19:00:00Z', 'groups', 'H', 1),
+  ('Spain', 'Uruguay', 'https://flagcdn.com/w80/es.png', 'https://flagcdn.com/w80/uy.png', 'es', 'uy', '2026-06-14T23:00:00Z', 'groups', 'H', 1),
   ('Saudi Arabia', 'Cape Verde', 'https://flagcdn.com/w80/sa.png', 'https://flagcdn.com/w80/cv.png', 'sa', 'cv', '2026-06-14T22:00:00Z', 'groups', 'H', 1);
 
 -- Jornada 2
 INSERT INTO public.matches (home_team, away_team, home_flag_url, away_flag_url, home_team_code, away_team_code, kickoff_at, phase, group_name, matchday)
 VALUES
-  ('Spain', 'Saudi Arabia', 'https://flagcdn.com/w80/es.png', 'https://flagcdn.com/w80/sa.png', 'es', 'sa', '2026-06-19T19:00:00Z', 'groups', 'H', 2),
+  ('Spain', 'Saudi Arabia', 'https://flagcdn.com/w80/es.png', 'https://flagcdn.com/w80/sa.png', 'es', 'sa', '2026-06-19T23:00:00Z', 'groups', 'H', 2),
   ('Uruguay', 'Cape Verde', 'https://flagcdn.com/w80/uy.png', 'https://flagcdn.com/w80/cv.png', 'uy', 'cv', '2026-06-19T22:00:00Z', 'groups', 'H', 2);
 
 -- Jornada 3
 INSERT INTO public.matches (home_team, away_team, home_flag_url, away_flag_url, home_team_code, away_team_code, kickoff_at, phase, group_name, matchday)
 VALUES
-  ('Spain', 'Cape Verde', 'https://flagcdn.com/w80/es.png', 'https://flagcdn.com/w80/cv.png', 'es', 'cv', '2026-06-26T19:00:00Z', 'groups', 'H', 3),
+  ('Spain', 'Cape Verde', 'https://flagcdn.com/w80/es.png', 'https://flagcdn.com/w80/cv.png', 'es', 'cv', '2026-06-26T23:00:00Z', 'groups', 'H', 3),
   ('Uruguay', 'Saudi Arabia', 'https://flagcdn.com/w80/uy.png', 'https://flagcdn.com/w80/sa.png', 'uy', 'sa', '2026-06-26T22:00:00Z', 'groups', 'H', 3);
 
 -- -----------------------------------------
@@ -565,20 +565,20 @@ VALUES
 -- Jornada 1
 INSERT INTO public.matches (home_team, away_team, home_flag_url, away_flag_url, home_team_code, away_team_code, kickoff_at, phase, group_name, matchday)
 VALUES
-  ('France', 'Senegal', 'https://flagcdn.com/w80/fr.png', 'https://flagcdn.com/w80/sn.png', 'fr', 'sn', '2026-06-15T13:00:00Z', 'groups', 'I', 1),
-  ('Norway', 'Iraq', 'https://flagcdn.com/w80/no.png', 'https://flagcdn.com/w80/iq.png', 'no', 'iq', '2026-06-15T16:00:00Z', 'groups', 'I', 1);
+  ('France', 'Senegal', 'https://flagcdn.com/w80/fr.png', 'https://flagcdn.com/w80/sn.png', 'fr', 'sn', '2026-06-15T17:00:00Z', 'groups', 'I', 1),
+  ('Norway', 'Iraq', 'https://flagcdn.com/w80/no.png', 'https://flagcdn.com/w80/iq.png', 'no', 'iq', '2026-06-15T20:00:00Z', 'groups', 'I', 1);
 
 -- Jornada 2
 INSERT INTO public.matches (home_team, away_team, home_flag_url, away_flag_url, home_team_code, away_team_code, kickoff_at, phase, group_name, matchday)
 VALUES
-  ('France', 'Norway', 'https://flagcdn.com/w80/fr.png', 'https://flagcdn.com/w80/no.png', 'fr', 'no', '2026-06-20T13:00:00Z', 'groups', 'I', 2),
-  ('Senegal', 'Iraq', 'https://flagcdn.com/w80/sn.png', 'https://flagcdn.com/w80/iq.png', 'sn', 'iq', '2026-06-20T16:00:00Z', 'groups', 'I', 2);
+  ('France', 'Norway', 'https://flagcdn.com/w80/fr.png', 'https://flagcdn.com/w80/no.png', 'fr', 'no', '2026-06-20T17:00:00Z', 'groups', 'I', 2),
+  ('Senegal', 'Iraq', 'https://flagcdn.com/w80/sn.png', 'https://flagcdn.com/w80/iq.png', 'sn', 'iq', '2026-06-20T20:00:00Z', 'groups', 'I', 2);
 
 -- Jornada 3
 INSERT INTO public.matches (home_team, away_team, home_flag_url, away_flag_url, home_team_code, away_team_code, kickoff_at, phase, group_name, matchday)
 VALUES
-  ('France', 'Iraq', 'https://flagcdn.com/w80/fr.png', 'https://flagcdn.com/w80/iq.png', 'fr', 'iq', '2026-06-27T13:00:00Z', 'groups', 'I', 3),
-  ('Senegal', 'Norway', 'https://flagcdn.com/w80/sn.png', 'https://flagcdn.com/w80/no.png', 'sn', 'no', '2026-06-27T16:00:00Z', 'groups', 'I', 3);
+  ('France', 'Iraq', 'https://flagcdn.com/w80/fr.png', 'https://flagcdn.com/w80/iq.png', 'fr', 'iq', '2026-06-27T17:00:00Z', 'groups', 'I', 3),
+  ('Senegal', 'Norway', 'https://flagcdn.com/w80/sn.png', 'https://flagcdn.com/w80/no.png', 'sn', 'no', '2026-06-27T20:00:00Z', 'groups', 'I', 3);
 
 -- -----------------------------------------
 -- Grupo J: Argentina, Austria, Argelia, Jordania
@@ -587,19 +587,19 @@ VALUES
 -- Jornada 1
 INSERT INTO public.matches (home_team, away_team, home_flag_url, away_flag_url, home_team_code, away_team_code, kickoff_at, phase, group_name, matchday)
 VALUES
-  ('Argentina', 'Austria', 'https://flagcdn.com/w80/ar.png', 'https://flagcdn.com/w80/at.png', 'ar', 'at', '2026-06-15T19:00:00Z', 'groups', 'J', 1),
+  ('Argentina', 'Austria', 'https://flagcdn.com/w80/ar.png', 'https://flagcdn.com/w80/at.png', 'ar', 'at', '2026-06-15T23:00:00Z', 'groups', 'J', 1),
   ('Algeria', 'Jordan', 'https://flagcdn.com/w80/dz.png', 'https://flagcdn.com/w80/jo.png', 'dz', 'jo', '2026-06-15T22:00:00Z', 'groups', 'J', 1);
 
 -- Jornada 2
 INSERT INTO public.matches (home_team, away_team, home_flag_url, away_flag_url, home_team_code, away_team_code, kickoff_at, phase, group_name, matchday)
 VALUES
-  ('Argentina', 'Algeria', 'https://flagcdn.com/w80/ar.png', 'https://flagcdn.com/w80/dz.png', 'ar', 'dz', '2026-06-20T19:00:00Z', 'groups', 'J', 2),
+  ('Argentina', 'Algeria', 'https://flagcdn.com/w80/ar.png', 'https://flagcdn.com/w80/dz.png', 'ar', 'dz', '2026-06-20T23:00:00Z', 'groups', 'J', 2),
   ('Austria', 'Jordan', 'https://flagcdn.com/w80/at.png', 'https://flagcdn.com/w80/jo.png', 'at', 'jo', '2026-06-20T22:00:00Z', 'groups', 'J', 2);
 
 -- Jornada 3
 INSERT INTO public.matches (home_team, away_team, home_flag_url, away_flag_url, home_team_code, away_team_code, kickoff_at, phase, group_name, matchday)
 VALUES
-  ('Argentina', 'Jordan', 'https://flagcdn.com/w80/ar.png', 'https://flagcdn.com/w80/jo.png', 'ar', 'jo', '2026-06-27T19:00:00Z', 'groups', 'J', 3),
+  ('Argentina', 'Jordan', 'https://flagcdn.com/w80/ar.png', 'https://flagcdn.com/w80/jo.png', 'ar', 'jo', '2026-06-27T23:00:00Z', 'groups', 'J', 3),
   ('Austria', 'Algeria', 'https://flagcdn.com/w80/at.png', 'https://flagcdn.com/w80/dz.png', 'at', 'dz', '2026-06-27T22:00:00Z', 'groups', 'J', 3);
 
 -- -----------------------------------------
@@ -609,20 +609,20 @@ VALUES
 -- Jornada 1
 INSERT INTO public.matches (home_team, away_team, home_flag_url, away_flag_url, home_team_code, away_team_code, kickoff_at, phase, group_name, matchday)
 VALUES
-  ('Portugal', 'Colombia', 'https://flagcdn.com/w80/pt.png', 'https://flagcdn.com/w80/co.png', 'pt', 'co', '2026-06-13T13:00:00Z', 'groups', 'K', 1),
-  ('Uzbekistan', 'DR Congo', 'https://flagcdn.com/w80/uz.png', 'https://flagcdn.com/w80/cd.png', 'uz', 'cd', '2026-06-13T16:00:00Z', 'groups', 'K', 1);
+  ('Portugal', 'Colombia', 'https://flagcdn.com/w80/pt.png', 'https://flagcdn.com/w80/co.png', 'pt', 'co', '2026-06-13T17:00:00Z', 'groups', 'K', 1),
+  ('Uzbekistan', 'DR Congo', 'https://flagcdn.com/w80/uz.png', 'https://flagcdn.com/w80/cd.png', 'uz', 'cd', '2026-06-13T20:00:00Z', 'groups', 'K', 1);
 
 -- Jornada 2
 INSERT INTO public.matches (home_team, away_team, home_flag_url, away_flag_url, home_team_code, away_team_code, kickoff_at, phase, group_name, matchday)
 VALUES
-  ('Portugal', 'Uzbekistan', 'https://flagcdn.com/w80/pt.png', 'https://flagcdn.com/w80/uz.png', 'pt', 'uz', '2026-06-18T13:00:00Z', 'groups', 'K', 2),
-  ('Colombia', 'DR Congo', 'https://flagcdn.com/w80/co.png', 'https://flagcdn.com/w80/cd.png', 'co', 'cd', '2026-06-18T16:00:00Z', 'groups', 'K', 2);
+  ('Portugal', 'Uzbekistan', 'https://flagcdn.com/w80/pt.png', 'https://flagcdn.com/w80/uz.png', 'pt', 'uz', '2026-06-18T17:00:00Z', 'groups', 'K', 2),
+  ('Colombia', 'DR Congo', 'https://flagcdn.com/w80/co.png', 'https://flagcdn.com/w80/cd.png', 'co', 'cd', '2026-06-18T20:00:00Z', 'groups', 'K', 2);
 
 -- Jornada 3
 INSERT INTO public.matches (home_team, away_team, home_flag_url, away_flag_url, home_team_code, away_team_code, kickoff_at, phase, group_name, matchday)
 VALUES
-  ('Portugal', 'DR Congo', 'https://flagcdn.com/w80/pt.png', 'https://flagcdn.com/w80/cd.png', 'pt', 'cd', '2026-06-25T13:00:00Z', 'groups', 'K', 3),
-  ('Colombia', 'Uzbekistan', 'https://flagcdn.com/w80/co.png', 'https://flagcdn.com/w80/uz.png', 'co', 'uz', '2026-06-25T16:00:00Z', 'groups', 'K', 3);
+  ('Portugal', 'DR Congo', 'https://flagcdn.com/w80/pt.png', 'https://flagcdn.com/w80/cd.png', 'pt', 'cd', '2026-06-25T17:00:00Z', 'groups', 'K', 3),
+  ('Colombia', 'Uzbekistan', 'https://flagcdn.com/w80/co.png', 'https://flagcdn.com/w80/uz.png', 'co', 'uz', '2026-06-25T20:00:00Z', 'groups', 'K', 3);
 
 -- -----------------------------------------
 -- Grupo L: Inglaterra, Croacia, Ghana, Panamá
@@ -631,20 +631,20 @@ VALUES
 -- Jornada 1
 INSERT INTO public.matches (home_team, away_team, home_flag_url, away_flag_url, home_team_code, away_team_code, kickoff_at, phase, group_name, matchday)
 VALUES
-  ('England', 'Croatia', 'https://flagcdn.com/w80/gb-eng.png', 'https://flagcdn.com/w80/hr.png', 'gb-eng', 'hr', '2026-06-14T13:00:00Z', 'groups', 'L', 1),
-  ('Ghana', 'Panama', 'https://flagcdn.com/w80/gh.png', 'https://flagcdn.com/w80/pa.png', 'gh', 'pa', '2026-06-14T16:00:00Z', 'groups', 'L', 1);
+  ('England', 'Croatia', 'https://flagcdn.com/w80/gb-eng.png', 'https://flagcdn.com/w80/hr.png', 'gb-eng', 'hr', '2026-06-14T17:00:00Z', 'groups', 'L', 1),
+  ('Ghana', 'Panama', 'https://flagcdn.com/w80/gh.png', 'https://flagcdn.com/w80/pa.png', 'gh', 'pa', '2026-06-14T20:00:00Z', 'groups', 'L', 1);
 
 -- Jornada 2
 INSERT INTO public.matches (home_team, away_team, home_flag_url, away_flag_url, home_team_code, away_team_code, kickoff_at, phase, group_name, matchday)
 VALUES
-  ('England', 'Ghana', 'https://flagcdn.com/w80/gb-eng.png', 'https://flagcdn.com/w80/gh.png', 'gb-eng', 'gh', '2026-06-19T13:00:00Z', 'groups', 'L', 2),
-  ('Croatia', 'Panama', 'https://flagcdn.com/w80/hr.png', 'https://flagcdn.com/w80/pa.png', 'hr', 'pa', '2026-06-19T16:00:00Z', 'groups', 'L', 2);
+  ('England', 'Ghana', 'https://flagcdn.com/w80/gb-eng.png', 'https://flagcdn.com/w80/gh.png', 'gb-eng', 'gh', '2026-06-19T17:00:00Z', 'groups', 'L', 2),
+  ('Croatia', 'Panama', 'https://flagcdn.com/w80/hr.png', 'https://flagcdn.com/w80/pa.png', 'hr', 'pa', '2026-06-19T20:00:00Z', 'groups', 'L', 2);
 
 -- Jornada 3
 INSERT INTO public.matches (home_team, away_team, home_flag_url, away_flag_url, home_team_code, away_team_code, kickoff_at, phase, group_name, matchday)
 VALUES
-  ('England', 'Panama', 'https://flagcdn.com/w80/gb-eng.png', 'https://flagcdn.com/w80/pa.png', 'gb-eng', 'pa', '2026-06-26T13:00:00Z', 'groups', 'L', 3),
-  ('Croatia', 'Ghana', 'https://flagcdn.com/w80/hr.png', 'https://flagcdn.com/w80/gh.png', 'hr', 'gh', '2026-06-26T16:00:00Z', 'groups', 'L', 3);
+  ('England', 'Panama', 'https://flagcdn.com/w80/gb-eng.png', 'https://flagcdn.com/w80/pa.png', 'gb-eng', 'pa', '2026-06-26T17:00:00Z', 'groups', 'L', 3),
+  ('Croatia', 'Ghana', 'https://flagcdn.com/w80/hr.png', 'https://flagcdn.com/w80/gh.png', 'hr', 'gh', '2026-06-26T20:00:00Z', 'groups', 'L', 3);
 
 
 -- =============================================================================
@@ -658,26 +658,26 @@ VALUES
 INSERT INTO public.matches (home_team, away_team, home_flag_url, away_flag_url, home_team_code, away_team_code, kickoff_at, phase)
 VALUES
   -- Junio 28: 4 partidos
-  ('TBD', 'TBD', NULL, NULL, 'xx', 'xx', '2026-06-28T13:00:00Z', 'round_of_32'),
-  ('TBD', 'TBD', NULL, NULL, 'xx', 'xx', '2026-06-28T16:00:00Z', 'round_of_32'),
-  ('TBD', 'TBD', NULL, NULL, 'xx', 'xx', '2026-06-28T19:00:00Z', 'round_of_32'),
-  ('TBD', 'TBD', NULL, NULL, 'xx', 'xx', '2026-06-28T22:00:00Z', 'round_of_32'),
+  ('TBD', 'TBD', NULL, NULL, 'xx', 'xx', '2026-06-28T17:00:00Z', 'round_of_32'),
+  ('TBD', 'TBD', NULL, NULL, 'xx', 'xx', '2026-06-28T20:00:00Z', 'round_of_32'),
+  ('TBD', 'TBD', NULL, NULL, 'xx', 'xx', '2026-06-28T23:00:00Z', 'round_of_32'),
+  ('TBD', 'TBD', NULL, NULL, 'xx', 'xx', '2026-06-29T02:00:00Z', 'round_of_32'),
   -- Junio 29: 4 partidos
-  ('TBD', 'TBD', NULL, NULL, 'xx', 'xx', '2026-06-29T13:00:00Z', 'round_of_32'),
-  ('TBD', 'TBD', NULL, NULL, 'xx', 'xx', '2026-06-29T16:00:00Z', 'round_of_32'),
-  ('TBD', 'TBD', NULL, NULL, 'xx', 'xx', '2026-06-29T19:00:00Z', 'round_of_32'),
-  ('TBD', 'TBD', NULL, NULL, 'xx', 'xx', '2026-06-29T22:00:00Z', 'round_of_32'),
+  ('TBD', 'TBD', NULL, NULL, 'xx', 'xx', '2026-06-29T17:00:00Z', 'round_of_32'),
+  ('TBD', 'TBD', NULL, NULL, 'xx', 'xx', '2026-06-29T20:00:00Z', 'round_of_32'),
+  ('TBD', 'TBD', NULL, NULL, 'xx', 'xx', '2026-06-29T23:00:00Z', 'round_of_32'),
+  ('TBD', 'TBD', NULL, NULL, 'xx', 'xx', '2026-06-30T02:00:00Z', 'round_of_32'),
   -- Junio 30: 4 partidos
-  ('TBD', 'TBD', NULL, NULL, 'xx', 'xx', '2026-06-30T13:00:00Z', 'round_of_32'),
-  ('TBD', 'TBD', NULL, NULL, 'xx', 'xx', '2026-06-30T16:00:00Z', 'round_of_32'),
-  ('TBD', 'TBD', NULL, NULL, 'xx', 'xx', '2026-06-30T19:00:00Z', 'round_of_32'),
-  ('TBD', 'TBD', NULL, NULL, 'xx', 'xx', '2026-06-30T22:00:00Z', 'round_of_32'),
+  ('TBD', 'TBD', NULL, NULL, 'xx', 'xx', '2026-06-30T17:00:00Z', 'round_of_32'),
+  ('TBD', 'TBD', NULL, NULL, 'xx', 'xx', '2026-06-30T20:00:00Z', 'round_of_32'),
+  ('TBD', 'TBD', NULL, NULL, 'xx', 'xx', '2026-06-30T23:00:00Z', 'round_of_32'),
+  ('TBD', 'TBD', NULL, NULL, 'xx', 'xx', '2026-06-01T02:00:00Z', 'round_of_32'),
   -- Julio 1: 2 partidos
-  ('TBD', 'TBD', NULL, NULL, 'xx', 'xx', '2026-07-01T16:00:00Z', 'round_of_32'),
-  ('TBD', 'TBD', NULL, NULL, 'xx', 'xx', '2026-07-01T19:00:00Z', 'round_of_32'),
+  ('TBD', 'TBD', NULL, NULL, 'xx', 'xx', '2026-07-01T20:00:00Z', 'round_of_32'),
+  ('TBD', 'TBD', NULL, NULL, 'xx', 'xx', '2026-07-01T23:00:00Z', 'round_of_32'),
   -- Julio 2: 2 partidos
-  ('TBD', 'TBD', NULL, NULL, 'xx', 'xx', '2026-07-02T16:00:00Z', 'round_of_32'),
-  ('TBD', 'TBD', NULL, NULL, 'xx', 'xx', '2026-07-02T19:00:00Z', 'round_of_32');
+  ('TBD', 'TBD', NULL, NULL, 'xx', 'xx', '2026-07-02T20:00:00Z', 'round_of_32'),
+  ('TBD', 'TBD', NULL, NULL, 'xx', 'xx', '2026-07-02T23:00:00Z', 'round_of_32');
 
 -- -----------------------------------------
 -- Octavos de final / Ronda de 16 (8 partidos) - Julio 4-7
@@ -685,49 +685,49 @@ VALUES
 INSERT INTO public.matches (home_team, away_team, home_flag_url, away_flag_url, home_team_code, away_team_code, kickoff_at, phase)
 VALUES
   -- Julio 4: 2 partidos
-  ('TBD', 'TBD', NULL, NULL, 'xx', 'xx', '2026-07-04T16:00:00Z', 'round_of_16'),
-  ('TBD', 'TBD', NULL, NULL, 'xx', 'xx', '2026-07-04T19:00:00Z', 'round_of_16'),
+  ('TBD', 'TBD', NULL, NULL, 'xx', 'xx', '2026-07-04T20:00:00Z', 'round_of_16'),
+  ('TBD', 'TBD', NULL, NULL, 'xx', 'xx', '2026-07-04T23:00:00Z', 'round_of_16'),
   -- Julio 5: 2 partidos
-  ('TBD', 'TBD', NULL, NULL, 'xx', 'xx', '2026-07-05T16:00:00Z', 'round_of_16'),
-  ('TBD', 'TBD', NULL, NULL, 'xx', 'xx', '2026-07-05T19:00:00Z', 'round_of_16'),
+  ('TBD', 'TBD', NULL, NULL, 'xx', 'xx', '2026-07-05T20:00:00Z', 'round_of_16'),
+  ('TBD', 'TBD', NULL, NULL, 'xx', 'xx', '2026-07-05T23:00:00Z', 'round_of_16'),
   -- Julio 6: 2 partidos
-  ('TBD', 'TBD', NULL, NULL, 'xx', 'xx', '2026-07-06T16:00:00Z', 'round_of_16'),
-  ('TBD', 'TBD', NULL, NULL, 'xx', 'xx', '2026-07-06T19:00:00Z', 'round_of_16'),
+  ('TBD', 'TBD', NULL, NULL, 'xx', 'xx', '2026-07-06T20:00:00Z', 'round_of_16'),
+  ('TBD', 'TBD', NULL, NULL, 'xx', 'xx', '2026-07-06T23:00:00Z', 'round_of_16'),
   -- Julio 7: 2 partidos
-  ('TBD', 'TBD', NULL, NULL, 'xx', 'xx', '2026-07-07T16:00:00Z', 'round_of_16'),
-  ('TBD', 'TBD', NULL, NULL, 'xx', 'xx', '2026-07-07T19:00:00Z', 'round_of_16');
+  ('TBD', 'TBD', NULL, NULL, 'xx', 'xx', '2026-07-07T20:00:00Z', 'round_of_16'),
+  ('TBD', 'TBD', NULL, NULL, 'xx', 'xx', '2026-07-07T23:00:00Z', 'round_of_16');
 
 -- -----------------------------------------
 -- Cuartos de final (4 partidos) - Julio 9-11
 -- -----------------------------------------
 INSERT INTO public.matches (home_team, away_team, home_flag_url, away_flag_url, home_team_code, away_team_code, kickoff_at, phase)
 VALUES
-  ('TBD', 'TBD', NULL, NULL, 'xx', 'xx', '2026-07-09T16:00:00Z', 'quarter_finals'),
-  ('TBD', 'TBD', NULL, NULL, 'xx', 'xx', '2026-07-09T19:00:00Z', 'quarter_finals'),
-  ('TBD', 'TBD', NULL, NULL, 'xx', 'xx', '2026-07-10T16:00:00Z', 'quarter_finals'),
-  ('TBD', 'TBD', NULL, NULL, 'xx', 'xx', '2026-07-11T16:00:00Z', 'quarter_finals');
+  ('TBD', 'TBD', NULL, NULL, 'xx', 'xx', '2026-07-09T20:00:00Z', 'quarter_finals'),
+  ('TBD', 'TBD', NULL, NULL, 'xx', 'xx', '2026-07-09T23:00:00Z', 'quarter_finals'),
+  ('TBD', 'TBD', NULL, NULL, 'xx', 'xx', '2026-07-10T20:00:00Z', 'quarter_finals'),
+  ('TBD', 'TBD', NULL, NULL, 'xx', 'xx', '2026-07-11T20:00:00Z', 'quarter_finals');
 
 -- -----------------------------------------
 -- Semifinales (2 partidos) - Julio 14-15
 -- -----------------------------------------
 INSERT INTO public.matches (home_team, away_team, home_flag_url, away_flag_url, home_team_code, away_team_code, kickoff_at, phase)
 VALUES
-  ('TBD', 'TBD', NULL, NULL, 'xx', 'xx', '2026-07-14T19:00:00Z', 'semi_finals'),
-  ('TBD', 'TBD', NULL, NULL, 'xx', 'xx', '2026-07-15T19:00:00Z', 'semi_finals');
+  ('TBD', 'TBD', NULL, NULL, 'xx', 'xx', '2026-07-14T23:00:00Z', 'semi_finals'),
+  ('TBD', 'TBD', NULL, NULL, 'xx', 'xx', '2026-07-15T23:00:00Z', 'semi_finals');
 
 -- -----------------------------------------
 -- Tercer lugar - Julio 18
 -- -----------------------------------------
 INSERT INTO public.matches (home_team, away_team, home_flag_url, away_flag_url, home_team_code, away_team_code, kickoff_at, phase)
 VALUES
-  ('TBD', 'TBD', NULL, NULL, 'xx', 'xx', '2026-07-18T16:00:00Z', 'third_place');
+  ('TBD', 'TBD', NULL, NULL, 'xx', 'xx', '2026-07-18T20:00:00Z', 'third_place');
 
 -- -----------------------------------------
 -- Gran Final - Julio 19
 -- -----------------------------------------
 INSERT INTO public.matches (home_team, away_team, home_flag_url, away_flag_url, home_team_code, away_team_code, kickoff_at, phase)
 VALUES
-  ('TBD', 'TBD', NULL, NULL, 'xx', 'xx', '2026-07-19T19:00:00Z', 'final');
+  ('TBD', 'TBD', NULL, NULL, 'xx', 'xx', '2026-07-19T23:00:00Z', 'final');
 
 
 -- =============================================================================

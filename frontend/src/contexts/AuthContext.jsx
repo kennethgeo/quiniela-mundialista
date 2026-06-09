@@ -74,12 +74,19 @@ export function AuthProvider({ children }) {
     // Obtener sesión inicial
     const initAuth = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession()
+        // Envolvemos getSession en un timeout por si el storage o supabase se quedan pegados en PWA
+        const sessionPromise = supabase.auth.getSession()
+        const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 3000))
+        
+        const { data: { session }, error } = await Promise.race([sessionPromise, timeoutPromise])
+        if (error) throw error
+
         const currentUser = session?.user ?? null
         setUser(currentUser)
 
         if (currentUser) {
-          await fetchProfile(currentUser.id)
+          // Lanzar fetchProfile sin await para no bloquear la pantalla de carga (soluciona pantalla en negro en PWA)
+          fetchProfile(currentUser.id).catch(err => console.error('Error cargando perfil:', err))
         }
       } catch (err) {
         console.error('Error al inicializar auth:', err.message)
@@ -97,7 +104,7 @@ export function AuthProvider({ children }) {
         setUser(currentUser)
 
         if (currentUser && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED')) {
-          await fetchProfile(currentUser.id)
+          fetchProfile(currentUser.id).catch(err => console.error('Error cargando perfil en evento:', err))
         }
 
         if (event === 'SIGNED_OUT') {
