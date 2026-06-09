@@ -15,6 +15,8 @@ Modificador Global:
 - x2 si use_powerup_x2 es True.
 """
 
+from app.services.notifications import broadcast_push_to_users
+
 def evaluate_prediction(
     pred: dict,
     home_actual: int,
@@ -115,7 +117,7 @@ def evaluate_prediction(
     return points
 
 
-def calculate_and_update_scores(supabase, match_id: int) -> dict:
+async def calculate_and_update_scores(supabase, match_id: int) -> dict:
     """
     Obtiene el resultado del partido, evalúa todas las predicciones
     usando las nuevas reglas y actualiza los puntos de los usuarios.
@@ -188,6 +190,20 @@ def calculate_and_update_scores(supabase, match_id: int) -> dict:
                 current_total = user_res.data.get("total_points") or 0
                 supabase.table("users").update({"total_points": current_total + delta}).eq("id", user_id).execute()
                 updated_users += 1
+
+    # 6. Enviar notificaciones push a los usuarios que ganaron puntos
+    users_with_positive_delta = [u for u, d in user_points_delta.items() if d > 0]
+    if users_with_positive_delta:
+        # Enviar push en background para no bloquear
+        # Usamos await porque la función es async, pero idealmente se usaría BackgroundTasks en FastAPI
+        # Para simplicidad lo haremos await
+        await broadcast_push_to_users(
+            supabase, 
+            users_with_positive_delta, 
+            title="¡Tus puntos se han actualizado!", 
+            body=f"El partido {match_id} ha finalizado. Revisa tu posición en el ranking.",
+            url="/ranking"
+        )
 
     return {
         "status": "ok",

@@ -4,7 +4,7 @@ import { Bell, BellOff, Loader2 } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 
-const VAPID_PUBLIC_KEY = 'BOxKHJtWJMu5Ed5hbaJ9DrMtUzmLWJHWlsbIjlVF0Pjs_9nnOhoJytwI5SqsNCp84nEQpGDepTu3uyDmsSI5fFw'
+const VAPID_PUBLIC_KEY = 'BNyWPjuMMv3hL3COLdubISZSr-tncWv5DYHl8Ut4yX9vwmHothAy9WBywVzfBvwnlSm8uJTFiNrLdt12kMXpWJk'
 
 // Utilidad para convertir la llave VAPID
 function urlBase64ToUint8Array(base64String) {

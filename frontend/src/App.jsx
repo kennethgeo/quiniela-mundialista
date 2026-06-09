@@ -60,8 +60,11 @@ function MainLayout({ children }) {
 
 import ErrorBoundary from './components/ui/ErrorBoundary'
 
+import { useGlobalRealtime } from './hooks/useRealtime'
+
 function AppRoutes() {
   const { user, loading } = useAuth()
+  useGlobalRealtime()
 
   if (loading) {
     return <div className="min-h-dvh bg-primary flex items-center justify-center text-accent">⚽ Cargando...</div>

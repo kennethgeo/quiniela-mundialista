@@ -6,6 +6,7 @@ import { useAuth } from '../../hooks/useAuth'
 import MatchList from './MatchList'
 import LoadingSpinner from '../ui/LoadingSpinner'
 import GroupStandings from './GroupStandings'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 
 const GROUPS = ['Todos', 'A','B','C','D','E','F','G','H','I','J','K','L']
 const MATCHDAYS = ['Todas', 1, 2, 3]
@@ -14,50 +15,48 @@ export default function GroupStage() {
   const { profile } = useAuth()
   const [selectedGroup, setSelectedGroup] = useState('Todos')
   const [selectedMatchday, setSelectedMatchday] = useState(1)
-  const [matches, setMatches] = useState([])
-  const [predictions, setPredictions] = useState([])
-  const [powerupLimits, setPowerupLimits] = useState({})
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState(null)
+  const queryClient = useQueryClient()
 
-  // Cargar partidos de fase de grupos y límites de comodines
-  useEffect(() => {
-    const fetchData = async () => {
-      if (!profile) return
-      try {
-        setLoading(true)
-        const [matchesRes, predsRes, limitsRes] = await Promise.all([
-          supabase.from('matches').select('*').eq('phase', 'groups').order('kickoff_at', { ascending: true }),
-          supabase.from('predictions').select('*').eq('user_id', profile.id),
-          supabase.from('powerup_limits').select('*')
-        ])
-        
-        if (matchesRes.error) throw matchesRes.error
-        if (predsRes.error) throw predsRes.error
-        if (limitsRes.error) throw limitsRes.error
-        
-        setMatches(matchesRes.data || [])
-        setPredictions(predsRes.data || [])
-
-        // Procesar límites en un diccionario fácil de consultar
-        const limitsObj = {}
-        if (limitsRes.data) {
-          limitsRes.data.forEach(l => {
-            const key = l.matchday ? `${l.phase}_${l.matchday}` : l.phase
-            limitsObj[key] = l.max_uses
-          })
-        }
-        setPowerupLimits(limitsObj)
-
-      } catch (err) {
-        setError(err.message)
-      } finally {
-        setLoading(false)
-      }
+  // 1. Fetch Matches
+  const { data: matches = [], isLoading: loadingMatches, error: matchesError } = useQuery({
+    queryKey: ['matches', 'groups'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('matches').select('*').eq('phase', 'groups').order('kickoff_at', { ascending: true })
+      if (error) throw error
+      return data || []
     }
-    fetchData()
-  }, [profile])
+  })
+
+  // 2. Fetch Predictions
+  const { data: predictions = [], isLoading: loadingPreds, error: predsError } = useQuery({
+    queryKey: ['predictions', profile?.id],
+    enabled: !!profile?.id,
+    queryFn: async () => {
+      const { data, error } = await supabase.from('predictions').select('*').eq('user_id', profile.id)
+      if (error) throw error
+      return data || []
+    }
+  })
+
+  // 3. Fetch Powerup Limits
+  const { data: powerupLimits = {}, isLoading: loadingLimits } = useQuery({
+    queryKey: ['powerup_limits'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('powerup_limits').select('*')
+      if (error) throw error
+      const limitsObj = {}
+      if (data) {
+        data.forEach(l => {
+          const key = l.matchday ? `${l.phase}_${l.matchday}` : l.phase
+          limitsObj[key] = l.max_uses
+        })
+      }
+      return limitsObj
+    }
+  })
+
+  const loading = loadingMatches || loadingPreds || loadingLimits
+  const error = matchesError?.message || predsError?.message
 
   // Asegurar orden cronologico estricto en el cliente
   const chronologicallySortedMatches = [...matches].sort((a, b) => new Date(a.kickoff_at) - new Date(b.kickoff_at))
@@ -90,33 +89,35 @@ export default function GroupStage() {
     filteredMatches = filteredMatches.filter(m => m.matchday === selectedMatchday)
   }
 
-  // Guardar predicción
-  const handleSavePrediction = async (prediction) => {
-    try {
-      setSaving(true)
-      const { data: result, error: saveError } = await supabase
+  // Mutation para guardar predicción
+  const savePredictionMutation = useMutation({
+    mutationFn: async (prediction) => {
+      const { data, error } = await supabase
         .from('predictions')
         .upsert({ ...prediction, user_id: profile.id }, { onConflict: 'user_id, match_id' })
         .select()
-        
-      if (saveError) throw saveError
-      
-      // Actualizar predicciones locales
-      setPredictions(prev => {
-        const existing = prev.findIndex(p => p.match_id === prediction.match_id)
-        if (existing >= 0) {
-          const updated = [...prev]
-          updated[existing] = { ...updated[existing], ...prediction }
+      if (error) throw error
+      return data?.[0] || prediction
+    },
+    onSuccess: (newPrediction) => {
+      // Optimistic update in cache
+      queryClient.setQueryData(['predictions', profile?.id], (old = []) => {
+        const existingIndex = old.findIndex(p => p.match_id === newPrediction.match_id)
+        if (existingIndex >= 0) {
+          const updated = [...old]
+          updated[existingIndex] = { ...updated[existingIndex], ...newPrediction }
           return updated
         }
-        return [...prev, result?.[0] || prediction]
+        return [...old, newPrediction]
       })
-    } catch (err) {
-      setError(err.message)
-    } finally {
-      setSaving(false)
     }
+  })
+
+  const handleSavePrediction = async (prediction) => {
+    savePredictionMutation.mutate(prediction)
   }
+
+  const saving = savePredictionMutation.isPending
 
   if (loading) return <LoadingSpinner />
 

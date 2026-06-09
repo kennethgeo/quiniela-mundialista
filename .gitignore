@@ -15,6 +15,7 @@ backend/.pytest_cache/
 .env.*.local
 frontend/.env
 backend/.env
+*.pem
 
 # Archivos del sistema operativo
 .DS_Store

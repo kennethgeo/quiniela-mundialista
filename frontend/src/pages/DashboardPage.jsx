@@ -3,6 +3,7 @@ import { motion } from 'motion/react'
 import { Trophy, Sparkles } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import Dashboard from '../components/dashboard/Dashboard'
+import OnboardingModal from '../components/ui/OnboardingModal'
 
 export default function DashboardPage() {
   const { profile } = useAuth()
@@ -15,6 +16,7 @@ export default function DashboardPage() {
 
   return (
     <div className="relative h-full pb-4 bg-world-cup">
+      <OnboardingModal />
       {/* ── Hero Section ── */}
       <div className="relative overflow-hidden">
         {/* Ambient gradient orbs */}
