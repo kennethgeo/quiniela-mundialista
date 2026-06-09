@@ -70,14 +70,14 @@ function Podium({ top3 }) {
               </p>
 
               {/* Logros */}
-              <div className="flex items-center gap-0.5 mb-0.5 min-h-[16px]">
-                {entry.is_nostradamus && <span className="text-[10px]" title="Nostradamus (3 pts exactos)">🔮</span>}
-                {entry.is_rey_empate && <span className="text-[10px]" title="Rey del Empate">⚖️</span>}
-                {entry.is_francotirador && <span className="text-[10px]" title="Francotirador (x2 acertado)">🎯</span>}
-                {entry.is_pecho_frio && <span className="text-[10px]" title="Pecho Frío (x2 fallado)">🧊</span>}
-                {entry.is_mas_conocedor && <span className="text-[10px]" title="El Más Conocedor (5 fallos)">🤡</span>}
-                {entry.is_tortuga && <span className="text-[10px]" title="La Tortuga (predicción al límite)">🐢</span>}
-                {entry.is_taylor && <span className="text-[10px]" title="Taylor (0T)">💩</span>}
+              <div className="flex flex-wrap items-center justify-center gap-1 mb-1.5 min-h-[18px]">
+                {entry.is_nostradamus && <span className="inline-flex items-center justify-center bg-black/10 dark:bg-white/10 border border-black/5 dark:border-white/10 rounded px-1 text-[9px] leading-none cursor-default" title="Nostradamus (3 pts exactos)">🔮</span>}
+                {entry.is_rey_empate && <span className="inline-flex items-center justify-center bg-black/10 dark:bg-white/10 border border-black/5 dark:border-white/10 rounded px-1 text-[9px] leading-none cursor-default" title="Rey del Empate">⚖️</span>}
+                {entry.is_francotirador && <span className="inline-flex items-center justify-center bg-black/10 dark:bg-white/10 border border-black/5 dark:border-white/10 rounded px-1 text-[9px] leading-none cursor-default" title="Francotirador (x2 acertado)">🎯</span>}
+                {entry.is_pecho_frio && <span className="inline-flex items-center justify-center bg-black/10 dark:bg-white/10 border border-black/5 dark:border-white/10 rounded px-1 text-[9px] leading-none cursor-default" title="Pecho Frío (x2 fallado)">🧊</span>}
+                {entry.is_mas_conocedor && <span className="inline-flex items-center justify-center bg-black/10 dark:bg-white/10 border border-black/5 dark:border-white/10 rounded px-1 text-[9px] leading-none cursor-default" title="El Más Conocedor (5 fallos)">🤡</span>}
+                {entry.is_tortuga && <span className="inline-flex items-center justify-center bg-black/10 dark:bg-white/10 border border-black/5 dark:border-white/10 rounded px-1 text-[9px] leading-none cursor-default" title="La Tortuga (predicción al límite)">🐢</span>}
+                {entry.is_taylor && <span className="inline-flex items-center justify-center gap-0.5 bg-black/10 dark:bg-white/10 border border-black/5 dark:border-white/10 rounded px-1 py-0.5 text-[9px] font-medium text-slate-700 dark:text-slate-300 leading-none cursor-default" title="Taylor (0T)">💩 0T</span>}
               </div>
 
               {/* Puntos */}

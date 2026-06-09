@@ -57,14 +57,14 @@ export default function LeaderboardRow({ entry, position, isCurrentUser }) {
             {isCurrentUser && <span className="text-xs text-accent/60 ml-1.5">(tú)</span>}
           </p>
         </div>
-        <div className="flex items-center gap-1 mt-0.5">
-          {entry.is_nostradamus && <span title="Nostradamus (3 pts exactos)">🔮</span>}
-          {entry.is_rey_empate && <span title="Rey del Empate">⚖️</span>}
-          {entry.is_francotirador && <span title="Francotirador (x2 acertado)">🎯</span>}
-          {entry.is_pecho_frio && <span title="Pecho Frío (x2 fallado)">🧊</span>}
-          {entry.is_mas_conocedor && <span title="El Más Conocedor (5 fallos)">🤡</span>}
-          {entry.is_tortuga && <span title="La Tortuga (predicción al límite)">🐢</span>}
-          {entry.is_taylor && <span title="Taylor (0T)">0T 💩</span>}
+        <div className="flex flex-wrap items-center gap-1.5 mt-1">
+          {entry.is_nostradamus && <span className="inline-flex items-center justify-center bg-white/5 border border-white/10 rounded px-1.5 py-0.5 text-[10px] leading-none cursor-default" title="Nostradamus (3 pts exactos)">🔮</span>}
+          {entry.is_rey_empate && <span className="inline-flex items-center justify-center bg-white/5 border border-white/10 rounded px-1.5 py-0.5 text-[10px] leading-none cursor-default" title="Rey del Empate">⚖️</span>}
+          {entry.is_francotirador && <span className="inline-flex items-center justify-center bg-white/5 border border-white/10 rounded px-1.5 py-0.5 text-[10px] leading-none cursor-default" title="Francotirador (x2 acertado)">🎯</span>}
+          {entry.is_pecho_frio && <span className="inline-flex items-center justify-center bg-white/5 border border-white/10 rounded px-1.5 py-0.5 text-[10px] leading-none cursor-default" title="Pecho Frío (x2 fallado)">🧊</span>}
+          {entry.is_mas_conocedor && <span className="inline-flex items-center justify-center bg-white/5 border border-white/10 rounded px-1.5 py-0.5 text-[10px] leading-none cursor-default" title="El Más Conocedor (5 fallos)">🤡</span>}
+          {entry.is_tortuga && <span className="inline-flex items-center justify-center bg-white/5 border border-white/10 rounded px-1.5 py-0.5 text-[10px] leading-none cursor-default" title="La Tortuga (predicción al límite)">🐢</span>}
+          {entry.is_taylor && <span className="inline-flex items-center justify-center gap-1 bg-white/5 border border-white/10 rounded px-1.5 py-0.5 text-[10px] font-medium text-slate-300 leading-none cursor-default" title="Taylor (0T)">💩 0T</span>}
         </div>
       </div>
 
