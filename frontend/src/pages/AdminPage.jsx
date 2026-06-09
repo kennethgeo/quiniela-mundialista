@@ -105,7 +105,8 @@ export default function AdminPage() {
   const handleSyncAPI = async () => {
     try {
       setSyncing(true)
-      const res = await fetch('/api/games')
+      const res = await fetch('/_backend/api/matches/external-games')
+      if (!res.ok) throw new Error('Error al conectar con el servidor')
       const apiData = await res.json()
       const apiGames = apiData.games || []
 

@@ -57,3 +57,17 @@ async def get_match(match_id: int, user: dict = Depends(get_current_user)):
         .execute()
     )
     return response.data
+
+@router.get("/external-games")
+async def get_external_games():
+    """Proxy para obtener los juegos de la API externa."""
+    import httpx
+    from fastapi import HTTPException
+    url = "https://worldcup26.ir/get/games"
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.get(url, timeout=15.0)
+            response.raise_for_status()
+            return response.json()
+        except Exception as e:
+            raise HTTPException(status_code=502, detail=f"Error obteniendo API: {e}")

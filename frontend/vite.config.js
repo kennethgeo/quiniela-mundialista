@@ -74,10 +74,10 @@ export default defineConfig({
   },
   server: {
     proxy: {
-      '/api/games': {
+      '/_backend/api/matches/external-games': {
         target: 'https://worldcup26.ir',
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api\/games/, '/get/games')
+        rewrite: (path) => path.replace(/^\/_backend\/api\/matches\/external-games/, '/get/games')
       }
     }
   }
