@@ -109,22 +109,18 @@ function evaluatePrediction(pred, home_actual, away_actual, goes_to_penalties, p
       points = 0
     } else {
       if (real_winner === 'tie') {
-        if (home_pred === home_actual && away_pred === away_actual) points = 6
-        else if (pred_winner === 'tie') points = 3
+        if (home_pred === home_actual && away_pred === away_actual) points = 3
+        else if (pred_winner === 'tie') points = 1
         else points = 0
 
         if (goes_to_penalties && pred_winner === 'tie' && penalties_winner_pred && penalties_winner_real) {
-          if (penalties_winner_pred === penalties_winner_real) points += 3
+          // Si falló en los penales, pierde sus puntos de empate
+          if (penalties_winner_pred !== penalties_winner_real) points = 0
         }
       } else {
-        if (home_pred === home_actual && away_pred === away_actual) points = 6
-        else if (pred_winner === real_winner) {
-          if (home_pred === home_actual || away_pred === away_actual) points = 4
-          else points = 3
-        } else {
-          if (home_pred === home_actual || away_pred === away_actual) points = 1
-          else points = 0
-        }
+        if (home_pred === home_actual && away_pred === away_actual) points = 3
+        else if (pred_winner === real_winner) points = 1
+        else points = 0
       }
     }
   } else if (pred_type === 'Solo_Ganador') {
@@ -136,13 +132,13 @@ function evaluatePrediction(pred, home_actual, away_actual, goes_to_penalties, p
 
     if (goes_to_penalties) {
       if (pred_winner === 'tie') {
-        if (penalties_winner_pred && penalties_winner_real && penalties_winner_pred === penalties_winner_real) points = 5
-        else points = 3
+        if (penalties_winner_pred && penalties_winner_real && penalties_winner_pred === penalties_winner_real) points = 1
+        else points = 0
       } else {
         points = 0
       }
     } else {
-      if (pred_winner === real_winner) points = 3
+      if (pred_winner === real_winner) points = 1
       else points = 0
     }
   }
