@@ -8,21 +8,22 @@ import Navbar from './components/ui/Navbar'
 import BottomNav from './components/ui/BottomNav'
 import ProtectedRoute from './components/auth/ProtectedRoute'
 import InstallPrompt from './components/ui/InstallPrompt'
+import LoadingSpinner from './components/ui/LoadingSpinner'
 
-import AuthPage from './pages/AuthPage'
-import DashboardPage from './pages/DashboardPage'
-import MatchesPage from './pages/MatchesPage'
-import BracketPage from './pages/BracketPage'
-import LeaderboardPage from './pages/LeaderboardPage'
-import ProfilePage from './pages/ProfilePage'
-import AdminPage from './pages/AdminPage'
-import MatchDetailPage from './pages/MatchDetailPage'
-import RulesPage from './pages/RulesPage'
+import { useState, lazy, Suspense } from 'react'
+
+const AuthPage = lazy(() => import('./pages/AuthPage'))
+const DashboardPage = lazy(() => import('./pages/DashboardPage'))
+const MatchesPage = lazy(() => import('./pages/MatchesPage'))
+const BracketPage = lazy(() => import('./pages/BracketPage'))
+const LeaderboardPage = lazy(() => import('./pages/LeaderboardPage'))
+const ProfilePage = lazy(() => import('./pages/ProfilePage'))
+const AdminPage = lazy(() => import('./pages/AdminPage'))
+const MatchDetailPage = lazy(() => import('./pages/MatchDetailPage'))
+const RulesPage = lazy(() => import('./pages/RulesPage'))
 
 import Sidebar from './components/ui/Sidebar'
 import GlobalChatDrawer from './components/chat/GlobalChatDrawer'
-
-import { useState } from 'react'
 
 // Layout principal que envuelve las rutas protegidas
 function MainLayout({ children }) {
@@ -65,11 +66,16 @@ function AppRoutes() {
   }
 
   return (
-    <Routes>
-      {/* Rutas públicas */}
-      <Route path="/auth" element={<AuthPage />} />
+    <Suspense fallback={
+      <div className="min-h-dvh bg-primary flex items-center justify-center">
+        <LoadingSpinner />
+      </div>
+    }>
+      <Routes>
+        {/* Rutas públicas */}
+        <Route path="/auth" element={<AuthPage />} />
 
-      {/* Rutas protegidas */}
+        {/* Rutas protegidas */}
       <Route
         path="/"
         element={
@@ -155,6 +161,7 @@ function AppRoutes() {
       {/* Redirección por defecto */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+    </Suspense>
   )
 }
 
