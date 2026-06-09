@@ -81,7 +81,8 @@ export default function AdminPage() {
       if (error) throw error
       
       // Calculate points! (It will revert points if status is not finished)
-      if (formState.status !== dbMatch.status || formState.home_goals_actual !== dbMatch.home_goals_actual || formState.away_goals_actual !== dbMatch.away_goals_actual) {
+      const oldMatch = matches.find(m => m.id === id)
+      if (oldMatch && (formState.status !== oldMatch.status || formState.home_goals_actual !== oldMatch.home_goals_actual || formState.away_goals_actual !== oldMatch.away_goals_actual)) {
         const result = await calculateAndUpdateScores(id)
         if (result.status === 'error') {
             console.error("Error calculating scores:", result.message)
