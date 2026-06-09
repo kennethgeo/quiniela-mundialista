@@ -9,18 +9,15 @@ export async function calculateAndUpdateScores(matchId) {
       .eq('id', matchId)
       .single()
 
-    if (matchError || !match || match.status !== 'finished') {
-      return { status: 'error', message: 'Partido no finalizado o no encontrado' }
+    if (matchError || !match) {
+      return { status: 'error', message: 'Partido no encontrado' }
     }
 
+    const isFinished = match.status === 'finished'
     const home_actual = match.home_goals_actual
     const away_actual = match.away_goals_actual
     const goes_to_penalties = match.goes_to_penalties || false
     const penalties_winner_real = match.penalties_winner_real
-
-    if (home_actual === null || away_actual === null) {
-      return { status: 'error', message: 'El partido no tiene resultado válido' }
-    }
 
     // 2. Obtener predicciones
     const { data: predictions, error: predsError } = await supabase
@@ -37,7 +34,10 @@ export async function calculateAndUpdateScores(matchId) {
 
     // 3. Evaluar
     for (const pred of predictions) {
-      const pts = evaluatePrediction(pred, home_actual, away_actual, goes_to_penalties, penalties_winner_real)
+      let pts = 0
+      if (isFinished && home_actual !== null && away_actual !== null) {
+        pts = evaluatePrediction(pred, home_actual, away_actual, goes_to_penalties, penalties_winner_real)
+      }
       const oldPoints = pred.points_earned || 0
       const delta = pts - oldPoints
 

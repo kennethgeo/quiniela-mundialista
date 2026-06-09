@@ -80,8 +80,8 @@ export default function AdminPage() {
 
       if (error) throw error
       
-      // If status is finished, calculate points!
-      if (formState.status === 'finished') {
+      // Calculate points! (It will revert points if status is not finished)
+      if (formState.status !== dbMatch.status || formState.home_goals_actual !== dbMatch.home_goals_actual || formState.away_goals_actual !== dbMatch.away_goals_actual) {
         const result = await calculateAndUpdateScores(id)
         if (result.status === 'error') {
             console.error("Error calculating scores:", result.message)
@@ -146,7 +146,7 @@ export default function AdminPage() {
               away_goals_actual: newAwayGoals
             }).eq('id', dbMatch.id)
 
-            if (newStatus === 'finished' && dbMatch.status !== 'finished') {
+            if (hasChanged) {
               await calculateAndUpdateScores(dbMatch.id)
             }
             updatedCount++
@@ -176,7 +176,7 @@ export default function AdminPage() {
               away_goals_actual: newAwayGoals
             }).eq('id', dbMatch.id)
 
-            if (newStatus === 'finished' && dbMatch.status !== 'finished') {
+            if (hasChanged) {
               await calculateAndUpdateScores(dbMatch.id)
             }
             updatedCount++
