@@ -4,7 +4,6 @@ import { User, Activity, Trophy, Clock, Search, History, Target, Zap, CheckCircl
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import PushNotificationToggle from '../components/ui/PushNotificationToggle'
-import Badge from '../components/profile/Badge'
 import GlobalPredictionsModal from '../components/profile/GlobalPredictionsModal'
 
 // Import para banderas
