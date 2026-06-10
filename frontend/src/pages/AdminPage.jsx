@@ -7,6 +7,7 @@ import { ShieldAlert, Save, Clock, Search, X, RefreshCw } from 'lucide-react'
 import GlobalSettingsAdmin from '../components/admin/GlobalSettingsAdmin'
 import BracketAdmin from '../components/admin/BracketAdmin'
 import PowerupsAdmin from '../components/admin/PowerupsAdmin'
+import TournamentPredictionsAdmin from '../components/admin/TournamentPredictionsAdmin'
 
 export default function AdminPage() {
   const [activeTab, setActiveTab] = useState('settings') // 'settings' or 'matches'
@@ -254,8 +255,12 @@ export default function AdminPage() {
 
       {/* Conditional Rendering based on activeTab */}
       {activeTab === 'settings' && (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+        <motion.div
+          key="settings"
+          initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }}
+        >
           <GlobalSettingsAdmin />
+          <TournamentPredictionsAdmin />
         </motion.div>
       )}
 

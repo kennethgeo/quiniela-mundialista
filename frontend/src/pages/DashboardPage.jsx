@@ -4,6 +4,7 @@ import { Trophy, Sparkles } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import Dashboard from '../components/dashboard/Dashboard'
 import OnboardingModal from '../components/ui/OnboardingModal'
+import TournamentPredictionCard from '../components/dashboard/TournamentPredictionCard'
 
 export default function DashboardPage() {
   const { profile } = useAuth()
@@ -81,7 +82,8 @@ export default function DashboardPage() {
       </div>
 
       {/* ── Dashboard Content ── */}
-      <div className="relative z-10 px-4 mt-4">
+      <div className="relative z-10 px-4 mt-4 space-y-6">
+        <TournamentPredictionCard />
         <Dashboard />
       </div>
 

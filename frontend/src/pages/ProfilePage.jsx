@@ -5,6 +5,28 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import PushNotificationToggle from '../components/ui/PushNotificationToggle'
 
+// Import para banderas
+const TEAMS_2026 = [
+  { name: 'Argentina', code: 'ar' }, { name: 'Algeria', code: 'dz' }, { name: 'Australia', code: 'au' },
+  { name: 'Austria', code: 'at' }, { name: 'Belgium', code: 'be' }, { name: 'Bosnia-Herzegovina', code: 'ba' },
+  { name: 'Brazil', code: 'br' }, { name: 'Canada', code: 'ca' }, { name: 'Cape Verde', code: 'cv' },
+  { name: 'Colombia', code: 'co' }, { name: 'Costa Rica', code: 'cr' }, { name: 'Croatia', code: 'hr' },
+  { name: 'Curaçao', code: 'cw' }, { name: 'Czechia', code: 'cz' }, { name: 'Denmark', code: 'dk' },
+  { name: 'DR Congo', code: 'cd' }, { name: 'Ecuador', code: 'ec' }, { name: 'Egypt', code: 'eg' },
+  { name: 'England', code: 'gb-eng' }, { name: 'France', code: 'fr' }, { name: 'Germany', code: 'de' },
+  { name: 'Ghana', code: 'gh' }, { name: 'Haiti', code: 'ht' }, { name: 'Iran', code: 'ir' },
+  { name: 'Iraq', code: 'iq' }, { name: 'Italy', code: 'it' }, { name: 'Ivory Coast', code: 'ci' },
+  { name: 'Japan', code: 'jp' }, { name: 'Jordan', code: 'jo' }, { name: 'Mexico', code: 'mx' },
+  { name: 'Morocco', code: 'ma' }, { name: 'Netherlands', code: 'nl' }, { name: 'New Zealand', code: 'nz' },
+  { name: 'Nigeria', code: 'ng' }, { name: 'Norway', code: 'no' }, { name: 'Panama', code: 'pa' },
+  { name: 'Paraguay', code: 'py' }, { name: 'Peru', code: 'pe' }, { name: 'Portugal', code: 'pt' },
+  { name: 'Qatar', code: 'qa' }, { name: 'Saudi Arabia', code: 'sa' }, { name: 'Senegal', code: 'sn' },
+  { name: 'South Africa', code: 'za' }, { name: 'South Korea', code: 'kr' }, { name: 'Spain', code: 'es' },
+  { name: 'Sweden', code: 'se' }, { name: 'Switzerland', code: 'ch' }, { name: 'Tunisia', code: 'tn' },
+  { name: 'Türkiye', code: 'tr' }, { name: 'USA', code: 'us' }, { name: 'Uruguay', code: 'uy' },
+  { name: 'Uzbekistan', code: 'uz' }
+]
+
 export default function ProfilePage() {
   const { profile } = useAuth()
   const [activeTab, setActiveTab] = useState('predictions')
@@ -12,6 +34,7 @@ export default function ProfilePage() {
   const [predictions, setPredictions] = useState([])
   const [logs, setLogs] = useState([])
   const [loading, setLoading] = useState(true)
+  const [globalPrediction, setGlobalPrediction] = useState(null)
   
   const [stats, setStats] = useState({
     exact: 0,
@@ -156,6 +179,10 @@ export default function ProfilePage() {
       
       if (bData) setBadges(bData)
       if (sData) setAdvancedStats(sData)
+
+      // 4. Obtener Predicciones Globales
+      const { data: globalPred } = await supabase.from('tournament_predictions').select('*').eq('user_id', profile.id).maybeSingle()
+      if (globalPred) setGlobalPrediction(globalPred)
 
     } catch (err) {
       console.error('Error fetching profile data', err)
@@ -343,19 +370,27 @@ export default function ProfilePage() {
         <div className="flex gap-4 mt-6 border-b border-white/10 pb-1">
           <button 
             onClick={() => setActiveTab('predictions')}
-            className={`pb-3 text-sm font-bold transition-colors relative flex items-center gap-2 ${activeTab === 'predictions' ? 'text-accent' : 'text-slate-500 hover:text-slate-300'}`}
+            className={`flex-1 py-2.5 text-sm font-bold rounded-lg transition-all whitespace-nowrap px-4 ${activeTab === 'predictions' ? 'bg-white dark:bg-white/10 text-accent shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
           >
-            <Trophy size={14} />
-            Mis Resultados
-            {activeTab === 'predictions' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-accent rounded-t-full" />}
+            Predicciones
           </button>
           <button 
-            onClick={() => setActiveTab('logs')}
-            className={`pb-3 text-sm font-bold transition-colors relative flex items-center gap-2 ${activeTab === 'logs' ? 'text-accent' : 'text-slate-500 hover:text-slate-300'}`}
+            onClick={() => setActiveTab('global')}
+            className={`flex-1 py-2.5 text-sm font-bold rounded-lg transition-all whitespace-nowrap px-4 ${activeTab === 'global' ? 'bg-white dark:bg-white/10 text-accent shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
           >
-            <History size={14} />
-            Historial de Cambios
-            {activeTab === 'logs' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-accent rounded-t-full" />}
+            Globales
+          </button>
+          <button 
+            onClick={() => setActiveTab('badges')}
+            className={`flex-1 py-2.5 text-sm font-bold rounded-lg transition-all whitespace-nowrap px-4 flex items-center justify-center gap-1.5 ${activeTab === 'badges' ? 'bg-white dark:bg-white/10 text-accent shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+          >
+            Medallas
+          </button>
+          <button 
+            onClick={() => setActiveTab('history')}
+            className={`flex-1 py-2.5 text-sm font-bold rounded-lg transition-all whitespace-nowrap px-4 ${activeTab === 'history' ? 'bg-white dark:bg-white/10 text-accent shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+          >
+            Historial
           </button>
         </div>
       </motion.div>
@@ -413,10 +448,79 @@ export default function ProfilePage() {
               </motion.div>
             )}
 
-            {activeTab === 'logs' && (
+            {activeTab === 'global' && (
+              <motion.div
+                initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
+                className="space-y-4"
+              >
+                {globalPrediction ? (
+                  <div className="glass-card p-5">
+                    <div className="flex items-center gap-2 text-accent mb-4">
+                      <Trophy size={20} />
+                      <h3 className="font-bold text-slate-900 dark:text-white">Mis Predicciones Globales</h3>
+                    </div>
+                    
+                    <div className="space-y-4">
+                      <div className="p-4 bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl">
+                        <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Equipo Campeón</p>
+                        <p className="font-bold text-slate-900 dark:text-white text-lg flex items-center gap-2">
+                          {globalPrediction.champion_team ? (
+                            <>
+                              {globalPrediction.champion_team}
+                            </>
+                          ) : (
+                            <span className="text-slate-400 italic">No seleccionado</span>
+                          )}
+                        </p>
+                      </div>
+
+                      <div className="p-4 bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl">
+                        <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Goleador del Torneo</p>
+                        <p className="font-bold text-slate-900 dark:text-white text-lg flex items-center gap-2">
+                          {globalPrediction.top_scorer_name ? (
+                            <>
+                              <Target size={18} className="text-accent" />
+                              {globalPrediction.top_scorer_name}
+                            </>
+                          ) : (
+                            <span className="text-slate-400 italic">No seleccionado</span>
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-10">
+                    <Trophy size={48} className="mx-auto text-slate-300 dark:text-slate-600 mb-3" />
+                    <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-1">Sin Predicciones Globales</h3>
+                    <p className="text-sm text-slate-500">Aún no has elegido al campeón ni al goleador del torneo.</p>
+                  </div>
+                )}
+              </motion.div>
+            )}
+
+            {activeTab === 'badges' && (
+              <motion.div initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }}>
+                <div className="glass-card p-4 flex flex-wrap gap-3">
+                  {badges.is_nostradamus && <Badge emoji="🎯" name="Nostradamus" desc="3+ Exactos" color="amber" />}
+                  {badges.is_rey_empate && <Badge emoji="🤝" name="Rey del Empate" desc="3+ Empates exactos" color="blue" />}
+                  {badges.is_francotirador && <Badge emoji="🔥" name="Francotirador" desc="Exacto con x2" color="rose" />}
+                  {badges.is_pecho_frio && <Badge emoji="🥶" name="Pecho Frío" desc="0 pts con x2" color="cyan" />}
+                  {badges.is_mas_conocedor && <Badge emoji="🤡" name="El Más Conocedor" desc="5+ ceros" color="purple" />}
+                  {badges.is_tortuga && <Badge emoji="🐢" name="La Tortuga" desc="Predijo a última hora" color="emerald" />}
+                  {badges.is_taylor && <Badge emoji="💩" name="0T" desc="Por ser tan Tay" color="stone" />}
+                  
+                  {(!badges.is_nostradamus && !badges.is_rey_empate && !badges.is_francotirador && !badges.is_pecho_frio && !badges.is_mas_conocedor && !badges.is_tortuga && !badges.is_taylor) && (
+                    <span className="text-xs text-slate-400 flex items-center italic">Aún no has desbloqueado logros</span>
+                  )}
+                </div>
+              </motion.div>
+            )}
+
+            {activeTab === 'history' && (
               <motion.div key="logs" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }}>
                 {logs.length === 0 ? (
-                  <div className="glass-card p-8 text-center text-slate-500 text-sm">No hay registro de actividad aún. Recuerda que solo las actividades nuevas a partir de la habilitación del historial aparecerán aquí.</div>
+                  <div className="glass-card p-8 text-center text-slate-500 text-sm">No hay registro de actividad aún.</div>
                 ) : (
                   <div className="relative border-l border-accent/20 ml-3 md:ml-4 space-y-6">
                     {logs.map(log => {
