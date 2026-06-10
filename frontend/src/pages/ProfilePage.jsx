@@ -1,9 +1,11 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
-import { User, Activity, Trophy, Clock, Search, History, Target, Zap, CheckCircle2, XCircle, PieChart, Camera, Trash2, Loader2 } from 'lucide-react'
+import { User, Activity, Trophy, Clock, Search, History, Target, Zap, CheckCircle2, XCircle, PieChart, Camera, Trash2, Loader2, Edit3 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import PushNotificationToggle from '../components/ui/PushNotificationToggle'
+import Badge from '../components/profile/Badge'
+import GlobalPredictionsModal from '../components/profile/GlobalPredictionsModal'
 
 // Import para banderas
 const TEAMS_2026 = [
@@ -35,6 +37,8 @@ export default function ProfilePage() {
   const [logs, setLogs] = useState([])
   const [loading, setLoading] = useState(true)
   const [globalPrediction, setGlobalPrediction] = useState(null)
+  const [isPredictionsLocked, setIsPredictionsLocked] = useState(false)
+  const [isModalOpen, setIsModalOpen] = useState(false)
   
   const [stats, setStats] = useState({
     exact: 0,
@@ -120,8 +124,6 @@ export default function ProfilePage() {
     try {
       setLoading(true)
       
-      // 1. Obtener predicciones + partidos (mediante un join implícito usando foreign key, pero como no lo tenemos en la definicion de PostgREST, haremos 2 queries o usaremos eq)
-      // Lo mejor es traer todos los matches y cruzar
       const { data: matchesData } = await supabase.from('matches').select('*')
       const { data: predsData } = await supabase.from('predictions').select('*').eq('user_id', profile.id)
       
@@ -131,11 +133,9 @@ export default function ProfilePage() {
           match: matchesData.find(m => m.id === p.match_id)
         })).filter(p => p.match)
         
-        // Ordenar por fecha del partido (descendente: los más recientes/futuros primero)
         enrichedPreds.sort((a,b) => new Date(b.match.kickoff_at) - new Date(a.match.kickoff_at))
         setPredictions(enrichedPreds)
 
-        // Calcular estadísticas
         let exact = 0, correct = 0, miss = 0, powerups = 0, totalFinished = 0
         enrichedPreds.forEach(pred => {
           if (pred.use_powerup_x2) powerups++
@@ -157,7 +157,6 @@ export default function ProfilePage() {
         })
       }
 
-      // 2. Obtener logs
       const { data: logsData } = await supabase
         .from('prediction_logs')
         .select('*')
@@ -173,16 +172,27 @@ export default function ProfilePage() {
         setLogs(enrichedLogs)
       }
 
-      // 3. Obtener Gamification Stats
       const { data: bData } = await supabase.from('user_badges_view').select('*').eq('user_id', profile.id).maybeSingle()
       const { data: sData } = await supabase.from('user_stats_view').select('*').eq('user_id', profile.id).maybeSingle()
       
       if (bData) setBadges(bData)
       if (sData) setAdvancedStats(sData)
 
-      // 4. Obtener Predicciones Globales
-      const { data: globalPred } = await supabase.from('tournament_predictions').select('*').eq('user_id', profile.id).maybeSingle()
-      if (globalPred) setGlobalPrediction(globalPred)
+      const { data: globalData } = await supabase
+        .from('tournament_predictions')
+        .select('*')
+        .eq('user_id', profile.id)
+        .maybeSingle()
+      setGlobalPrediction(globalData || null)
+        
+      const { data: settingsData } = await supabase
+        .from('tournament_settings')
+        .select('is_locked')
+        .eq('id', 1)
+        .maybeSingle()
+      if (settingsData) {
+        setIsPredictionsLocked(settingsData.is_locked)
+      }
 
     } catch (err) {
       console.error('Error fetching profile data', err)
@@ -455,9 +465,19 @@ export default function ProfilePage() {
               >
                 {globalPrediction ? (
                   <div className="glass-card p-5">
-                    <div className="flex items-center gap-2 text-accent mb-4">
-                      <Trophy size={20} />
-                      <h3 className="font-bold text-slate-900 dark:text-white">Mis Predicciones Globales</h3>
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-2 text-accent">
+                        <Trophy size={20} />
+                        <h3 className="font-bold text-slate-900 dark:text-white">Mis Predicciones Globales</h3>
+                      </div>
+                      {!isPredictionsLocked && (
+                        <button 
+                          onClick={() => setIsModalOpen(true)}
+                          className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 dark:bg-white/10 dark:hover:bg-white/20 text-xs font-bold rounded-lg transition-colors"
+                        >
+                          Editar
+                        </button>
+                      )}
                     </div>
                     
                     <div className="space-y-4">
@@ -493,7 +513,17 @@ export default function ProfilePage() {
                   <div className="text-center py-10">
                     <Trophy size={48} className="mx-auto text-slate-300 dark:text-slate-600 mb-3" />
                     <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-1">Sin Predicciones Globales</h3>
-                    <p className="text-sm text-slate-500">Aún no has elegido al campeón ni al goleador del torneo.</p>
+                    <p className="text-sm text-slate-500 mb-5">Aún no has elegido al campeón ni al goleador del torneo.</p>
+                    {!isPredictionsLocked ? (
+                      <button 
+                        onClick={() => setIsModalOpen(true)}
+                        className="px-5 py-2.5 bg-accent hover:bg-accent-light text-white font-bold rounded-xl transition-colors shadow-lg shadow-accent/20"
+                      >
+                        Hacer Predicciones
+                      </button>
+                    ) : (
+                      <p className="text-xs text-rose-500 font-bold bg-rose-500/10 inline-block px-3 py-1 rounded-full">Las predicciones ya están cerradas</p>
+                    )}
                   </div>
                 )}
               </motion.div>
@@ -569,6 +599,14 @@ export default function ProfilePage() {
         {/* Spacer para que el BottomNav no tape en móvil */}
         <div className="h-32 w-full shrink-0 md:hidden pointer-events-none" />
       </div>
+      
+      <GlobalPredictionsModal 
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        initialData={globalPrediction}
+        userId={profile?.id}
+        onSaved={fetchData}
+      />
     </div>
   )
 }

@@ -18,18 +18,34 @@ export default function ProtectedRoute({ children }) {
         return
       }
 
+      // Check local user object first (fast path)
+      if (user.email_confirmed_at) {
+        setIsEmailVerified(true)
+        setIsLoading(false)
+        return
+      }
+
       try {
-        // Get user profile to check email_confirmed_at
-        const { data: userProfile } = await supabase
+        // Wrap the fetch in a 3-second timeout to prevent PWA hang on slow networks
+        const fetchPromise = supabase
           .from('users')
           .select('email_confirmed_at')
           .eq('id', user.id)
           .single()
 
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('timeout')), 3000)
+        )
+
+        const { data: userProfile } = await Promise.race([fetchPromise, timeoutPromise])
+
         const verified = userProfile?.email_confirmed_at !== null
         setIsEmailVerified(verified)
       } catch (error) {
-        console.error('Error checking email verification:', error)
+        console.warn('Error or timeout checking email verification, allowing access fallback:', error)
+        // If it times out or fails, we assume verified to prevent blocking the user from the app 
+        // if they are already logged in and just have a slow connection.
+        setIsEmailVerified(true) 
       } finally {
         setIsLoading(false)
       }

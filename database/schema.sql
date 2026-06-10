@@ -658,27 +658,27 @@ VALUES
 INSERT INTO public.matches (home_team, away_team, home_flag_url, away_flag_url, home_team_code, away_team_code, kickoff_at, phase)
 VALUES
   -- Junio 28
-  ('TBD', 'TBD', NULL, NULL, 'xx', 'xx', '2026-06-28T20:00:00Z', 'round_of_32'),
+  ('1A', '3B/C/D', NULL, NULL, 'xx', 'xx', '2026-06-28T20:00:00Z', 'round_of_32'),
   -- Junio 29
-  ('TBD', 'TBD', NULL, NULL, 'xx', 'xx', '2026-06-29T16:00:00Z', 'round_of_32'),
-  ('TBD', 'TBD', NULL, NULL, 'xx', 'xx', '2026-06-29T19:00:00Z', 'round_of_32'),
-  ('TBD', 'TBD', NULL, NULL, 'xx', 'xx', '2026-06-29T22:00:00Z', 'round_of_32'),
+  ('2E', '2F', NULL, NULL, 'xx', 'xx', '2026-06-29T16:00:00Z', 'round_of_32'),
+  ('1I', '3A/J/K', NULL, NULL, 'xx', 'xx', '2026-06-29T19:00:00Z', 'round_of_32'),
+  ('2G', '2H', NULL, NULL, 'xx', 'xx', '2026-06-29T22:00:00Z', 'round_of_32'),
   -- Junio 30
-  ('TBD', 'TBD', NULL, NULL, 'xx', 'xx', '2026-06-30T16:00:00Z', 'round_of_32'),
-  ('TBD', 'TBD', NULL, NULL, 'xx', 'xx', '2026-06-30T19:00:00Z', 'round_of_32'),
-  ('TBD', 'TBD', NULL, NULL, 'xx', 'xx', '2026-06-30T22:00:00Z', 'round_of_32'),
+  ('1C', '3D/E/F', NULL, NULL, 'xx', 'xx', '2026-06-30T16:00:00Z', 'round_of_32'),
+  ('2A', '2B', NULL, NULL, 'xx', 'xx', '2026-06-30T19:00:00Z', 'round_of_32'),
+  ('1K', '3H/I/L', NULL, NULL, 'xx', 'xx', '2026-06-30T22:00:00Z', 'round_of_32'),
   -- Julio 1
-  ('TBD', 'TBD', NULL, NULL, 'xx', 'xx', '2026-07-01T16:00:00Z', 'round_of_32'),
-  ('TBD', 'TBD', NULL, NULL, 'xx', 'xx', '2026-07-01T19:00:00Z', 'round_of_32'),
-  ('TBD', 'TBD', NULL, NULL, 'xx', 'xx', '2026-07-01T22:00:00Z', 'round_of_32'),
+  ('2I', '2J', NULL, NULL, 'xx', 'xx', '2026-07-01T16:00:00Z', 'round_of_32'),
+  ('1E', '3F/G/H', NULL, NULL, 'xx', 'xx', '2026-07-01T19:00:00Z', 'round_of_32'),
+  ('2C', '2D', NULL, NULL, 'xx', 'xx', '2026-07-01T22:00:00Z', 'round_of_32'),
   -- Julio 2
-  ('TBD', 'TBD', NULL, NULL, 'xx', 'xx', '2026-07-02T16:00:00Z', 'round_of_32'),
-  ('TBD', 'TBD', NULL, NULL, 'xx', 'xx', '2026-07-02T19:00:00Z', 'round_of_32'),
-  ('TBD', 'TBD', NULL, NULL, 'xx', 'xx', '2026-07-02T22:00:00Z', 'round_of_32'),
+  ('1G', '3A/B/L', NULL, NULL, 'xx', 'xx', '2026-07-02T16:00:00Z', 'round_of_32'),
+  ('2K', '2L', NULL, NULL, 'xx', 'xx', '2026-07-02T19:00:00Z', 'round_of_32'),
+  ('1D', '3E/F/G', NULL, NULL, 'xx', 'xx', '2026-07-02T22:00:00Z', 'round_of_32'),
   -- Julio 3
-  ('TBD', 'TBD', NULL, NULL, 'xx', 'xx', '2026-07-03T16:00:00Z', 'round_of_32'),
-  ('TBD', 'TBD', NULL, NULL, 'xx', 'xx', '2026-07-03T19:00:00Z', 'round_of_32'),
-  ('TBD', 'TBD', NULL, NULL, 'xx', 'xx', '2026-07-03T22:00:00Z', 'round_of_32');
+  ('1B', '3C/D/A', NULL, NULL, 'xx', 'xx', '2026-07-03T16:00:00Z', 'round_of_32'),
+  ('1L', '3I/J/K', NULL, NULL, 'xx', 'xx', '2026-07-03T19:00:00Z', 'round_of_32'),
+  ('1H', '3G/H/I', NULL, NULL, 'xx', 'xx', '2026-07-03T22:00:00Z', 'round_of_32');
 
 -- -----------------------------------------
 -- Octavos de final / Ronda de 16 (8 partidos) - Julio 4-7
@@ -686,49 +686,49 @@ VALUES
 INSERT INTO public.matches (home_team, away_team, home_flag_url, away_flag_url, home_team_code, away_team_code, kickoff_at, phase)
 VALUES
   -- Julio 4
-  ('TBD', 'TBD', NULL, NULL, 'xx', 'xx', '2026-07-04T17:00:00Z', 'round_of_16'),
-  ('TBD', 'TBD', NULL, NULL, 'xx', 'xx', '2026-07-04T21:00:00Z', 'round_of_16'),
+  ('W73', 'W74', NULL, NULL, 'xx', 'xx', '2026-07-04T17:00:00Z', 'round_of_16'),
+  ('W75', 'W76', NULL, NULL, 'xx', 'xx', '2026-07-04T21:00:00Z', 'round_of_16'),
   -- Julio 5
-  ('TBD', 'TBD', NULL, NULL, 'xx', 'xx', '2026-07-05T17:00:00Z', 'round_of_16'),
-  ('TBD', 'TBD', NULL, NULL, 'xx', 'xx', '2026-07-05T21:00:00Z', 'round_of_16'),
+  ('W77', 'W78', NULL, NULL, 'xx', 'xx', '2026-07-05T17:00:00Z', 'round_of_16'),
+  ('W79', 'W80', NULL, NULL, 'xx', 'xx', '2026-07-05T21:00:00Z', 'round_of_16'),
   -- Julio 6
-  ('TBD', 'TBD', NULL, NULL, 'xx', 'xx', '2026-07-06T17:00:00Z', 'round_of_16'),
-  ('TBD', 'TBD', NULL, NULL, 'xx', 'xx', '2026-07-06T21:00:00Z', 'round_of_16'),
+  ('W81', 'W82', NULL, NULL, 'xx', 'xx', '2026-07-06T17:00:00Z', 'round_of_16'),
+  ('W83', 'W84', NULL, NULL, 'xx', 'xx', '2026-07-06T21:00:00Z', 'round_of_16'),
   -- Julio 7
-  ('TBD', 'TBD', NULL, NULL, 'xx', 'xx', '2026-07-07T17:00:00Z', 'round_of_16'),
-  ('TBD', 'TBD', NULL, NULL, 'xx', 'xx', '2026-07-07T21:00:00Z', 'round_of_16');
+  ('W85', 'W86', NULL, NULL, 'xx', 'xx', '2026-07-07T17:00:00Z', 'round_of_16'),
+  ('W87', 'W88', NULL, NULL, 'xx', 'xx', '2026-07-07T21:00:00Z', 'round_of_16');
 
 -- -----------------------------------------
 -- Cuartos de final (4 partidos) - Julio 9-11
 -- -----------------------------------------
 INSERT INTO public.matches (home_team, away_team, home_flag_url, away_flag_url, home_team_code, away_team_code, kickoff_at, phase)
 VALUES
-  ('TBD', 'TBD', NULL, NULL, 'xx', 'xx', '2026-07-09T20:00:00Z', 'quarter_finals'),
-  ('TBD', 'TBD', NULL, NULL, 'xx', 'xx', '2026-07-10T20:00:00Z', 'quarter_finals'),
-  ('TBD', 'TBD', NULL, NULL, 'xx', 'xx', '2026-07-11T17:00:00Z', 'quarter_finals'),
-  ('TBD', 'TBD', NULL, NULL, 'xx', 'xx', '2026-07-11T21:00:00Z', 'quarter_finals');
+  ('W89', 'W90', NULL, NULL, 'xx', 'xx', '2026-07-09T20:00:00Z', 'quarter_finals'),
+  ('W91', 'W92', NULL, NULL, 'xx', 'xx', '2026-07-10T20:00:00Z', 'quarter_finals'),
+  ('W93', 'W94', NULL, NULL, 'xx', 'xx', '2026-07-11T17:00:00Z', 'quarter_finals'),
+  ('W95', 'W96', NULL, NULL, 'xx', 'xx', '2026-07-11T21:00:00Z', 'quarter_finals');
 
 -- -----------------------------------------
 -- Semifinales (2 partidos) - Julio 14-15
 -- -----------------------------------------
 INSERT INTO public.matches (home_team, away_team, home_flag_url, away_flag_url, home_team_code, away_team_code, kickoff_at, phase)
 VALUES
-  ('TBD', 'TBD', NULL, NULL, 'xx', 'xx', '2026-07-14T20:00:00Z', 'semi_finals'),
-  ('TBD', 'TBD', NULL, NULL, 'xx', 'xx', '2026-07-15T20:00:00Z', 'semi_finals');
+  ('W97', 'W98', NULL, NULL, 'xx', 'xx', '2026-07-14T20:00:00Z', 'semi_finals'),
+  ('W99', 'W100', NULL, NULL, 'xx', 'xx', '2026-07-15T20:00:00Z', 'semi_finals');
 
 -- -----------------------------------------
 -- Tercer lugar - Julio 18
 -- -----------------------------------------
 INSERT INTO public.matches (home_team, away_team, home_flag_url, away_flag_url, home_team_code, away_team_code, kickoff_at, phase)
 VALUES
-  ('TBD', 'TBD', NULL, NULL, 'xx', 'xx', '2026-07-18T20:00:00Z', 'third_place');
+  ('L101', 'L102', NULL, NULL, 'xx', 'xx', '2026-07-18T20:00:00Z', 'third_place');
 
 -- -----------------------------------------
 -- Gran Final - Julio 19
 -- -----------------------------------------
 INSERT INTO public.matches (home_team, away_team, home_flag_url, away_flag_url, home_team_code, away_team_code, kickoff_at, phase)
 VALUES
-  ('TBD', 'TBD', NULL, NULL, 'xx', 'xx', '2026-07-19T19:00:00Z', 'final');
+  ('W101', 'W102', NULL, NULL, 'xx', 'xx', '2026-07-19T19:00:00Z', 'final');
 
 
 -- =============================================================================
