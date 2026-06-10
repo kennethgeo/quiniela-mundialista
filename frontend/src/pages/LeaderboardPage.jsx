@@ -5,7 +5,7 @@ import Leaderboard from '../components/leaderboard/Leaderboard'
 
 export default function LeaderboardPage() {
   return (
-    <div className="px-4 py-5 bg-world-cup h-full min-h-screen md:min-h-0 relative">
+    <div className="px-4 py-5 relative">
       {/* Premium header */}
       <motion.div
         initial={{ opacity: 0, y: -10 }}

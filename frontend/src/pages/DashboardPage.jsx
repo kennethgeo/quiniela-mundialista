@@ -84,6 +84,9 @@ export default function DashboardPage() {
       <div className="relative z-10 px-4 mt-4">
         <Dashboard />
       </div>
+
+      {/* Spacer para que el BottomNav no tape en móvil */}
+      <div className="h-32 w-full shrink-0 md:hidden pointer-events-none" />
     </div>
   )
 }

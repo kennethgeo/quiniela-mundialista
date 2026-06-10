@@ -70,6 +70,8 @@ export default function MatchList({ matches, predictions, onSavePrediction, isLo
         </div>
       );
       })}
+      {/* Spacer para que el BottomNav no tape el último partido en móvil */}
+      <div className="h-32 w-full shrink-0 md:hidden pointer-events-none" />
     </motion.div>
   )
 }

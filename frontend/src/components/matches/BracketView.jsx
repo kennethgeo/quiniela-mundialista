@@ -217,6 +217,9 @@ export default function BracketView() {
       >
         ← Desliza para ver todas las fases →
       </motion.p>
+      
+      {/* Spacer para que el BottomNav no tape el bracket en móvil */}
+      <div className="h-32 w-full shrink-0 md:hidden pointer-events-none" />
     </div>
   )
 }

@@ -165,7 +165,7 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="px-4 py-5 bg-world-cup h-full min-h-screen md:min-h-0 relative">
+    <div className="px-4 py-5 relative">
       <motion.div
         initial={{ opacity: 0, y: -15 }}
         animate={{ opacity: 1, y: 0 }}
@@ -462,6 +462,8 @@ export default function ProfilePage() {
             )}
           </AnimatePresence>
         )}
+        {/* Spacer para que el BottomNav no tape en móvil */}
+        <div className="h-32 w-full shrink-0 md:hidden pointer-events-none" />
       </div>
     </div>
   )
