@@ -147,3 +147,101 @@ function evaluatePrediction(pred, home_actual, away_actual, goes_to_penalties, p
 
   return points
 }
+
+export async function calculateTournamentPredictions() {
+  try {
+    const { data: settings, error: settingsError } = await supabase
+      .from('tournament_settings')
+      .select('actual_champion, actual_top_scorer')
+      .eq('id', 1)
+      .single()
+
+    if (settingsError || !settings) {
+      return { status: 'error', message: 'Configuración no encontrada' }
+    }
+
+    const { actual_champion, actual_top_scorer } = settings
+
+    if (!actual_champion && !actual_top_scorer) {
+      return { status: 'ok', message: 'Resultados globales aún no definidos' }
+    }
+
+    const { data: predictions, error: predsError } = await supabase
+      .from('tournament_predictions')
+      .select('*')
+
+    if (predsError || !predictions || predictions.length === 0) {
+      return { status: 'ok', message: 'No hay predicciones globales' }
+    }
+
+    const updates = []
+    const userPointsDelta = {}
+
+    for (const pred of predictions) {
+      let championPts = 0
+      let topScorerPts = 0
+
+      if (actual_champion && pred.champion_team && actual_champion.trim().toLowerCase() === pred.champion_team.trim().toLowerCase()) {
+        championPts = 12
+      }
+
+      if (actual_top_scorer && pred.top_scorer_name && actual_top_scorer.trim().toLowerCase() === pred.top_scorer_name.trim().toLowerCase()) {
+        topScorerPts = 12
+      }
+
+      const oldChampionPts = pred.champion_points || 0
+      const oldTopScorerPts = pred.top_scorer_points || 0
+      
+      const championDelta = championPts - oldChampionPts
+      const topScorerDelta = topScorerPts - oldTopScorerPts
+      const delta = championDelta + topScorerDelta
+
+      if (championDelta !== 0 || topScorerDelta !== 0) {
+        updates.push({ 
+          id: pred.id, 
+          champion_points: championPts, 
+          top_scorer_points: topScorerPts 
+        })
+        const uid = pred.user_id
+        userPointsDelta[uid] = (userPointsDelta[uid] || 0) + delta
+      }
+    }
+
+    if (updates.length > 0) {
+      await Promise.all(
+        updates.map(u => 
+          supabase.from('tournament_predictions').update({ 
+            champion_points: u.champion_points,
+            top_scorer_points: u.top_scorer_points 
+          }).eq('id', u.id)
+        )
+      )
+    }
+
+    let updatedUsers = 0
+    for (const [userId, delta] of Object.entries(userPointsDelta)) {
+      if (delta !== 0) {
+        const { data: userRes } = await supabase
+          .from('users')
+          .select('total_points')
+          .eq('id', userId)
+          .single()
+        
+        if (userRes) {
+          const currentTotal = userRes.total_points || 0
+          await supabase
+            .from('users')
+            .update({ total_points: currentTotal + delta })
+            .eq('id', userId)
+          updatedUsers++
+        }
+      }
+    }
+
+    return { status: 'ok', updatedPredictions: updates.length, updatedUsers }
+  } catch (err) {
+    console.error('Tournament Scoring error', err)
+    return { status: 'error', message: err.message }
+  }
+}
+
