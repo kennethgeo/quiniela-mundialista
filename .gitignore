@@ -4,7 +4,8 @@ frontend/dist/
 frontend/.eslintcache
 
 # Entornos y dependencias de Backend (Python)
-backend/__pycache__/
+__pycache__/
+*.pyc
 backend/venv/
 backend/env/
 backend/.pytest_cache/
