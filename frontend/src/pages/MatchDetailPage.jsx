@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { motion } from 'motion/react'
 import { ArrowLeft, Clock, Calendar, MapPin, ShieldAlert, Star, TrendingUp, HelpCircle } from 'lucide-react'
@@ -17,60 +17,85 @@ export default function MatchDetailPage() {
   const [loading, setLoading] = useState(true)
   const [isLocked, setIsLocked] = useState(false)
 
-  useEffect(() => {
-    const fetchMatchAndPredictions = async () => {
-      try {
-        setLoading(true)
-        
-        // 1. Fetch match data
-        const { data: matchData, error: matchError } = await supabase
-          .from('matches')
-          .select('*')
-          .eq('id', id)
-          .single()
-          
-        if (matchError) throw matchError
-        
-        setMatch(matchData)
-        
-        // Determinar si está bloqueado
-        const dateString = matchData.kickoff_at.endsWith('Z') || matchData.kickoff_at.includes('+')
-          ? matchData.kickoff_at
-          : `${matchData.kickoff_at}Z`
-        const kickoff = new Date(dateString)
-        const now = new Date()
-        
-        const locked = (kickoff - now) <= 15 * 60 * 1000 || ['in_progress', 'finished'].includes(matchData.status)
-        setIsLocked(locked)
+  const fetchMatchAndPredictions = useCallback(async ({ withSpinner = true } = {}) => {
+    try {
+      if (withSpinner) setLoading(true)
 
-        // 2. Fetch predictions si está bloqueado
-        if (locked) {
-          const { data: predsData, error: predsError } = await supabase
-            .from('predictions')
-            .select(`
-              *,
-              users!inner (
-                display_name,
-                total_points
-              )
-            `)
-            .eq('match_id', id)
-            .order('points_earned', { ascending: false })
-            
-          if (predsError) throw predsError
-          setPredictions(predsData || [])
-        }
-      } catch (err) {
-        console.error('Error fetching match details:', err)
-      } finally {
-        setLoading(false)
+      // 1. Fetch match data
+      const { data: matchData, error: matchError } = await supabase
+        .from('matches')
+        .select('*')
+        .eq('id', id)
+        .single()
+
+      if (matchError) throw matchError
+
+      setMatch(matchData)
+
+      // Determinar si está bloqueado
+      const dateString = matchData.kickoff_at.endsWith('Z') || matchData.kickoff_at.includes('+')
+        ? matchData.kickoff_at
+        : `${matchData.kickoff_at}Z`
+      const kickoff = new Date(dateString)
+      const now = new Date()
+
+      const locked = (kickoff - now) <= 15 * 60 * 1000 || ['in_progress', 'finished'].includes(matchData.status)
+      setIsLocked(locked)
+
+      // 2. Fetch predictions si está bloqueado
+      if (locked) {
+        const { data: predsData, error: predsError } = await supabase
+          .from('predictions')
+          .select(`
+            *,
+            users!inner (
+              display_name,
+              total_points
+            )
+          `)
+          .eq('match_id', id)
+          .order('points_earned', { ascending: false })
+
+        if (predsError) throw predsError
+        setPredictions(predsData || [])
       }
+    } catch (err) {
+      console.error('Error fetching match details:', err)
+    } finally {
+      if (withSpinner) setLoading(false)
     }
+  }, [id])
 
+  useEffect(() => {
     if (id) {
       fetchMatchAndPredictions()
     }
-  }, [id])
+  }, [id, fetchMatchAndPredictions])
+
+  // Realtime: actualizar marcador/estado en vivo mientras el partido está en curso
+  useEffect(() => {
+    if (!id) return
+
+    const channel = supabase
+      .channel(`match-${id}`)
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'matches', filter: `id=eq.${id}` },
+        (payload) => {
+          const updated = payload.new
+          setMatch((prev) => ({ ...prev, ...updated }))
+          // Si el partido finalizó, recargar para traer los puntos calculados de cada predicción
+          if (updated.status === 'finished') {
+            fetchMatchAndPredictions({ withSpinner: false })
+          }
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [id, fetchMatchAndPredictions])
 
   if (loading) {
     return (
@@ -160,9 +185,9 @@ export default function MatchDetailPage() {
               <div className="flex items-center gap-3 text-4xl font-black font-['Russo_One'] tracking-tight">
                 {isFinished || match.status === 'in_progress' ? (
                   <>
-                    <span className="text-white">{match.home_score}</span>
+                    <span className="text-white">{match.home_goals_actual ?? 0}</span>
                     <span className="text-slate-600">-</span>
-                    <span className="text-white">{match.away_score}</span>
+                    <span className="text-white">{match.away_goals_actual ?? 0}</span>
                   </>
                 ) : (
                   <span className="text-slate-600 text-3xl">VS</span>
