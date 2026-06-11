@@ -24,6 +24,10 @@ class Settings(BaseSettings):
     # URL del frontend permitida en CORS (por defecto el dev server de Vite)
     FRONTEND_URL: str = "http://localhost:5173"
 
+    # Secreto compartido para autorizar el cron de sincronización en vivo
+    # (POST /api/matches/sync-live). Si está vacío, el endpoint queda deshabilitado.
+    CRON_SECRET: str = ""
+
     # Modo debug: activa logs detallados y recarga automática
     DEBUG: bool = False
 

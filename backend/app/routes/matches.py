@@ -1,12 +1,31 @@
 """Rutas para gestionar los partidos del mundial."""
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from typing import Optional
 
 from app.auth import get_current_user
+from app.config import settings
+from app.services.live_sync import sync_live_scores
 from app.services.supabase_client import get_supabase
 
 router = APIRouter(prefix="/api/matches", tags=["Partidos"])
+
+
+@router.post("/sync-live")
+async def sync_live(authorization: Optional[str] = Header(default=None)):
+    """Sincroniza marcadores en vivo desde ESPN. Protegido con CRON_SECRET.
+
+    Pensado para ser invocado por un scheduler (GitHub Actions / Vercel Cron)
+    enviando el header ``Authorization: Bearer <CRON_SECRET>``.
+    """
+    expected = settings.CRON_SECRET
+    if not expected:
+        raise HTTPException(status_code=503, detail="CRON_SECRET no configurado")
+    if authorization != f"Bearer {expected}":
+        raise HTTPException(status_code=401, detail="No autorizado")
+
+    supabase = get_supabase()
+    return await sync_live_scores(supabase)
 
 
 @router.get("")
