@@ -6,27 +6,7 @@ import { useAuth } from '../hooks/useAuth'
 import PushNotificationToggle from '../components/ui/PushNotificationToggle'
 import GlobalPredictionsModal from '../components/profile/GlobalPredictionsModal'
 
-// Import para banderas
-const TEAMS_2026 = [
-  { name: 'Argentina', code: 'ar' }, { name: 'Algeria', code: 'dz' }, { name: 'Australia', code: 'au' },
-  { name: 'Austria', code: 'at' }, { name: 'Belgium', code: 'be' }, { name: 'Bosnia-Herzegovina', code: 'ba' },
-  { name: 'Brazil', code: 'br' }, { name: 'Canada', code: 'ca' }, { name: 'Cape Verde', code: 'cv' },
-  { name: 'Colombia', code: 'co' }, { name: 'Costa Rica', code: 'cr' }, { name: 'Croatia', code: 'hr' },
-  { name: 'Curaçao', code: 'cw' }, { name: 'Czechia', code: 'cz' }, { name: 'Denmark', code: 'dk' },
-  { name: 'DR Congo', code: 'cd' }, { name: 'Ecuador', code: 'ec' }, { name: 'Egypt', code: 'eg' },
-  { name: 'England', code: 'gb-eng' }, { name: 'France', code: 'fr' }, { name: 'Germany', code: 'de' },
-  { name: 'Ghana', code: 'gh' }, { name: 'Haiti', code: 'ht' }, { name: 'Iran', code: 'ir' },
-  { name: 'Iraq', code: 'iq' }, { name: 'Italy', code: 'it' }, { name: 'Ivory Coast', code: 'ci' },
-  { name: 'Japan', code: 'jp' }, { name: 'Jordan', code: 'jo' }, { name: 'Mexico', code: 'mx' },
-  { name: 'Morocco', code: 'ma' }, { name: 'Netherlands', code: 'nl' }, { name: 'New Zealand', code: 'nz' },
-  { name: 'Nigeria', code: 'ng' }, { name: 'Norway', code: 'no' }, { name: 'Panama', code: 'pa' },
-  { name: 'Paraguay', code: 'py' }, { name: 'Peru', code: 'pe' }, { name: 'Portugal', code: 'pt' },
-  { name: 'Qatar', code: 'qa' }, { name: 'Saudi Arabia', code: 'sa' }, { name: 'Senegal', code: 'sn' },
-  { name: 'South Africa', code: 'za' }, { name: 'South Korea', code: 'kr' }, { name: 'Spain', code: 'es' },
-  { name: 'Sweden', code: 'se' }, { name: 'Switzerland', code: 'ch' }, { name: 'Tunisia', code: 'tn' },
-  { name: 'Türkiye', code: 'tr' }, { name: 'USA', code: 'us' }, { name: 'Uruguay', code: 'uy' },
-  { name: 'Uzbekistan', code: 'uz' }
-]
+
 
 export default function ProfilePage() {
   const { profile } = useAuth()
