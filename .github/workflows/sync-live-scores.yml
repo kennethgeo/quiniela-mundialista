@@ -1,0 +1,52 @@
+name: Sync live scores
+
+# Mantiene los marcadores en vivo actualizados llamando al endpoint protegido
+# del backend (POST /api/matches/sync-live).
+#
+# GitHub Actions solo permite programar como mínimo cada 5 minutos, así que cada
+# ejecución hace un bucle interno de ~5 pasadas (una por minuto) para lograr una
+# granularidad cercana a 1 minuto.
+#
+# Requiere configurar en el repositorio:
+#   - Variable  LIVE_SYNC_URL : URL completa del endpoint, p. ej.
+#                 https://TU-DOMINIO.vercel.app/_backend/api/matches/sync-live
+#   - Secreto   CRON_SECRET   : mismo valor que la env var CRON_SECRET en Vercel
+#
+# Y en Vercel: definir la env var CRON_SECRET con ese mismo secreto.
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch: {}
+
+# Evita ejecuciones solapadas
+concurrency:
+  group: sync-live-scores
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - name: Poll backend sync endpoint (~1 min granularity for 5 min)
+        env:
+          LIVE_SYNC_URL: ${{ vars.LIVE_SYNC_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -z "$LIVE_SYNC_URL" ] || [ -z "$CRON_SECRET" ]; then
+            echo "::error::Faltan LIVE_SYNC_URL (variable) o CRON_SECRET (secreto)."
+            exit 1
+          fi
+          for i in 1 2 3 4 5; do
+            echo "Pasada $i de 5..."
+            code=$(curl -s -o /tmp/resp.json -w "%{http_code}" \
+              -X POST "$LIVE_SYNC_URL" \
+              -H "Authorization: Bearer $CRON_SECRET" || echo "000")
+            echo "HTTP $code"
+            cat /tmp/resp.json 2>/dev/null || true
+            echo ""
+            if [ "$i" -lt 5 ]; then
+              sleep 55
+            fi
+          done
