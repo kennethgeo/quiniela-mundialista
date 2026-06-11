@@ -274,7 +274,7 @@ export default function MatchDetailPage() {
 
                   <div className="flex flex-col items-end gap-1">
                     <div className="px-4 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-900/80 border border-slate-300 dark:border-white/5 font-mono text-lg font-bold text-slate-900 dark:text-white shadow-inner">
-                      {pred.home_score} - {pred.away_score}
+                      {pred.home_goals_pred} - {pred.away_goals_pred}
                     </div>
                     {isFinished && (
                       <span className={`text-xs font-bold px-2 py-0.5 rounded-md ${
