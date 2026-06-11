@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 import { User, Activity, Trophy, Clock, Search, History, Target, Zap, CheckCircle2, XCircle, PieChart, Camera, Trash2, Loader2, Edit3 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import { getTournamentLocked } from '../lib/tournamentLock'
 import { useAuth } from '../hooks/useAuth'
 import PushNotificationToggle from '../components/ui/PushNotificationToggle'
 import GlobalPredictionsModal from '../components/profile/GlobalPredictionsModal'
@@ -164,17 +165,8 @@ export default function ProfilePage() {
         .maybeSingle()
       setGlobalPrediction(globalData || null)
         
-      const { data: settingsData } = await supabase
-        .from('tournament_settings')
-        .select('is_locked')
-        .eq('id', 1)
-        .maybeSingle()
-      if (settingsData) {
-        // Bloqueo automático si ya inició el mundial (11 de Junio 2026, 17:00 UTC)
-        const tournamentStarts = new Date('2026-06-11T17:00:00Z')
-        const hasStarted = new Date() > tournamentStarts
-        setIsPredictionsLocked(settingsData.is_locked || hasStarted)
-      }
+      // Bloqueo: manual (admin) o automático al iniciar el primer partido del torneo
+      setIsPredictionsLocked(await getTournamentLocked())
 
     } catch (err) {
       console.error('Error fetching profile data', err)

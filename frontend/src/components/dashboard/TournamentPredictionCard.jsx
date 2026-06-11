@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 import { Trophy, Target, Check, AlertCircle, Lock } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
+import { getTournamentLocked } from '../../lib/tournamentLock'
 import { useAuth } from '../../hooks/useAuth'
 
 // Lista de los 48 equipos de 2026 para el select
@@ -42,16 +43,8 @@ export default function TournamentPredictionCard() {
 
     const fetchData = async () => {
       try {
-        // Fetch settings
-        const { data: settings } = await supabase
-          .from('tournament_settings')
-          .select('is_locked')
-          .eq('id', 1)
-          .single()
-        
-        if (settings) {
-          setIsLocked(settings.is_locked)
-        }
+        // Bloqueo: manual (admin) o automático al iniciar el primer partido
+        setIsLocked(await getTournamentLocked())
 
         // Fetch user prediction
         const { data: pred } = await supabase
