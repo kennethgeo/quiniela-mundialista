@@ -531,15 +531,15 @@ export default function ProfilePage() {
             {activeTab === 'badges' && (
               <motion.div initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }}>
                 <div className="glass-card p-4 flex flex-wrap gap-3">
-                  {badges.is_nostradamus && <Badge emoji="🎯" name="Nostradamus" desc="3+ Exactos" color="amber" />}
-                  {badges.is_rey_empate && <Badge emoji="🤝" name="Rey del Empate" desc="3+ Empates exactos" color="blue" />}
-                  {badges.is_francotirador && <Badge emoji="🔥" name="Francotirador" desc="Exacto con x2" color="rose" />}
-                  {badges.is_pecho_frio && <Badge emoji="🥶" name="Pecho Frío" desc="0 pts con x2" color="cyan" />}
-                  {badges.is_mas_conocedor && <Badge emoji="🤡" name="El Más Conocedor" desc="5+ ceros" color="purple" />}
-                  {badges.is_tortuga && <Badge emoji="🐢" name="La Tortuga" desc="Predijo a última hora" color="emerald" />}
-                  {badges.is_taylor && <Badge emoji="💩" name="0T" desc="Por ser tan Tay" color="stone" />}
+                  {badges?.is_nostradamus && <Badge emoji="🎯" name="Nostradamus" desc="3+ Exactos" color="amber" />}
+                  {badges?.is_rey_empate && <Badge emoji="🤝" name="Rey del Empate" desc="3+ Empates exactos" color="blue" />}
+                  {badges?.is_francotirador && <Badge emoji="🔥" name="Francotirador" desc="Exacto con x2" color="rose" />}
+                  {badges?.is_pecho_frio && <Badge emoji="🥶" name="Pecho Frío" desc="0 pts con x2" color="cyan" />}
+                  {badges?.is_mas_conocedor && <Badge emoji="🤡" name="El Más Conocedor" desc="5+ ceros" color="purple" />}
+                  {badges?.is_tortuga && <Badge emoji="🐢" name="La Tortuga" desc="Predijo a última hora" color="emerald" />}
+                  {badges?.is_taylor && <Badge emoji="💩" name="0T" desc="Por ser tan Tay" color="stone" />}
                   
-                  {(!badges.is_nostradamus && !badges.is_rey_empate && !badges.is_francotirador && !badges.is_pecho_frio && !badges.is_mas_conocedor && !badges.is_tortuga && !badges.is_taylor) && (
+                  {(!badges?.is_nostradamus && !badges?.is_rey_empate && !badges?.is_francotirador && !badges?.is_pecho_frio && !badges?.is_mas_conocedor && !badges?.is_tortuga && !badges?.is_taylor) && (
                     <span className="text-xs text-slate-400 flex items-center italic">Aún no has desbloqueado logros</span>
                   )}
                 </div>
