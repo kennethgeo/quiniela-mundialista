@@ -41,7 +41,7 @@ function MainLayout({ children }) {
           <Navbar onMenuClick={() => setIsSidebarOpen(true)} />
         </div>
         
-        <main className="flex-1 w-full pb-32 md:pb-6 relative z-0">
+        <main className="flex-1 w-full pb-[calc(6rem+env(safe-area-inset-bottom,20px))] md:pb-6 relative z-0">
           <div className="w-full px-4 sm:px-6 lg:px-8 md:py-8 h-full">
             {children}
           </div>
