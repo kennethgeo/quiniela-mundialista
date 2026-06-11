@@ -78,6 +78,43 @@ export default function RulesPage() {
           </div>
         </motion.section>
 
+        {/* Predicciones Globales */}
+        <motion.section
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.15 }}
+          className="relative overflow-hidden bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/10 rounded-3xl p-6 md:p-8 shadow-2xl shadow-amber-500/5 border border-amber-200/50 dark:border-amber-500/20"
+        >
+          <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/10 rounded-full blur-3xl pointer-events-none -translate-y-1/2 translate-x-1/3" />
+          <div className="flex items-center gap-3 mb-6 relative z-10">
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shadow-lg shadow-amber-500/20">
+              <Trophy size={24} className="text-white" />
+            </div>
+            <div>
+              <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">Predicciones Globales</h2>
+              <p className="text-sm font-medium text-amber-600 dark:text-amber-500">24 Puntos en juego</p>
+            </div>
+          </div>
+          
+          <div className="space-y-4 relative z-10">
+            <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
+              Antes de que inicie el primer partido del Mundial, puedes intentar adivinar quién será el <strong>Campeón del Mundo</strong> y el <strong>Goleador del Torneo</strong>. Estas predicciones se bloquean automáticamente apenas el balón ruede por primera vez en el partido inaugural.
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="bg-white/60 dark:bg-black/20 backdrop-blur-sm p-4 rounded-2xl border border-amber-200/50 dark:border-white/5">
+                <div className="text-2xl font-black text-amber-500 mb-1">12 Pts</div>
+                <h3 className="font-bold text-slate-800 dark:text-slate-200 text-sm mb-1">Acertar Campeón</h3>
+                <p className="text-xs text-slate-600 dark:text-slate-400">Si tu equipo levanta la copa al final del torneo.</p>
+              </div>
+              <div className="bg-white/60 dark:bg-black/20 backdrop-blur-sm p-4 rounded-2xl border border-amber-200/50 dark:border-white/5">
+                <div className="text-2xl font-black text-amber-500 mb-1">12 Pts</div>
+                <h3 className="font-bold text-slate-800 dark:text-slate-200 text-sm mb-1">Acertar Goleador</h3>
+                <p className="text-xs text-slate-600 dark:text-slate-400">Si el jugador que escribiste gana la bota de oro.</p>
+              </div>
+            </div>
+          </div>
+        </motion.section>
+
         {/* Comodín x2 */}
         <motion.section
           initial={{ opacity: 0, y: 20 }}

@@ -170,7 +170,10 @@ export default function ProfilePage() {
         .eq('id', 1)
         .maybeSingle()
       if (settingsData) {
-        setIsPredictionsLocked(settingsData.is_locked)
+        // Bloqueo automático si ya inició el mundial (11 de Junio 2026, 17:00 UTC)
+        const tournamentStarts = new Date('2026-06-11T17:00:00Z')
+        const hasStarted = new Date() > tournamentStarts
+        setIsPredictionsLocked(settingsData.is_locked || hasStarted)
       }
 
     } catch (err) {
