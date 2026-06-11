@@ -12,14 +12,14 @@ class Settings(BaseSettings):
     """Configuración global de la aplicación Quiniela Mundialista."""
 
     # URL del proyecto Supabase (ej: https://xxxx.supabase.co)
-    SUPABASE_URL: str
+    SUPABASE_URL: str = ""
 
     # Clave de servicio (service_role) para operaciones administrativas que
     # necesitan saltarse las políticas RLS de Supabase
-    SUPABASE_SERVICE_ROLE_KEY: str
+    SUPABASE_SERVICE_ROLE_KEY: str = ""
 
     # Secreto JWT de Supabase para verificar tokens de autenticación
-    SUPABASE_JWT_SECRET: str
+    SUPABASE_JWT_SECRET: str = ""
 
     # URL del frontend permitida en CORS (por defecto el dev server de Vite)
     FRONTEND_URL: str = "http://localhost:5173"
