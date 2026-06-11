@@ -41,5 +41,14 @@ async def root():
 
 @app.get("/api/health")
 async def health_check():
-    """Verificación de salud del servicio."""
-    return {"status": "ok", "service": "Quiniela Mundialista"}
+    """Verificación de salud del servicio y de la configuración (sin exponer valores)."""
+    return {
+        "status": "ok",
+        "service": "Quiniela Mundialista",
+        "config": {
+            "supabase_url": bool(settings.SUPABASE_URL),
+            "supabase_service_role_key": bool(settings.SUPABASE_SERVICE_ROLE_KEY),
+            "supabase_jwt_secret": bool(settings.SUPABASE_JWT_SECRET),
+            "cron_secret": bool(settings.CRON_SECRET),
+        },
+    }
