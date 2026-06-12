@@ -158,8 +158,8 @@ export default function MatchDetailPage() {
               'bg-slate-500/10 text-slate-500 border border-slate-500/20'
             }`}>
               {match.status === 'finished' ? 'Finalizado' :
-               match.status === 'in_progress' ? 'En Vivo' : 
-               match.status === 'scheduled' ? 'Programado' : match.status}
+               match.status === 'in_progress' ? 'En Vivo' :
+               'Programado'}
             </div>
           </div>
 

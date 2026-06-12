@@ -1,11 +1,33 @@
 import json
 import logging
+import os
+import tempfile
+
 from pywebpush import webpush, WebPushException
 
 logger = logging.getLogger(__name__)
 
-VAPID_PRIVATE_KEY_PATH = "private_key.pem"
-VAPID_CLAIMS = {"sub": "mailto:admin@quinielamundialista.com"}
+# La llave privada VAPID puede venir de una env var (recomendado en serverless,
+# donde no hay archivos persistentes) o de un archivo local como respaldo.
+_VAPID_PRIVATE_KEY_ENV = os.getenv("VAPID_PRIVATE_KEY", "").strip()
+VAPID_CLAIMS = {"sub": os.getenv("VAPID_SUBJECT", "mailto:admin@quinielamundialista.com")}
+
+_vapid_key_path_cache = None
+
+
+def _get_vapid_private_key():
+    """Ruta a la llave privada VAPID. Prioriza VAPID_PRIVATE_KEY (contenido PEM)."""
+    global _vapid_key_path_cache
+    if _VAPID_PRIVATE_KEY_ENV:
+        if _vapid_key_path_cache is None:
+            tf = tempfile.NamedTemporaryFile(delete=False, suffix=".pem", mode="w")
+            # Las env vars suelen guardar los saltos de línea como '\n' literal
+            tf.write(_VAPID_PRIVATE_KEY_ENV.replace("\\n", "\n"))
+            tf.close()
+            _vapid_key_path_cache = tf.name
+        return _vapid_key_path_cache
+    return "private_key.pem"
+
 
 def send_push_notification(subscription_info, payload_data):
     """Envía una notificación push web a una suscripción específica."""
@@ -13,7 +35,7 @@ def send_push_notification(subscription_info, payload_data):
         webpush(
             subscription_info=subscription_info,
             data=json.dumps(payload_data),
-            vapid_private_key=VAPID_PRIVATE_KEY_PATH,
+            vapid_private_key=_get_vapid_private_key(),
             vapid_claims=VAPID_CLAIMS
         )
         return True

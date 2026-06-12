@@ -18,7 +18,7 @@ export default function UpcomingMatches() {
         const { data, error } = await supabase
           .from('matches')
           .select('*')
-          .in('status', ['pending', 'scheduled', 'in_progress'])
+          .in('status', ['pending', 'in_progress'])
           .order('kickoff_at', { ascending: true })
           .limit(6)
         
