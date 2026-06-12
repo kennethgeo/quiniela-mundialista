@@ -196,14 +196,14 @@ export default function GlobalChatDrawer() {
               className="fixed inset-x-0 bottom-0 sm:inset-x-auto sm:bottom-6 sm:right-6 md:bottom-10 md:right-10 w-full sm:w-[380px] h-[78vh] sm:h-[600px] sm:max-h-[80vh] z-[60] flex flex-col bg-white dark:bg-slate-900 shadow-2xl rounded-t-3xl sm:rounded-3xl border border-slate-200/70 dark:border-white/10 overflow-hidden"
             >
               {/* ── Header con degradado ── */}
-              <div className="relative shrink-0 bg-gradient-to-r from-accent to-accent-dark text-white px-4 py-3.5 flex items-center justify-between overflow-hidden">
+              <div className="relative shrink-0 bg-gradient-to-r from-accent to-accent-dark text-white px-4 py-4 flex items-center justify-between gap-2 overflow-hidden">
                 <div className="absolute -right-6 -top-10 w-32 h-32 bg-white/10 rounded-full blur-2xl pointer-events-none" />
-                <div className="flex items-center gap-3 relative z-10">
-                  <div className="w-9 h-9 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center ring-1 ring-white/30">
+                <div className="flex items-center gap-3 relative z-10 min-w-0">
+                  <div className="w-9 h-9 shrink-0 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center ring-1 ring-white/30">
                     <Users size={18} />
                   </div>
-                  <div>
-                    <h3 className="font-bold text-[15px] leading-tight">Liga Global</h3>
+                  <div className="min-w-0">
+                    <h3 className="font-bold text-base leading-snug truncate">Liga Global</h3>
                     <p className="text-[11px] text-white/80 font-medium flex items-center gap-1.5">
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-300 shadow-[0_0_6px_rgba(110,231,183,0.9)]" />
                       Chat en vivo
@@ -212,7 +212,7 @@ export default function GlobalChatDrawer() {
                 </div>
                 <button
                   onClick={() => setIsOpen(false)}
-                  className="relative z-10 p-2 rounded-full bg-white/15 hover:bg-white/25 text-white transition-colors"
+                  className="relative z-10 shrink-0 p-2 rounded-full bg-white/15 hover:bg-white/25 text-white transition-colors"
                 >
                   <X size={16} />
                 </button>
@@ -261,19 +261,19 @@ export default function GlobalChatDrawer() {
                           </div>
                         )}
 
-                        <div className={`flex flex-col max-w-[76%] ${isMe ? 'items-end' : 'items-start'}`}>
+                        <div className={`flex flex-col max-w-[85%] min-w-0 ${isMe ? 'items-end' : 'items-start'}`}>
                           {!isMe && firstOfGroup && (
                             <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-1 ml-1">{name}</span>
                           )}
                           <div
-                            className={`px-3.5 py-2 text-sm leading-relaxed shadow-sm break-words whitespace-pre-wrap ${
+                            className={`px-4 py-2.5 text-sm leading-relaxed shadow-sm whitespace-pre-wrap [overflow-wrap:anywhere] ${
                               isMe
                                 ? `bg-gradient-to-br from-accent to-accent-dark text-white rounded-2xl ${lastOfGroup ? 'rounded-br-md' : 'rounded-br-2xl'}`
                                 : `bg-white dark:bg-white/[0.07] text-slate-800 dark:text-slate-100 border border-slate-200/70 dark:border-white/5 rounded-2xl ${lastOfGroup ? 'rounded-bl-md' : 'rounded-bl-2xl'}`
                             }`}
                           >
                             {msg.content}
-                            <span className={`block text-[9px] mt-1 leading-none ${isMe ? 'text-white/60 text-right' : 'text-slate-400 dark:text-slate-500'}`}>
+                            <span className={`block text-[10px] mt-1 leading-none ${isMe ? 'text-white/60 text-right' : 'text-slate-400 dark:text-slate-500'}`}>
                               {timeOf(msg.created_at)}
                             </span>
                           </div>

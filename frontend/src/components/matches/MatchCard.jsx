@@ -158,7 +158,7 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
         </div>
 
         {/* ═══ Equipos y predicción ═══ */}
-      <div className="flex items-center justify-between gap-1 relative z-10">
+      <div className="flex items-center justify-between gap-1 relative z-10 max-w-md mx-auto">
         {/* Equipo local */}
         <div className="flex-1 text-center">
           <div className="relative inline-block mb-2">
