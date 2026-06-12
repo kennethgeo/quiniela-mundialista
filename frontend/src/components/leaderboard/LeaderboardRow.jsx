@@ -65,6 +65,12 @@ export default function LeaderboardRow({ entry, position, isCurrentUser }) {
           {entry.is_mas_conocedor && <span className="inline-flex items-center justify-center bg-white/5 border border-white/10 rounded px-1.5 py-0.5 text-[10px] leading-none cursor-default" title="El Más Conocedor (5 fallos)">🤡</span>}
           {entry.is_tortuga && <span className="inline-flex items-center justify-center bg-white/5 border border-white/10 rounded px-1.5 py-0.5 text-[10px] leading-none cursor-default" title="La Tortuga (predicción al límite)">🐢</span>}
           {entry.is_taylor && <span className="inline-flex items-center justify-center gap-1 bg-white/5 border border-white/10 rounded px-1.5 py-0.5 text-[10px] font-medium text-slate-300 leading-none cursor-default" title="Taylor (0T)">💩 0T</span>}
+          {entry.is_optimista && <span className="inline-flex items-center justify-center bg-white/5 border border-white/10 rounded px-1.5 py-0.5 text-[10px] leading-none cursor-default" title="El Optimista (cree que todo es goleada)">🧨</span>}
+          {entry.is_aburrido && <span className="inline-flex items-center justify-center bg-white/5 border border-white/10 rounded px-1.5 py-0.5 text-[10px] leading-none cursor-default" title="El Aburrido (ama el 0-0)">🥱</span>}
+          {entry.is_fantasma && <span className="inline-flex items-center justify-center bg-white/5 border border-white/10 rounded px-1.5 py-0.5 text-[10px] leading-none cursor-default" title="El Fantasma (aún no juega ningún partido)">👻</span>}
+          {entry.is_calientabancas && <span className="inline-flex items-center justify-center bg-white/5 border border-white/10 rounded px-1.5 py-0.5 text-[10px] leading-none cursor-default" title="Calientabancas (varios partidos y 0 puntos)">🪑</span>}
+          {entry.is_gallina && <span className="inline-flex items-center justify-center bg-white/5 border border-white/10 rounded px-1.5 py-0.5 text-[10px] leading-none cursor-default" title="El Precavido (nunca usa el comodín)">🐔</span>}
+          {entry.is_ludopata && <span className="inline-flex items-center justify-center bg-white/5 border border-white/10 rounded px-1.5 py-0.5 text-[10px] leading-none cursor-default" title="Ludópata (adicto al comodín x2)">🎰</span>}
         </div>
       </div>
 
