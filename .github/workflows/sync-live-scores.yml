@@ -31,11 +31,12 @@ jobs:
     steps:
       - name: Poll backend sync endpoint (~1 min granularity for 5 min)
         env:
-          LIVE_SYNC_URL: ${{ vars.LIVE_SYNC_URL }}
+          # La URL no es secreta: si no defines la variable, usa la de producción por defecto.
+          LIVE_SYNC_URL: ${{ vars.LIVE_SYNC_URL || 'https://quiniela-mundialista-one.vercel.app/_backend/api/matches/sync-live' }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
-          if [ -z "$LIVE_SYNC_URL" ] || [ -z "$CRON_SECRET" ]; then
-            echo "::error::Faltan LIVE_SYNC_URL (variable) o CRON_SECRET (secreto)."
+          if [ -z "$CRON_SECRET" ]; then
+            echo "::error::Falta el secreto CRON_SECRET (repo > Settings > Secrets and variables > Actions > pestaña Secrets)."
             exit 1
           fi
           for i in 1 2 3 4 5; do
