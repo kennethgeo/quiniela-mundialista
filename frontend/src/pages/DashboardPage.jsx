@@ -5,6 +5,7 @@ import { useAuth } from '../hooks/useAuth'
 import Dashboard from '../components/dashboard/Dashboard'
 import OnboardingModal from '../components/ui/OnboardingModal'
 import TournamentPredictionCard from '../components/dashboard/TournamentPredictionCard'
+import GlobalPicksBoard from '../components/dashboard/GlobalPicksBoard'
 
 export default function DashboardPage() {
   const { profile } = useAuth()
@@ -84,6 +85,7 @@ export default function DashboardPage() {
       {/* ── Dashboard Content ── */}
       <div className="relative z-10 px-4 mt-4 space-y-6">
         <TournamentPredictionCard />
+        <GlobalPicksBoard />
         <Dashboard />
       </div>
 

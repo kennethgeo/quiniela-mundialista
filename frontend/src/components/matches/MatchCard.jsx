@@ -285,9 +285,9 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
             </motion.div>
           </div>
         ) : !isLocked && !isFinished && !isInProgress ? (
-          <>
-            {/* Toggle Powerup Absoluto */}
-            <div className="absolute bottom-3 left-3 flex flex-col items-center z-20">
+          <div className="w-full flex items-center gap-3">
+            {/* Toggle Powerup x2 */}
+            <div className="flex flex-col items-center shrink-0">
               <motion.button
                 type="button"
                 whileTap={{ scale: 0.92 }}
@@ -337,18 +337,16 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
               </span>
             </div>
 
-            {/* Botón Guardar (con margen para no pisar el absolute izquierdo) */}
-            <div className="w-full flex justify-end">
-              <motion.button
-                whileTap={{ scale: 0.95 }}
-                onClick={handleSave}
-                disabled={isLoading || (isKnockout && isTiePredicted && !penaltiesWinner)}
-                className="w-[calc(100%-84px)] py-2.5 px-4 rounded-xl gradient-2026 text-white dark:text-slate-900 font-bold text-[13px] shadow-lg shadow-purple-500/20 hover:shadow-purple-500/30 transition-all duration-200 disabled:opacity-40 disabled:shadow-none disabled:bg-slate-200 dark:disabled:bg-slate-700 disabled:text-slate-500 dark:disabled:text-slate-400 disabled:bg-none"
-              >
-                {isLoading ? '...' : prediction ? 'Actualizar' : 'Guardar'}
-              </motion.button>
-            </div>
-          </>
+            {/* Botón Guardar */}
+            <motion.button
+              whileTap={{ scale: 0.95 }}
+              onClick={handleSave}
+              disabled={isLoading || (isKnockout && isTiePredicted && !penaltiesWinner)}
+              className="flex-1 py-2.5 px-4 rounded-xl gradient-2026 text-white dark:text-slate-900 font-bold text-[13px] shadow-lg shadow-purple-500/20 hover:shadow-purple-500/30 transition-all duration-200 disabled:opacity-40 disabled:shadow-none disabled:bg-slate-200 dark:disabled:bg-slate-700 disabled:text-slate-500 dark:disabled:text-slate-400 disabled:bg-none"
+            >
+              {isLoading ? '...' : prediction ? 'Actualizar' : 'Guardar'}
+            </motion.button>
+          </div>
         ) : null}
       </div>
       
