@@ -97,6 +97,37 @@ export default function MatchDetailPage() {
     }
   }, [id, fetchMatchAndPredictions])
 
+  // Refresco en vivo: si el partido está en curso (o ya pasó el kickoff y no ha
+  // finalizado), pedimos al backend que sincronice y recargamos cada 30s. Así el
+  // marcador se actualiza solo mientras se mira, sin depender del cron.
+  useEffect(() => {
+    if (!match || match.status === 'finished') return
+
+    const ds = match.kickoff_at.endsWith('Z') || match.kickoff_at.includes('+')
+      ? match.kickoff_at
+      : `${match.kickoff_at}Z`
+    const kickoff = new Date(ds).getTime()
+    const liveish = match.status === 'in_progress' || Date.now() >= kickoff
+    if (!liveish) return
+
+    let cancelled = false
+    const tick = async () => {
+      try {
+        await fetch('/_backend/api/matches/refresh-live', { method: 'POST' })
+      } catch {
+        /* ignorar errores de red */
+      }
+      if (!cancelled) fetchMatchAndPredictions({ withSpinner: false })
+    }
+    tick()
+    const interval = setInterval(tick, 30000)
+
+    return () => {
+      cancelled = true
+      clearInterval(interval)
+    }
+  }, [match?.status, match?.kickoff_at, fetchMatchAndPredictions])
+
   if (loading) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center h-[50vh] text-slate-400">
@@ -193,10 +224,20 @@ export default function MatchDetailPage() {
                   <span className="text-slate-600 text-3xl">VS</span>
                 )}
               </div>
-              <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 text-sm font-medium">
-                <Clock size={14} />
-                <span>{format(kickoff, "HH:mm")}</span>
-              </div>
+              {match.status === 'in_progress' ? (
+                <div className="flex items-center gap-1.5 text-rose-500 text-sm font-bold">
+                  <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
+                  <span>
+                    EN VIVO
+                    {match.minute ? ` · ${match.minute}${/^\d+$/.test(String(match.minute)) ? "'" : ''}` : ''}
+                  </span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 text-sm font-medium">
+                  <Clock size={14} />
+                  <span>{format(kickoff, "HH:mm")}</span>
+                </div>
+              )}
             </div>
 
             {/* Visitante */}

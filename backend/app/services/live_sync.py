@@ -55,6 +55,16 @@ def _map_status(api_game) -> str:
     return "pending"
 
 
+def _minute_of(api_game, status):
+    """Devuelve el reloj del partido (ej. '45') si está en vivo, si no None."""
+    if status != "in_progress":
+        return None
+    te = api_game.get("time_elapsed")
+    if te in (None, "", "notstarted", "finished"):
+        return None
+    return str(te)
+
+
 async def sync_live_scores(supabase) -> dict:
     """Ejecuta una pasada de sincronización y devuelve un resumen."""
     async with httpx.AsyncClient(timeout=15.0) as client:
@@ -79,22 +89,30 @@ async def sync_live_scores(supabase) -> dict:
     summary = {"updated": 0, "finished_calculated": 0}
     errors = []
 
-    async def apply_update(db_match, status, home_goals, away_goals):
+    async def apply_update(db_match, status, home_goals, away_goals, minute):
         changed = (
             db_match.get("status") != status
             or db_match.get("home_goals_actual") != home_goals
             or db_match.get("away_goals_actual") != away_goals
+            or status == "in_progress"  # refrescar el minuto mientras está en vivo
         )
         if not changed:
             return
 
         payload = {"status": status}
-        # Solo escribimos goles cuando el partido ya empezó
+        # Solo escribimos goles/minuto cuando el partido ya empezó
         if status != "pending":
             payload["home_goals_actual"] = home_goals
             payload["away_goals_actual"] = away_goals
+            payload["minute"] = minute
 
-        supabase.table("matches").update(payload).eq("id", db_match["id"]).execute()
+        try:
+            supabase.table("matches").update(payload).eq("id", db_match["id"]).execute()
+        except Exception:
+            # La columna 'minute' puede no existir aún: reintentar sin ella
+            payload.pop("minute", None)
+            supabase.table("matches").update(payload).eq("id", db_match["id"]).execute()
+
         summary["updated"] += 1
 
         # Calcular puntos solo en la transición a 'finished'
@@ -125,11 +143,13 @@ async def sync_live_scores(supabase) -> dict:
             )
             if not db_match:
                 continue
+            status = _map_status(game)
             await apply_update(
                 db_match,
-                _map_status(game),
+                status,
                 _to_int(game.get("home_score")),
                 _to_int(game.get("away_score")),
+                _minute_of(game, status),
             )
         except Exception as exc:  # noqa: BLE001 - aislar fallos por partido
             errors.append(str(exc))
@@ -145,11 +165,13 @@ async def sync_live_scores(supabase) -> dict:
     )
     for api_game, db_match in zip(api_ko, db_ko):
         try:
+            status = _map_status(api_game)
             await apply_update(
                 db_match,
-                _map_status(api_game),
+                status,
                 _to_int(api_game.get("home_score")),
                 _to_int(api_game.get("away_score")),
+                _minute_of(api_game, status),
             )
         except Exception as exc:  # noqa: BLE001
             errors.append(str(exc))

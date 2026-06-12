@@ -32,6 +32,39 @@ async def sync_live(authorization: Optional[str] = Header(default=None)):
         raise HTTPException(status_code=500, detail=f"{type(exc).__name__}: {exc}")
 
 
+@router.post("/refresh-live")
+async def refresh_live():
+    """Refresco de marcadores en vivo, público pero con límite de frecuencia.
+
+    Lo llama el frontend mientras un usuario mira un partido en curso, para
+    actualizar el marcador sin depender del cron. Se sincroniza como mucho una
+    vez cada 20s (throttle global en BD) para evitar abuso/carga.
+    """
+    from datetime import datetime, timezone, timedelta
+
+    supabase = get_supabase()
+    now = datetime.now(timezone.utc)
+
+    # Throttle global vía BD (best-effort: si la tabla no existe, se ignora)
+    try:
+        state = (
+            supabase.table("live_sync_state").select("last_sync").eq("id", 1).maybe_single().execute()
+        )
+        last = (state.data or {}).get("last_sync") if state else None
+        if last:
+            last_dt = datetime.fromisoformat(str(last).replace("Z", "+00:00"))
+            if (now - last_dt) < timedelta(seconds=20):
+                return {"throttled": True}
+        supabase.table("live_sync_state").upsert({"id": 1, "last_sync": now.isoformat()}).execute()
+    except Exception:  # noqa: BLE001
+        pass
+
+    try:
+        return await sync_live_scores(supabase)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=f"{type(exc).__name__}: {exc}")
+
+
 @router.get("/external-games")
 async def get_external_games():
     """Proxy para obtener los juegos de la API externa (worldcup26.ir)."""
