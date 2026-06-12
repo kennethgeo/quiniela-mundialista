@@ -155,28 +155,41 @@ export default function TournamentPredictionCard() {
             <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5 uppercase tracking-wider">
               Equipo Campeón
             </label>
-            <div className="relative">
-              <select
-                value={championTeam}
-                onChange={(e) => setChampionTeam(e.target.value)}
-                disabled={isLocked || saving}
-                className="w-full h-12 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl px-4 appearance-none focus:outline-none focus:ring-2 focus:ring-accent/50 text-slate-900 dark:text-white disabled:opacity-60 disabled:cursor-not-allowed"
-              >
-                <option value="">Selecciona un equipo...</option>
-                {TEAMS_2026.map(t => (
-                  <option key={t.name} value={t.name}>{t.name}</option>
-                ))}
-              </select>
-              {championTeam && (
-                <div className="absolute right-10 top-1/2 -translate-y-1/2 pointer-events-none">
-                  <img 
+            {isLocked ? (
+              <div className="w-full h-12 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl px-4 flex items-center justify-between text-slate-900 dark:text-white font-semibold">
+                <span className={championTeam ? '' : 'text-slate-400 font-normal'}>{championTeam || 'Sin selección'}</span>
+                {championTeam && (
+                  <img
                     src={`https://flagcdn.com/w40/${TEAMS_2026.find(t => t.name === championTeam)?.code || 'xx'}.png`}
                     alt={championTeam}
                     className="w-6 h-4 rounded-sm object-cover shadow-sm"
                   />
-                </div>
-              )}
-            </div>
+                )}
+              </div>
+            ) : (
+              <div className="relative">
+                <select
+                  value={championTeam}
+                  onChange={(e) => setChampionTeam(e.target.value)}
+                  disabled={saving}
+                  className="w-full h-12 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl px-4 appearance-none focus:outline-none focus:ring-2 focus:ring-accent/50 text-slate-900 dark:text-white disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  <option value="">Selecciona un equipo...</option>
+                  {TEAMS_2026.map(t => (
+                    <option key={t.name} value={t.name}>{t.name}</option>
+                  ))}
+                </select>
+                {championTeam && (
+                  <div className="absolute right-10 top-1/2 -translate-y-1/2 pointer-events-none">
+                    <img
+                      src={`https://flagcdn.com/w40/${TEAMS_2026.find(t => t.name === championTeam)?.code || 'xx'}.png`}
+                      alt={championTeam}
+                      className="w-6 h-4 rounded-sm object-cover shadow-sm"
+                    />
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Goleador */}
@@ -184,19 +197,26 @@ export default function TournamentPredictionCard() {
             <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5 uppercase tracking-wider">
               Jugador Goleador (Bota de Oro)
             </label>
-            <div className="relative">
-              <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
-                <Target size={18} />
+            {isLocked ? (
+              <div className="w-full h-12 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl px-4 flex items-center gap-3 text-slate-900 dark:text-white font-semibold">
+                <Target size={18} className="text-slate-400 shrink-0" />
+                <span className={topScorer ? 'truncate' : 'text-slate-400 font-normal'}>{topScorer || 'Sin selección'}</span>
               </div>
-              <input
-                type="text"
-                value={topScorer}
-                onChange={(e) => setTopScorer(e.target.value)}
-                disabled={isLocked || saving}
-                placeholder="Ej. Kylian Mbappé"
-                className="w-full h-12 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl pl-11 pr-4 focus:outline-none focus:ring-2 focus:ring-accent/50 text-slate-900 dark:text-white disabled:opacity-60 disabled:cursor-not-allowed"
-              />
-            </div>
+            ) : (
+              <div className="relative">
+                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
+                  <Target size={18} />
+                </div>
+                <input
+                  type="text"
+                  value={topScorer}
+                  onChange={(e) => setTopScorer(e.target.value)}
+                  disabled={saving}
+                  placeholder="Ej. Kylian Mbappé"
+                  className="w-full h-12 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl pl-11 pr-4 focus:outline-none focus:ring-2 focus:ring-accent/50 text-slate-900 dark:text-white disabled:opacity-60 disabled:cursor-not-allowed"
+                />
+              </div>
+            )}
           </div>
 
           {/* Guardar */}
