@@ -100,7 +100,7 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
       )}
 
       {/* ═══ Top Left: Info & Phase ═══ */}
-      <div className="absolute top-4 left-4 flex items-center gap-2 z-10">
+      <div className="absolute top-4 left-4 flex items-center gap-2 z-20">
         <button
           onClick={(e) => { e.stopPropagation(); navigate(`/match/${match.id}`) }}
           className="flex items-center gap-1 px-2 py-1 rounded-full bg-slate-100 dark:bg-white/5 hover:bg-accent/10 text-slate-500 hover:text-accent transition-colors text-[10px] font-bold uppercase tracking-wider"
