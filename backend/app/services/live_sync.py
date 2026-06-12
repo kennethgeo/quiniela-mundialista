@@ -1,121 +1,163 @@
 """
-Sincronización de marcadores en vivo desde la API pública de ESPN.
+Sincronización de marcadores en vivo desde worldcup26.ir.
 
-Realiza UNA pasada: obtiene los partidos del scoreboard de ESPN, actualiza el
-marcador y el estado de los partidos correspondientes en Supabase y, cuando un
-partido pasa a 'finished', calcula los puntos de las predicciones.
+Usa la MISMA fuente y lógica de emparejamiento que el botón "Sincronizar API"
+del panel admin, para tener una única fuente de verdad consistente y afinada
+para el Mundial 2026:
+  - Grupos: se emparejan por grupo + jornada + equipo (con tabla de alias).
+  - Eliminatorias: se emparejan por orden de id.
 
-Diseñado para ser invocado por un scheduler (GitHub Actions / Vercel Cron) a
-través del endpoint protegido POST /api/matches/sync-live.
+Realiza UNA pasada: actualiza status/marcador de los partidos en curso o
+finalizados y, en la transición a 'finished', calcula los puntos reusando
+calculate_and_update_scores.
 
 Notas de compatibilidad con el esquema:
-- La columna `status` solo admite ('pending','in_progress','finished'); por eso
-  los partidos que aún no empiezan (estado ESPN 'pre') NO se tocan.
-- El esquema no tiene columna `events_json`, así que no se escribe.
+  - `status` solo admite ('pending','in_progress','finished'); los partidos que
+    aún no empiezan se quedan en 'pending' y no se tocan.
+  - No se escribe ninguna columna inexistente (p. ej. events_json).
 """
 
 import httpx
 
 from app.services.scoring import calculate_and_update_scores
 
-# API pública de ESPN para la Copa del Mundo (sin API key)
-ESPN_API_URL = (
-    "https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard"
-)
+WORLDCUP_API_URL = "https://worldcup26.ir/get/games"
+
+# Alias de nombres de la API -> nombres en nuestra BD (mismo mapa que el admin)
+TEAM_ALIAS = {
+    "Czech Republic": "Czechia",
+    "Bosnia and Herzegovina": "Bosnia-Herzegovina",
+    "Democratic Republic of the Congo": "DR Congo",
+    "United States": "USA",
+}
 
 
-def _map_status(espn_state: str) -> str:
-    """Mapea el estado de ESPN al enum de la tabla matches."""
-    if espn_state == "in":
-        return "in_progress"
-    if espn_state == "post":
+def _db_team(name):
+    return TEAM_ALIAS.get(name, name)
+
+
+def _to_int(value):
+    """Convierte a int de forma segura; '' o None -> None."""
+    if value is None or value == "":
+        return None
+    try:
+        return int(value)
+    except (ValueError, TypeError):
+        return None
+
+
+def _map_status(api_game) -> str:
+    """Mapea el estado de worldcup26 al enum de matches."""
+    if api_game.get("finished") == "TRUE":
         return "finished"
+    if api_game.get("time_elapsed") not in (None, "notstarted"):
+        return "in_progress"
     return "pending"
 
 
 async def sync_live_scores(supabase) -> dict:
     """Ejecuta una pasada de sincronización y devuelve un resumen."""
     async with httpx.AsyncClient(timeout=15.0) as client:
-        response = await client.get(ESPN_API_URL)
+        response = await client.get(WORLDCUP_API_URL)
         response.raise_for_status()
         data = response.json()
 
-    events = data.get("events", [])
+    api_games = data.get("games", [])
 
-    updated = 0
-    finished_calculated = 0
+    # Cargar todos los partidos de la BD una sola vez
+    matches = (
+        supabase.table("matches")
+        .select(
+            "id, phase, group_name, matchday, home_team, away_team, "
+            "status, home_goals_actual, away_goals_actual"
+        )
+        .execute()
+        .data
+        or []
+    )
+
+    summary = {"updated": 0, "finished_calculated": 0}
     errors = []
 
-    for event in events:
+    async def apply_update(db_match, status, home_goals, away_goals):
+        changed = (
+            db_match.get("status") != status
+            or db_match.get("home_goals_actual") != home_goals
+            or db_match.get("away_goals_actual") != away_goals
+        )
+        if not changed:
+            return
+
+        payload = {"status": status}
+        # Solo escribimos goles cuando el partido ya empezó
+        if status != "pending":
+            payload["home_goals_actual"] = home_goals
+            payload["away_goals_actual"] = away_goals
+
+        supabase.table("matches").update(payload).eq("id", db_match["id"]).execute()
+        summary["updated"] += 1
+
+        # Calcular puntos solo en la transición a 'finished'
+        if status == "finished" and db_match.get("status") != "finished":
+            await calculate_and_update_scores(supabase, db_match["id"])
+            summary["finished_calculated"] += 1
+
+    # --- Grupos: emparejar por grupo + jornada + equipo ---
+    for game in api_games:
+        if game.get("type") != "group":
+            continue
         try:
-            competition = event["competitions"][0]
-            competitors = competition["competitors"]
-
-            home_comp = next(
-                (c for c in competitors if c.get("homeAway") == "home"), None
+            api_home = _db_team(game.get("home_team_name_en"))
+            matchday = _to_int(game.get("matchday"))
+            db_match = next(
+                (
+                    m
+                    for m in matches
+                    if m.get("phase") == "groups"
+                    and m.get("group_name") == game.get("group")
+                    and m.get("matchday") == matchday
+                    and (
+                        m.get("home_team") == api_home
+                        or m.get("away_team") == api_home
+                    )
+                ),
+                None,
             )
-            away_comp = next(
-                (c for c in competitors if c.get("homeAway") == "away"), None
-            )
-            if not home_comp or not away_comp:
+            if not db_match:
                 continue
-
-            home_team = home_comp["team"]["name"]
-            away_team = away_comp["team"]["name"]
-
-            espn_state = event["status"]["type"]["state"]
-            status = _map_status(espn_state)
-
-            # No tocamos partidos que aún no empiezan (evita churn y respeta el enum)
-            if status == "pending":
-                continue
-
-            # Localizar el partido en nuestra BD por nombres de equipo
-            query = (
-                supabase.table("matches")
-                .select("id, status, home_goals_actual, away_goals_actual")
-                .ilike("home_team", f"%{home_team}%")
-                .ilike("away_team", f"%{away_team}%")
-                .execute()
+            await apply_update(
+                db_match,
+                _map_status(game),
+                _to_int(game.get("home_score")),
+                _to_int(game.get("away_score")),
             )
-            if not query.data:
-                continue
-
-            db_match = query.data[0]
-            match_id = db_match["id"]
-
-            home_goals = int(home_comp.get("score", 0) or 0)
-            away_goals = int(away_comp.get("score", 0) or 0)
-
-            payload = {
-                "status": status,
-                "home_goals_actual": home_goals,
-                "away_goals_actual": away_goals,
-            }
-
-            changed = (
-                db_match.get("status") != status
-                or db_match.get("home_goals_actual") != home_goals
-                or db_match.get("away_goals_actual") != away_goals
-            )
-
-            if changed:
-                supabase.table("matches").update(payload).eq("id", match_id).execute()
-                updated += 1
-
-            # Calcular puntos solo en la transición a 'finished'
-            if status == "finished" and db_match.get("status") != "finished":
-                await calculate_and_update_scores(supabase, match_id)
-                finished_calculated += 1
-
         except Exception as exc:  # noqa: BLE001 - aislar fallos por partido
             errors.append(str(exc))
-            continue
+
+    # --- Eliminatorias: emparejar por orden de id ---
+    api_ko = sorted(
+        (g for g in api_games if g.get("type") != "group"),
+        key=lambda g: _to_int(g.get("id")) or 0,
+    )
+    db_ko = sorted(
+        (m for m in matches if m.get("phase") != "groups"),
+        key=lambda m: m.get("id") or 0,
+    )
+    for api_game, db_match in zip(api_ko, db_ko):
+        try:
+            await apply_update(
+                db_match,
+                _map_status(api_game),
+                _to_int(api_game.get("home_score")),
+                _to_int(api_game.get("away_score")),
+            )
+        except Exception as exc:  # noqa: BLE001
+            errors.append(str(exc))
 
     return {
         "status": "ok",
-        "events_seen": len(events),
-        "updated": updated,
-        "finished_calculated": finished_calculated,
+        "api_games": len(api_games),
+        "updated": summary["updated"],
+        "finished_calculated": summary["finished_calculated"],
         "errors": errors,
     }
