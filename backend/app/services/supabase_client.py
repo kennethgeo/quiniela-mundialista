@@ -28,8 +28,14 @@ def get_supabase() -> Client:
     global _supabase_client
 
     if _supabase_client is None:
+        # Sanear la URL: quitar espacios, barra final y un posible sufijo
+        # '/rest/v1' (el "RESTful endpoint" que muestra el panel Data API).
+        url = settings.SUPABASE_URL.strip().rstrip("/")
+        if url.endswith("/rest/v1"):
+            url = url[: -len("/rest/v1")]
+
         _supabase_client = create_client(
-            settings.SUPABASE_URL.strip().rstrip("/"),
+            url,
             settings.SUPABASE_SERVICE_ROLE_KEY.strip(),
         )
 
