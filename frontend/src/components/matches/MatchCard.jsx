@@ -139,7 +139,7 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
       </div>
 
       {/* Wrapper para el contenido principal */}
-      <div className="pt-12 relative z-10">
+      <div className="pt-12 relative z-10 max-w-lg mx-auto">
         {/* Fecha y Fase en flujo normal arriba */}
         <div className="text-center mb-4">
           <p className="text-[11px] text-slate-600 dark:text-slate-400 capitalize font-medium flex items-center justify-center gap-1.5 flex-wrap">
