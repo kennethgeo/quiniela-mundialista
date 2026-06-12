@@ -101,12 +101,12 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
 
       {/* ═══ Top Left: Info & Phase ═══ */}
       <div className="absolute top-4 left-4 flex items-center gap-2 z-10">
-        <button 
-          onClick={() => navigate(`/match/${match.id}`)} 
-          className="p-1 hover:bg-slate-100 dark:hover:bg-white/10 rounded-full transition-colors text-slate-400 hover:text-accent"
-          title="Ver detalles del partido"
+        <button
+          onClick={(e) => { e.stopPropagation(); navigate(`/match/${match.id}`) }}
+          className="flex items-center gap-1 px-2 py-1 rounded-full bg-slate-100 dark:bg-white/5 hover:bg-accent/10 text-slate-500 hover:text-accent transition-colors text-[10px] font-bold uppercase tracking-wider"
+          title="Ver detalles y predicciones de la liga"
         >
-          <Info size={14} />
+          <Info size={12} /> Detalle
         </button>
         <span className="text-[11px] uppercase tracking-widest font-semibold text-slate-500">
           {match.group_name ? `Grupo ${match.group_name}` : match.phase.replace(/_/g, ' ')}
