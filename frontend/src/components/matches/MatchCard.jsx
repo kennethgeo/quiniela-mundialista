@@ -99,47 +99,46 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
         <div className="absolute inset-0 rounded-2xl animate-pulse bg-accent/[0.02] pointer-events-none" />
       )}
 
-      {/* ═══ Top Left: Info & Phase ═══ */}
-      <div className="absolute top-4 left-4 flex items-center gap-2 z-20">
-        <button
-          onClick={(e) => { e.stopPropagation(); navigate(`/match/${match.id}`) }}
-          className="flex items-center gap-1 px-2 py-1 rounded-full bg-slate-100 dark:bg-white/5 hover:bg-accent/10 text-slate-500 hover:text-accent transition-colors text-[10px] font-bold uppercase tracking-wider"
-          title="Ver detalles y predicciones de la liga"
-        >
-          <Info size={12} /> Detalle
-        </button>
-        <span className="text-[11px] uppercase tracking-widest font-semibold text-slate-500">
-          {match.group_name ? `Grupo ${match.group_name}` : match.phase.replace(/_/g, ' ')}
-          {match.matchday && ` · J${match.matchday}`}
-        </span>
-      </div>
+      {/* ═══ Cabecera: detalle + grupo/jornada + estado (en flujo, sin solaparse) ═══ */}
+      <div className="flex items-center justify-between gap-2 mb-3 relative z-20">
+        <div className="flex items-center gap-2 min-w-0">
+          <button
+            onClick={(e) => { e.stopPropagation(); navigate(`/match/${match.id}`) }}
+            className="shrink-0 flex items-center gap-1 px-2 py-1 rounded-full bg-slate-100 dark:bg-white/5 hover:bg-accent/10 text-slate-500 hover:text-accent transition-colors text-[10px] font-bold uppercase tracking-wider"
+            title="Ver detalles y predicciones de la liga"
+          >
+            <Info size={12} /> Detalle
+          </button>
+          <span className="text-[11px] uppercase tracking-wider font-semibold text-slate-500 truncate">
+            {match.group_name ? `Grupo ${match.group_name}` : match.phase.replace(/_/g, ' ')}
+            {match.matchday && ` · J${match.matchday}`}
+          </span>
+        </div>
 
-
-
-      {/* ═══ Top Right: Status/Timer ═══ */}
-      <div className="absolute top-4 right-4 flex items-center gap-1.5 z-10">
-        {isLocked && !isFinished ? (
-          <span className="flex items-center gap-1 text-[11px] font-semibold text-error-light bg-error/10 px-2 py-0.5 rounded-full">
-            <Lock size={11} /> Bloqueado
-          </span>
-        ) : isInProgress ? (
-          <span className="flex items-center gap-1 text-[11px] font-bold text-accent bg-accent/10 px-2 py-0.5 rounded-full animate-pulse">
-            <span className="w-1.5 h-1.5 rounded-full bg-accent" />
-            EN VIVO
-          </span>
-        ) : isFinished ? (
-          <span className="flex items-center gap-1 text-[11px] text-slate-600 dark:text-slate-500 bg-slate-100 dark:bg-white/5 px-2 py-0.5 rounded-full">
-            <Check size={11} /> Finalizado
-          </span>
-        ) : (
-          <span className="flex items-center gap-1 text-[11px] text-slate-600 dark:text-slate-400 font-medium bg-slate-100 dark:bg-white/5 px-2 py-0.5 rounded-full tabular-nums">
-            <Timer size={11} /> {countdown}
-          </span>
-        )}
+        <div className="shrink-0">
+          {isLocked && !isFinished ? (
+            <span className="flex items-center gap-1 text-[11px] font-semibold text-error-light bg-error/10 px-2 py-0.5 rounded-full">
+              <Lock size={11} /> Bloqueado
+            </span>
+          ) : isInProgress ? (
+            <span className="flex items-center gap-1 text-[11px] font-bold text-accent bg-accent/10 px-2 py-0.5 rounded-full animate-pulse">
+              <span className="w-1.5 h-1.5 rounded-full bg-accent" />
+              EN VIVO
+            </span>
+          ) : isFinished ? (
+            <span className="flex items-center gap-1 text-[11px] text-slate-600 dark:text-slate-500 bg-slate-100 dark:bg-white/5 px-2 py-0.5 rounded-full">
+              <Check size={11} /> Finalizado
+            </span>
+          ) : (
+            <span className="flex items-center gap-1 text-[11px] text-slate-600 dark:text-slate-400 font-medium bg-slate-100 dark:bg-white/5 px-2 py-0.5 rounded-full tabular-nums">
+              <Timer size={11} /> {countdown}
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Wrapper para el contenido principal */}
-      <div className="pt-12 relative z-10 max-w-lg mx-auto">
+      <div className="relative z-10 max-w-lg mx-auto">
         {/* Fecha y Fase en flujo normal arriba */}
         <div className="text-center mb-4">
           <p className="text-[11px] text-slate-600 dark:text-slate-400 capitalize font-medium flex items-center justify-center gap-1.5 flex-wrap">
