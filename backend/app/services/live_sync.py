@@ -60,7 +60,8 @@ def _minute_of(api_game, status):
     if status != "in_progress":
         return None
     te = api_game.get("time_elapsed")
-    if te in (None, "", "notstarted", "finished"):
+    # worldcup26 a veces solo manda "live" (sin minuto real): no lo mostramos
+    if te in (None, "", "notstarted", "finished", "live"):
         return None
     return str(te)
 
