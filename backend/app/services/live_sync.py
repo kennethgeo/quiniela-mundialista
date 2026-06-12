@@ -88,6 +88,7 @@ async def sync_live_scores(supabase) -> dict:
 
     summary = {"updated": 0, "finished_calculated": 0}
     errors = []
+    unmatched = []
 
     async def apply_update(db_match, status, home_goals, away_goals, minute):
         changed = (
@@ -141,6 +142,10 @@ async def sync_live_scores(supabase) -> dict:
                 None,
             )
             if not db_match:
+                # Solo nos importan los que ya empezaron/terminaron (los notstarted
+                # no tienen nada que sincronizar)
+                if _map_status(game) != "pending":
+                    unmatched.append(f"{game.get('group')}: {api_home} vs {api_away}")
                 continue
             status = _map_status(game)
             await apply_update(
@@ -180,5 +185,6 @@ async def sync_live_scores(supabase) -> dict:
         "api_games": len(api_games),
         "updated": summary["updated"],
         "finished_calculated": summary["finished_calculated"],
+        "unmatched": unmatched,
         "errors": errors,
     }
