@@ -1,5 +1,6 @@
 """Rutas para gestionar los partidos del mundial."""
 
+import httpx
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from typing import Optional
 
@@ -13,7 +14,7 @@ router = APIRouter(prefix="/api/matches", tags=["Partidos"])
 
 @router.post("/sync-live")
 async def sync_live(authorization: Optional[str] = Header(default=None)):
-    """Sincroniza marcadores en vivo desde ESPN. Protegido con CRON_SECRET.
+    """Sincroniza marcadores en vivo desde worldcup26.ir. Protegido con CRON_SECRET.
 
     Pensado para ser invocado por un scheduler (GitHub Actions / Vercel Cron)
     enviando el header ``Authorization: Bearer <CRON_SECRET>``.
@@ -25,7 +26,23 @@ async def sync_live(authorization: Optional[str] = Header(default=None)):
         raise HTTPException(status_code=401, detail="No autorizado")
 
     supabase = get_supabase()
-    return await sync_live_scores(supabase)
+    try:
+        return await sync_live_scores(supabase)
+    except Exception as exc:  # noqa: BLE001 - exponer el error al cron para diagnóstico
+        raise HTTPException(status_code=500, detail=f"{type(exc).__name__}: {exc}")
+
+
+@router.get("/external-games")
+async def get_external_games():
+    """Proxy para obtener los juegos de la API externa (worldcup26.ir)."""
+    url = "https://worldcup26.ir/get/games"
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.get(url, timeout=15.0)
+            response.raise_for_status()
+            return response.json()
+        except Exception as e:
+            raise HTTPException(status_code=502, detail=f"Error obteniendo API: {e}")
 
 
 @router.get("")
@@ -76,17 +93,3 @@ async def get_match(match_id: int, user: dict = Depends(get_current_user)):
         .execute()
     )
     return response.data
-
-@router.get("/external-games")
-async def get_external_games():
-    """Proxy para obtener los juegos de la API externa."""
-    import httpx
-    from fastapi import HTTPException
-    url = "https://worldcup26.ir/get/games"
-    async with httpx.AsyncClient() as client:
-        try:
-            response = await client.get(url, timeout=15.0)
-            response.raise_for_status()
-            return response.json()
-        except Exception as e:
-            raise HTTPException(status_code=502, detail=f"Error obteniendo API: {e}")
