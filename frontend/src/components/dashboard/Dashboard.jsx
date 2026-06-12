@@ -2,6 +2,7 @@
 import { motion } from 'motion/react'
 import UserPoints from './UserPoints'
 import UpcomingMatches from './UpcomingMatches'
+import RecentResults from './RecentResults'
 import TopRanking from './TopRanking'
 
 /** Stagger container for child animations */
@@ -46,6 +47,11 @@ export default function Dashboard() {
       {/* ── Próximos partidos ── */}
       <motion.div variants={itemVariants} className="md:col-span-2 lg:col-span-3">
         <UpcomingMatches />
+      </motion.div>
+
+      {/* ── Resultados (finalizados) ── */}
+      <motion.div variants={itemVariants} className="md:col-span-2 lg:col-span-3">
+        <RecentResults />
       </motion.div>
     </motion.div>
   )
