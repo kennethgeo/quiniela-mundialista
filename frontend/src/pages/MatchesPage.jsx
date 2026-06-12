@@ -1,12 +1,14 @@
 /* Página de partidos - Fase de Grupos / Finalizados */
 import { useState } from 'react'
+import { useLocation } from 'react-router-dom'
 import { Calendar, Trophy, CheckCircle2 } from 'lucide-react'
 import { motion } from 'motion/react'
 import GroupStage from '../components/matches/GroupStage'
 import FinishedMatches from '../components/matches/FinishedMatches'
 
 export default function MatchesPage() {
-  const [tab, setTab] = useState('groups') // 'groups' | 'finished'
+  const location = useLocation()
+  const [tab, setTab] = useState(location.state?.tab === 'finished' ? 'finished' : 'groups') // 'groups' | 'finished'
 
   return (
     <div className="px-4 py-5 relative">
