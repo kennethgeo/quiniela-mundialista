@@ -68,8 +68,8 @@ async def sync_live_scores(supabase) -> dict:
     matches = (
         supabase.table("matches")
         .select(
-            "id, phase, group_name, matchday, home_team, away_team, "
-            "status, home_goals_actual, away_goals_actual"
+            "id,phase,group_name,matchday,home_team,away_team,"
+            "status,home_goals_actual,away_goals_actual"
         )
         .execute()
         .data
