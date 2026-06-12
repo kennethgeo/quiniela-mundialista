@@ -41,7 +41,17 @@ async def root():
 
 @app.get("/api/health")
 async def health_check():
-    """Verificación de salud del servicio y de la configuración (sin exponer valores)."""
+    """Verificación de salud del servicio, configuración y conexión a la BD."""
+    db_status = "skipped"
+    try:
+        from app.services.supabase_client import get_supabase
+
+        if settings.SUPABASE_URL and settings.SUPABASE_SERVICE_ROLE_KEY:
+            get_supabase().table("matches").select("id").limit(1).execute()
+            db_status = "ok"
+    except Exception as exc:  # noqa: BLE001 - reportar error de BD para diagnóstico
+        db_status = f"{type(exc).__name__}: {exc}"
+
     return {
         "status": "ok",
         "service": "Quiniela Mundialista",
@@ -51,4 +61,5 @@ async def health_check():
             "supabase_jwt_secret": bool(settings.SUPABASE_JWT_SECRET),
             "cron_secret": bool(settings.CRON_SECRET),
         },
+        "db": db_status,
     }

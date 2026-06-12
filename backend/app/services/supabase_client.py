@@ -29,8 +29,8 @@ def get_supabase() -> Client:
 
     if _supabase_client is None:
         _supabase_client = create_client(
-            settings.SUPABASE_URL,
-            settings.SUPABASE_SERVICE_ROLE_KEY,
+            settings.SUPABASE_URL.strip().rstrip("/"),
+            settings.SUPABASE_SERVICE_ROLE_KEY.strip(),
         )
 
     return _supabase_client
