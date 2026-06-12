@@ -157,7 +157,7 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
         </div>
 
         {/* ═══ Equipos y predicción ═══ */}
-      <div className="flex items-center justify-between gap-1 relative z-10 max-w-md mx-auto">
+      <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-1 relative z-10 max-w-md mx-auto">
         {/* Equipo local */}
         <div className="flex-1 min-w-0 text-center">
           <div className="relative inline-block mb-2">
@@ -181,7 +181,7 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
                   {prediction.use_powerup_x2 && <Zap size={10} className="text-accent fill-current" />}
                 </div>
               )}
-              <div className="flex items-center gap-3">
+              <div className="flex items-center justify-center gap-3">
                 <span className="text-2xl font-black text-slate-900 dark:text-white tabular-nums">
                   {match.home_goals_actual ?? '-'}
                 </span>
@@ -197,7 +197,7 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
               )}
             </div>
           ) : (
-            <div className="flex items-center gap-3">
+            <div className="flex items-center justify-center gap-3">
               <GoalCounter value={homeGoals} onChange={setHomeGoals} disabled={isLocked} />
               <span className="text-slate-400 dark:text-slate-600 text-2xl font-light mt-0.5">:</span>
               <GoalCounter value={awayGoals} onChange={setAwayGoals} disabled={isLocked} />
