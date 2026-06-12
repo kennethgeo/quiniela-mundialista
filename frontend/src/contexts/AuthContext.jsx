@@ -116,19 +116,19 @@ export function AuthProvider({ children }) {
     return () => subscription.unsubscribe()
   }, [fetchProfile])
 
-  // Lógica de inactividad (30 minutos)
+  // Lógica de inactividad (1 día)
   useEffect(() => {
     let inactivityTimer
 
     const resetTimer = () => {
       if (inactivityTimer) clearTimeout(inactivityTimer)
-      // 30 minutos = 30 * 60 * 1000 = 1800000 ms
+      // 1 día = 24 * 60 * 60 * 1000 = 86400000 ms
       inactivityTimer = setTimeout(() => {
         if (user) {
           console.log('Sesión expirada por inactividad')
           signOut()
         }
-      }, 1800000)
+      }, 86400000)
     }
 
     if (user) {
