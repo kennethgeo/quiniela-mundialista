@@ -159,7 +159,7 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
         {/* ═══ Equipos y predicción ═══ */}
       <div className="flex items-center justify-between gap-1 relative z-10 max-w-md mx-auto">
         {/* Equipo local */}
-        <div className="flex-1 text-center">
+        <div className="flex-1 min-w-0 text-center">
           <div className="relative inline-block mb-2">
             <img
               src={match.home_flag_url || `https://flagcdn.com/w80/${match.home_team_code}.png`}
@@ -206,7 +206,7 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
         </div>
 
         {/* Equipo visitante */}
-        <div className="flex-1 text-center">
+        <div className="flex-1 min-w-0 text-center">
           <div className="relative inline-block mb-2">
             <img
               src={match.away_flag_url || `https://flagcdn.com/w80/${match.away_team_code}.png`}
