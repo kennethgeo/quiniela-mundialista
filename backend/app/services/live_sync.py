@@ -126,18 +126,17 @@ async def sync_live_scores(supabase) -> dict:
             continue
         try:
             api_home = _db_team(game.get("home_team_name_en"))
-            matchday = _to_int(game.get("matchday"))
+            api_away = _db_team(game.get("away_team_name_en"))
+            api_pair = {api_home, api_away}
+            # Emparejar por grupo + el PAR de equipos (robusto: no depende de la
+            # jornada, que puede no coincidir con la de la fuente)
             db_match = next(
                 (
                     m
                     for m in matches
                     if m.get("phase") == "groups"
                     and m.get("group_name") == game.get("group")
-                    and m.get("matchday") == matchday
-                    and (
-                        m.get("home_team") == api_home
-                        or m.get("away_team") == api_home
-                    )
+                    and {m.get("home_team"), m.get("away_team")} == api_pair
                 ),
                 None,
             )
