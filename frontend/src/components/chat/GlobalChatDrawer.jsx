@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, Fragment } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 import { Send, MessageSquare, X, Users } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
@@ -32,6 +32,20 @@ function timeOf(iso) {
   } catch {
     return ''
   }
+}
+
+function sameDay(a, b) {
+  return new Date(a).toDateString() === new Date(b).toDateString()
+}
+
+function dayLabel(iso) {
+  const d = new Date(iso)
+  const now = new Date()
+  const yesterday = new Date(now)
+  yesterday.setDate(now.getDate() - 1)
+  if (d.toDateString() === now.toDateString()) return 'Hoy'
+  if (d.toDateString() === yesterday.toDateString()) return 'Ayer'
+  return d.toLocaleDateString('es', { day: 'numeric', month: 'long' })
 }
 
 export default function GlobalChatDrawer() {
@@ -193,7 +207,7 @@ export default function GlobalChatDrawer() {
               animate={{ y: 0, opacity: 1, scale: 1 }}
               exit={{ y: '100%', opacity: 0, scale: 0.97 }}
               transition={{ type: 'spring', damping: 26, stiffness: 220, mass: 0.8 }}
-              className="fixed inset-x-0 bottom-0 sm:inset-x-auto sm:bottom-6 sm:right-6 md:bottom-10 md:right-10 w-full sm:w-[380px] h-[78vh] sm:h-[600px] sm:max-h-[80vh] z-[60] flex flex-col bg-white dark:bg-slate-900 shadow-2xl rounded-t-3xl sm:rounded-3xl border border-slate-200/70 dark:border-white/10 overflow-hidden"
+              className="fixed inset-x-0 bottom-0 sm:inset-x-auto sm:bottom-6 sm:right-6 md:bottom-10 md:right-10 w-full sm:w-[400px] h-[80vh] sm:h-[680px] sm:max-h-[85vh] z-[60] flex flex-col bg-white dark:bg-slate-900 shadow-2xl rounded-t-3xl sm:rounded-3xl border border-slate-200/70 dark:border-white/10 overflow-hidden"
             >
               {/* ── Header con degradado ── */}
               <div className="relative shrink-0 bg-gradient-to-r from-accent to-accent-dark text-white px-4 py-4 flex items-center justify-between gap-2 overflow-hidden">
@@ -242,10 +256,18 @@ export default function GlobalChatDrawer() {
                     const firstOfGroup = !prev || prev.user_id !== msg.user_id
                     const lastOfGroup = !next || next.user_id !== msg.user_id
                     const name = msg.users?.display_name || 'Usuario'
+                    const showDay = !prev || !sameDay(prev.created_at, msg.created_at)
 
                     return (
-                      <motion.div
-                        key={msg.id}
+                      <Fragment key={msg.id}>
+                        {showDay && (
+                          <div className="flex justify-center my-3">
+                            <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 bg-slate-200/80 dark:bg-white/10 px-3 py-1 rounded-full">
+                              {dayLabel(msg.created_at)}
+                            </span>
+                          </div>
+                        )}
+                        <motion.div
                         initial={{ opacity: 0, y: 8 }}
                         animate={{ opacity: 1, y: 0 }}
                         className={`flex items-end gap-2 ${isMe ? 'flex-row-reverse' : ''} ${firstOfGroup ? 'mt-3' : 'mt-1'}`}
@@ -278,7 +300,8 @@ export default function GlobalChatDrawer() {
                             </span>
                           </div>
                         </div>
-                      </motion.div>
+                        </motion.div>
+                      </Fragment>
                     )
                   })
                 )}
