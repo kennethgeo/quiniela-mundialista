@@ -1,6 +1,7 @@
 // Dashboard principal - vista de inicio con resumen del estado del usuario
 import { motion } from 'motion/react'
 import UserPoints from './UserPoints'
+import LiveNow from './LiveNow'
 import UpcomingMatches from './UpcomingMatches'
 import RecentResults from './RecentResults'
 import TopRanking from './TopRanking'
@@ -43,6 +44,9 @@ export default function Dashboard() {
       <motion.div variants={itemVariants} className="md:col-span-1 lg:col-span-2">
         <TopRanking />
       </motion.div>
+
+      {/* ── Jugando ahora (en vivo) — no renderiza nada si no hay partidos ── */}
+      <LiveNow />
 
       {/* ── Próximos partidos ── */}
       <motion.div variants={itemVariants} className="md:col-span-2 lg:col-span-3">
