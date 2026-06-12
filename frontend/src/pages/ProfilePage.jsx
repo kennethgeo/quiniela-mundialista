@@ -337,13 +337,19 @@ export default function ProfilePage() {
             
             {badges.is_nostradamus && <Badge emoji="🎯" name="Nostradamus" desc="3+ Exactos" color="amber" />}
             {badges.is_rey_empate && <Badge emoji="🤝" name="Rey del Empate" desc="3+ Empates exactos" color="blue" />}
-            {badges.is_francotirador && <Badge emoji="🔥" name="Francotirador" desc="Exacto con x2" color="rose" />}
+            {badges.is_francotirador && <Badge emoji="🔥" name="Francotirador" desc="Acierto con x2 (3+ pts)" color="rose" />}
             {badges.is_pecho_frio && <Badge emoji="🥶" name="Pecho Frío" desc="0 pts con x2" color="cyan" />}
             {badges.is_mas_conocedor && <Badge emoji="🤡" name="El Más Conocedor" desc="5+ ceros" color="purple" />}
             {badges.is_tortuga && <Badge emoji="🐢" name="La Tortuga" desc="Predijo a última hora" color="emerald" />}
             {badges.is_taylor && <Badge emoji="💩" name="0T" desc="Por ser tan Tay" color="stone" />}
-            
-            {(!badges.is_nostradamus && !badges.is_rey_empate && !badges.is_francotirador && !badges.is_pecho_frio && !badges.is_mas_conocedor && !badges.is_tortuga && !badges.is_taylor) && (
+            {badges.is_optimista && <Badge emoji="🧨" name="El Optimista" desc="Todo es goleada" color="rose" />}
+            {badges.is_aburrido && <Badge emoji="🥱" name="El Aburrido" desc="Ama el 0-0" color="stone" />}
+            {badges.is_fantasma && <Badge emoji="👻" name="El Fantasma" desc="No juega ni un partido" color="purple" />}
+            {badges.is_calientabancas && <Badge emoji="🪑" name="Calientabancas" desc="Varios partidos, 0 pts" color="cyan" />}
+            {badges.is_gallina && <Badge emoji="🐔" name="El Precavido" desc="Le teme al comodín" color="amber" />}
+            {badges.is_ludopata && <Badge emoji="🎰" name="Ludópata" desc="Adicto al x2" color="emerald" />}
+
+            {(!badges.is_nostradamus && !badges.is_rey_empate && !badges.is_francotirador && !badges.is_pecho_frio && !badges.is_mas_conocedor && !badges.is_tortuga && !badges.is_taylor && !badges.is_optimista && !badges.is_aburrido && !badges.is_fantasma && !badges.is_calientabancas && !badges.is_gallina && !badges.is_ludopata) && (
               <span className="text-xs text-slate-400 flex items-center italic">Aún no has desbloqueado logros</span>
             )}
           </motion.div>
@@ -508,13 +514,19 @@ export default function ProfilePage() {
                 <div className="glass-card p-4 flex flex-wrap gap-3">
                   {badges?.is_nostradamus && <Badge emoji="🎯" name="Nostradamus" desc="3+ Exactos" color="amber" />}
                   {badges?.is_rey_empate && <Badge emoji="🤝" name="Rey del Empate" desc="3+ Empates exactos" color="blue" />}
-                  {badges?.is_francotirador && <Badge emoji="🔥" name="Francotirador" desc="Exacto con x2" color="rose" />}
+                  {badges?.is_francotirador && <Badge emoji="🔥" name="Francotirador" desc="Acierto con x2 (3+ pts)" color="rose" />}
                   {badges?.is_pecho_frio && <Badge emoji="🥶" name="Pecho Frío" desc="0 pts con x2" color="cyan" />}
                   {badges?.is_mas_conocedor && <Badge emoji="🤡" name="El Más Conocedor" desc="5+ ceros" color="purple" />}
                   {badges?.is_tortuga && <Badge emoji="🐢" name="La Tortuga" desc="Predijo a última hora" color="emerald" />}
                   {badges?.is_taylor && <Badge emoji="💩" name="0T" desc="Por ser tan Tay" color="stone" />}
-                  
-                  {(!badges?.is_nostradamus && !badges?.is_rey_empate && !badges?.is_francotirador && !badges?.is_pecho_frio && !badges?.is_mas_conocedor && !badges?.is_tortuga && !badges?.is_taylor) && (
+                  {badges?.is_optimista && <Badge emoji="🧨" name="El Optimista" desc="Todo es goleada" color="rose" />}
+                  {badges?.is_aburrido && <Badge emoji="🥱" name="El Aburrido" desc="Ama el 0-0" color="stone" />}
+                  {badges?.is_fantasma && <Badge emoji="👻" name="El Fantasma" desc="No juega ni un partido" color="purple" />}
+                  {badges?.is_calientabancas && <Badge emoji="🪑" name="Calientabancas" desc="Varios partidos, 0 pts" color="cyan" />}
+                  {badges?.is_gallina && <Badge emoji="🐔" name="El Precavido" desc="Le teme al comodín" color="amber" />}
+                  {badges?.is_ludopata && <Badge emoji="🎰" name="Ludópata" desc="Adicto al x2" color="emerald" />}
+
+                  {(!badges?.is_nostradamus && !badges?.is_rey_empate && !badges?.is_francotirador && !badges?.is_pecho_frio && !badges?.is_mas_conocedor && !badges?.is_tortuga && !badges?.is_taylor && !badges?.is_optimista && !badges?.is_aburrido && !badges?.is_fantasma && !badges?.is_calientabancas && !badges?.is_gallina && !badges?.is_ludopata) && (
                     <span className="text-xs text-slate-400 flex items-center italic">Aún no has desbloqueado logros</span>
                   )}
                 </div>
