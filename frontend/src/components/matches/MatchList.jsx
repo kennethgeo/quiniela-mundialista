@@ -10,7 +10,7 @@ const containerVariants = {
   }
 }
 
-export default function MatchList({ matches, predictions, onSavePrediction, isLoading, powerupLimits = {} }) {
+export default function MatchList({ matches, predictions, onSavePrediction, isLoading, powerupLimits = {}, powerupUsage = {} }) {
   // Agrupar por jornada (matchday)
   const grouped = matches.reduce((acc, match) => {
     const key = match.matchday ? `Jornada ${match.matchday}` : match.phase.replace(/_/g, ' ')
@@ -27,19 +27,18 @@ export default function MatchList({ matches, predictions, onSavePrediction, isLo
   return (
     <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-8">
       {Object.entries(grouped).map(([label, groupMatches]) => {
-        const powerupsUsed = groupMatches.filter(m => findPrediction(m.id)?.use_powerup_x2).length;
-        
-        // Obtener el límite dinámico desde powerupLimits
-        let limit = 0;
         // La llave puede ser 'groups_1', 'round_of_32', etc.
-        // Si label es "Jornada 1", phase suele ser 'groups'
         const matchExample = groupMatches[0]
         const phase = matchExample?.phase || 'groups'
         const matchday = matchExample?.matchday
         const limitKey = matchday ? `${phase}_${matchday}` : phase
-        
-        limit = powerupLimits[limitKey] ?? 0; // Por defecto 0 si no se ha cargado o no existe
-        
+
+        const limit = powerupLimits[limitKey] ?? 0; // Por defecto 0 si no se ha cargado o no existe
+
+        // Comodines usados en TODA la fase/jornada (no solo los partidos visibles
+        // por el filtro de grupo). Si no llega el conteo global, se cae al local.
+        const powerupsUsed = powerupUsage[limitKey] ?? groupMatches.filter(m => findPrediction(m.id)?.use_powerup_x2).length;
+
         const hasReachedLimit = powerupsUsed >= limit;
         
         return (
