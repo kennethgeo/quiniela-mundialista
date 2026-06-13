@@ -7,9 +7,46 @@ from typing import Optional
 from app.auth import get_current_user
 from app.config import settings
 from app.services.live_sync import sync_live_scores
+from app.services.scoring import calculate_and_update_scores
 from app.services.supabase_client import get_supabase
 
 router = APIRouter(prefix="/api/matches", tags=["Partidos"])
+
+
+@router.post("/recalc-scores")
+async def recalc_scores(authorization: Optional[str] = Header(default=None)):
+    """Recalcula los puntos de TODOS los partidos finalizados. Protegido con CRON_SECRET.
+
+    Es idempotente (la función de scoring aplica solo la diferencia), así que
+    sirve para corregir partidos que quedaron finalizados pero sin puntuar, sin
+    duplicar puntos.
+    """
+    expected = settings.CRON_SECRET
+    if not expected:
+        raise HTTPException(status_code=503, detail="CRON_SECRET no configurado")
+    if authorization != f"Bearer {expected}":
+        raise HTTPException(status_code=401, detail="No autorizado")
+
+    supabase = get_supabase()
+    finished = (
+        supabase.table("matches").select("id").eq("status", "finished").execute().data or []
+    )
+    updated_matches = 0
+    errors = []
+    for m in finished:
+        try:
+            r = await calculate_and_update_scores(supabase, m["id"])
+            if r.get("predictions_updated"):
+                updated_matches += 1
+        except Exception as exc:  # noqa: BLE001
+            errors.append(f"match {m['id']}: {exc}")
+
+    return {
+        "status": "ok",
+        "finished": len(finished),
+        "matches_with_changes": updated_matches,
+        "errors": errors,
+    }
 
 
 @router.post("/sync-live")
