@@ -80,6 +80,17 @@ export default function GroupStage() {
   // Volver a ordenar cronológicamente todo junto
   const sortedMatches = fixedMatches.sort((a, b) => new Date(a.kickoff_at) - new Date(b.kickoff_at))
 
+  // Conteo de comodines x2 usados por fase/jornada en TODOS los partidos
+  // (no solo los del filtro actual), para no superar el límite al filtrar por grupo
+  const powerupUsageByKey = {}
+  sortedMatches.forEach((m) => {
+    const pred = predictions.find((p) => p.match_id === m.id)
+    if (pred?.use_powerup_x2) {
+      const key = m.matchday ? `${m.phase}_${m.matchday}` : m.phase
+      powerupUsageByKey[key] = (powerupUsageByKey[key] || 0) + 1
+    }
+  })
+
   // Filtrar partidos por grupo y jornada seleccionados
   let filteredMatches = sortedMatches
   if (selectedGroup !== 'Todos') {
@@ -233,6 +244,7 @@ export default function GroupStage() {
                 onSavePrediction={handleSavePrediction}
                 isLoading={saving}
                 powerupLimits={powerupLimits}
+                powerupUsage={powerupUsageByKey}
               />
             </>
           )}
