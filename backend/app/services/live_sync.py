@@ -149,11 +149,20 @@ async def sync_live_scores(supabase) -> dict:
                     unmatched.append(f"{game.get('group')}: {api_home} vs {api_away}")
                 continue
             status = _map_status(game)
+            # Asignar los goles según la orientación local/visitante de NUESTRA BD,
+            # que puede estar invertida respecto a la fuente (p. ej. la fuente tiene
+            # a Qatar de local y nuestra BD a Suiza de local).
+            api_home_score = _to_int(game.get("home_score"))
+            api_away_score = _to_int(game.get("away_score"))
+            if db_match.get("home_team") == api_home:
+                home_goals, away_goals = api_home_score, api_away_score
+            else:
+                home_goals, away_goals = api_away_score, api_home_score
             await apply_update(
                 db_match,
                 status,
-                _to_int(game.get("home_score")),
-                _to_int(game.get("away_score")),
+                home_goals,
+                away_goals,
                 _minute_of(game, status),
             )
         except Exception as exc:  # noqa: BLE001 - aislar fallos por partido
