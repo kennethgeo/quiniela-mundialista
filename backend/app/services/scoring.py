@@ -174,10 +174,13 @@ async def calculate_and_update_scores(supabase, match_id: int) -> dict:
             user_id = pred["user_id"]
             user_points_delta[user_id] = user_points_delta.get(user_id, 0) + delta
 
-    # 4. Guardar los nuevos puntos en la tabla predictions
-    if updates:
-        for chunk in [updates[i : i + 100] for i in range(0, len(updates), 100)]:
-            supabase.table("predictions").upsert(chunk).execute()
+    # 4. Guardar los nuevos puntos en la tabla predictions.
+    #    Se usa UPDATE por id (no upsert): el upsert parcial intentaba INSERTAR
+    #    filas sin user_id y violaba el NOT NULL, dejando los partidos sin puntuar.
+    for u in updates:
+        supabase.table("predictions").update(
+            {"points_earned": u["points_earned"]}
+        ).eq("id", u["id"]).execute()
 
     # 5. Actualizar el total de puntos en la tabla users
     updated_users = 0
