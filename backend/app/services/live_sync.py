@@ -90,6 +90,7 @@ async def sync_live_scores(supabase) -> dict:
     summary = {"updated": 0, "finished_calculated": 0}
     errors = []
     unmatched = []
+    flipped = []
 
     async def apply_update(db_match, status, home_goals, away_goals, minute):
         changed = (
@@ -158,6 +159,8 @@ async def sync_live_scores(supabase) -> dict:
                 home_goals, away_goals = api_home_score, api_away_score
             else:
                 home_goals, away_goals = api_away_score, api_home_score
+                if status != "pending":
+                    flipped.append(f"{db_match.get('home_team')} vs {db_match.get('away_team')}")
             await apply_update(
                 db_match,
                 status,
@@ -195,6 +198,7 @@ async def sync_live_scores(supabase) -> dict:
         "api_games": len(api_games),
         "updated": summary["updated"],
         "finished_calculated": summary["finished_calculated"],
+        "flipped": flipped,
         "unmatched": unmatched,
         "errors": errors,
     }
