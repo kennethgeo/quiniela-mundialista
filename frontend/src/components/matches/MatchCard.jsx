@@ -6,6 +6,24 @@ import { differenceInMinutes, differenceInSeconds } from 'date-fns'
 import { useNavigate } from 'react-router-dom'
 import GoalCounter from './GoalCounter'
 
+const flagSrc = (url, code) => url || `https://flagcdn.com/w80/${(code || 'xx').toLowerCase()}.png`
+
+// Componente a nivel de módulo (no se recrea en cada render → banderas no se recargan)
+function Team({ name, flag, code }) {
+  return (
+    <div className="min-w-0 flex flex-col items-center gap-2">
+      <img
+        src={flagSrc(flag, code)}
+        alt={name}
+        className="w-12 h-8 rounded object-cover ring-1 ring-black/5 dark:ring-white/10"
+        loading="lazy"
+        onError={(e) => { e.target.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg"/>' }}
+      />
+      <p className="text-[13px] font-semibold text-slate-800 dark:text-slate-100 truncate max-w-full leading-tight text-center">{name}</p>
+    </div>
+  )
+}
+
 export default function MatchCard({ match, prediction, onSavePrediction, isLoading, hasReachedLimit, powerupsUsed, powerupLimit }) {
   const navigate = useNavigate()
 
@@ -64,21 +82,6 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
     return 'text-slate-500 dark:text-slate-400 bg-slate-500/10 border-slate-500/20'
   }
 
-  const flagSrc = (url, code) => url || `https://flagcdn.com/w80/${(code || 'xx').toLowerCase()}.png`
-
-  const Team = ({ name, flag, code }) => (
-    <div className="min-w-0 flex flex-col items-center gap-2">
-      <img
-        src={flagSrc(flag, code)}
-        alt={name}
-        className="w-12 h-8 rounded object-cover ring-1 ring-black/5 dark:ring-white/10"
-        loading="lazy"
-        onError={(e) => { e.target.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg"/>' }}
-      />
-      <p className="text-[13px] font-semibold text-slate-800 dark:text-slate-100 truncate max-w-full leading-tight text-center">{name}</p>
-    </div>
-  )
-
   return (
     <motion.div
       initial={{ opacity: 0, y: 12 }}
@@ -90,12 +93,12 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
         <div className="flex items-center gap-2 min-w-0">
           <button
             onClick={(e) => { e.stopPropagation(); navigate(`/match/${match.id}`) }}
-            className="shrink-0 flex items-center gap-1 px-2 py-1 rounded-full text-slate-400 hover:text-accent hover:bg-accent/5 transition-colors text-[10px] font-semibold uppercase tracking-wide"
+            className="shrink-0 flex items-center gap-1 px-2 py-1 rounded-full text-slate-500 hover:text-accent hover:bg-accent/5 transition-colors text-[10px] font-semibold uppercase tracking-wide"
             title="Ver detalles y predicciones de la liga"
           >
             <Info size={12} /> Detalle
           </button>
-          <span className="text-[11px] font-medium text-slate-400 truncate">
+          <span className="text-[11px] font-medium text-slate-500 truncate">
             {match.group_name ? `Grupo ${match.group_name}` : match.phase.replace(/_/g, ' ')}
             {match.matchday && ` · J${match.matchday}`}
           </span>
@@ -107,9 +110,9 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
           ) : isInProgress ? (
             <span className="flex items-center gap-1 text-[10px] font-bold text-rose-500"><span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" /> EN VIVO</span>
           ) : isFinished ? (
-            <span className="flex items-center gap-1 text-[10px] font-medium text-slate-400"><Check size={11} /> Final</span>
+            <span className="flex items-center gap-1 text-[10px] font-semibold text-slate-500 dark:text-slate-400"><Check size={11} /> Final</span>
           ) : (
-            <span className="flex items-center gap-1 text-[10px] font-medium text-slate-400 tabular-nums"><Timer size={11} /> {countdown}</span>
+            <span className="flex items-center gap-1 text-[10px] font-medium text-slate-500 dark:text-slate-400 tabular-nums"><Timer size={11} /> {countdown}</span>
           )}
         </div>
       </div>
@@ -174,7 +177,7 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
                 key={team}
                 onClick={() => setPenaltiesWinner(team)}
                 className={`flex-1 py-2 px-3 text-xs font-semibold rounded-lg transition-colors truncate ${
-                  penaltiesWinner === team ? 'bg-accent text-white' : 'bg-white dark:bg-white/5 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/10'
+                  penaltiesWinner === team ? 'gradient-2026 text-white' : 'bg-white dark:bg-white/5 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/10'
                 }`}
               >
                 {team}
@@ -213,7 +216,7 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
             whileTap={{ scale: 0.97 }}
             onClick={handleSave}
             disabled={isLoading || (isKnockout && isTiePredicted && !penaltiesWinner)}
-            className="flex-1 py-3 px-4 rounded-xl bg-accent text-white font-bold text-sm hover:bg-accent-dark transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            className="flex-1 py-3 px-4 rounded-xl gradient-2026 text-white font-bold text-sm shadow-sm hover:opacity-95 transition disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:opacity-40"
           >
             {isLoading ? '...' : prediction ? 'Actualizar predicción' : 'Guardar predicción'}
           </motion.button>
