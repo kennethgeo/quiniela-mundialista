@@ -1,21 +1,24 @@
 """
-Motor de puntuación avanzado para la Quiniela Mundialista.
+Motor de puntuación de la Quiniela Mundialista.
 
-Evalúa predicciones comparándolas con el resultado real bajo las reglas:
-Modalidad A (Marcador):
-- Sin penales: 6 (Exacto), 4 (Ganador + 1 marcador), 3 (Solo Ganador), 1 (Falla ganador pero acierta 1 marcador). Empates: 6 (Exacto), 3 (No exacto).
-- Con penales: 9 (Empate exacto + penales), 6 (Empate exacto + falla penales o Empate no exacto + penales), 3 (Empate no exacto + falla penales), 0 (Exclusión si predijo ganador regular pero fue a penales).
+Reglas (Modalidad Marcador):
+- Marcador exacto (incluye empate exacto) → 3 pts.
+- Aciertas quién gana o que es empate, pero no el marcador → 1 pt.
+- Fallas el resultado (quién gana / empate) → 0 pts.
+- Penales: si predijiste un ganador pero el partido fue a penales (empate en
+  90'), 0 pts. Si predijiste empate y aciertas el ganador de penales, conservas
+  el punto; si lo fallas, 0.
 
-Modalidad B (Solo Ganador):
-- 3 Pts: Acierta ganador en 90 mins o acierta que hay empate.
-- 5 Pts: Acierta empate + acierta ganador de penales.
-- 0 Pts: Falla.
+Modalidad Solo_Ganador:
+- Aciertas el resultado → 1 pt; fallas → 0.
 
-Modificador Global:
-- x2 si use_powerup_x2 es True.
+Modificador: comodín x2 → duplica los puntos ganados (1→2, 3→6).
+
+Esta lógica es idéntica a la del frontend (lib/scoring.js).
 """
 
 from app.services.notifications import broadcast_push_to_users
+
 
 def evaluate_prediction(
     pred: dict,
@@ -24,96 +27,80 @@ def evaluate_prediction(
     goes_to_penalties: bool,
     penalties_winner_real: str
 ) -> int:
-    
+
     pred_type = pred.get("prediction_type", "Marcador")
     home_pred = pred.get("home_goals_pred")
     away_pred = pred.get("away_goals_pred")
     penalties_winner_pred = pred.get("penalties_winner_pred")
     use_powerup = pred.get("use_powerup_x2", False)
-    
-    # Determinar ganador real en tiempo regular
+
+    # Ganador real en tiempo regular
     if home_actual > away_actual:
         real_winner = "home"
     elif away_actual > home_actual:
         real_winner = "away"
     else:
         real_winner = "tie"
-        
+
     points = 0
-    
+
     if pred_type == "Marcador":
         if home_pred is None or away_pred is None:
-            return 0  # Invalida
-            
-        # Determinar ganador predicho en tiempo regular
+            return 0
+
         if home_pred > away_pred:
             pred_winner = "home"
         elif away_pred > home_pred:
             pred_winner = "away"
         else:
             pred_winner = "tie"
-            
-        # Regla de exclusión para penales
-        # Si predijo que alguien ganaba en 90min, pero el partido fue a penales (empate real)
+
+        # Predijo ganador pero el partido fue a penales (empate en 90') → falla
         if goes_to_penalties and pred_winner != "tie":
             points = 0
         else:
             if real_winner == "tie":
-                # Escenario de empate
                 if home_pred == home_actual and away_pred == away_actual:
-                    points = 6  # Empate exacto
+                    points = 3  # empate exacto
                 elif pred_winner == "tie":
-                    points = 3  # Empate no exacto
+                    points = 1  # acierta empate, no el marcador
                 else:
                     points = 0
-                    
-                # Evaluar penales si aplica y predijo empate (ya validado por regla exclusión)
+                # Si fue a penales y predijo empate, debe acertar el ganador de penales
                 if goes_to_penalties and pred_winner == "tie" and penalties_winner_pred and penalties_winner_real:
-                    if penalties_winner_pred == penalties_winner_real:
-                        points += 3
-            else:
-                # Escenario donde hay ganador en 90 mins (Sin penales)
-                if home_pred == home_actual and away_pred == away_actual:
-                    points = 6  # Marcador exacto
-                elif pred_winner == real_winner:
-                    if home_pred == home_actual or away_pred == away_actual:
-                        points = 4  # Ganador correcto + 1 marcador
-                    else:
-                        points = 3  # Solo ganador correcto
-                else:
-                    if home_pred == home_actual or away_pred == away_actual:
-                        points = 1  # Falla ganador pero acierta 1 marcador
-                    else:
+                    if penalties_winner_pred != penalties_winner_real:
                         points = 0
-                        
+            else:
+                if home_pred == home_actual and away_pred == away_actual:
+                    points = 3  # marcador exacto
+                elif pred_winner == real_winner:
+                    points = 1  # acierta el ganador, no el marcador
+                else:
+                    points = 0
+
     elif pred_type == "Solo_Ganador":
-        # En Solo_Ganador, los usuarios envían:
-        # home_goals_pred=1, away_goals_pred=0 para "Local"
-        # home_goals_pred=0, away_goals_pred=1 para "Visitante"
-        # home_goals_pred=0, away_goals_pred=0 para "Empate"
         pred_winner = "tie"
         if home_pred is not None and away_pred is not None:
-            if home_pred > away_pred: pred_winner = "home"
-            elif away_pred > home_pred: pred_winner = "away"
-            
+            if home_pred > away_pred:
+                pred_winner = "home"
+            elif away_pred > home_pred:
+                pred_winner = "away"
+
         if goes_to_penalties:
             if pred_winner == "tie":
                 if penalties_winner_pred and penalties_winner_real and penalties_winner_pred == penalties_winner_real:
-                    points = 5  # Acierta empate + penales
+                    points = 1
                 else:
-                    points = 3  # Solo acierta empate
-            else:
-                points = 0  # Falla
-        else:
-            if pred_winner == real_winner:
-                points = 3  # Acierta ganador en 90min (o empate si no hubo penales)
+                    points = 0
             else:
                 points = 0
+        else:
+            points = 1 if pred_winner == real_winner else 0
 
-    # Multiplicador Powerup
+    # Comodín x2: duplica los puntos ganados
     if use_powerup:
         points *= 2
-        
+
     return points
 
 
