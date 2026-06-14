@@ -25,10 +25,12 @@ const RulesPage = lazy(() => import('./pages/RulesPage'))
 
 import Sidebar from './components/ui/Sidebar'
 import GlobalChatDrawer from './components/chat/GlobalChatDrawer'
+import { useLiveSync } from './hooks/useLiveSync'
 
 // Layout principal que envuelve las rutas protegidas
 function MainLayout({ children }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+  useLiveSync()
 
   return (
     <div className="min-h-dvh flex bg-primary text-slate-900 dark:text-slate-200 bg-world-cup relative w-full">
