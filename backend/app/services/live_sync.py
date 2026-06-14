@@ -184,16 +184,15 @@ async def sync_live_scores(supabase) -> dict:
     """Ejecuta una pasada de sincronización y devuelve un resumen."""
     games, source = await _get_games()
 
-    matches = (
-        supabase.table("matches")
-        .select(
-            "id,phase,group_name,matchday,home_team,away_team,"
-            "status,home_goals_actual,away_goals_actual"
-        )
-        .execute()
-        .data
-        or []
+    base_cols = (
+        "id,phase,group_name,matchday,home_team,away_team,"
+        "status,home_goals_actual,away_goals_actual"
     )
+    try:
+        matches = supabase.table("matches").select(base_cols + ",events_json").execute().data or []
+    except Exception:
+        # La columna events_json puede no existir aún
+        matches = supabase.table("matches").select(base_cols).execute().data or []
 
     summary = {"updated": 0, "finished_calculated": 0}
     errors = []
@@ -206,6 +205,7 @@ async def sync_live_scores(supabase) -> dict:
             or db_match.get("home_goals_actual") != home_goals
             or db_match.get("away_goals_actual") != away_goals
             or status == "in_progress"  # refrescar el minuto/goles en vivo
+            or (events and not db_match.get("events_json"))  # rellenar goleadores faltantes
         )
         if not changed:
             return
