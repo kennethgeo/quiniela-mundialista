@@ -85,20 +85,24 @@ async def _fetch_espn_games():
                     if status == "in_progress":
                         minute = (ev["status"].get("displayClock") or "").strip() or None
 
-                    # Goleadores (lado relativo al local/visitante de ESPN)
+                    # Eventos (goles + tarjetas), lado relativo al local/visitante de ESPN
                     home_id = str(h["team"].get("id"))
                     events = []
                     for det in comp.get("details", []):
-                        if not det.get("scoringPlay"):
-                            continue
                         athletes = det.get("athletesInvolved") or []
-                        events.append({
+                        base = {
                             "side": "home" if str((det.get("team") or {}).get("id")) == home_id else "away",
                             "player": athletes[0].get("displayName") if athletes else None,
                             "minute": (det.get("clock") or {}).get("displayValue"),
-                            "penalty": bool(det.get("penaltyKick")),
-                            "own_goal": bool(det.get("ownGoal")),
-                        })
+                        }
+                        if det.get("scoringPlay"):
+                            events.append({**base, "type": "goal",
+                                           "penalty": bool(det.get("penaltyKick")),
+                                           "own_goal": bool(det.get("ownGoal"))})
+                        elif det.get("redCard"):
+                            events.append({**base, "type": "red"})
+                        elif det.get("yellowCard"):
+                            events.append({**base, "type": "yellow"})
 
                     games.append({
                         "home": _db_team(h["team"].get("displayName") or h["team"].get("name")),
@@ -207,7 +211,8 @@ async def sync_live_scores(supabase) -> dict:
             or db_match.get("home_goals_actual") != home_goals
             or db_match.get("away_goals_actual") != away_goals
             or status == "in_progress"  # refrescar el minuto/goles en vivo
-            or (events and not db_match.get("events_json"))  # rellenar goleadores faltantes
+            # rellenar/actualizar eventos cuando cambia su cantidad (goles, tarjetas)
+            or len(events) != len(db_match.get("events_json") or [])
         )
         if not changed:
             return
