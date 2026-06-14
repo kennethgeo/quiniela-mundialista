@@ -279,27 +279,32 @@ export default function MatchDetailPage() {
           className="glass-card p-5 max-w-4xl mx-auto"
         >
           <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2 mb-4">
-            <span className="text-base">⚽</span> Goles
+            <span className="text-base">⚽</span> Eventos
           </h3>
           <div className="grid grid-cols-2 gap-4">
             {['home', 'away'].map((side) => (
               <div key={side} className={`space-y-2 ${side === 'away' ? 'text-right' : ''}`}>
                 {match.events_json
                   .filter((e) => e.side === side)
-                  .map((e, i) => (
-                    <div
-                      key={i}
-                      className={`flex items-center gap-2 text-sm ${side === 'away' ? 'flex-row-reverse' : ''}`}
-                    >
-                      <span className="text-xs">⚽</span>
-                      <span className="font-medium text-slate-800 dark:text-slate-200 truncate">
-                        {e.player || 'Gol'}
-                      </span>
-                      {e.penalty && <span className="text-[9px] font-bold text-accent bg-accent/10 px-1.5 py-0.5 rounded">P</span>}
-                      {e.own_goal && <span className="text-[9px] font-bold text-rose-500 bg-rose-500/10 px-1.5 py-0.5 rounded">AG</span>}
-                      <span className="text-xs text-slate-500 tabular-nums shrink-0">{e.minute}</span>
-                    </div>
-                  ))}
+                  .map((e, i) => {
+                    const type = e.type || 'goal'
+                    return (
+                      <div
+                        key={i}
+                        className={`flex items-center gap-2 text-sm ${side === 'away' ? 'flex-row-reverse' : ''}`}
+                      >
+                        {type === 'goal'
+                          ? <span className="text-xs shrink-0">⚽</span>
+                          : <span className={`w-2.5 h-3.5 rounded-[2px] inline-block shrink-0 ${type === 'red' ? 'bg-rose-500' : 'bg-amber-400'}`} />}
+                        <span className="font-medium text-slate-800 dark:text-slate-200 truncate">
+                          {e.player || (type === 'goal' ? 'Gol' : '')}
+                        </span>
+                        {type === 'goal' && e.penalty && <span className="text-[9px] font-bold text-accent bg-accent/10 px-1.5 py-0.5 rounded">P</span>}
+                        {type === 'goal' && e.own_goal && <span className="text-[9px] font-bold text-rose-500 bg-rose-500/10 px-1.5 py-0.5 rounded">AG</span>}
+                        <span className="text-xs text-slate-500 tabular-nums shrink-0">{e.minute}</span>
+                      </div>
+                    )
+                  })}
               </div>
             ))}
           </div>

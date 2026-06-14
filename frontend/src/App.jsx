@@ -17,6 +17,7 @@ const DashboardPage = lazy(() => import('./pages/DashboardPage'))
 const MatchesPage = lazy(() => import('./pages/MatchesPage'))
 const BracketPage = lazy(() => import('./pages/BracketPage'))
 const LeaderboardPage = lazy(() => import('./pages/LeaderboardPage'))
+const TournamentPage = lazy(() => import('./pages/TournamentPage'))
 const ProfilePage = lazy(() => import('./pages/ProfilePage'))
 const AdminPage = lazy(() => import('./pages/AdminPage'))
 const MatchDetailPage = lazy(() => import('./pages/MatchDetailPage'))
@@ -118,6 +119,16 @@ function AppRoutes() {
           <ProtectedRoute>
             <MainLayout>
               <LeaderboardPage />
+            </MainLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/torneo"
+        element={
+          <ProtectedRoute>
+            <MainLayout>
+              <TournamentPage />
             </MainLayout>
           </ProtectedRoute>
         }
