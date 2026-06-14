@@ -82,6 +82,22 @@ async def _fetch_espn_games():
                     minute = None
                     if status == "in_progress":
                         minute = (ev["status"].get("displayClock") or "").strip() or None
+
+                    # Goleadores (lado relativo al local/visitante de ESPN)
+                    home_id = str(h["team"].get("id"))
+                    events = []
+                    for det in comp.get("details", []):
+                        if not det.get("scoringPlay"):
+                            continue
+                        athletes = det.get("athletesInvolved") or []
+                        events.append({
+                            "side": "home" if str((det.get("team") or {}).get("id")) == home_id else "away",
+                            "player": athletes[0].get("displayName") if athletes else None,
+                            "minute": (det.get("clock") or {}).get("displayValue"),
+                            "penalty": bool(det.get("penaltyKick")),
+                            "own_goal": bool(det.get("ownGoal")),
+                        })
+
                     games.append({
                         "home": _db_team(h["team"].get("displayName") or h["team"].get("name")),
                         "away": _db_team(a["team"].get("displayName") or a["team"].get("name")),
@@ -90,6 +106,7 @@ async def _fetch_espn_games():
                         "status": status,
                         "minute": minute,
                         "group": None,
+                        "events": events,
                     })
                 except Exception:
                     continue
@@ -123,6 +140,7 @@ async def _fetch_worldcup26_games():
             "status": status,
             "minute": None,  # worldcup26 no expone minuto real
             "group": g.get("group") if g.get("type") == "group" else None,
+            "events": [],
         })
     return games
 
@@ -182,12 +200,12 @@ async def sync_live_scores(supabase) -> dict:
     unmatched = []
     flipped = []
 
-    async def apply_update(db_match, status, home_goals, away_goals, minute):
+    async def apply_update(db_match, status, home_goals, away_goals, minute, events):
         changed = (
             db_match.get("status") != status
             or db_match.get("home_goals_actual") != home_goals
             or db_match.get("away_goals_actual") != away_goals
-            or status == "in_progress"  # refrescar el minuto en vivo
+            or status == "in_progress"  # refrescar el minuto/goles en vivo
         )
         if not changed:
             return
@@ -197,11 +215,14 @@ async def sync_live_scores(supabase) -> dict:
             "home_goals_actual": home_goals,
             "away_goals_actual": away_goals,
             "minute": minute,
+            "events_json": events,
         }
         try:
             supabase.table("matches").update(payload).eq("id", db_match["id"]).execute()
         except Exception:
-            payload.pop("minute", None)  # la columna 'minute' puede no existir aún
+            # Columnas opcionales (minute / events_json) pueden no existir aún
+            payload.pop("minute", None)
+            payload.pop("events_json", None)
             supabase.table("matches").update(payload).eq("id", db_match["id"]).execute()
 
         summary["updated"] += 1
@@ -218,13 +239,18 @@ async def sync_live_scores(supabase) -> dict:
             if not db_match:
                 unmatched.append(f"{game['home']} vs {game['away']}")
                 continue
-            # Asignar goles según la orientación local/visitante de la BD
+            events = game.get("events") or []
+            # Asignar goles/goleadores según la orientación local/visitante de la BD
             if db_match.get("home_team") == game["home"]:
                 home_goals, away_goals = game["home_score"], game["away_score"]
             else:
                 home_goals, away_goals = game["away_score"], game["home_score"]
                 flipped.append(f"{db_match.get('home_team')} vs {db_match.get('away_team')}")
-            await apply_update(db_match, game["status"], home_goals, away_goals, game["minute"])
+                events = [
+                    {**e, "side": ("away" if e.get("side") == "home" else "home")}
+                    for e in events
+                ]
+            await apply_update(db_match, game["status"], home_goals, away_goals, game["minute"], events)
         except Exception as exc:  # noqa: BLE001
             errors.append(str(exc))
 
