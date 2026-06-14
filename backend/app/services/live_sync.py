@@ -29,6 +29,11 @@ TEAM_ALIAS = {
     "Bosnia and Herzegovina": "Bosnia-Herzegovina",
     "Democratic Republic of the Congo": "DR Congo",
     "United States": "USA",
+    "Turkey": "Türkiye",
+    "Turkiye": "Türkiye",
+    "Curacao": "Curaçao",
+    "Ivory Coast": "Ivory Coast",
+    "South Korea": "South Korea",
 }
 
 
@@ -68,7 +73,8 @@ def _minute_of(api_game, status):
 
 async def sync_live_scores(supabase) -> dict:
     """Ejecuta una pasada de sincronización y devuelve un resumen."""
-    async with httpx.AsyncClient(timeout=15.0) as client:
+    # worldcup26 a veces responde lento (~20s); damos margen
+    async with httpx.AsyncClient(timeout=30.0) as client:
         response = await client.get(WORLDCUP_API_URL)
         response.raise_for_status()
         data = response.json()
