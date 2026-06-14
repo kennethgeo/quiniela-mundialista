@@ -62,7 +62,9 @@ async def _fetch_espn_games():
     """Partidos de hoy y ayer desde ESPN (rápido, con minuto real)."""
     games = []
     now = datetime.now(timezone.utc)
-    dates = [now - timedelta(days=1), now]  # ayer primero, hoy gana en el dedupe
+    # Ventana de los últimos 4 días (cubre en vivo + recién finalizados y rellena
+    # goleadores). Orden viejo->nuevo para que hoy gane en el dedupe.
+    dates = [now - timedelta(days=d) for d in range(3, -1, -1)]
     async with httpx.AsyncClient(timeout=15.0) as client:
         for dt in dates:
             try:
