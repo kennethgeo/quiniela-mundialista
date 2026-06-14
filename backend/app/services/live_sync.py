@@ -1,48 +1,52 @@
 """
-Sincronización de marcadores en vivo desde worldcup26.ir.
+Sincronización de marcadores en vivo.
 
-Usa la MISMA fuente y lógica de emparejamiento que el botón "Sincronizar API"
-del panel admin, para tener una única fuente de verdad consistente y afinada
-para el Mundial 2026:
-  - Grupos: se emparejan por grupo + jornada + equipo (con tabla de alias).
-  - Eliminatorias: se emparejan por orden de id.
+Fuente primaria: ESPN (rápida, con minuto real y nombres compatibles con la BD).
+Respaldo: worldcup26.ir (si ESPN falla o no devuelve nada).
 
-Realiza UNA pasada: actualiza status/marcador de los partidos en curso o
+Realiza UNA pasada: actualiza status/marcador/minuto de los partidos en curso o
 finalizados y, en la transición a 'finished', calcula los puntos reusando
-calculate_and_update_scores.
+calculate_and_update_scores (el motor de puntos NO se toca aquí).
 
-Notas de compatibilidad con el esquema:
-  - `status` solo admite ('pending','in_progress','finished'); los partidos que
-    aún no empiezan se quedan en 'pending' y no se tocan.
-  - No se escribe ninguna columna inexistente (p. ej. events_json).
+Notas de esquema:
+- `status` solo admite ('pending','in_progress','finished'); los partidos que
+  aún no empiezan NO se tocan.
+- El minuto se escribe en `matches.minute` de forma best-effort (tolera que la
+  columna no exista).
 """
+
+from datetime import datetime, timedelta, timezone
 
 import httpx
 
 from app.services.scoring import calculate_and_update_scores
 
+ESPN_URL = "https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard"
 WORLDCUP_API_URL = "https://worldcup26.ir/get/games"
 
-# Alias de nombres de la API -> nombres en nuestra BD (mismo mapa que el admin)
+# Alias de nombres de las fuentes -> nombres en la BD
 TEAM_ALIAS = {
     "Czech Republic": "Czechia",
     "Bosnia and Herzegovina": "Bosnia-Herzegovina",
+    "Bosnia & Herzegovina": "Bosnia-Herzegovina",
     "Democratic Republic of the Congo": "DR Congo",
+    "Congo DR": "DR Congo",
     "United States": "USA",
+    "Korea Republic": "South Korea",
     "Turkey": "Türkiye",
     "Turkiye": "Türkiye",
     "Curacao": "Curaçao",
-    "Ivory Coast": "Ivory Coast",
-    "South Korea": "South Korea",
+    "Cote d'Ivoire": "Ivory Coast",
+    "Côte d'Ivoire": "Ivory Coast",
 }
 
 
 def _db_team(name):
-    return TEAM_ALIAS.get(name, name)
+    n = (name or "").strip()
+    return TEAM_ALIAS.get(n, n)
 
 
 def _to_int(value):
-    """Convierte a int de forma segura; '' o None -> None."""
     if value is None or value == "":
         return None
     try:
@@ -51,37 +55,117 @@ def _to_int(value):
         return None
 
 
-def _map_status(api_game) -> str:
-    """Mapea el estado de worldcup26 al enum de matches."""
-    if api_game.get("finished") == "TRUE":
-        return "finished"
-    if api_game.get("time_elapsed") not in (None, "notstarted"):
-        return "in_progress"
-    return "pending"
+# ── Fuentes: devuelven una lista normalizada de "games" ──
+# game = {home, away, home_score, away_score, status, minute, group}
+
+async def _fetch_espn_games():
+    """Partidos de hoy y ayer desde ESPN (rápido, con minuto real)."""
+    games = []
+    now = datetime.now(timezone.utc)
+    dates = [now - timedelta(days=1), now]  # ayer primero, hoy gana en el dedupe
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        for dt in dates:
+            try:
+                resp = await client.get(ESPN_URL, params={"dates": dt.strftime("%Y%m%d")})
+                resp.raise_for_status()
+                data = resp.json()
+            except Exception:
+                continue
+            for ev in data.get("events", []):
+                try:
+                    comp = ev["competitions"][0]
+                    competitors = comp["competitors"]
+                    h = next(c for c in competitors if c.get("homeAway") == "home")
+                    a = next(c for c in competitors if c.get("homeAway") == "away")
+                    state = ev["status"]["type"]["state"]
+                    status = {"in": "in_progress", "post": "finished"}.get(state, "pending")
+                    minute = None
+                    if status == "in_progress":
+                        minute = (ev["status"].get("displayClock") or "").strip() or None
+                    games.append({
+                        "home": _db_team(h["team"].get("displayName") or h["team"].get("name")),
+                        "away": _db_team(a["team"].get("displayName") or a["team"].get("name")),
+                        "home_score": _to_int(h.get("score")),
+                        "away_score": _to_int(a.get("score")),
+                        "status": status,
+                        "minute": minute,
+                        "group": None,
+                    })
+                except Exception:
+                    continue
+    # Dedupe por par de equipos (hoy gana sobre ayer)
+    deduped = {}
+    for g in games:
+        deduped[frozenset((g["home"], g["away"]))] = g
+    return list(deduped.values())
 
 
-def _minute_of(api_game, status):
-    """Devuelve el reloj del partido (ej. '45') si está en vivo, si no None."""
-    if status != "in_progress":
+async def _fetch_worldcup26_games():
+    """Respaldo: todos los partidos desde worldcup26.ir (lento, sin minuto real)."""
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        resp = await client.get(WORLDCUP_API_URL)
+        resp.raise_for_status()
+        data = resp.json()
+
+    games = []
+    for g in data.get("games", []):
+        if g.get("finished") == "TRUE":
+            status = "finished"
+        elif g.get("time_elapsed") not in (None, "notstarted"):
+            status = "in_progress"
+        else:
+            status = "pending"
+        games.append({
+            "home": _db_team(g.get("home_team_name_en")),
+            "away": _db_team(g.get("away_team_name_en")),
+            "home_score": _to_int(g.get("home_score")),
+            "away_score": _to_int(g.get("away_score")),
+            "status": status,
+            "minute": None,  # worldcup26 no expone minuto real
+            "group": g.get("group") if g.get("type") == "group" else None,
+        })
+    return games
+
+
+async def _get_games():
+    """ESPN primero; si falla o no trae nada, worldcup26."""
+    try:
+        espn = await _fetch_espn_games()
+        if espn:
+            return espn, "espn"
+    except Exception:
+        pass
+    try:
+        return await _fetch_worldcup26_games(), "worldcup26"
+    except Exception:
+        return [], "none"
+
+
+def _find_db_match(matches, game):
+    """Empareja por el par de equipos; desempata por grupo o por no-finalizado."""
+    pair = frozenset((game["home"], game["away"]))
+    candidates = [
+        m for m in matches
+        if frozenset((m.get("home_team"), m.get("away_team"))) == pair
+    ]
+    if not candidates:
         return None
-    te = api_game.get("time_elapsed")
-    # worldcup26 a veces solo manda "live" (sin minuto real): no lo mostramos
-    if te in (None, "", "notstarted", "finished", "live"):
-        return None
-    return str(te)
+    if len(candidates) == 1:
+        return candidates[0]
+    if game.get("group"):
+        for m in candidates:
+            if m.get("group_name") == game["group"]:
+                return m
+    for m in candidates:
+        if m.get("status") != "finished":
+            return m
+    return candidates[0]
 
 
 async def sync_live_scores(supabase) -> dict:
     """Ejecuta una pasada de sincronización y devuelve un resumen."""
-    # worldcup26 a veces responde lento (~20s); damos margen
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        response = await client.get(WORLDCUP_API_URL)
-        response.raise_for_status()
-        data = response.json()
+    games, source = await _get_games()
 
-    api_games = data.get("games", [])
-
-    # Cargar todos los partidos de la BD una sola vez
     matches = (
         supabase.table("matches")
         .select(
@@ -103,105 +187,51 @@ async def sync_live_scores(supabase) -> dict:
             db_match.get("status") != status
             or db_match.get("home_goals_actual") != home_goals
             or db_match.get("away_goals_actual") != away_goals
-            or status == "in_progress"  # refrescar el minuto mientras está en vivo
+            or status == "in_progress"  # refrescar el minuto en vivo
         )
         if not changed:
             return
 
-        payload = {"status": status}
-        # Solo escribimos goles/minuto cuando el partido ya empezó
-        if status != "pending":
-            payload["home_goals_actual"] = home_goals
-            payload["away_goals_actual"] = away_goals
-            payload["minute"] = minute
-
+        payload = {
+            "status": status,
+            "home_goals_actual": home_goals,
+            "away_goals_actual": away_goals,
+            "minute": minute,
+        }
         try:
             supabase.table("matches").update(payload).eq("id", db_match["id"]).execute()
         except Exception:
-            # La columna 'minute' puede no existir aún: reintentar sin ella
-            payload.pop("minute", None)
+            payload.pop("minute", None)  # la columna 'minute' puede no existir aún
             supabase.table("matches").update(payload).eq("id", db_match["id"]).execute()
 
         summary["updated"] += 1
 
-        # Calcular puntos solo en la transición a 'finished'
         if status == "finished" and db_match.get("status") != "finished":
             await calculate_and_update_scores(supabase, db_match["id"])
             summary["finished_calculated"] += 1
 
-    # --- Grupos: emparejar por grupo + jornada + equipo ---
-    for game in api_games:
-        if game.get("type") != "group":
-            continue
+    for game in games:
+        if game["status"] == "pending":
+            continue  # no tocar los que no empezaron
         try:
-            api_home = _db_team(game.get("home_team_name_en"))
-            api_away = _db_team(game.get("away_team_name_en"))
-            api_pair = {api_home, api_away}
-            # Emparejar por grupo + el PAR de equipos (robusto: no depende de la
-            # jornada, que puede no coincidir con la de la fuente)
-            db_match = next(
-                (
-                    m
-                    for m in matches
-                    if m.get("phase") == "groups"
-                    and m.get("group_name") == game.get("group")
-                    and {m.get("home_team"), m.get("away_team")} == api_pair
-                ),
-                None,
-            )
+            db_match = _find_db_match(matches, game)
             if not db_match:
-                # Solo nos importan los que ya empezaron/terminaron (los notstarted
-                # no tienen nada que sincronizar)
-                if _map_status(game) != "pending":
-                    unmatched.append(f"{game.get('group')}: {api_home} vs {api_away}")
+                unmatched.append(f"{game['home']} vs {game['away']}")
                 continue
-            status = _map_status(game)
-            # Asignar los goles según la orientación local/visitante de NUESTRA BD,
-            # que puede estar invertida respecto a la fuente (p. ej. la fuente tiene
-            # a Qatar de local y nuestra BD a Suiza de local).
-            api_home_score = _to_int(game.get("home_score"))
-            api_away_score = _to_int(game.get("away_score"))
-            if db_match.get("home_team") == api_home:
-                home_goals, away_goals = api_home_score, api_away_score
+            # Asignar goles según la orientación local/visitante de la BD
+            if db_match.get("home_team") == game["home"]:
+                home_goals, away_goals = game["home_score"], game["away_score"]
             else:
-                home_goals, away_goals = api_away_score, api_home_score
-                if status != "pending":
-                    flipped.append(f"{db_match.get('home_team')} vs {db_match.get('away_team')}")
-            await apply_update(
-                db_match,
-                status,
-                home_goals,
-                away_goals,
-                _minute_of(game, status),
-            )
-        except Exception as exc:  # noqa: BLE001 - aislar fallos por partido
-            errors.append(str(exc))
-
-    # --- Eliminatorias: emparejar por orden de id ---
-    api_ko = sorted(
-        (g for g in api_games if g.get("type") != "group"),
-        key=lambda g: _to_int(g.get("id")) or 0,
-    )
-    db_ko = sorted(
-        (m for m in matches if m.get("phase") != "groups"),
-        key=lambda m: m.get("id") or 0,
-    )
-    for api_game, db_match in zip(api_ko, db_ko):
-        try:
-            status = _map_status(api_game)
-            await apply_update(
-                db_match,
-                status,
-                _to_int(api_game.get("home_score")),
-                _to_int(api_game.get("away_score")),
-                _minute_of(api_game, status),
-            )
+                home_goals, away_goals = game["away_score"], game["home_score"]
+                flipped.append(f"{db_match.get('home_team')} vs {db_match.get('away_team')}")
+            await apply_update(db_match, game["status"], home_goals, away_goals, game["minute"])
         except Exception as exc:  # noqa: BLE001
             errors.append(str(exc))
 
     return {
         "status": "ok",
-        "api_games": len(api_games),
+        "source": source,
+        "games": len(games),
         "updated": summary["updated"],
         "finished_calculated": summary["finished_calculated"],
         "flipped": flipped,
