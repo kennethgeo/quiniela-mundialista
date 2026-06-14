@@ -271,6 +271,41 @@ export default function MatchDetailPage() {
         </div>
       </motion.div>
 
+      {/* ── Goleadores ── */}
+      {Array.isArray(match.events_json) && match.events_json.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="glass-card p-5 max-w-4xl mx-auto"
+        >
+          <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2 mb-4">
+            <span className="text-base">⚽</span> Goles
+          </h3>
+          <div className="grid grid-cols-2 gap-4">
+            {['home', 'away'].map((side) => (
+              <div key={side} className={`space-y-2 ${side === 'away' ? 'text-right' : ''}`}>
+                {match.events_json
+                  .filter((e) => e.side === side)
+                  .map((e, i) => (
+                    <div
+                      key={i}
+                      className={`flex items-center gap-2 text-sm ${side === 'away' ? 'flex-row-reverse' : ''}`}
+                    >
+                      <span className="text-xs">⚽</span>
+                      <span className="font-medium text-slate-800 dark:text-slate-200 truncate">
+                        {e.player || 'Gol'}
+                      </span>
+                      {e.penalty && <span className="text-[9px] font-bold text-accent bg-accent/10 px-1.5 py-0.5 rounded">P</span>}
+                      {e.own_goal && <span className="text-[9px] font-bold text-rose-500 bg-rose-500/10 px-1.5 py-0.5 rounded">AG</span>}
+                      <span className="text-xs text-slate-500 tabular-nums shrink-0">{e.minute}</span>
+                    </div>
+                  ))}
+              </div>
+            ))}
+          </div>
+        </motion.div>
+      )}
+
       {/* ── Predicciones de la Liga ── */}
       <div className="space-y-4 max-w-4xl mx-auto">
         <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
