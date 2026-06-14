@@ -140,6 +140,25 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
         <Team name={match.away_team} flag={match.away_flag_url} code={match.away_team_code} />
       </div>
 
+      {/* Goleadores (resumen) */}
+      {(isFinished || isInProgress) && Array.isArray(match.events_json) && match.events_json.some((e) => (e.type || 'goal') === 'goal') && (
+        <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 max-w-md mx-auto mt-3 text-[11px] text-slate-500 dark:text-slate-400">
+          {['home', 'away'].map((side) => (
+            <div key={side} className={`space-y-0.5 ${side === 'away' ? 'text-right' : ''}`}>
+              {match.events_json
+                .filter((e) => e.side === side && (e.type || 'goal') === 'goal')
+                .map((e, i) => (
+                  <div key={i} className={`flex items-center gap-1 min-w-0 ${side === 'away' ? 'flex-row-reverse' : ''}`}>
+                    <span className="shrink-0 text-[10px]">⚽</span>
+                    <span className="truncate">{e.player || 'Gol'}</span>
+                    <span className="text-slate-400 tabular-nums shrink-0">{e.minute}</span>
+                  </div>
+                ))}
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Penales */}
       {(isFinished || isInProgress) && match.goes_to_penalties && (
         <p className="text-center text-[11px] font-semibold text-accent mt-3">
