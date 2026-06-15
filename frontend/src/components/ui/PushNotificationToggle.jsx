@@ -135,6 +135,14 @@ export default function PushNotificationToggle() {
           throw new Error('Permiso denegado para notificaciones')
         }
 
+        // Limpia cualquier suscripción previa (p.ej. con una llave VAPID vieja)
+        // para evitar InvalidStateError al suscribir con la llave actual.
+        const existing = await registration.pushManager.getSubscription()
+        if (existing) {
+          await existing.unsubscribe()
+          await supabase.from('push_subscriptions').delete().eq('endpoint', existing.endpoint)
+        }
+
         const subscription = await registration.pushManager.subscribe({
           userVisibleOnly: true,
           applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
