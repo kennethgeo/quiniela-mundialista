@@ -21,6 +21,38 @@ serve(async (req) => {
   try {
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
+    // Modo prueba: ?test=1 envía una notificación de prueba a todos los
+    // suscritos de inmediato, sin depender de la ventana de 45 min.
+    const isTest = new URL(req.url).searchParams.get('test') === '1'
+    if (isTest) {
+      const { data: subs } = await supabase.from('push_subscriptions').select('*')
+      const payload = JSON.stringify({
+        title: '🔔 Notificación de prueba',
+        body: 'Si ves esto, las notificaciones push funcionan correctamente. ¡Listo!',
+        url: '/'
+      })
+      let sent = 0
+      for (const sub of subs || []) {
+        try {
+          await webpush.sendNotification(
+            { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+            payload
+          )
+          sent++
+        } catch (err) {
+          if (err.statusCode === 404 || err.statusCode === 410) {
+            await supabase.from('push_subscriptions').delete().eq('id', sub.id)
+          } else {
+            console.error('Error sending test push', err)
+          }
+        }
+      }
+      return new Response(JSON.stringify({ test: true, sent }), {
+        headers: { 'Content-Type': 'application/json' },
+        status: 200,
+      })
+    }
+
     // Buscar partidos que empiecen en exactamente 45 minutos (se bloquean en 30)
     // Para no enviar duplicados, buscamos en una ventana de 5 minutos
     const now = new Date()
