@@ -1,14 +1,17 @@
 /* Página de partidos - Fase de Grupos / Finalizados */
 import { useState } from 'react'
 import { useLocation } from 'react-router-dom'
-import { Calendar, Trophy, CheckCircle2 } from 'lucide-react'
+import { Calendar, Trophy, CheckCircle2, Swords } from 'lucide-react'
 import { motion } from 'motion/react'
 import GroupStage from '../components/matches/GroupStage'
+import KnockoutStage from '../components/matches/KnockoutStage'
 import FinishedMatches from '../components/matches/FinishedMatches'
+
+const VALID_TABS = ['groups', 'knockout', 'finished']
 
 export default function MatchesPage() {
   const location = useLocation()
-  const [tab, setTab] = useState(location.state?.tab === 'finished' ? 'finished' : 'groups') // 'groups' | 'finished'
+  const [tab, setTab] = useState(VALID_TABS.includes(location.state?.tab) ? location.state.tab : 'groups') // 'groups' | 'knockout' | 'finished'
 
   return (
     <div className="px-4 py-5 relative">
@@ -51,6 +54,16 @@ export default function MatchesPage() {
           <Trophy size={15} /> Fase de Grupos
         </button>
         <button
+          onClick={() => setTab('knockout')}
+          className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold transition-all ${
+            tab === 'knockout'
+              ? 'bg-accent text-white shadow-lg shadow-accent/20'
+              : 'glass-strong text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 bg-white dark:bg-transparent'
+          }`}
+        >
+          <Swords size={15} /> Eliminatorias
+        </button>
+        <button
           onClick={() => setTab('finished')}
           className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold transition-all ${
             tab === 'finished'
@@ -62,7 +75,9 @@ export default function MatchesPage() {
         </button>
       </div>
 
-      {tab === 'groups' ? <GroupStage /> : <FinishedMatches />}
+      {tab === 'groups' && <GroupStage />}
+      {tab === 'knockout' && <KnockoutStage />}
+      {tab === 'finished' && <FinishedMatches />}
     </div>
   )
 }
