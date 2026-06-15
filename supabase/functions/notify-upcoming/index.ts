@@ -42,24 +42,15 @@ serve(async (req) => {
     let notificationsSent = 0
 
     for (const match of matches) {
-      // 1. Obtener todos los subs
+      // Notificar a TODOS los dispositivos suscritos
       const { data: subs, error: subError } = await supabase.from('push_subscriptions').select('*')
       if (subError || !subs) continue
 
-      // 2. Obtener usuarios que YA predijeron
-      const { data: preds } = await supabase
-        .from('predictions')
-        .select('user_id')
-        .eq('match_id', match.id)
-
-      const usersWithPrediction = new Set(preds?.map(p => p.user_id) || [])
-
-      // 3. Filtrar subs de usuarios que NO han predicho
-      const usersToNotify = subs.filter(sub => !usersWithPrediction.has(sub.user_id))
+      const usersToNotify = subs
 
       const payload = JSON.stringify({
         title: '⚽ ¡Faltan ~45 minutos!',
-        body: `${match.home_team} vs ${match.away_team} está por comenzar. Aún no has hecho tu predicción — ¡hazla antes de que se cierre!`,
+        body: `${match.home_team} vs ${match.away_team} está por comenzar. ¡Haz o revisa tu predicción antes de que se cierre!`,
         url: `/match/${match.id}`
       })
 
