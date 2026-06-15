@@ -5,8 +5,10 @@ import webpush from 'https://esm.sh/web-push@3.6.7'
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 
-// VAPID keys generadas
-const publicVapidKey = 'BOxKHJtWJMu5Ed5hbaJ9DrMtUzmLWJHWlsbIjlVF0Pjs_9nnOhoJytwI5SqsNCp84nEQpGDepTu3uyDmsSI5fFw'
+// VAPID keys. La pública DEBE coincidir con la del frontend
+// (PushNotificationToggle.jsx) y la privada (VAPID_PRIVATE_KEY, formato raw
+// base64url) debe ser su par. Si no coinciden, los navegadores rechazan el push.
+const publicVapidKey = 'BEZacx8-hHDBW6kekpy-K-ZBU4LRHttGOK32Bm5IsAGCkt_lhSGKaXpmhRJCQh3voZnWCHS7gv52_jCqkgP_4DQ'
 const privateVapidKey = Deno.env.get('VAPID_PRIVATE_KEY')!
 
 webpush.setVapidDetails(
@@ -56,8 +58,8 @@ serve(async (req) => {
       const usersToNotify = subs.filter(sub => !usersWithPrediction.has(sub.user_id))
 
       const payload = JSON.stringify({
-        title: '¡Partido a punto de bloquearse!',
-        body: `Faltan 30 min para que se bloqueen las predicciones del ${match.home_team} vs ${match.away_team}. ¡Haz tu predicción ahora!`,
+        title: '⚽ ¡Faltan ~45 minutos!',
+        body: `${match.home_team} vs ${match.away_team} está por comenzar. Aún no has hecho tu predicción — ¡hazla antes de que se cierre!`,
         url: `/match/${match.id}`
       })
 
