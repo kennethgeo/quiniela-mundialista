@@ -8,6 +8,7 @@ import GlobalSettingsAdmin from '../components/admin/GlobalSettingsAdmin'
 import BracketAdmin from '../components/admin/BracketAdmin'
 import PowerupsAdmin from '../components/admin/PowerupsAdmin'
 import TournamentPredictionsAdmin from '../components/admin/TournamentPredictionsAdmin'
+import ScoreReconcileAdmin from '../components/admin/ScoreReconcileAdmin'
 
 export default function AdminPage() {
   const [activeTab, setActiveTab] = useState('settings') // 'settings' or 'matches'
@@ -261,6 +262,7 @@ export default function AdminPage() {
         >
           <GlobalSettingsAdmin />
           <TournamentPredictionsAdmin />
+          <ScoreReconcileAdmin />
         </motion.div>
       )}
 
