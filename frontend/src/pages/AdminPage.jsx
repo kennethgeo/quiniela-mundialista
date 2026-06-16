@@ -9,6 +9,7 @@ import BracketAdmin from '../components/admin/BracketAdmin'
 import PowerupsAdmin from '../components/admin/PowerupsAdmin'
 import TournamentPredictionsAdmin from '../components/admin/TournamentPredictionsAdmin'
 import ScoreReconcileAdmin from '../components/admin/ScoreReconcileAdmin'
+import UserManagementAdmin from '../components/admin/UserManagementAdmin'
 
 export default function AdminPage() {
   const [activeTab, setActiveTab] = useState('settings') // 'settings' or 'matches'
@@ -244,12 +245,19 @@ export default function AdminPage() {
             Comodines (x2)
             {activeTab === 'powerups' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-accent rounded-t-full" />}
           </button>
-          <button 
+          <button
             onClick={() => setActiveTab('bracket')}
             className={`pb-3 text-sm font-bold transition-colors relative ${activeTab === 'bracket' ? 'text-accent' : 'text-slate-500 hover:text-slate-300'}`}
           >
             Bracket (Eliminatorias)
             {activeTab === 'bracket' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-accent rounded-t-full" />}
+          </button>
+          <button
+            onClick={() => setActiveTab('users')}
+            className={`pb-3 text-sm font-bold transition-colors relative ${activeTab === 'users' ? 'text-accent' : 'text-slate-500 hover:text-slate-300'}`}
+          >
+            Usuarios
+            {activeTab === 'users' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-accent rounded-t-full" />}
           </button>
         </div>
       </motion.div>
@@ -275,6 +283,12 @@ export default function AdminPage() {
       {activeTab === 'bracket' && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="relative z-10 pb-20">
           <BracketAdmin />
+        </motion.div>
+      )}
+
+      {activeTab === 'users' && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="relative z-10 pb-20 mt-4">
+          <UserManagementAdmin />
         </motion.div>
       )}
 
