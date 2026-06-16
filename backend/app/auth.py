@@ -31,37 +31,48 @@ async def get_current_user(
     """
     token = credentials.credentials
 
+    # 1) Verificación local rápida (HS256 con secreto compartido, proyectos legacy)
+    secret = (settings.SUPABASE_JWT_SECRET or "").strip()
+    if secret:
+        try:
+            payload = jwt.decode(
+                token,
+                secret,
+                algorithms=["HS256"],
+                audience="authenticated",
+            )
+            if payload.get("sub"):
+                return payload
+        except jwt.ExpiredSignatureError:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="El token ha expirado",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        except jwt.InvalidTokenError:
+            # Probablemente el token está firmado con llave asimétrica (ES256/RS256).
+            # Caemos al método por API, que valida sin importar el algoritmo.
+            pass
+
+    # 2) Fallback: validar contra el servidor de Auth de Supabase. Funciona con
+    #    llaves asimétricas (proyectos nuevos) y no depende del secreto compartido.
     try:
-        # Decodificar el JWT usando el secreto de Supabase
-        payload = jwt.decode(
-            token,
-            settings.SUPABASE_JWT_SECRET,
-            algorithms=["HS256"],
-            audience="authenticated",
-        )
-    except jwt.ExpiredSignatureError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="El token ha expirado",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    except jwt.InvalidTokenError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token inválido",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+        supabase = get_supabase()
+        res = supabase.auth.get_user(token)
+        user = getattr(res, "user", None)
+        if user and getattr(user, "id", None):
+            return {
+                "sub": user.id,
+                "email": getattr(user, "email", None),
+            }
+    except Exception:  # noqa: BLE001
+        pass
 
-    # Verificar que el payload contenga el campo 'sub' (ID del usuario)
-    user_id = payload.get("sub")
-    if not user_id:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token no contiene información del usuario",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-    return payload
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Token inválido o expirado",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
 
 
 async def require_admin(
