@@ -148,6 +148,66 @@ function evaluatePrediction(pred, home_actual, away_actual, goes_to_penalties, p
   return points
 }
 
+/**
+ * Reconcilia users.total_points con la suma autoritativa de puntos:
+ *   total_points = Σ(predictions.points_earned)
+ *                + Σ(tournament_predictions.champion_points + top_scorer_points)
+ *
+ * NO modifica points_earned ni las predicciones: solo corrige el agregado
+ * cacheado en users.total_points cuando la lógica de deltas lo descuadró.
+ * Con { apply: false } solo reporta; con { apply: true } aplica la corrección.
+ */
+export async function reconcileTotals({ apply = false } = {}) {
+  try {
+    const fetchAll = async (table, columns) => {
+      const rows = []
+      let from = 0
+      const page = 1000
+      // Paginación: Supabase devuelve máx. 1000 filas por consulta
+      while (true) {
+        const { data, error } = await supabase.from(table).select(columns).range(from, from + page - 1)
+        if (error) throw error
+        rows.push(...(data || []))
+        if (!data || data.length < page) break
+        from += page
+      }
+      return rows
+    }
+
+    const totals = {}
+    for (const p of await fetchAll('predictions', 'user_id, points_earned')) {
+      totals[p.user_id] = (totals[p.user_id] || 0) + (p.points_earned || 0)
+    }
+    for (const tp of await fetchAll('tournament_predictions', 'user_id, champion_points, top_scorer_points')) {
+      totals[tp.user_id] = (totals[tp.user_id] || 0) + (tp.champion_points || 0) + (tp.top_scorer_points || 0)
+    }
+
+    const users = await fetchAll('users', 'id, display_name, total_points')
+
+    const discrepancies = []
+    for (const u of users) {
+      const stored = u.total_points || 0
+      const computed = totals[u.id] || 0
+      if (stored !== computed) {
+        discrepancies.push({ user_id: u.id, display_name: u.display_name, stored, computed, diff: computed - stored })
+      }
+    }
+
+    let applied = 0
+    if (apply && discrepancies.length > 0) {
+      await Promise.all(
+        discrepancies.map((d) => supabase.from('users').update({ total_points: d.computed }).eq('id', d.user_id))
+      )
+      applied = discrepancies.length
+    }
+
+    return { status: 'ok', usersChecked: users.length, discrepancies, applied }
+  } catch (err) {
+    console.error('Reconcile error', err)
+    return { status: 'error', message: err.message }
+  }
+}
+
 export async function calculateTournamentPredictions() {
   try {
     const { data: settings, error: settingsError } = await supabase
