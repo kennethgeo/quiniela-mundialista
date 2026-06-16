@@ -36,18 +36,25 @@ export default function UserManagementAdmin() {
       const token = session?.access_token
       if (!token) throw new Error('Sesión no válida, vuelve a iniciar sesión')
 
+      const controller = new AbortController()
+      const timer = setTimeout(() => controller.abort(), 30000)
       const res = await fetch('/_backend/api/admin/delete-user', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ user_id: u.id }),
+        signal: controller.signal,
       })
+      clearTimeout(timer)
       const body = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(body.detail || `Error ${res.status}`)
 
       setUsers((prev) => prev.filter((x) => x.id !== u.id))
       setMessage({ type: 'ok', text: `Usuario "${name}" eliminado.` })
+      alert(`✅ Usuario "${name}" eliminado correctamente.`)
     } catch (err) {
-      setMessage({ type: 'error', text: err.message })
+      const text = err.name === 'AbortError' ? 'La solicitud tardó demasiado (timeout).' : err.message
+      setMessage({ type: 'error', text })
+      alert(`❌ No se pudo borrar: ${text}`)
     } finally {
       setDeletingId(null)
     }
