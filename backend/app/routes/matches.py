@@ -49,6 +49,92 @@ async def recalc_scores(authorization: Optional[str] = Header(default=None)):
     }
 
 
+@router.post("/reconcile-totals")
+async def reconcile_totals(
+    authorization: Optional[str] = Header(default=None),
+    dry_run: bool = Query(default=True),
+):
+    """Reconcilia users.total_points con la suma autoritativa de puntos.
+
+        total_points = Σ(predictions.points_earned)
+                     + Σ(tournament_predictions.champion_points + top_scorer_points)
+
+    Corrige el descuadre que provoca la lógica de deltas (fallos de red,
+    ejecuciones concurrentes, etc.). NO modifica points_earned ni las
+    predicciones: solo recalcula el agregado cacheado en users.total_points.
+
+    Por defecto es dry_run (solo reporta). Pasa ?dry_run=false para aplicar.
+    Protegido con CRON_SECRET.
+    """
+    expected = settings.CRON_SECRET
+    if not expected:
+        raise HTTPException(status_code=503, detail="CRON_SECRET no configurado")
+    if authorization != f"Bearer {expected}":
+        raise HTTPException(status_code=401, detail="No autorizado")
+
+    supabase = get_supabase()
+
+    def fetch_all(table: str, columns: str):
+        rows = []
+        start = 0
+        page = 1000
+        while True:
+            chunk = (
+                supabase.table(table)
+                .select(columns)
+                .range(start, start + page - 1)
+                .execute()
+                .data
+                or []
+            )
+            rows.extend(chunk)
+            if len(chunk) < page:
+                break
+            start += page
+        return rows
+
+    # Suma autoritativa por usuario
+    totals: dict = {}
+    for p in fetch_all("predictions", "user_id, points_earned"):
+        uid = p["user_id"]
+        totals[uid] = totals.get(uid, 0) + (p.get("points_earned") or 0)
+
+    for tp in fetch_all("tournament_predictions", "user_id, champion_points, top_scorer_points"):
+        uid = tp["user_id"]
+        totals[uid] = totals.get(uid, 0) + (tp.get("champion_points") or 0) + (tp.get("top_scorer_points") or 0)
+
+    users = fetch_all("users", "id, display_name, total_points")
+
+    discrepancies = []
+    for u in users:
+        uid = u["id"]
+        stored = u.get("total_points") or 0
+        computed = totals.get(uid, 0)
+        if stored != computed:
+            discrepancies.append({
+                "user_id": uid,
+                "display_name": u.get("display_name"),
+                "stored": stored,
+                "computed": computed,
+                "diff": computed - stored,
+            })
+
+    applied = 0
+    if not dry_run:
+        for d in discrepancies:
+            supabase.table("users").update({"total_points": d["computed"]}).eq("id", d["user_id"]).execute()
+            applied += 1
+
+    return {
+        "status": "ok",
+        "dry_run": dry_run,
+        "users_checked": len(users),
+        "discrepancies": len(discrepancies),
+        "applied": applied,
+        "details": discrepancies,
+    }
+
+
 @router.post("/sync-live")
 async def sync_live(authorization: Optional[str] = Header(default=None)):
     """Sincroniza marcadores en vivo desde worldcup26.ir. Protegido con CRON_SECRET.
