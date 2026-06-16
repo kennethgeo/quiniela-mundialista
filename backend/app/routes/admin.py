@@ -1,6 +1,6 @@
 """Rutas administrativas para gestionar resultados y puntuación."""
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Body, Depends, HTTPException
 
 from app.auth import require_admin
 from app.models import MatchResultUpdate, MatchStatusUpdate
@@ -65,4 +65,53 @@ async def set_match_status(
 
     return {
         "message": f"Estado del partido actualizado a '{payload.status}'"
+    }
+
+
+@router.post("/delete-user")
+async def delete_user(
+    user_id: str = Body(..., embed=True),
+    admin: dict = Depends(require_admin),
+):
+    """Elimina por completo a un usuario y todos sus datos.
+
+    Borra al usuario de Supabase Auth, lo que elimina en cascada su fila en
+    public.users y todo lo dependiente (predicciones, predicciones de torneo,
+    membresías de liga, suscripciones push, chat, etc.).
+
+    Guardas:
+    - Un admin no puede borrarse a sí mismo.
+    - Solo accesible para usuarios con is_admin = true.
+    """
+    if not user_id:
+        raise HTTPException(status_code=400, detail="user_id requerido")
+    if user_id == admin.get("sub"):
+        raise HTTPException(status_code=400, detail="No puedes borrarte a ti mismo")
+
+    supabase = get_supabase()
+
+    # Nombre para el mensaje de confirmación (best-effort)
+    display_name = None
+    try:
+        info = supabase.table("users").select("display_name").eq("id", user_id).single().execute()
+        display_name = (info.data or {}).get("display_name")
+    except Exception:  # noqa: BLE001
+        pass
+
+    # Borrar de Auth → cascada a public.users y dependientes
+    deleted_via = "auth"
+    try:
+        supabase.auth.admin.delete_user(user_id)
+    except Exception:  # noqa: BLE001 - p.ej. el usuario ya no existe en Auth
+        # Respaldo: borrar la fila de public.users (también cascada)
+        res = supabase.table("users").delete().eq("id", user_id).execute()
+        if not res.data:
+            raise HTTPException(status_code=404, detail="Usuario no encontrado")
+        deleted_via = "users_table"
+
+    return {
+        "status": "ok",
+        "deleted": user_id,
+        "display_name": display_name,
+        "via": deleted_via,
     }
