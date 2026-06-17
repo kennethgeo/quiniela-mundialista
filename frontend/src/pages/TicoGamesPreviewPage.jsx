@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
+import { useTheme } from '../contexts/ThemeContext'
 
 /**
  * MOCKUP — "Tico Games" (estilo arcade 8-bit)
@@ -41,13 +42,15 @@ const TABS = [
 
 export default function TicoGamesPreviewPage() {
   const { profile } = useAuth()
+  const { theme } = useTheme()
   const [tab, setTab] = useState('hub')
+  const [mode, setMode] = useState(theme === 'dark' ? 'dark' : 'light')
 
   // Defensa en profundidad: solo admin
   if (profile && !profile.is_admin) return <Navigate to="/" replace />
 
   return (
-    <div className="tg-root">
+    <div className={`tg-root tg-${mode}`}>
       <style>{TG_CSS}</style>
 
       {/* Aviso de preview */}
@@ -59,7 +62,16 @@ export default function TicoGamesPreviewPage() {
           <span className="tg-logo-mark">▶</span>
           <span className="tg-logo-text">TICO&nbsp;GAMES</span>
         </div>
-        <div className="tg-coins">🪙 84</div>
+        <div className="tg-header-right">
+          <button
+            className="tg-toggle"
+            onClick={() => setMode(m => (m === 'dark' ? 'light' : 'dark'))}
+            title="Alternar claro/oscuro"
+          >
+            {mode === 'dark' ? '☀ CLARO' : '☾ OSCURO'}
+          </button>
+          <div className="tg-coins">🪙 84</div>
+        </div>
       </header>
 
       {/* Tabs */}
@@ -282,10 +294,18 @@ const TG_CSS = `
   font-size: 16px; letter-spacing: 1px;
   text-shadow: 3px 3px 0 var(--tg-magenta), 6px 6px 0 rgba(0,0,0,.4);
 }
+.tg-header-right { display: flex; align-items: center; gap: 8px; }
 .tg-coins {
   font-size: 10px; background: rgba(0,0,0,.35);
   border: 2px solid var(--tg-orange); padding: 6px 8px;
 }
+.tg-toggle {
+  font-family: inherit; font-size: 7px; cursor: pointer; letter-spacing: .5px;
+  color: var(--tg-ink); background: var(--tg-lime);
+  border: 2px solid var(--tg-ink); box-shadow: 2px 2px 0 var(--tg-ink);
+  padding: 7px 8px; transition: transform .05s;
+}
+.tg-toggle:active { transform: translate(2px,2px); box-shadow: none; }
 
 .tg-tabs {
   display: flex; gap: 6px; padding: 0 16px 12px; flex-wrap: wrap;
@@ -449,4 +469,29 @@ const TG_CSS = `
   .tg-logo-text { font-size: 13px; }
   .tg-stat-num { font-size: 18px; }
 }
+
+/* ===== MODO CLARO ===== */
+.tg-root.tg-light {
+  color: var(--tg-ink);
+  background: linear-gradient(180deg, #f3ecff 0%, #e7dcff 100%);
+}
+.tg-root.tg-light::before {
+  background-image:
+    linear-gradient(rgba(0,0,0,.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,0,0,.05) 1px, transparent 1px);
+}
+.tg-light .tg-logo-text {
+  color: var(--tg-ink);
+  text-shadow: 3px 3px 0 var(--tg-magenta), 5px 5px 0 rgba(0,0,0,.15);
+}
+.tg-light .tg-coins {
+  background: #fff; color: var(--tg-ink);
+}
+.tg-light .tg-tab {
+  color: var(--tg-ink); background: #fff;
+}
+.tg-light .tg-tab.is-active { color: #fff; background: var(--tg-magenta); }
+.tg-light .tg-greet { color: var(--tg-ink); }
+.tg-light .tg-greet b { color: var(--tg-magenta); }
+/* Las ventanas, marcadores y tablas ya son claras: se ven igual en ambos modos */
 `
