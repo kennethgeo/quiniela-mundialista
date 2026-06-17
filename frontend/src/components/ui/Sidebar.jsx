@@ -1,5 +1,5 @@
 import { NavLink, useNavigate } from 'react-router-dom'
-import { Home, Calendar, GitBranch, Trophy, Star, X, ShieldAlert, Moon, Sun, LogOut, User, BookOpen, BarChart3 } from 'lucide-react'
+import { Home, Calendar, GitBranch, Trophy, Star, X, ShieldAlert, Moon, Sun, LogOut, User, BookOpen, BarChart3, Gamepad2 } from 'lucide-react'
 import { motion, AnimatePresence } from 'motion/react'
 import { useAuth } from '../../hooks/useAuth'
 import { useTheme } from '../../contexts/ThemeContext'
@@ -100,6 +100,34 @@ export default function Sidebar({ isOpen, onClose }) {
                   )}
                 </NavLink>
               ))}
+
+              {profile?.is_admin && (
+                <NavLink
+                  to="/preview-tico"
+                  className="block mt-4"
+                  onClick={onClose}
+                >
+                  {({ isActive }) => (
+                    <motion.div
+                      whileHover={{ x: 4 }}
+                      whileTap={{ scale: 0.98 }}
+                      className={`flex items-center gap-3.5 px-4 py-3 rounded-2xl transition-all duration-300 ${
+                        isActive
+                          ? 'bg-fuchsia-500/20 text-fuchsia-400 shadow-[0_4px_24px_rgba(217,70,239,0.15)] border border-fuchsia-500/30'
+                          : 'text-fuchsia-500/70 hover:text-fuchsia-400 hover:bg-fuchsia-500/10 border border-transparent'
+                      }`}
+                    >
+                      <div className="relative">
+                        <Gamepad2 size={20} strokeWidth={isActive ? 2.5 : 2} />
+                        {isActive && <div className="absolute inset-0 bg-fuchsia-500/20 blur-md rounded-full" />}
+                      </div>
+                      <span className={`text-sm font-semibold ${isActive ? 'text-fuchsia-400' : ''}`}>
+                        Preview Tico Games
+                      </span>
+                    </motion.div>
+                  )}
+                </NavLink>
+              )}
 
               {profile?.is_admin && (
                 <NavLink
