@@ -4,6 +4,7 @@ import { motion } from 'motion/react'
 import { Trophy, Crown, Medal, Zap } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
+import { sortLeaderboard, compareLeaderboard } from '../../lib/leaderboard'
 import LeaderboardRow from './LeaderboardRow'
 import LoadingSpinner from '../ui/LoadingSpinner'
 
@@ -121,10 +122,11 @@ export default function Leaderboard() {
         const { data, error } = await supabase
           .from('user_badges_view')
           .select('*')
-          .order('total_points', { ascending: false })
 
         if (error) throw error
-        setEntries(data || [])
+        // Orden oficial con desempate (puntos → exactos → correctos → goles del
+        // goleador → campeón → antigüedad). Ver lib/leaderboard.js.
+        setEntries(sortLeaderboard(data))
       } catch (err) {
         console.error('Error cargando ranking:', err)
       } finally {
@@ -157,8 +159,8 @@ export default function Leaderboard() {
                 : entry
             )
 
-            // Reordenar por puntos (descendente)
-            return updated.sort((a, b) => b.total_points - a.total_points)
+            // Reordenar con el mismo desempate oficial que la carga inicial.
+            return updated.sort(compareLeaderboard)
           })
         }
       )
