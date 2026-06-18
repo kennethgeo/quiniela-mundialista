@@ -169,17 +169,11 @@ async def calculate_and_update_scores(supabase, match_id: int) -> dict:
             {"points_earned": u["points_earned"]}
         ).eq("id", u["id"]).execute()
 
-    # 5. Actualizar el total de puntos en la tabla users
-    updated_users = 0
-    for user_id, delta in user_points_delta.items():
-        if delta != 0:
-            user_res = (
-                supabase.table("users").select("total_points").eq("id", user_id).single().execute()
-            )
-            if user_res.data:
-                current_total = user_res.data.get("total_points") or 0
-                supabase.table("users").update({"total_points": current_total + delta}).eq("id", user_id).execute()
-                updated_users += 1
+    # 5. users.total_points lo mantiene SOLA la base de datos (trigger
+    #    recompute_user_total). Ya no lo tocamos aquí con deltas: ese patrón
+    #    (leer-sumar-escribir) se pisaba con el sync del frontend bajo
+    #    concurrencia ("lost update") y descuadraba los totales.
+    updated_users = sum(1 for d in user_points_delta.values() if d != 0)
 
     # 6. Enviar notificaciones push a los usuarios que ganaron puntos
     users_with_positive_delta = [u for u, d in user_points_delta.items() if d > 0]
