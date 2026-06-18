@@ -48,37 +48,20 @@ export async function calculateAndUpdateScores(matchId) {
       }
     }
 
-    // 4. Guardar nuevos puntos en predicciones
+    // 4. Guardar nuevos puntos en predicciones.
+    //    users.total_points lo mantiene SOLO la base de datos (trigger
+    //    recompute_user_total). No lo tocamos aquí con deltas: ese patrón
+    //    (leer-sumar-escribir) causaba "lost updates" bajo concurrencia.
     if (updates.length > 0) {
       await Promise.all(
-        updates.map(u => 
+        updates.map(u =>
           supabase.from('predictions').update({ points_earned: u.points_earned }).eq('id', u.id)
         )
       )
     }
 
-    // 5. Actualizar usuarios
-    let updatedUsers = 0
-    for (const [userId, delta] of Object.entries(userPointsDelta)) {
-      if (delta !== 0) {
-        const { data: userRes } = await supabase
-          .from('users')
-          .select('total_points')
-          .eq('id', userId)
-          .single()
-        
-        if (userRes) {
-          const currentTotal = userRes.total_points || 0
-          await supabase
-            .from('users')
-            .update({ total_points: currentTotal + delta })
-            .eq('id', userId)
-          updatedUsers++
-        }
-      }
-    }
-
-    return { status: 'ok', updatedPredictions: updates.length, updatedUsers }
+    const affectedUsers = Object.keys(userPointsDelta).length
+    return { status: 'ok', updatedPredictions: updates.length, updatedUsers: affectedUsers }
   } catch (err) {
     console.error('Scoring error', err)
     return { status: 'error', message: err.message }
@@ -269,36 +252,18 @@ export async function calculateTournamentPredictions() {
 
     if (updates.length > 0) {
       await Promise.all(
-        updates.map(u => 
-          supabase.from('tournament_predictions').update({ 
+        updates.map(u =>
+          supabase.from('tournament_predictions').update({
             champion_points: u.champion_points,
-            top_scorer_points: u.top_scorer_points 
+            top_scorer_points: u.top_scorer_points
           }).eq('id', u.id)
         )
       )
     }
 
-    let updatedUsers = 0
-    for (const [userId, delta] of Object.entries(userPointsDelta)) {
-      if (delta !== 0) {
-        const { data: userRes } = await supabase
-          .from('users')
-          .select('total_points')
-          .eq('id', userId)
-          .single()
-        
-        if (userRes) {
-          const currentTotal = userRes.total_points || 0
-          await supabase
-            .from('users')
-            .update({ total_points: currentTotal + delta })
-            .eq('id', userId)
-          updatedUsers++
-        }
-      }
-    }
-
-    return { status: 'ok', updatedPredictions: updates.length, updatedUsers }
+    // users.total_points lo recalcula la base de datos (trigger). No usamos deltas.
+    const affectedUsers = Object.keys(userPointsDelta).length
+    return { status: 'ok', updatedPredictions: updates.length, updatedUsers: affectedUsers }
   } catch (err) {
     console.error('Tournament Scoring error', err)
     return { status: 'error', message: err.message }
