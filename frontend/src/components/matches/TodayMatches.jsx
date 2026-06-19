@@ -78,7 +78,12 @@ export default function TodayMatches() {
 
   if (lm || lp || ll) return <LoadingSpinner />
 
-  const resolved = resolveKnockoutTeams(allMatches)
+  // OJO: resolveKnockoutTeams SOLO devuelve los partidos de eliminatoria (con
+  // sus equipos resueltos). Hay que volver a unir los de grupos, o la lista se
+  // queda vacía durante toda la fase de grupos.
+  const resolvedKnockouts = resolveKnockoutTeams(allMatches)
+  const koById = new Map(resolvedKnockouts.map((m) => [m.id, m]))
+  const resolved = allMatches.map((m) => koById.get(m.id) || m)
 
   // Recalcular la jornada de cada partido de grupos (igual que GroupStage) para
   // que la llave de límite de comodín (phase_matchday) sea correcta.
