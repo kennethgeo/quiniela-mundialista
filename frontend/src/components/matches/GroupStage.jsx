@@ -1,5 +1,5 @@
 /* Vista de fase de grupos con filtro por grupo */
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
@@ -15,6 +15,9 @@ export default function GroupStage() {
   const { profile } = useAuth()
   const [selectedGroup, setSelectedGroup] = useState('Todos')
   const [selectedMatchday, setSelectedMatchday] = useState(1)
+  // Solo auto-seleccionamos la jornada actual una vez (al cargar). Después
+  // respetamos lo que elija el usuario.
+  const didAutoSelectMatchday = useRef(false)
   const queryClient = useQueryClient()
 
   // 1. Fetch Matches
@@ -79,6 +82,22 @@ export default function GroupStage() {
   
   // Volver a ordenar cronológicamente todo junto
   const sortedMatches = fixedMatches.sort((a, b) => new Date(a.kickoff_at) - new Date(b.kickoff_at))
+
+  // Jornada "actual": la primera (menor) que todavía tiene partidos sin jugar.
+  // Si ya terminaron todas, usamos la última (3). Sirve para que al entrar
+  // caigamos en lo próximo y no en partidos viejos.
+  const upcoming = sortedMatches.filter((m) => m.status !== 'finished')
+  const currentMatchday = upcoming.length
+    ? Math.min(...upcoming.map((m) => m.matchday))
+    : 3
+
+  // Al cargar, posicionar el filtro en la jornada actual (una sola vez).
+  useEffect(() => {
+    if (!didAutoSelectMatchday.current && sortedMatches.length > 0) {
+      didAutoSelectMatchday.current = true
+      setSelectedMatchday(currentMatchday)
+    }
+  }, [sortedMatches.length, currentMatchday])
 
   // Conteo de comodines x2 usados por fase/jornada en TODOS los partidos
   // (no solo los del filtro actual), para no superar el límite al filtrar por grupo

@@ -108,6 +108,17 @@ export default function KnockoutStage() {
       .sort((a, b) => new Date(a.kickoff_at) - new Date(b.kickoff_at)),
   })).filter((p) => p.matches.length > 0)
 
+  // Mostrar primero las fases en curso/próximas (por su partido sin jugar más
+  // cercano) y mandar al fondo las ya terminadas, para no caer siempre en lo
+  // viejo. El orden natural (32 → Final) se preserva entre fases del mismo tipo.
+  const phaseSortKey = (phase) => {
+    const upcoming = phase.matches.filter((m) => m.status !== 'finished')
+    // Centinela finito (no Infinity) para no producir NaN al restar en el sort.
+    if (upcoming.length === 0) return Number.MAX_SAFE_INTEGER // fase terminada: al final
+    return Math.min(...upcoming.map((m) => new Date(m.kickoff_at).getTime()))
+  }
+  phases.sort((a, b) => phaseSortKey(a) - phaseSortKey(b))
+
   if (phases.length === 0) {
     return (
       <div className="glass-card p-8 text-center">
