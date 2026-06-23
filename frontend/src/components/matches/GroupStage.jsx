@@ -3,6 +3,8 @@ import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
+import { useToast } from '../ui/Toast'
+import { friendlySaveError } from '../../lib/saveError'
 import MatchList from './MatchList'
 import LoadingSpinner from '../ui/LoadingSpinner'
 import GroupStandings from './GroupStandings'
@@ -13,6 +15,7 @@ const MATCHDAYS = ['Todas', 1, 2, 3]
 
 export default function GroupStage() {
   const { profile } = useAuth()
+  const { showToast } = useToast()
   const [selectedGroup, setSelectedGroup] = useState('Todos')
   const [selectedMatchday, setSelectedMatchday] = useState(1)
   // Solo auto-seleccionamos la jornada actual una vez (al cargar). Después
@@ -140,7 +143,8 @@ export default function GroupStage() {
         }
         return [...old, newPrediction]
       })
-    }
+    },
+    onError: (err) => showToast(friendlySaveError(err), 'error', 6000)
   })
 
   const handleSavePrediction = async (prediction) => {

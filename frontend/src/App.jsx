@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ThemeProvider } from './contexts/ThemeContext'
 import { SettingsProvider } from './contexts/SettingsContext'
 import { AuthProvider } from './contexts/AuthContext'
+import { ToastProvider } from './components/ui/Toast'
 import { useAuth } from './hooks/useAuth'
 import Navbar from './components/ui/Navbar'
 import BottomNav from './components/ui/BottomNav'
@@ -201,8 +202,10 @@ export default function App() {
         <ThemeProvider>
           <SettingsProvider>
             <AuthProvider>
-              <InstallPrompt />
-              <AppRoutes />
+              <ToastProvider>
+                <InstallPrompt />
+                <AppRoutes />
+              </ToastProvider>
             </AuthProvider>
           </SettingsProvider>
         </ThemeProvider>

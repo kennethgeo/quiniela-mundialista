@@ -4,6 +4,8 @@ import { Lock } from 'lucide-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
+import { useToast } from '../ui/Toast'
+import { friendlySaveError } from '../../lib/saveError'
 import { resolveKnockoutTeams } from '../../lib/bracketResolver'
 import MatchCard from './MatchCard'
 import LoadingSpinner from '../ui/LoadingSpinner'
@@ -37,6 +39,7 @@ function LockedKnockoutCard({ phaseDoneHint }) {
 
 export default function KnockoutStage() {
   const { profile } = useAuth()
+  const { showToast } = useToast()
   const queryClient = useQueryClient()
 
   const { data: allMatches = [], isLoading: lm } = useQuery({
@@ -88,6 +91,7 @@ export default function KnockoutStage() {
         return [...old, newPred]
       })
     },
+    onError: (err) => showToast(friendlySaveError(err), 'error', 6000),
   })
 
   if (lm || lp || ll) return <LoadingSpinner />

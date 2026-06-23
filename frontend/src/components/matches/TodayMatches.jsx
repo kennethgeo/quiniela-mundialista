@@ -6,6 +6,8 @@ import { motion } from 'motion/react'
 import { CalendarDays } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
+import { useToast } from '../ui/Toast'
+import { friendlySaveError } from '../../lib/saveError'
 import { resolveKnockoutTeams } from '../../lib/bracketResolver'
 import MatchList from './MatchList'
 import LoadingSpinner from '../ui/LoadingSpinner'
@@ -23,6 +25,7 @@ const addDays = (d, n) => {
 
 export default function TodayMatches() {
   const { profile } = useAuth()
+  const { showToast } = useToast()
   const queryClient = useQueryClient()
 
   const { data: allMatches = [], isLoading: lm } = useQuery({
@@ -74,6 +77,7 @@ export default function TodayMatches() {
         return [...old, newPred]
       })
     },
+    onError: (err) => showToast(friendlySaveError(err), 'error', 6000),
   })
 
   if (lm || lp || ll) return <LoadingSpinner />
