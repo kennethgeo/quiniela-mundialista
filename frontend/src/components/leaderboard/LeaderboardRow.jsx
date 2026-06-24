@@ -16,6 +16,8 @@ const medalBg = {
 
 export default function LeaderboardRow({ entry, position, isCurrentUser }) {
   const isTopThree = position <= 3
+  const liveTotal = typeof entry._liveTotal === 'number' ? entry._liveTotal : entry.total_points
+  const liveDelta = entry.liveDelta || 0
 
   return (
     <motion.div
@@ -74,10 +76,15 @@ export default function LeaderboardRow({ entry, position, isCurrentUser }) {
         </div>
       </div>
 
-      {/* Puntos */}
+      {/* Puntos (total en vivo + delta provisional) */}
       <div className={`text-right ${isTopThree ? medalColors[position] : 'text-slate-300'}`}>
-        <span className="text-lg font-bold tabular-nums">{entry.total_points}</span>
-        <span className="text-xs text-slate-500 ml-1">pts</span>
+        <div className="flex items-center justify-end gap-1">
+          <span className="text-lg font-bold tabular-nums">{liveTotal}</span>
+          {liveDelta > 0 && (
+            <span className="text-[10px] font-bold text-emerald-500 animate-pulse">+{liveDelta}</span>
+          )}
+        </div>
+        <span className="text-xs text-slate-500">pts</span>
       </div>
     </motion.div>
   )

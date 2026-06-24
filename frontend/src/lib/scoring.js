@@ -68,7 +68,7 @@ export async function calculateAndUpdateScores(matchId) {
   }
 }
 
-function evaluatePrediction(pred, home_actual, away_actual, goes_to_penalties, penalties_winner_real) {
+export function evaluatePrediction(pred, home_actual, away_actual, goes_to_penalties, penalties_winner_real) {
   const pred_type = pred.prediction_type || 'Marcador'
   const home_pred = pred.home_goals_pred
   const away_pred = pred.away_goals_pred

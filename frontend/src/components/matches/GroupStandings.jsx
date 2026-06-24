@@ -4,6 +4,8 @@ import { Trophy } from 'lucide-react'
 export default function GroupStandings({ matches }) {
   // Calcular posiciones
   const teams = {}
+  const liveTeams = new Set() // equipos jugando ahora (cuentan provisionalmente)
+  let hasLive = false
 
   matches.forEach(match => {
     // Inicializar equipos
@@ -14,8 +16,17 @@ export default function GroupStandings({ matches }) {
       teams[match.away_team] = { name: match.away_team, code: match.away_team_code, pld: 0, pts: 0, gf: 0, ga: 0, gd: 0, w: 0, d: 0, l: 0 }
     }
 
-    // Solo contabilizar partidos finalizados
-    if (match.status === 'finished' && match.home_goals_actual !== null && match.away_goals_actual !== null) {
+    // Contabilizar partidos finalizados Y los en curso (estos últimos son
+    // provisionales, "para ir viendo" cómo va la tabla en vivo).
+    const counts = (match.status === 'finished' || match.status === 'in_progress')
+      && match.home_goals_actual !== null && match.away_goals_actual !== null
+
+    if (counts) {
+      if (match.status === 'in_progress') {
+        hasLive = true
+        liveTeams.add(match.home_team)
+        liveTeams.add(match.away_team)
+      }
       teams[match.home_team].pld += 1
       teams[match.away_team].pld += 1
 
@@ -67,6 +78,11 @@ export default function GroupStandings({ matches }) {
         <h3 className="text-[12px] font-black text-slate-900 dark:text-white uppercase tracking-widest drop-shadow-md">
           Tabla de Posiciones
         </h3>
+        {hasLive && (
+          <span className="ml-auto flex items-center gap-1 text-[9px] font-bold text-rose-500">
+            <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" /> EN VIVO · provisional
+          </span>
+        )}
       </div>
       
       <div className="overflow-x-auto scrollbar-hide">
@@ -107,6 +123,9 @@ export default function GroupStandings({ matches }) {
                       {isQualified && <div className="absolute inset-0 rounded-sm ring-1 ring-accent/50 pointer-events-none"></div>}
                     </div>
                     <span className="drop-shadow-sm">{team.name}</span>
+                    {liveTeams.has(team.name) && (
+                      <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse shrink-0" title="Jugando ahora (provisional)" />
+                    )}
                   </td>
                   <td className="px-2 py-3 text-center text-slate-700 dark:text-slate-300 font-semibold">{team.pld}</td>
                   <td className="px-2 py-3 text-center text-success/90">{team.w}</td>

@@ -1,12 +1,21 @@
 /* Tabla de posiciones con podio animado + Supabase Realtime */
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { motion } from 'motion/react'
-import { Trophy, Crown, Medal, Zap } from 'lucide-react'
+import { Trophy, Crown, Medal, Radio } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
-import { sortLeaderboard, compareLeaderboard } from '../../lib/leaderboard'
+import { compareLeaderboard } from '../../lib/leaderboard'
+import { provisionalByUser } from '../../lib/provisional'
 import LeaderboardRow from './LeaderboardRow'
 import LoadingSpinner from '../ui/LoadingSpinner'
+
+// Total a mostrar: el provisional en vivo si lo hay, si no el oficial.
+const liveTotal = (e) => (typeof e._liveTotal === 'number' ? e._liveTotal : (e.total_points || 0))
+
+// Ordena por el total EN VIVO y, a igualdad, por el desempate oficial.
+function sortLive(entries) {
+  return [...(entries || [])].sort((a, b) => (liveTotal(b) - liveTotal(a)) || compareLeaderboard(a, b))
+}
 
 function Podium({ top3 }) {
   if (top3.length < 3) return null
@@ -87,9 +96,12 @@ function Podium({ top3 }) {
                 {entry.is_ludopata && <span className="inline-flex items-center justify-center bg-black/10 dark:bg-white/10 border border-black/5 dark:border-white/10 rounded px-1 text-[9px] leading-none cursor-default" title="Ludópata (adicto al comodín x2)">🎰</span>}
               </div>
 
-              {/* Puntos */}
+              {/* Puntos (total en vivo + delta provisional) */}
               <p className={`text-sm font-bold mb-2 ${iconColors[i]}`}>
-                {entry.total_points} pts
+                {liveTotal(entry)} pts
+                {entry.liveDelta > 0 && (
+                  <span className="ml-1 text-[10px] font-bold text-emerald-500 animate-pulse">+{entry.liveDelta}</span>
+                )}
               </p>
 
               {/* Podio - bloque 3D */}
@@ -113,70 +125,65 @@ export default function Leaderboard() {
   const { user } = useAuth()
   const [entries, setEntries] = useState([])
   const [loading, setLoading] = useState(true)
-  const channelRef = useRef(null)
+  const [hasLive, setHasLive] = useState(false)
 
-  useEffect(() => {
-    // Cargar ranking inicial
-    const fetchLeaderboard = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('user_badges_view')
-          .select('*')
+  // Carga el ranking oficial y le suma los puntos PROVISIONALES de los partidos
+  // en curso (parcial, solo para ir viendo cómo se mueve). Reordena por el total
+  // en vivo. Se vuelve a llamar con cada cambio realtime de matches/users/preds.
+  const fetchLeaderboard = useCallback(async () => {
+    try {
+      const [{ data: lb, error }, { data: live }] = await Promise.all([
+        supabase.from('user_badges_view').select('*'),
+        supabase
+          .from('matches')
+          .select('id, home_goals_actual, away_goals_actual')
+          .eq('status', 'in_progress'),
+      ])
+      if (error) throw error
 
-        if (error) throw error
-        // Orden oficial con desempate (puntos → exactos → correctos → goles del
-        // goleador → campeón → antigüedad). Ver lib/leaderboard.js.
-        setEntries(sortLeaderboard(data))
-      } catch (err) {
-        console.error('Error cargando ranking:', err)
-      } finally {
-        setLoading(false)
+      let provisional = {}
+      const liveMatches = live || []
+      if (liveMatches.length) {
+        // RLS permite ver predicciones ajenas cuando el partido no está pendiente
+        // (un partido en curso ya cumple), así que el provisional es de toda la liga.
+        const { data: preds } = await supabase
+          .from('predictions')
+          .select('user_id, match_id, prediction_type, home_goals_pred, away_goals_pred, penalties_winner_pred, use_powerup_x2')
+          .in('match_id', liveMatches.map((m) => m.id))
+        provisional = provisionalByUser(liveMatches, preds || [])
       }
-    }
 
-    fetchLeaderboard()
-  }, [])
-
-  useEffect(() => {
-    // Configurar Realtime subscription
-    const channel = supabase
-      .channel('users-leaderboard')
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'users'
-        },
-        (payload) => {
-          const updatedUser = payload.new
-
-          // Actualizar usuario en la lista
-          setEntries((prevEntries) => {
-            const updated = prevEntries.map((entry) =>
-              entry.id === updatedUser.id
-                ? { ...entry, total_points: updatedUser.total_points }
-                : entry
-            )
-
-            // Reordenar con el mismo desempate oficial que la carga inicial.
-            return updated.sort(compareLeaderboard)
-          })
-        }
-      )
-      .subscribe((status) => {
-        console.log('Realtime channel status:', status)
+      const merged = (lb || []).map((e) => {
+        const liveDelta = provisional[e.id] || 0
+        return { ...e, liveDelta, _liveTotal: (e.total_points || 0) + liveDelta }
       })
-
-    channelRef.current = channel
-
-    // Cleanup: unsubscribe al desmontar
-    return () => {
-      if (channelRef.current) {
-        supabase.removeChannel(channelRef.current)
-      }
+      setHasLive(liveMatches.length > 0)
+      setEntries(sortLive(merged))
+    } catch (err) {
+      console.error('Error cargando ranking:', err)
+    } finally {
+      setLoading(false)
     }
   }, [])
+
+  useEffect(() => {
+    fetchLeaderboard()
+  }, [fetchLeaderboard])
+
+  useEffect(() => {
+    // Recalcular en vivo ante cambios de marcador (matches), puntos (users) o
+    // predicciones (predictions).
+    const channel = supabase
+      .channel('leaderboard-live')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'matches' }, fetchLeaderboard)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, fetchLeaderboard)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'predictions' }, fetchLeaderboard)
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [fetchLeaderboard])
 
   if (loading) return <LoadingSpinner />
 
@@ -185,6 +192,18 @@ export default function Leaderboard() {
 
   return (
     <div>
+      {/* Aviso de puntos en vivo (provisionales) */}
+      {hasLive && (
+        <motion.div
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex items-center justify-center gap-2 mb-3 px-3 py-2 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-500"
+        >
+          <Radio size={13} className="animate-pulse" />
+          <span className="text-[11px] font-bold">EN VIVO · puntos provisionales (parciales)</span>
+        </motion.div>
+      )}
+
       {/* Podio top 3 */}
       {top3.length >= 3 && <Podium top3={top3} />}
 
