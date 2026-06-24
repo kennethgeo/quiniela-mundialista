@@ -122,8 +122,11 @@ export default function ProfilePage() {
           if (pred.match.status === 'finished') {
             totalFinished++
             const pts = pred.points_earned || 0
-            if (pts >= 6) exact++
-            else if (pts >= 3) correct++
+            // Exacto = 3 pts (o 6 con x2). Acierto ganador = 1 pt (o 2 con x2).
+            // Lo demás (0 pts) es fallo. Antes los aciertos de 1 pt caían como
+            // fallo y los exactos sin x2 contaban como acierto ganador.
+            if (pts === 3 || pts === 6) exact++
+            else if (pts > 0) correct++
             else miss++
           }
         })
