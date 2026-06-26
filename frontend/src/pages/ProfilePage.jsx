@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 import { User, Activity, Trophy, Clock, Search, History, Target, Zap, CheckCircle2, XCircle, PieChart, Camera, Trash2, Loader2, Edit3 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import { resizeImage } from '../lib/image'
 import { getTournamentLocked } from '../lib/tournamentLock'
 import { useAuth } from '../hooks/useAuth'
 import PushNotificationToggle from '../components/ui/PushNotificationToggle'
@@ -41,14 +42,23 @@ export default function ProfilePage() {
       const file = event.target.files[0]
       if (!file) return
 
-      const fileExt = file.name.split('.').pop()
-      const fileName = `${profile.id}-${Math.random()}.${fileExt}`
-      const filePath = `${fileName}`
+      // Redimensionar/comprimir antes de subir: una foto de teléfono de varios
+      // MB se descargaba completa en ranking/podio/perfil (Cached Egress alto).
+      const blob = await resizeImage(file, 256, 0.82)
+      const filePath = `${profile.id}-${Date.now()}.webp`
 
-      // Upload to storage
+      // Borrar el avatar anterior (si era del bucket) para no acumular basura.
+      const prevUrl = profile.avatar_url || ''
+      const marker = '/avatars/'
+      if (prevUrl.includes(marker)) {
+        const oldPath = prevUrl.split(marker)[1]?.split('?')[0]
+        if (oldPath) await supabase.storage.from('avatars').remove([oldPath]).catch(() => {})
+      }
+
+      // Upload to storage (webp pequeño + cache de 1 año para no re-descargar)
       const { error: uploadError } = await supabase.storage
         .from('avatars')
-        .upload(filePath, file)
+        .upload(filePath, blob, { contentType: 'image/webp', cacheControl: '31536000', upsert: true })
 
       if (uploadError) throw uploadError
 
