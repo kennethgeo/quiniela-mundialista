@@ -1,5 +1,8 @@
 """Rutas administrativas para gestionar resultados y puntuación."""
 
+import io
+import time
+
 from fastapi import APIRouter, Body, Depends, HTTPException
 
 from app.auth import require_admin
@@ -114,4 +117,83 @@ async def delete_user(
         "deleted": user_id,
         "display_name": display_name,
         "via": deleted_via,
+    }
+
+
+@router.post("/optimize-avatars")
+async def optimize_avatars(admin: dict = Depends(require_admin)):
+    """Optimiza (redimensiona + comprime) los avatares YA subidos.
+
+    Las fotos viejas se subían sin procesar (varios MB) y se descargaban una y
+    otra vez en el ranking/podio, disparando el Cached Egress de Supabase. Esto
+    recorre los avatares actuales de cada usuario, los reduce a ~256px webp con
+    cache de 1 año, actualiza la URL y borra el archivo grande anterior.
+
+    Idempotente: salta los que ya están livianos (< 60KB y .webp).
+    Requiere la service key (salta RLS), por eso vive en el backend.
+    """
+    from PIL import Image  # import perezoso para no romper si falta Pillow
+
+    supabase = get_supabase()
+    users = supabase.table("users").select("id, avatar_url").execute().data or []
+
+    optimized, errors = [], []
+    skipped = 0
+    bytes_before = bytes_after = 0
+
+    for u in users:
+        url = u.get("avatar_url") or ""
+        if "/avatars/" not in url:
+            continue
+        old_path = url.split("/avatars/")[1].split("?")[0]
+
+        try:
+            data = supabase.storage.from_("avatars").download(old_path)
+        except Exception as exc:  # noqa: BLE001
+            errors.append(f"{old_path}: download {exc}")
+            continue
+
+        # Ya optimizado: saltar.
+        if len(data) < 60_000 and old_path.lower().endswith(".webp"):
+            skipped += 1
+            continue
+
+        try:
+            img = Image.open(io.BytesIO(data)).convert("RGB")
+            img.thumbnail((256, 256))
+            out = io.BytesIO()
+            img.save(out, format="WEBP", quality=82, method=6)
+            new_bytes = out.getvalue()
+        except Exception as exc:  # noqa: BLE001
+            errors.append(f"{old_path}: resize {exc}")
+            continue
+
+        new_path = f"{u['id']}-{int(time.time() * 1000)}.webp"
+        try:
+            supabase.storage.from_("avatars").upload(
+                new_path,
+                new_bytes,
+                {"content-type": "image/webp", "cache-control": "31536000", "upsert": "true"},
+            )
+            public = supabase.storage.from_("avatars").get_public_url(new_path)
+            new_url = public if isinstance(public, str) else (public or {}).get("publicUrl", public)
+            supabase.table("users").update({"avatar_url": new_url}).eq("id", u["id"]).execute()
+            if old_path != new_path:
+                try:
+                    supabase.storage.from_("avatars").remove([old_path])
+                except Exception:  # noqa: BLE001
+                    pass
+            bytes_before += len(data)
+            bytes_after += len(new_bytes)
+            optimized.append({"user": u["id"], "before": len(data), "after": len(new_bytes)})
+        except Exception as exc:  # noqa: BLE001
+            errors.append(f"{old_path}: upload {exc}")
+
+    return {
+        "status": "ok",
+        "optimized": len(optimized),
+        "skipped": skipped,
+        "errors": errors,
+        "kb_before": round(bytes_before / 1024),
+        "kb_after": round(bytes_after / 1024),
     }

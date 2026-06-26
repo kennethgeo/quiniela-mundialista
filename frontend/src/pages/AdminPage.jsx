@@ -9,6 +9,7 @@ import BracketAdmin from '../components/admin/BracketAdmin'
 import PowerupsAdmin from '../components/admin/PowerupsAdmin'
 import TournamentPredictionsAdmin from '../components/admin/TournamentPredictionsAdmin'
 import ScoreReconcileAdmin from '../components/admin/ScoreReconcileAdmin'
+import AvatarOptimizerAdmin from '../components/admin/AvatarOptimizerAdmin'
 import UserManagementAdmin from '../components/admin/UserManagementAdmin'
 
 export default function AdminPage() {
@@ -271,6 +272,7 @@ export default function AdminPage() {
           <GlobalSettingsAdmin />
           <TournamentPredictionsAdmin />
           <ScoreReconcileAdmin />
+          <div className="mt-4"><AvatarOptimizerAdmin /></div>
         </motion.div>
       )}
 
