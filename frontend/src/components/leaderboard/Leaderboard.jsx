@@ -1,5 +1,5 @@
 /* Tabla de posiciones con podio animado + Supabase Realtime */
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { motion } from 'motion/react'
 import { Trophy, Crown, Medal, Radio } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
@@ -126,64 +126,83 @@ export default function Leaderboard() {
   const [entries, setEntries] = useState([])
   const [loading, setLoading] = useState(true)
   const [hasLive, setHasLive] = useState(false)
+  const debounceRef = useRef(null)
 
-  // Carga el ranking oficial y le suma los puntos PROVISIONALES de los partidos
-  // en curso (parcial, solo para ir viendo cómo se mueve). Reordena por el total
-  // en vivo. Se vuelve a llamar con cada cambio realtime de matches/users/preds.
-  const fetchLeaderboard = useCallback(async () => {
+  // Solo los puntos PROVISIONALES (en vivo): consulta liviana de los partidos en
+  // curso + sus predicciones, y actualiza el delta sobre las filas ya cargadas.
+  // NO vuelve a pedir la vista pesada user_badges_view (eso era lo que disparaba
+  // el consumo en cada evento de realtime).
+  const applyProvisional = useCallback(async () => {
     try {
-      const [{ data: lb, error }, { data: live }] = await Promise.all([
-        supabase.from('user_badges_view').select('*'),
-        supabase
-          .from('matches')
-          .select('id, home_goals_actual, away_goals_actual')
-          .eq('status', 'in_progress'),
-      ])
-      if (error) throw error
+      const { data: live } = await supabase
+        .from('matches')
+        .select('id, home_goals_actual, away_goals_actual')
+        .eq('status', 'in_progress')
+      const liveMatches = live || []
 
       let provisional = {}
-      const liveMatches = live || []
       if (liveMatches.length) {
-        // RLS permite ver predicciones ajenas cuando el partido no está pendiente
-        // (un partido en curso ya cumple), así que el provisional es de toda la liga.
         const { data: preds } = await supabase
           .from('predictions')
           .select('user_id, match_id, prediction_type, home_goals_pred, away_goals_pred, penalties_winner_pred, use_powerup_x2')
           .in('match_id', liveMatches.map((m) => m.id))
         provisional = provisionalByUser(liveMatches, preds || [])
       }
-
-      const merged = (lb || []).map((e) => {
+      setHasLive(liveMatches.length > 0)
+      setEntries((prev) => sortLive(prev.map((e) => {
         const liveDelta = provisional[e.id] || 0
         return { ...e, liveDelta, _liveTotal: (e.total_points || 0) + liveDelta }
-      })
-      setHasLive(liveMatches.length > 0)
-      setEntries(sortLive(merged))
+      })))
+    } catch (err) {
+      console.error('Error puntos en vivo:', err)
+    }
+  }, [])
+
+  // Carga inicial: la vista pesada UNA vez, luego el provisional liviano.
+  const fetchInitial = useCallback(async () => {
+    try {
+      const { data: lb, error } = await supabase.from('user_badges_view').select('*')
+      if (error) throw error
+      setEntries(sortLive((lb || []).map((e) => ({ ...e, liveDelta: 0, _liveTotal: e.total_points || 0 }))))
     } catch (err) {
       console.error('Error cargando ranking:', err)
     } finally {
       setLoading(false)
     }
-  }, [])
+    applyProvisional()
+  }, [applyProvisional])
 
   useEffect(() => {
-    fetchLeaderboard()
-  }, [fetchLeaderboard])
+    fetchInitial()
+  }, [fetchInitial])
 
   useEffect(() => {
-    // Recalcular en vivo ante cambios de marcador (matches), puntos (users) o
-    // predicciones (predictions).
+    // Realtime eficiente:
+    //  - users UPDATE: actualizamos total_points EN SITIO (sin consultar nada).
+    //  - matches: recalculamos solo el provisional (consulta liviana, con debounce
+    //    para no dispararlo en ráfaga durante el live-sync).
+    const debouncedProvisional = () => {
+      clearTimeout(debounceRef.current)
+      debounceRef.current = setTimeout(applyProvisional, 1500)
+    }
     const channel = supabase
       .channel('leaderboard-live')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'matches' }, fetchLeaderboard)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, fetchLeaderboard)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'predictions' }, fetchLeaderboard)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'users' }, (payload) => {
+        const u = payload.new
+        setEntries((prev) => sortLive(prev.map((e) =>
+          e.id === u.id
+            ? { ...e, total_points: u.total_points, _liveTotal: (u.total_points || 0) + (e.liveDelta || 0) }
+            : e
+        )))
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'matches' }, debouncedProvisional)
       .subscribe()
 
     return () => {
+      clearTimeout(debounceRef.current)
       supabase.removeChannel(channel)
     }
-  }, [fetchLeaderboard])
+  }, [applyProvisional])
 
   if (loading) return <LoadingSpinner />
 
