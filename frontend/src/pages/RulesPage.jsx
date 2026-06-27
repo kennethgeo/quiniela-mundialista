@@ -1,4 +1,4 @@
-import { BookOpen, Target, Zap, Trophy, ShieldAlert, Clock, AlertTriangle } from 'lucide-react'
+import { BookOpen, Target, Zap, Trophy, ShieldAlert, Clock, AlertTriangle, MinusCircle } from 'lucide-react'
 import { motion } from 'motion/react'
 
 export default function RulesPage() {
@@ -39,6 +39,24 @@ export default function RulesPage() {
             <h3 className="font-bold text-rose-700 dark:text-rose-300 mb-1">¡Cierre de Predicciones!</h3>
             <p className="text-sm text-rose-600/80 dark:text-rose-400/80 leading-relaxed">
               Las predicciones se bloquean <strong>exactamente 15 minutos antes</strong> de que inicie cada partido. Hasta entonces, puedes cambiarlas las veces que quieras. Las predicciones de los demás jugadores están ocultas hasta que se bloquea el partido para evitar copias.
+            </p>
+          </div>
+        </motion.div>
+
+        {/* Regla: sin predicción = 0-0 */}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.5, delay: 0.05 }}
+          className="bg-blue-500/10 dark:bg-blue-500/5 border border-blue-500/20 rounded-2xl p-4 md:p-5 flex items-start gap-4"
+        >
+          <div className="mt-1 w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center shrink-0">
+            <MinusCircle size={20} className="text-blue-600 dark:text-blue-400" />
+          </div>
+          <div>
+            <h3 className="font-bold text-blue-700 dark:text-blue-300 mb-1">Si no predices: cuenta 0-0</h3>
+            <p className="text-sm text-blue-600/80 dark:text-blue-400/80 leading-relaxed">
+              Si se te pasó el cierre y no pusiste marcador, tu predicción por defecto es <strong>0-0</strong>, y puntúa como cualquier otra: si el partido termina 0-0 son <strong>3 pts</strong>, si termina en empate (1-1, 2-2…) es <strong>1 pt</strong>, y si gana alguno no sumas. Aplica <strong>igual para todos</strong>. Activa los recordatorios para que no se te pase.
             </p>
           </div>
         </motion.div>
