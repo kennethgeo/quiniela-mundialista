@@ -9,6 +9,25 @@
 // (cada slot recibe un tercero de uno de sus grupos candidatos, sin duplicar y
 // sin meter equipos eliminados). Esto sigue la estructura real del Mundial 2026.
 
+// Asignación OFICIAL de FIFA de los terceros a sus slots (Mundial 2026),
+// confirmada en fifa.com para el escenario real de grupos (clasifican como
+// mejores terceros los de los grupos B, D, E, F, I, J, K, L):
+//   74 (3A/B/C/D/F) -> Grupo D (Paraguay)   80 (3E/H/I/J/K) -> Grupo K (DR Congo)
+//   77 (3C/D/F/G/H) -> Grupo F (Suecia)     81 (3B/E/F/I/J) -> Grupo B (Bosnia)
+//   79 (3C/E/F/H/I) -> Grupo E (Ecuador)    82 (3A/E/H/I/J) -> Grupo I (Senegal)
+//   85 (3E/F/G/I/J) -> Grupo J (Argelia)    87 (3D/E/I/J/L) -> Grupo L (Ghana)
+const FIFA_2026_THIRD_SLOT_GROUP = {
+  '3A/B/C/D/F': 'D',
+  '3C/D/F/G/H': 'F',
+  '3C/E/F/H/I': 'E',
+  '3E/H/I/J/K': 'K',
+  '3B/E/F/I/J': 'B',
+  '3A/E/H/I/J': 'I',
+  '3E/F/G/I/J': 'J',
+  '3D/E/I/J/L': 'L',
+};
+const FIFA_2026_THIRD_GROUPS = ['B', 'D', 'E', 'F', 'I', 'J', 'K', 'L'];
+
 export function resolveKnockoutTeams(allMatches) {
   const groupsMatches = allMatches.filter(m => m.phase === 'groups');
   const knockoutMatches = allMatches.filter(m => m.phase !== 'groups');
@@ -86,7 +105,23 @@ export function resolveKnockoutTeams(allMatches) {
 
   let thirdBySlotCode = {};
   if (groupStageComplete && bestThirds.length === 8) {
-    thirdBySlotCode = matchThirdsToSlots(bestThirds, slots);
+    const thirdByGroup = {};
+    bestThirds.forEach((t) => { thirdByGroup[t.group] = t; });
+    const qualifyingGroups = new Set(bestThirds.map((t) => t.group));
+
+    // Si clasificaron como mejores terceros EXACTAMENTE los grupos del escenario
+    // real del Mundial 2026 (B, D, E, F, I, J, K, L), usamos la asignación
+    // OFICIAL de FIFA (confirmada en fifa.com), no la heurística. Así los cruces
+    // quedan idénticos al bracket oficial. Para cualquier otro conjunto de
+    // terceros (hipotético), se cae al emparejamiento válido 1-a-1.
+    const isOfficial2026 = FIFA_2026_THIRD_GROUPS.every((g) => qualifyingGroups.has(g));
+    if (isOfficial2026) {
+      for (const [code, grp] of Object.entries(FIFA_2026_THIRD_SLOT_GROUP)) {
+        if (thirdByGroup[grp]) thirdBySlotCode[code] = thirdByGroup[grp];
+      }
+    } else {
+      thirdBySlotCode = matchThirdsToSlots(bestThirds, slots);
+    }
   }
 
   // 4. Resolver cada llave
