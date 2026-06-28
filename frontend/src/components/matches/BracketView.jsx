@@ -17,6 +17,18 @@ const KNOCKOUT_PHASES = [
   { key: 'final', label: 'Final', short: 'F' },
 ]
 
+// Orden VERTICAL de cada columna según el árbol real del bracket 2026, para que
+// el ganador de cada par quede alineado con su partido de la ronda siguiente
+// (89=W74-W77, 90=W73-W75, …). Ordenar por hora de inicio descalzaba las llaves.
+const BRACKET_ORDER = {
+  round_of_32: [74, 77, 73, 75, 83, 84, 81, 82, 76, 78, 79, 80, 86, 88, 85, 87],
+  round_of_16: [89, 90, 93, 94, 91, 92, 95, 96],
+  quarter_finals: [97, 98, 99, 100],
+  semi_finals: [101, 102],
+  third_place: [103],
+  final: [104],
+}
+
 function BracketMatch({ match, index }) {
   const navigate = useNavigate()
   
@@ -155,7 +167,17 @@ export default function BracketView() {
     ...phase,
     matches: resolvedKnockouts
       .filter(m => m.phase === phase.key)
-      .sort((a, b) => new Date(a.kickoff_at) - new Date(b.kickoff_at))
+      .sort((a, b) => {
+        // Ordenar por posición en el árbol (para que las llaves calcen); si no
+        // se reconoce el id, caer al orden cronológico.
+        const order = BRACKET_ORDER[phase.key] || []
+        const ia = order.indexOf(a.id)
+        const ib = order.indexOf(b.id)
+        if (ia !== -1 && ib !== -1) return ia - ib
+        if (ia !== -1) return -1
+        if (ib !== -1) return 1
+        return new Date(a.kickoff_at) - new Date(b.kickoff_at)
+      })
   })).filter(p => p.matches.length > 0)
 
   if (phases.length === 0) {
