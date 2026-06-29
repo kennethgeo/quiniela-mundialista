@@ -6,6 +6,7 @@ import { formatDistanceToNow } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
+import { resolveKnockoutTeams } from '../../lib/bracketResolver'
 
 export default function UpcomingMatches() {
   const [matches, setMatches] = useState([])
@@ -15,15 +16,22 @@ export default function UpcomingMatches() {
   useEffect(() => {
     const fetchMatches = async () => {
       try {
+        // Se traen TODOS los partidos para poder resolver los equipos de
+        // eliminatoria (ej. "2A" -> South Africa) desde las posiciones de grupo.
         const { data, error } = await supabase
           .from('matches')
           .select('*')
-          .in('status', ['pending', 'in_progress'])
           .order('kickoff_at', { ascending: true })
-          .limit(6)
-        
+
         if (error) throw error
-        setMatches(data || [])
+
+        const all = data || []
+        const koById = new Map(resolveKnockoutTeams(all).map((m) => [m.id, m]))
+        const upcoming = all
+          .map((m) => koById.get(m.id) || m) // eliminatorias -> versión resuelta
+          .filter((m) => m.status === 'pending' || m.status === 'in_progress')
+          .slice(0, 6)
+        setMatches(upcoming)
       } catch (err) {
         console.error('Error fetching matches:', err)
         setMatches([])
@@ -97,6 +105,12 @@ export default function UpcomingMatches() {
 function UpcomingMatchCard({ match, index }) {
   const navigate = useNavigate()
 
+  // Equipos resueltos (eliminatoria): "2A" -> South Africa, etc.
+  const homeName = match.home_team_resolved || match.home_team
+  const awayName = match.away_team_resolved || match.away_team
+  const homeCode = match.home_team_code_resolved || match.home_team_code
+  const awayCode = match.away_team_code_resolved || match.away_team_code
+
   // Asegurar que la fecha se parsea como UTC si Supabase omite la zona horaria
   const dateString = match.kickoff_at.endsWith('Z') || match.kickoff_at.includes('+')
     ? match.kickoff_at
@@ -148,14 +162,14 @@ function UpcomingMatchCard({ match, index }) {
             <div className="relative">
               <div className="absolute inset-0 bg-white/10 blur-lg rounded-full scale-110" />
               <img
-                src={`https://flagcdn.com/w80/${(match.home_team_code || 'xx').toLowerCase()}.png`}
-                alt={match.home_team}
+                src={`https://flagcdn.com/w80/${(homeCode || 'xx').toLowerCase()}.png`}
+                alt={homeName}
                 className="relative w-12 h-8 object-contain rounded-md shadow-lg shadow-black/30 ring-1 ring-white/10"
                 onError={(e) => { e.target.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg"/>' }}
               />
             </div>
             <span className="text-[11px] text-slate-900 dark:text-white font-semibold text-center leading-tight truncate max-w-[80px]">
-              {match.home_team || 'Local'}
+              {homeName || 'Local'}
             </span>
           </div>
 
@@ -171,14 +185,14 @@ function UpcomingMatchCard({ match, index }) {
             <div className="relative">
               <div className="absolute inset-0 bg-white/10 blur-lg rounded-full scale-110" />
               <img
-                src={`https://flagcdn.com/w80/${(match.away_team_code || 'xx').toLowerCase()}.png`}
-                alt={match.away_team}
+                src={`https://flagcdn.com/w80/${(awayCode || 'xx').toLowerCase()}.png`}
+                alt={awayName}
                 className="relative w-12 h-8 object-cover rounded-md shadow-lg shadow-black/30 ring-1 ring-white/10"
                 onError={(e) => { e.target.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg"/>' }}
               />
             </div>
             <span className="text-[11px] text-slate-900 dark:text-white font-semibold text-center leading-tight truncate max-w-[80px]">
-              {match.away_team || 'Visitante'}
+              {awayName || 'Visitante'}
             </span>
           </div>
         </div>

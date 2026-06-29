@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { motion } from 'motion/react'
 import { ArrowLeft, Clock, Calendar, MapPin, ShieldAlert, Star, TrendingUp, HelpCircle } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import { resolveKnockoutTeams } from '../lib/bracketResolver'
 import { useAuth } from '../hooks/useAuth'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
@@ -30,7 +31,23 @@ export default function MatchDetailPage() {
 
       if (matchError) throw matchError
 
-      setMatch(matchData)
+      // Eliminatoria: resolver los equipos ("2A" -> South Africa). Necesita
+      // todos los partidos para calcular las posiciones de grupo.
+      let resolvedMatch = matchData
+      if (matchData.phase !== 'groups') {
+        const { data: all } = await supabase.from('matches').select('*')
+        const r = all && resolveKnockoutTeams(all).find((m) => m.id === matchData.id)
+        if (r) {
+          resolvedMatch = {
+            ...matchData,
+            home_team: r.home_team_resolved || matchData.home_team,
+            away_team: r.away_team_resolved || matchData.away_team,
+            home_team_code: r.home_team_code_resolved || matchData.home_team_code,
+            away_team_code: r.away_team_code_resolved || matchData.away_team_code,
+          }
+        }
+      }
+      setMatch(resolvedMatch)
 
       // Determinar si está bloqueado
       const dateString = matchData.kickoff_at.endsWith('Z') || matchData.kickoff_at.includes('+')
@@ -83,7 +100,16 @@ export default function MatchDetailPage() {
         { event: 'UPDATE', schema: 'public', table: 'matches', filter: `id=eq.${id}` },
         (payload) => {
           const updated = payload.new
-          setMatch((prev) => ({ ...prev, ...updated }))
+          // Conservar los nombres/códigos ya resueltos de eliminatoria (el evento
+          // trae el código crudo "2A", que pisaría al equipo real).
+          setMatch((prev) => ({
+            ...prev,
+            ...updated,
+            home_team: prev?.home_team ?? updated.home_team,
+            away_team: prev?.away_team ?? updated.away_team,
+            home_team_code: prev?.home_team_code ?? updated.home_team_code,
+            away_team_code: prev?.away_team_code ?? updated.away_team_code,
+          }))
           // Si el partido finalizó, recargar para traer los puntos calculados de cada predicción
           if (updated.status === 'finished') {
             fetchMatchAndPredictions({ withSpinner: false })
