@@ -20,6 +20,7 @@ from datetime import datetime, timedelta, timezone
 import httpx
 
 from app.services.scoring import calculate_and_update_scores
+from app.services.bracket_resolver import persist_resolved_knockouts
 
 ESPN_URL = "https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard"
 WORLDCUP_API_URL = "https://worldcup26.ir/get/games"
@@ -188,6 +189,16 @@ def _find_db_match(matches, game):
 
 async def sync_live_scores(supabase) -> dict:
     """Ejecuta una pasada de sincronización y devuelve un resumen."""
+    # Antes de emparejar: escribir los nombres reales en los partidos de
+    # eliminatoria que ya tienen equipos definidos (la BD los guarda como "2A",
+    # "W74", etc., y el matching con ESPN es por nombre). Así se pueden cuadrar
+    # y puntuar. Best-effort: si algo falla, seguimos con el sync normal.
+    resolved_count = 0
+    try:
+        resolved_count = persist_resolved_knockouts(supabase)
+    except Exception:  # noqa: BLE001
+        resolved_count = 0
+
     games, source = await _get_games()
 
     base_cols = (
@@ -265,6 +276,7 @@ async def sync_live_scores(supabase) -> dict:
         "status": "ok",
         "source": source,
         "games": len(games),
+        "knockout_resolved": resolved_count,
         "updated": summary["updated"],
         "finished_calculated": summary["finished_calculated"],
         "flipped": flipped,
