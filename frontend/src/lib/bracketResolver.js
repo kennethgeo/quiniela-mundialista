@@ -166,18 +166,33 @@ export function resolveKnockoutTeams(allMatches) {
     return null;
   };
 
+  // ¿Es un código de slot sin resolver (1A, 2B, 3.../, W74, L101)? Si NO lo es,
+  // ya es un equipo real (p. ej. persistido en la BD por el backend) y se marca
+  // como resuelto para que las vistas lo muestren.
+  const isSlotCode = (s) =>
+    typeof s === 'string' &&
+    (/^[12][A-L]$/.test(s) || (/^3[A-L]/.test(s) && s.includes('/')) || /^[WL]\d+$/.test(s));
+
   resolvedKnockouts.forEach(m => {
     const home = getTeamFromCode(m.home_team);
     if (home) {
       m.home_team_resolved = home.name;
       m.home_team_code_resolved = home.code;
       m.home_is_partial = home.isPartial || false;
+    } else if (m.home_team && !isSlotCode(m.home_team)) {
+      m.home_team_resolved = m.home_team;
+      m.home_team_code_resolved = m.home_team_code;
+      m.home_is_partial = false;
     }
     const away = getTeamFromCode(m.away_team);
     if (away) {
       m.away_team_resolved = away.name;
       m.away_team_code_resolved = away.code;
       m.away_is_partial = away.isPartial || false;
+    } else if (m.away_team && !isSlotCode(m.away_team)) {
+      m.away_team_resolved = m.away_team;
+      m.away_team_code_resolved = m.away_team_code;
+      m.away_is_partial = false;
     }
   });
 
