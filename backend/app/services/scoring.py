@@ -43,6 +43,7 @@ def evaluate_prediction(
         real_winner = "tie"
 
     points = 0
+    penalty_bonus = 0  # +1 por acertar quién pasa en penales (el comodín NO lo dobla)
 
     if pred_type == "Marcador":
         if home_pred is None or away_pred is None:
@@ -66,10 +67,12 @@ def evaluate_prediction(
                     points = 1  # acierta empate, no el marcador
                 else:
                     points = 0
-                # Si fue a penales y predijo empate, debe acertar el ganador de penales
-                if goes_to_penalties and pred_winner == "tie" and penalties_winner_pred and penalties_winner_real:
-                    if penalties_winner_pred != penalties_winner_real:
-                        points = 0
+                # Penales: el marcador del empate vale igual (3/1) aunque se
+                # falle el penal. Acertar quién pasa suma un bonus de +1.
+                if (goes_to_penalties and pred_winner == "tie"
+                        and penalties_winner_pred and penalties_winner_real
+                        and penalties_winner_pred == penalties_winner_real):
+                    penalty_bonus = 1
             else:
                 if home_pred == home_actual and away_pred == away_actual:
                     points = 3  # marcador exacto
@@ -97,11 +100,11 @@ def evaluate_prediction(
         else:
             points = 1 if pred_winner == real_winner else 0
 
-    # Comodín x2: duplica los puntos ganados
+    # Comodín x2: duplica los puntos ganados (no el bonus de penales)
     if use_powerup:
         points *= 2
 
-    return points
+    return points + penalty_bonus
 
 
 async def calculate_and_update_scores(supabase, match_id: int) -> dict:

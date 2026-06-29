@@ -80,6 +80,7 @@ export function evaluatePrediction(pred, home_actual, away_actual, goes_to_penal
   else if (away_actual > home_actual) real_winner = 'away'
 
   let points = 0
+  let penaltyBonus = 0 // +1 por acertar quién pasa en penales (el comodín NO lo dobla)
 
   if (pred_type === 'Marcador') {
     if (home_pred === null || away_pred === null) return 0
@@ -96,9 +97,11 @@ export function evaluatePrediction(pred, home_actual, away_actual, goes_to_penal
         else if (pred_winner === 'tie') points = 1
         else points = 0
 
-        if (goes_to_penalties && pred_winner === 'tie' && penalties_winner_pred && penalties_winner_real) {
-          // Si falló en los penales, pierde sus puntos de empate
-          if (penalties_winner_pred !== penalties_winner_real) points = 0
+        // Penales: el marcador del empate vale igual (3 exacto / 1 empate),
+        // aunque se falle el penal. Acertar quién pasa suma un bonus de +1.
+        if (goes_to_penalties && pred_winner === 'tie' && penalties_winner_pred && penalties_winner_real
+            && penalties_winner_pred === penalties_winner_real) {
+          penaltyBonus = 1
         }
       } else {
         if (home_pred === home_actual && away_pred === away_actual) points = 3
@@ -128,7 +131,7 @@ export function evaluatePrediction(pred, home_actual, away_actual, goes_to_penal
 
   if (use_powerup) points *= 2
 
-  return points
+  return points + penaltyBonus
 }
 
 /**
