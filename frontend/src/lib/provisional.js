@@ -16,7 +16,7 @@ export function provisionalByUser(liveMatches, predictions) {
   for (const p of predictions || []) {
     const m = byId.get(p.match_id)
     if (!m || m.home_goals_actual == null || m.away_goals_actual == null) continue
-    byUser[p.user_id] = (byUser[p.user_id] || 0) + evaluatePrediction(p, m.home_goals_actual, m.away_goals_actual, false, null)
+    byUser[p.user_id] = (byUser[p.user_id] || 0) + evaluatePrediction(p, m.home_goals_actual, m.away_goals_actual, false, null, m.home_team, m.away_team)
   }
   return byUser
 }

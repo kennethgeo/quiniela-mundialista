@@ -189,7 +189,7 @@ export default function RulesPage() {
               <div>
                 <h3 className="font-bold text-base text-slate-800 dark:text-slate-200">Definición por Penales</h3>
                 <p className="text-sm text-slate-600 dark:text-slate-400 mt-2 leading-relaxed">
-                  Si predices un empate (Ej. 1-1), el sistema te pedirá quién avanza en la tanda de penales. Tu marcador del empate <strong>puntúa igual</strong> (3 si es exacto, 1 si solo acertaste el empate) aunque falles el penal. Y si <strong>aciertas quién pasa</strong>, sumas un <strong>bonus de +1</strong>.
+                  Si predices un empate (Ej. 1-1), el sistema te pedirá quién avanza en la tanda de penales. Tu marcador del empate <strong>puntúa igual</strong> (3 si es exacto, 1 si solo acertaste el empate) aunque falles el penal. Y si <strong>aciertas quién pasa</strong>, sumas un <strong>bonus de +1</strong>. Además, si predijiste un <strong>ganador</strong> (Ej. 3-1) pero el partido se fue a penales, igual ganás <strong>1 punto</strong> si el equipo que elegiste es el que <strong>avanza</strong>.
                 </p>
               </div>
             </div>

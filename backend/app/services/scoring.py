@@ -25,7 +25,9 @@ def evaluate_prediction(
     home_actual: int,
     away_actual: int,
     goes_to_penalties: bool,
-    penalties_winner_real: str
+    penalties_winner_real: str,
+    home_team: str = None,
+    away_team: str = None,
 ) -> int:
 
     pred_type = pred.get("prediction_type", "Marcador")
@@ -56,9 +58,12 @@ def evaluate_prediction(
         else:
             pred_winner = "tie"
 
-        # Predijo ganador pero el partido fue a penales (empate en 90') → falla
+        # Predijo un ganador y el partido se fue a penales (empate en 90'/120').
+        # Si el equipo que eligió ganador es el que avanzó en penales, 1 punto
+        # (acertó quién pasa). Si no, 0.
         if goes_to_penalties and pred_winner != "tie":
-            points = 0
+            pred_team = home_team if pred_winner == "home" else away_team
+            points = 1 if (penalties_winner_real and pred_team and pred_team == penalties_winner_real) else 0
         else:
             if real_winner == "tie":
                 if home_pred == home_actual and away_pred == away_actual:
@@ -115,7 +120,7 @@ async def calculate_and_update_scores(supabase, match_id: int) -> dict:
     # 1. Obtener resultado real del partido
     match_response = (
         supabase.table("matches")
-        .select("id, home_goals_actual, away_goals_actual, status, goes_to_penalties, penalties_winner_real")
+        .select("id, home_team, away_team, home_goals_actual, away_goals_actual, status, goes_to_penalties, penalties_winner_real")
         .eq("id", match_id)
         .single()
         .execute()
@@ -152,7 +157,9 @@ async def calculate_and_update_scores(supabase, match_id: int) -> dict:
             home_actual,
             away_actual,
             goes_to_penalties,
-            penalties_winner_real
+            penalties_winner_real,
+            match.get("home_team"),
+            match.get("away_team")
         )
         
         # Calcular la diferencia si ya tenía puntos calculados antes
