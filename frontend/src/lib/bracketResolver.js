@@ -127,11 +127,14 @@ export function resolveKnockoutTeams(allMatches) {
   // 4. Resolver cada llave
   const resolvedKnockouts = knockoutMatches.map(m => ({ ...m }));
 
-  // Resultados de llaves ya jugadas (W##/L##)
+  // Resultados de llaves ya jugadas (W##/L##). Si se definió por penales, el
+  // ganador es penalties_winner_real (no se decide por goles, que están empatados).
   const matchResults = {};
   resolvedKnockouts.forEach(m => {
     if (m.status === 'finished' && m.home_goals_actual !== null) {
-      const homeWins = m.home_goals_actual > m.away_goals_actual;
+      const homeWins = (m.goes_to_penalties && m.penalties_winner_real)
+        ? m.penalties_winner_real === m.home_team
+        : m.home_goals_actual > m.away_goals_actual;
       matchResults[`W${m.id}`] = homeWins ? { name: m.home_team, code: m.home_team_code } : { name: m.away_team, code: m.away_team_code };
       matchResults[`L${m.id}`] = homeWins ? { name: m.away_team, code: m.away_team_code } : { name: m.home_team, code: m.home_team_code };
     }

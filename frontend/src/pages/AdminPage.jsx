@@ -57,7 +57,9 @@ export default function AdminPage() {
       status: match.status,
       kickoff_at: localISOTime,
       home_goals_actual: match.home_goals_actual,
-      away_goals_actual: match.away_goals_actual
+      away_goals_actual: match.away_goals_actual,
+      goes_to_penalties: match.goes_to_penalties || false,
+      penalties_winner_real: match.penalties_winner_real || ''
     })
     setEditingId(match.id)
   }
@@ -74,7 +76,9 @@ export default function AdminPage() {
         status: formState.status,
         kickoff_at: utcIsoTime,
         home_goals_actual: formState.home_goals_actual,
-        away_goals_actual: formState.away_goals_actual
+        away_goals_actual: formState.away_goals_actual,
+        goes_to_penalties: formState.goes_to_penalties || false,
+        penalties_winner_real: formState.goes_to_penalties ? (formState.penalties_winner_real || null) : null
       }
 
       const { error } = await supabase
@@ -86,7 +90,7 @@ export default function AdminPage() {
       
       // Calculate points! (It will revert points if status is not finished)
       const oldMatch = matches.find(m => m.id === id)
-      if (oldMatch && (formState.status !== oldMatch.status || formState.home_goals_actual !== oldMatch.home_goals_actual || formState.away_goals_actual !== oldMatch.away_goals_actual)) {
+      if (oldMatch && (formState.status !== oldMatch.status || formState.home_goals_actual !== oldMatch.home_goals_actual || formState.away_goals_actual !== oldMatch.away_goals_actual || (formState.goes_to_penalties || false) !== (oldMatch.goes_to_penalties || false) || (formState.penalties_winner_real || '') !== (oldMatch.penalties_winner_real || ''))) {
         const result = await calculateAndUpdateScores(id)
         if (result.status === 'error') {
             console.error("Error calculating scores:", result.message)
@@ -410,7 +414,7 @@ export default function AdminPage() {
                       </div>
                       <div className="flex-1">
                         <label className="block text-[10px] text-slate-400 mb-1 font-semibold uppercase">Fecha y Hora</label>
-                        <input 
+                        <input
                           type="datetime-local"
                           value={formState.kickoff_at}
                           onChange={(e) => setFormState({...formState, kickoff_at: e.target.value})}
@@ -418,6 +422,35 @@ export default function AdminPage() {
                         />
                       </div>
                     </div>
+
+                    {/* Penales (solo eliminatoria) */}
+                    {match.phase !== 'groups' && (
+                      <div className="bg-slate-100 dark:bg-black/20 p-3 rounded-xl">
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={!!formState.goes_to_penalties}
+                            onChange={(e) => setFormState({...formState, goes_to_penalties: e.target.checked, penalties_winner_real: e.target.checked ? formState.penalties_winner_real : ''})}
+                            className="accent-purple-500 w-4 h-4"
+                          />
+                          <span className="text-xs font-semibold text-slate-700 dark:text-slate-200">Se definió por penales</span>
+                        </label>
+                        {formState.goes_to_penalties && (
+                          <div className="mt-2">
+                            <label className="block text-[10px] text-slate-400 mb-1 font-semibold uppercase">Ganó la tanda</label>
+                            <select
+                              value={formState.penalties_winner_real || ''}
+                              onChange={(e) => setFormState({...formState, penalties_winner_real: e.target.value})}
+                              className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-accent"
+                            >
+                              <option value="">— elegir quién avanza —</option>
+                              <option value={match.home_team}>{match.home_team}</option>
+                              <option value={match.away_team}>{match.away_team}</option>
+                            </select>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
                 
