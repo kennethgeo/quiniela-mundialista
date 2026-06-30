@@ -408,6 +408,11 @@ export default function MatchDetailPage() {
                     <div className="px-4 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-900/80 border border-slate-300 dark:border-white/5 font-mono text-lg font-bold text-slate-900 dark:text-white shadow-inner">
                       {pred.home_goals_pred} - {pred.away_goals_pred}
                     </div>
+                    {pred.penalties_winner_pred && (
+                      <span className="text-[10px] font-semibold text-accent flex items-center gap-1">
+                        ⚽ Pasa: {pred.penalties_winner_pred}
+                      </span>
+                    )}
                     {isFinished && (
                       <span className={`text-xs font-bold px-2 py-0.5 rounded-md ${
                         pred.points_earned > 0 
