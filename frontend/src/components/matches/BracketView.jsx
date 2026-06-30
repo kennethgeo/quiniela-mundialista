@@ -41,8 +41,8 @@ function BracketMatch({ match, index }) {
   const isTBDAway = awayTeamName === 'TBD' || awayTeamName.match(/^[123WL][A-Z0-9]/);
   const isFinished = match.status === 'finished';
 
-  const TeamRow = ({ team, teamCode, goals, isWinner, isTbd, isPartial }) => (
-    <div className={`flex items-center gap-2.5 py-2 px-2.5 rounded-xl transition-colors ${
+  const TeamRow = ({ team, teamCode, goals, isWinner, isTbd, isPartial, penWin }) => (
+    <div className={`flex items-center gap-2.5 py-2 pl-2.5 pr-3 rounded-xl transition-colors ${
       isWinner ? 'bg-amber-500/10' : ''
     } ${isPartial ? 'opacity-60' : ''}`}>
       {!isTbd && teamCode ? (
@@ -63,18 +63,29 @@ function BracketMatch({ match, index }) {
       }`}>
         {team}
       </span>
-      {isFinished && goals !== null && (
-        <span className={`text-sm font-bold tabular-nums ${
-          isWinner ? 'text-amber-500 dark:text-amber-400' : 'text-slate-500'
-        }`}>
-          {goals}
-        </span>
-      )}
+      <div className="flex items-center gap-1.5 shrink-0">
+        {penWin && (
+          <span className="text-[7px] font-black uppercase tracking-wider text-amber-600 dark:text-amber-400 bg-amber-500/15 border border-amber-500/30 rounded px-1 py-px leading-none">
+            pen
+          </span>
+        )}
+        {isFinished && goals !== null && (
+          <span className={`text-sm font-bold tabular-nums min-w-[14px] text-center ${
+            isWinner ? 'text-amber-500 dark:text-amber-400' : 'text-slate-500'
+          }`}>
+            {goals}
+          </span>
+        )}
+      </div>
     </div>
   )
 
-  const homeWins = isFinished && match.home_goals_actual > match.away_goals_actual
-  const awayWins = isFinished && match.away_goals_actual > match.home_goals_actual
+  // Ganador real: por penales si el partido se definió en la tanda, si no por goles.
+  const penaltyDecided = isFinished && match.goes_to_penalties && match.penalties_winner_real
+  const homePenWin = penaltyDecided && match.penalties_winner_real === homeTeamName
+  const awayPenWin = penaltyDecided && match.penalties_winner_real === awayTeamName
+  const homeWins = isFinished && (penaltyDecided ? homePenWin : match.home_goals_actual > match.away_goals_actual)
+  const awayWins = isFinished && (penaltyDecided ? awayPenWin : match.away_goals_actual > match.home_goals_actual)
 
   const dateString = match.kickoff_at.endsWith('Z') || match.kickoff_at.includes('+')
     ? match.kickoff_at
@@ -113,6 +124,7 @@ function BracketMatch({ match, index }) {
         isWinner={homeWins}
         isTbd={isTBDHome}
         isPartial={match.home_is_partial}
+        penWin={homePenWin}
       />
 
       <div className="border-t border-slate-200 dark:border-white/10 mx-2 my-0.5" />
@@ -125,6 +137,7 @@ function BracketMatch({ match, index }) {
         isWinner={awayWins}
         isTbd={isTBDAway}
         isPartial={match.away_is_partial}
+        penWin={awayPenWin}
       />
       </div>
     </motion.div>
