@@ -105,6 +105,9 @@ async def _fetch_espn_games():
                         elif det.get("yellowCard"):
                             events.append({**base, "type": "yellow"})
 
+                    # ESPN marca el ganador (incluso si se definió por penales).
+                    winner = "home" if h.get("winner") else ("away" if a.get("winner") else None)
+
                     games.append({
                         "home": _db_team(h["team"].get("displayName") or h["team"].get("name")),
                         "away": _db_team(a["team"].get("displayName") or a["team"].get("name")),
@@ -114,6 +117,7 @@ async def _fetch_espn_games():
                         "minute": minute,
                         "group": None,
                         "events": events,
+                        "winner": winner,
                     })
                 except Exception:
                     continue
@@ -148,6 +152,7 @@ async def _fetch_worldcup26_games():
             "minute": None,  # worldcup26 no expone minuto real
             "group": g.get("group") if g.get("type") == "group" else None,
             "events": [],
+            "winner": None,  # esta fuente no expone el ganador de penales
         })
     return games
 
@@ -203,7 +208,8 @@ async def sync_live_scores(supabase) -> dict:
 
     base_cols = (
         "id,phase,group_name,matchday,home_team,away_team,"
-        "status,home_goals_actual,away_goals_actual"
+        "status,home_goals_actual,away_goals_actual,"
+        "goes_to_penalties,penalties_winner_real"
     )
     try:
         matches = supabase.table("matches").select(base_cols + ",events_json").execute().data or []
@@ -216,11 +222,20 @@ async def sync_live_scores(supabase) -> dict:
     unmatched = []
     flipped = []
 
-    async def apply_update(db_match, status, home_goals, away_goals, minute, events):
-        changed = (
+    async def apply_update(db_match, status, home_goals, away_goals, minute, events, goes_pen=None, pen_winner=None):
+        pen_changed = (
+            (goes_pen is not None and bool(db_match.get("goes_to_penalties")) != bool(goes_pen))
+            or (pen_winner is not None and (db_match.get("penalties_winner_real") or None) != (pen_winner or None))
+        )
+        # Cambios que afectan el puntaje (gatillan recálculo aunque ya esté finalizado).
+        score_relevant = (
             db_match.get("status") != status
             or db_match.get("home_goals_actual") != home_goals
             or db_match.get("away_goals_actual") != away_goals
+            or pen_changed
+        )
+        changed = (
+            score_relevant
             or status == "in_progress"  # refrescar el minuto/goles en vivo
             # rellenar/actualizar eventos cuando cambia su cantidad (goles, tarjetas)
             or len(events) != len(db_match.get("events_json") or [])
@@ -235,6 +250,10 @@ async def sync_live_scores(supabase) -> dict:
             "minute": minute,
             "events_json": events,
         }
+        if goes_pen is not None:
+            payload["goes_to_penalties"] = goes_pen
+        if pen_winner is not None:
+            payload["penalties_winner_real"] = pen_winner
         try:
             supabase.table("matches").update(payload).eq("id", db_match["id"]).execute()
         except Exception:
@@ -245,7 +264,9 @@ async def sync_live_scores(supabase) -> dict:
 
         summary["updated"] += 1
 
-        if status == "finished" and db_match.get("status") != "finished":
+        # Re-puntuar al finalizar, o cuando cambian datos relevantes de un partido
+        # YA finalizado (p. ej. se detectó el ganador de penales). Es idempotente.
+        if status == "finished" and score_relevant:
             await calculate_and_update_scores(supabase, db_match["id"])
             summary["finished_calculated"] += 1
 
@@ -268,7 +289,27 @@ async def sync_live_scores(supabase) -> dict:
                     {**e, "side": ("away" if e.get("side") == "home" else "home")}
                     for e in events
                 ]
-            await apply_update(db_match, game["status"], home_goals, away_goals, game["minute"], events)
+
+            # Penales: un partido de ELIMINATORIA que termina empatado se definió
+            # por penales; el ganador (quién avanza) lo marca ESPN.
+            goes_pen = None
+            pen_winner = None
+            phase = db_match.get("phase")
+            if (game["status"] == "finished" and phase and phase != "groups"
+                    and home_goals is not None and away_goals is not None
+                    and home_goals == away_goals):
+                goes_pen = True
+                w = game.get("winner")  # "home"/"away" en la orientación de ESPN
+                if w:
+                    winner_name = game["home"] if w == "home" else game["away"]
+                    if winner_name == db_match.get("home_team"):
+                        pen_winner = db_match.get("home_team")
+                    elif winner_name == db_match.get("away_team"):
+                        pen_winner = db_match.get("away_team")
+                    else:
+                        pen_winner = winner_name
+
+            await apply_update(db_match, game["status"], home_goals, away_goals, game["minute"], events, goes_pen, pen_winner)
         except Exception as exc:  # noqa: BLE001
             errors.append(str(exc))
 
