@@ -120,6 +120,35 @@ async def delete_user(
     }
 
 
+@router.post("/recalc-scores")
+async def admin_recalc_scores(admin: dict = Depends(require_admin)):
+    """Recalcula los puntos de TODOS los partidos finalizados con las reglas
+    actuales (backend = service role, así sí actualiza las predicciones de todos).
+
+    Útil tras cambiar una regla de puntaje: los points_earned viejos no se
+    recalculan solos, y el auto-sync solo re-puntúa cuando cambian los datos.
+    Es idempotente (la función de scoring aplica solo la diferencia)."""
+    supabase = get_supabase()
+    finished = (
+        supabase.table("matches").select("id").eq("status", "finished").execute().data or []
+    )
+    recalculated = 0
+    errors = []
+    for m in finished:
+        try:
+            await calculate_and_update_scores(supabase, m["id"])
+            recalculated += 1
+        except Exception as exc:  # noqa: BLE001
+            errors.append(f"match {m['id']}: {exc}")
+
+    return {
+        "status": "ok",
+        "finished": len(finished),
+        "recalculated": recalculated,
+        "errors": errors,
+    }
+
+
 @router.post("/optimize-avatars")
 async def optimize_avatars(admin: dict = Depends(require_admin)):
     """Optimiza (redimensiona + comprime) los avatares YA subidos.
