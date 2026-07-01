@@ -4,7 +4,7 @@ import { motion } from 'motion/react'
 import { Mail, Lock, Eye, EyeOff, AlertCircle, ArrowRight } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
 
-export default function LoginForm({ onToggle, confirmationMessage }) {
+export default function LoginForm({ onToggle, onForgot, confirmationMessage }) {
   const { signIn } = useAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -127,6 +127,17 @@ export default function LoginForm({ onToggle, confirmationMessage }) {
                   {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               </div>
+            </div>
+
+            {/* Forgot password */}
+            <div className="flex justify-end -mt-1">
+              <button
+                type="button"
+                onClick={onForgot}
+                className="text-xs text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300 font-semibold transition-colors"
+              >
+                ¿Olvidaste tu contraseña?
+              </button>
             </div>
 
             {/* Submit button */}

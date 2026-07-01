@@ -14,6 +14,7 @@ import LoadingSpinner from './components/ui/LoadingSpinner'
 import { useState, lazy, Suspense } from 'react'
 
 const AuthPage = lazy(() => import('./pages/AuthPage'))
+const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage'))
 const DashboardPage = lazy(() => import('./pages/DashboardPage'))
 const MatchesPage = lazy(() => import('./pages/MatchesPage'))
 const BracketPage = lazy(() => import('./pages/BracketPage'))
@@ -84,6 +85,7 @@ function AppRoutes() {
         <Routes>
         {/* Rutas públicas */}
         <Route path="/auth" element={<AuthPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
 
         {/* Rutas protegidas */}
       <Route
