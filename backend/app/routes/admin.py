@@ -122,15 +122,22 @@ async def delete_user(
 
 @router.post("/recalc-scores")
 async def admin_recalc_scores(admin: dict = Depends(require_admin)):
-    """Recalcula los puntos de TODOS los partidos finalizados con las reglas
-    actuales (backend = service role, así sí actualiza las predicciones de todos).
+    """Recalcula los puntos de los partidos de ELIMINATORIA finalizados con las
+    reglas actuales (backend = service role, así sí actualiza las predicciones de
+    todos). No toca la fase de grupos.
 
-    Útil tras cambiar una regla de puntaje: los points_earned viejos no se
-    recalculan solos, y el auto-sync solo re-puntúa cuando cambian los datos.
-    Es idempotente (la función de scoring aplica solo la diferencia)."""
+    Útil tras cambiar una regla de puntaje de eliminatoria (penales): los
+    points_earned viejos no se recalculan solos, y el auto-sync solo re-puntúa
+    cuando cambian los datos. Es idempotente (aplica solo la diferencia)."""
     supabase = get_supabase()
     finished = (
-        supabase.table("matches").select("id").eq("status", "finished").execute().data or []
+        supabase.table("matches")
+        .select("id")
+        .eq("status", "finished")
+        .neq("phase", "groups")
+        .execute()
+        .data
+        or []
     )
     recalculated = 0
     errors = []

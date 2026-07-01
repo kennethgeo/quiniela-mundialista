@@ -4,10 +4,11 @@ import { Calculator, Loader2 } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 
 /**
- * Botón de admin para recalcular los puntos de TODOS los partidos finalizados
- * con las reglas actuales. Necesario tras cambiar una regla de puntaje: los
- * points_earned viejos no se recalculan solos. Lo hace el backend (service role),
- * así actualiza las predicciones de todos. Idempotente.
+ * Botón de admin para recalcular los puntos de los partidos de ELIMINATORIA
+ * finalizados con las reglas actuales (no toca la fase de grupos). Necesario
+ * tras cambiar una regla de penales: los points_earned viejos no se recalculan
+ * solos. Lo hace el backend (service role), así actualiza las predicciones de
+ * todos. Idempotente.
  */
 export default function RecalcScoresAdmin() {
   const [running, setRunning] = useState(false)
@@ -15,7 +16,7 @@ export default function RecalcScoresAdmin() {
   const [error, setError] = useState(null)
 
   const run = async () => {
-    if (!confirm('¿Recalcular los puntos de todos los partidos finalizados con las reglas actuales? Es seguro (idempotente).')) return
+    if (!confirm('¿Recalcular los puntos de los partidos de eliminatoria finalizados con las reglas actuales? Es seguro (idempotente).')) return
     try {
       setRunning(true); setError(null); setResult(null)
       const { data: { session } } = await supabase.auth.getSession()
@@ -44,12 +45,12 @@ export default function RecalcScoresAdmin() {
     <div className="glass-card p-5">
       <div className="flex items-center gap-2 mb-2">
         <Calculator size={18} className="text-accent" />
-        <h3 className="text-base font-bold text-slate-900 dark:text-white">Recalcular puntos</h3>
+        <h3 className="text-base font-bold text-slate-900 dark:text-white">Recalcular puntos (eliminatoria)</h3>
       </div>
       <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
-        Reaplica las reglas de puntaje actuales a todos los partidos finalizados.
-        Usalo después de cambiar una regla (ej. penales) para actualizar los puntos
-        ya cargados. Es seguro y se puede repetir.
+        Reaplica las reglas actuales a los partidos de <b>eliminatoria</b> finalizados
+        (no toca la fase de grupos). Usalo después de cambiar una regla de penales
+        para actualizar los puntos ya cargados. Es seguro y se puede repetir.
       </p>
 
       <button
@@ -63,7 +64,7 @@ export default function RecalcScoresAdmin() {
 
       {result && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-4 text-sm text-slate-700 dark:text-slate-300">
-          ✅ Recalculados <b>{result.recalculated}</b> de {result.finished} partidos finalizados.
+          ✅ Recalculados <b>{result.recalculated}</b> de {result.finished} partidos de eliminatoria finalizados.
           {result.errors?.length > 0 && <span className="text-rose-500 text-xs block mt-1">Errores: {result.errors.length}</span>}
         </motion.div>
       )}
