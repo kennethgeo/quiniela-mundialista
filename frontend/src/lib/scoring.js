@@ -1,5 +1,40 @@
 import { supabase } from './supabase'
 
+// --- Comparación tolerante de nombres (goleador) -----------------------------
+// Los nombres del goleador se escriben a mano, así que la comparación exacta
+// falla por acentos ("Mbappe" vs "Mbappé"), nombre parcial ("Mbappé"), o nombre
+// completo ("Lionel Andres Messi Cuccitini" vs "Lionel Messi"). Misma lógica que
+// la vista user_badges_view (database/20_fix_scorer_name_match.sql).
+const normName = (s) =>
+  (s || '')
+    .normalize('NFD').replace(/[̀-ͯ]/g, '') // quita acentos
+    .toLowerCase().trim().replace(/\s+/g, ' ')
+
+const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+const lastToken = (s) => { const t = normName(s).split(' ').filter(Boolean); return t[t.length - 1] || '' }
+const wordIn = (word, hay) => word.length >= 3 && new RegExp(`(^|\\s)${escapeRe(word)}(\\s|$)`).test(hay)
+
+// El campeón sale de una lista fija (mismo dropdown), así que basta igualdad sin
+// acentos (p. ej. "Türkiye"); NO se usa contención para no confundir equipos
+// parecidos ("DR Congo" vs "Congo").
+const championMatches = (actual, pick) => {
+  const a = normName(actual), p = normName(pick)
+  return !!a && !!p && a === p
+}
+
+// El goleador es texto libre: igualdad, contención en cualquier sentido, o
+// coincidencia del apellido (última palabra) como palabra dentro del otro.
+const scorerMatches = (actual, pick) => {
+  const a = normName(actual), p = normName(pick)
+  if (!a || !p) return false
+  if (a === p) return true
+  if (a.length >= 3 && p.includes(a)) return true
+  if (p.length >= 3 && a.includes(p)) return true
+  if (wordIn(lastToken(a), p)) return true
+  if (wordIn(lastToken(p), a)) return true
+  return false
+}
+
 export async function calculateAndUpdateScores(matchId) {
   try {
     // 1. Obtener resultado real del partido
@@ -231,11 +266,11 @@ export async function calculateTournamentPredictions() {
       let championPts = 0
       let topScorerPts = 0
 
-      if (actual_champion && pred.champion_team && actual_champion.trim().toLowerCase() === pred.champion_team.trim().toLowerCase()) {
+      if (actual_champion && pred.champion_team && championMatches(actual_champion, pred.champion_team)) {
         championPts = 12
       }
 
-      if (actual_top_scorer && pred.top_scorer_name && actual_top_scorer.trim().toLowerCase() === pred.top_scorer_name.trim().toLowerCase()) {
+      if (actual_top_scorer && pred.top_scorer_name && scorerMatches(actual_top_scorer, pred.top_scorer_name)) {
         topScorerPts = 12
       }
 
