@@ -7,6 +7,7 @@ import { useAuth } from '../../hooks/useAuth'
 import { compareLeaderboard } from '../../lib/leaderboard'
 import { provisionalByUser } from '../../lib/provisional'
 import LeaderboardRow from './LeaderboardRow'
+import PlayerStatsModal from './PlayerStatsModal'
 import LoadingSpinner from '../ui/LoadingSpinner'
 
 // Total a mostrar: el provisional en vivo si lo hay, si no el oficial.
@@ -17,7 +18,7 @@ function sortLive(entries) {
   return [...(entries || [])].sort((a, b) => (liveTotal(b) - liveTotal(a)) || compareLeaderboard(a, b))
 }
 
-function Podium({ top3 }) {
+function Podium({ top3, onSelect }) {
   if (top3.length < 3) return null
 
   const podiumOrder = [top3[1], top3[0], top3[2]] // Plata, Oro, Bronce
@@ -52,7 +53,8 @@ function Podium({ top3 }) {
               initial={{ opacity: 0, y: 40, scale: 0.8 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               transition={{ delay: i === 1 ? 0 : 0.15 + i * 0.1, type: 'spring', stiffness: 180, damping: 18 }}
-              className="flex flex-col items-center"
+              onClick={() => onSelect?.(entry)}
+              className="flex flex-col items-center cursor-pointer"
             >
               {/* Crown glow for 1st place */}
               {isFirst && (
@@ -126,6 +128,7 @@ export default function Leaderboard() {
   const [entries, setEntries] = useState([])
   const [loading, setLoading] = useState(true)
   const [hasLive, setHasLive] = useState(false)
+  const [selected, setSelected] = useState(null)
   const debounceRef = useRef(null)
 
   // Solo los puntos PROVISIONALES (en vivo): consulta liviana de los partidos en
@@ -224,7 +227,7 @@ export default function Leaderboard() {
       )}
 
       {/* Podio top 3 */}
-      {top3.length >= 3 && <Podium top3={top3} />}
+      {top3.length >= 3 && <Podium top3={top3} onSelect={setSelected} />}
 
       {/* Tabla — mostrar si hay resto o si no se completó el podio */}
       {((rest.length > 0 || top3.length < 3) && entries.length > 0) && (
@@ -250,6 +253,7 @@ export default function Leaderboard() {
                     entry={entry}
                     position={idx + 1}
                     isCurrentUser={entry.id === user?.id}
+                    onSelect={setSelected}
                   />
                 ))
               ) : (
@@ -259,6 +263,7 @@ export default function Leaderboard() {
                     entry={entry}
                     position={idx + 4}
                     isCurrentUser={entry.id === user?.id}
+                    onSelect={setSelected}
                   />
                 ))
               )}
@@ -266,6 +271,12 @@ export default function Leaderboard() {
           </div>
         </motion.div>
       )}
+
+      <PlayerStatsModal
+        entry={selected}
+        isCurrentUser={selected?.id === user?.id}
+        onClose={() => setSelected(null)}
+      />
     </div>
   )
 }
