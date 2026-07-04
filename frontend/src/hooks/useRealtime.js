@@ -8,24 +8,33 @@ export function useGlobalRealtime() {
   useEffect(() => {
     const channel = supabase.channel('global-updates')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'matches' }, (payload) => {
-        console.log('Realtime Match Update:', payload)
-        // Invalidate all matches queries
-        queryClient.invalidateQueries({ queryKey: ['matches'] })
+        // En vez de re-descargar TODOS los partidos en cada cambio (eso disparaba
+        // el egress de PostgREST en vivo), parcheamos en memoria solo el partido
+        // que cambió usando el dato que ya viene en el evento (cero consultas).
+        const row = payload.new
+        if (payload.eventType === 'UPDATE' && row && row.id != null) {
+          queryClient.setQueriesData({ queryKey: ['matches'] }, (old) => {
+            if (!Array.isArray(old)) return old
+            let changed = false
+            const next = old.map((m) => {
+              if (m.id === row.id) { changed = true; return { ...m, ...row } }
+              return m
+            })
+            return changed ? next : old
+          })
+        } else {
+          // INSERT / DELETE (raro): ahí sí refrescamos la lista.
+          queryClient.invalidateQueries({ queryKey: ['matches'] })
+        }
       })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'predictions' }, (payload) => {
-        console.log('Realtime Prediction Update:', payload)
-        // Invalidate predictions
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'predictions' }, () => {
         queryClient.invalidateQueries({ queryKey: ['predictions'] })
       })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, (payload) => {
-        console.log('Realtime Users Update:', payload)
-        // Invalidate leaderboard and stats
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, () => {
         queryClient.invalidateQueries({ queryKey: ['leaderboard'] })
         queryClient.invalidateQueries({ queryKey: ['user_stats'] })
       })
-      .subscribe((status) => {
-        console.log('Global Realtime subscription status:', status)
-      })
+      .subscribe()
 
     return () => {
       supabase.removeChannel(channel)

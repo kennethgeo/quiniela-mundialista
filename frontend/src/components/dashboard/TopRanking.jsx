@@ -4,6 +4,7 @@ import { motion } from 'motion/react'
 import { Trophy, Crown, ChevronRight, Medal } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
+import { sortLeaderboard } from '../../lib/leaderboard'
 
 /** Colores y estilos para cada posición del podio */
 const podiumStyles = {
@@ -62,14 +63,15 @@ export default function TopRanking() {
   useEffect(() => {
     const fetchTop = async () => {
       try {
+        // Se lee la vista y se ordena con el desempate oficial ANTES de cortar
+        // el top 3, para que el podio respete los criterios de desempate (no
+        // solo los puntos). Ver lib/leaderboard.js.
         const { data, error } = await supabase
-          .from('users')
-          .select('id, display_name, avatar_url, total_points')
-          .order('total_points', { ascending: false })
-          .limit(3)
-          
+          .from('user_badges_view')
+          .select('*')
+
         if (error) throw error
-        setTopUsers(data || [])
+        setTopUsers(sortLeaderboard(data).slice(0, 3))
       } catch (err) {
         console.error('Error fetching leaderboard:', err)
         setTopUsers([])

@@ -1,17 +1,18 @@
 /* Página de partidos - Fase de Grupos / Finalizados */
 import { useState } from 'react'
 import { useLocation } from 'react-router-dom'
-import { Calendar, Trophy, CheckCircle2, Swords } from 'lucide-react'
+import { Calendar, Trophy, CheckCircle2, Swords, CalendarDays } from 'lucide-react'
 import { motion } from 'motion/react'
+import TodayMatches from '../components/matches/TodayMatches'
 import GroupStage from '../components/matches/GroupStage'
 import KnockoutStage from '../components/matches/KnockoutStage'
 import FinishedMatches from '../components/matches/FinishedMatches'
 
-const VALID_TABS = ['groups', 'knockout', 'finished']
+const VALID_TABS = ['today', 'groups', 'knockout', 'finished']
 
 export default function MatchesPage() {
   const location = useLocation()
-  const [tab, setTab] = useState(VALID_TABS.includes(location.state?.tab) ? location.state.tab : 'groups') // 'groups' | 'knockout' | 'finished'
+  const [tab, setTab] = useState(VALID_TABS.includes(location.state?.tab) ? location.state.tab : 'today') // 'today' | 'groups' | 'knockout' | 'finished'
 
   return (
     <div className="px-4 py-5 relative">
@@ -42,10 +43,20 @@ export default function MatchesPage() {
       </motion.div>
 
       {/* Tabs */}
-      <div className="flex gap-2 mb-6 relative z-10">
+      <div className="flex gap-2 mb-6 relative z-10 overflow-x-auto scrollbar-hide">
+        <button
+          onClick={() => setTab('today')}
+          className={`flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold transition-all ${
+            tab === 'today'
+              ? 'bg-accent text-white shadow-lg shadow-accent/20'
+              : 'glass-strong text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 bg-white dark:bg-transparent'
+          }`}
+        >
+          <CalendarDays size={15} /> Hoy
+        </button>
         <button
           onClick={() => setTab('groups')}
-          className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold transition-all ${
+          className={`flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold transition-all ${
             tab === 'groups'
               ? 'bg-accent text-white shadow-lg shadow-accent/20'
               : 'glass-strong text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 bg-white dark:bg-transparent'
@@ -55,7 +66,7 @@ export default function MatchesPage() {
         </button>
         <button
           onClick={() => setTab('knockout')}
-          className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold transition-all ${
+          className={`flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold transition-all ${
             tab === 'knockout'
               ? 'bg-accent text-white shadow-lg shadow-accent/20'
               : 'glass-strong text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 bg-white dark:bg-transparent'
@@ -65,7 +76,7 @@ export default function MatchesPage() {
         </button>
         <button
           onClick={() => setTab('finished')}
-          className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold transition-all ${
+          className={`flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold transition-all ${
             tab === 'finished'
               ? 'bg-accent text-white shadow-lg shadow-accent/20'
               : 'glass-strong text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 bg-white dark:bg-transparent'
@@ -75,6 +86,7 @@ export default function MatchesPage() {
         </button>
       </div>
 
+      {tab === 'today' && <TodayMatches />}
       {tab === 'groups' && <GroupStage />}
       {tab === 'knockout' && <KnockoutStage />}
       {tab === 'finished' && <FinishedMatches />}

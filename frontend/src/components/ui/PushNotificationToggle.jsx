@@ -25,15 +25,17 @@ function urlBase64ToUint8Array(base64String) {
   return outputArray
 }
 
-// Compara la llave applicationServerKey de una suscripción existente con la actual.
-function sameApplicationServerKey(existing, current) {
-  if (!existing) return false // no podemos saberlo → no migramos
+// ¿La llave applicationServerKey de la suscripción difiere POSITIVAMENTE de la
+// actual? Si no se puede saber (el navegador no la expone), devolvemos false
+// para NO migrar y evitar re-suscribir en cada carga (churn de endpoints).
+function applicationServerKeyDiffers(existing, current) {
+  if (!existing) return false // desconocido → no migramos
   const a = new Uint8Array(existing)
-  if (a.length !== current.length) return false
+  if (a.length !== current.length) return true
   for (let i = 0; i < a.length; i++) {
-    if (a[i] !== current[i]) return false
+    if (a[i] !== current[i]) return true
   }
-  return true
+  return false
 }
 
 export default function PushNotificationToggle() {
@@ -69,31 +71,44 @@ export default function PushNotificationToggle() {
       }
 
       const registration = await navigator.serviceWorker.ready
-      const subscription = await registration.pushManager.getSubscription()
+      const currentKey = urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+      let subscription = await registration.pushManager.getSubscription()
 
+      // AUTO-SANACIÓN: si no hay suscripción pero el permiso sigue concedido
+      // (lo típico tras actualizar la app/SW, que puede tirar la suscripción),
+      // volvemos a suscribir EN SILENCIO para no quedar sin notificaciones sin
+      // que el usuario tenga que reactivar nada.
       if (!subscription) {
-        setIsSubscribed(false)
-        return
+        if (profile?.id && Notification.permission === 'granted') {
+          try {
+            subscription = await registration.pushManager.subscribe({
+              userVisibleOnly: true,
+              applicationServerKey: currentKey,
+            })
+          } catch (e) {
+            console.error('Auto-resuscripción falló:', e)
+          }
+        }
+        if (!subscription) {
+          setIsSubscribed(false)
+          return
+        }
       }
 
-      // ¿La suscripción usa una llave VAPID antigua? Si el permiso ya está
-      // concedido, la migramos automáticamente (sin pedir nada al usuario)
-      // para que vuelva a recibir notificaciones con la llave nueva.
-      const currentKey = urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
-      const matches = sameApplicationServerKey(subscription.options?.applicationServerKey, currentKey)
-
-      if (!matches && profile?.id && Notification.permission === 'granted') {
+      // Si la suscripción usa una llave VAPID distinta (positivamente), migrar.
+      if (
+        profile?.id &&
+        Notification.permission === 'granted' &&
+        applicationServerKeyDiffers(subscription.options?.applicationServerKey, currentKey)
+      ) {
         try {
           const oldEndpoint = subscription.endpoint
           await subscription.unsubscribe()
           await supabase.from('push_subscriptions').delete().eq('endpoint', oldEndpoint)
-          const newSub = await registration.pushManager.subscribe({
+          subscription = await registration.pushManager.subscribe({
             userVisibleOnly: true,
             applicationServerKey: currentKey,
           })
-          await persistSubscription(newSub)
-          setIsSubscribed(true)
-          return
         } catch (migErr) {
           console.error('Error migrando suscripción push:', migErr)
           setIsSubscribed(false)
@@ -101,6 +116,9 @@ export default function PushNotificationToggle() {
         }
       }
 
+      // Garantizar que el servidor tenga la suscripción actual (por si se perdió
+      // la fila en la BD). persistSubscription es idempotente (delete+insert).
+      if (profile?.id) await persistSubscription(subscription)
       setIsSubscribed(true)
     } catch (err) {
       console.error('Error checking push subscription:', err)

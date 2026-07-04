@@ -1,13 +1,24 @@
 /* Tabla de posiciones con podio animado + Supabase Realtime */
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { motion } from 'motion/react'
-import { Trophy, Crown, Medal, Zap } from 'lucide-react'
+import { Trophy, Crown, Medal, Radio } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
+import { compareLeaderboard } from '../../lib/leaderboard'
+import { provisionalByUser } from '../../lib/provisional'
 import LeaderboardRow from './LeaderboardRow'
+import PlayerStatsModal from './PlayerStatsModal'
 import LoadingSpinner from '../ui/LoadingSpinner'
 
-function Podium({ top3 }) {
+// Total a mostrar: el provisional en vivo si lo hay, si no el oficial.
+const liveTotal = (e) => (typeof e._liveTotal === 'number' ? e._liveTotal : (e.total_points || 0))
+
+// Ordena por el total EN VIVO y, a igualdad, por el desempate oficial.
+function sortLive(entries) {
+  return [...(entries || [])].sort((a, b) => (liveTotal(b) - liveTotal(a)) || compareLeaderboard(a, b))
+}
+
+function Podium({ top3, onSelect }) {
   if (top3.length < 3) return null
 
   const podiumOrder = [top3[1], top3[0], top3[2]] // Plata, Oro, Bronce
@@ -42,7 +53,8 @@ function Podium({ top3 }) {
               initial={{ opacity: 0, y: 40, scale: 0.8 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               transition={{ delay: i === 1 ? 0 : 0.15 + i * 0.1, type: 'spring', stiffness: 180, damping: 18 }}
-              className="flex flex-col items-center"
+              onClick={() => onSelect?.(entry)}
+              className="flex flex-col items-center cursor-pointer"
             >
               {/* Crown glow for 1st place */}
               {isFirst && (
@@ -86,9 +98,12 @@ function Podium({ top3 }) {
                 {entry.is_ludopata && <span className="inline-flex items-center justify-center bg-black/10 dark:bg-white/10 border border-black/5 dark:border-white/10 rounded px-1 text-[9px] leading-none cursor-default" title="Ludópata (adicto al comodín x2)">🎰</span>}
               </div>
 
-              {/* Puntos */}
+              {/* Puntos (total en vivo + delta provisional) */}
               <p className={`text-sm font-bold mb-2 ${iconColors[i]}`}>
-                {entry.total_points} pts
+                {liveTotal(entry)} pts
+                {entry.liveDelta > 0 && (
+                  <span className="ml-1 text-[10px] font-bold text-emerald-500 animate-pulse">+{entry.liveDelta}</span>
+                )}
               </p>
 
               {/* Podio - bloque 3D */}
@@ -112,69 +127,85 @@ export default function Leaderboard() {
   const { user } = useAuth()
   const [entries, setEntries] = useState([])
   const [loading, setLoading] = useState(true)
-  const channelRef = useRef(null)
+  const [hasLive, setHasLive] = useState(false)
+  const [selected, setSelected] = useState(null)
+  const debounceRef = useRef(null)
 
-  useEffect(() => {
-    // Cargar ranking inicial
-    const fetchLeaderboard = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('user_badges_view')
-          .select('*')
-          .order('total_points', { ascending: false })
+  // Solo los puntos PROVISIONALES (en vivo): consulta liviana de los partidos en
+  // curso + sus predicciones, y actualiza el delta sobre las filas ya cargadas.
+  // NO vuelve a pedir la vista pesada user_badges_view (eso era lo que disparaba
+  // el consumo en cada evento de realtime).
+  const applyProvisional = useCallback(async () => {
+    try {
+      const { data: live } = await supabase
+        .from('matches')
+        .select('id, home_goals_actual, away_goals_actual')
+        .eq('status', 'in_progress')
+      const liveMatches = live || []
 
-        if (error) throw error
-        setEntries(data || [])
-      } catch (err) {
-        console.error('Error cargando ranking:', err)
-      } finally {
-        setLoading(false)
+      let provisional = {}
+      if (liveMatches.length) {
+        const { data: preds } = await supabase
+          .from('predictions')
+          .select('user_id, match_id, prediction_type, home_goals_pred, away_goals_pred, penalties_winner_pred, use_powerup_x2')
+          .in('match_id', liveMatches.map((m) => m.id))
+        provisional = provisionalByUser(liveMatches, preds || [])
       }
+      setHasLive(liveMatches.length > 0)
+      setEntries((prev) => sortLive(prev.map((e) => {
+        const liveDelta = provisional[e.id] || 0
+        return { ...e, liveDelta, _liveTotal: (e.total_points || 0) + liveDelta }
+      })))
+    } catch (err) {
+      console.error('Error puntos en vivo:', err)
     }
-
-    fetchLeaderboard()
   }, [])
 
+  // Carga inicial: la vista pesada UNA vez, luego el provisional liviano.
+  const fetchInitial = useCallback(async () => {
+    try {
+      const { data: lb, error } = await supabase.from('user_badges_view').select('*')
+      if (error) throw error
+      setEntries(sortLive((lb || []).map((e) => ({ ...e, liveDelta: 0, _liveTotal: e.total_points || 0 }))))
+    } catch (err) {
+      console.error('Error cargando ranking:', err)
+    } finally {
+      setLoading(false)
+    }
+    applyProvisional()
+  }, [applyProvisional])
+
   useEffect(() => {
-    // Configurar Realtime subscription
+    fetchInitial()
+  }, [fetchInitial])
+
+  useEffect(() => {
+    // Realtime eficiente:
+    //  - users UPDATE: actualizamos total_points EN SITIO (sin consultar nada).
+    //  - matches: recalculamos solo el provisional (consulta liviana, con debounce
+    //    para no dispararlo en ráfaga durante el live-sync).
+    const debouncedProvisional = () => {
+      clearTimeout(debounceRef.current)
+      debounceRef.current = setTimeout(applyProvisional, 1500)
+    }
     const channel = supabase
-      .channel('users-leaderboard')
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'users'
-        },
-        (payload) => {
-          const updatedUser = payload.new
-
-          // Actualizar usuario en la lista
-          setEntries((prevEntries) => {
-            const updated = prevEntries.map((entry) =>
-              entry.id === updatedUser.id
-                ? { ...entry, total_points: updatedUser.total_points }
-                : entry
-            )
-
-            // Reordenar por puntos (descendente)
-            return updated.sort((a, b) => b.total_points - a.total_points)
-          })
-        }
-      )
-      .subscribe((status) => {
-        console.log('Realtime channel status:', status)
+      .channel('leaderboard-live')
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'users' }, (payload) => {
+        const u = payload.new
+        setEntries((prev) => sortLive(prev.map((e) =>
+          e.id === u.id
+            ? { ...e, total_points: u.total_points, _liveTotal: (u.total_points || 0) + (e.liveDelta || 0) }
+            : e
+        )))
       })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'matches' }, debouncedProvisional)
+      .subscribe()
 
-    channelRef.current = channel
-
-    // Cleanup: unsubscribe al desmontar
     return () => {
-      if (channelRef.current) {
-        supabase.removeChannel(channelRef.current)
-      }
+      clearTimeout(debounceRef.current)
+      supabase.removeChannel(channel)
     }
-  }, [])
+  }, [applyProvisional])
 
   if (loading) return <LoadingSpinner />
 
@@ -183,8 +214,20 @@ export default function Leaderboard() {
 
   return (
     <div>
+      {/* Aviso de puntos en vivo (provisionales) */}
+      {hasLive && (
+        <motion.div
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex items-center justify-center gap-2 mb-3 px-3 py-2 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-500"
+        >
+          <Radio size={13} className="animate-pulse" />
+          <span className="text-[11px] font-bold">EN VIVO · puntos provisionales (parciales)</span>
+        </motion.div>
+      )}
+
       {/* Podio top 3 */}
-      {top3.length >= 3 && <Podium top3={top3} />}
+      {top3.length >= 3 && <Podium top3={top3} onSelect={setSelected} />}
 
       {/* Tabla — mostrar si hay resto o si no se completó el podio */}
       {((rest.length > 0 || top3.length < 3) && entries.length > 0) && (
@@ -210,6 +253,7 @@ export default function Leaderboard() {
                     entry={entry}
                     position={idx + 1}
                     isCurrentUser={entry.id === user?.id}
+                    onSelect={setSelected}
                   />
                 ))
               ) : (
@@ -219,6 +263,7 @@ export default function Leaderboard() {
                     entry={entry}
                     position={idx + 4}
                     isCurrentUser={entry.id === user?.id}
+                    onSelect={setSelected}
                   />
                 ))
               )}
@@ -226,6 +271,12 @@ export default function Leaderboard() {
           </div>
         </motion.div>
       )}
+
+      <PlayerStatsModal
+        entry={selected}
+        isCurrentUser={selected?.id === user?.id}
+        onClose={() => setSelected(null)}
+      />
     </div>
   )
 }

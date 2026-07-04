@@ -4,6 +4,8 @@ import { Lock } from 'lucide-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
+import { useToast } from '../ui/Toast'
+import { friendlySaveError } from '../../lib/saveError'
 import { resolveKnockoutTeams } from '../../lib/bracketResolver'
 import MatchCard from './MatchCard'
 import LoadingSpinner from '../ui/LoadingSpinner'
@@ -37,6 +39,7 @@ function LockedKnockoutCard({ phaseDoneHint }) {
 
 export default function KnockoutStage() {
   const { profile } = useAuth()
+  const { showToast } = useToast()
   const queryClient = useQueryClient()
 
   const { data: allMatches = [], isLoading: lm } = useQuery({
@@ -88,6 +91,7 @@ export default function KnockoutStage() {
         return [...old, newPred]
       })
     },
+    onError: (err) => showToast(friendlySaveError(err), 'error', 6000),
   })
 
   if (lm || lp || ll) return <LoadingSpinner />
@@ -107,6 +111,17 @@ export default function KnockoutStage() {
       .filter((m) => m.phase === ph.key)
       .sort((a, b) => new Date(a.kickoff_at) - new Date(b.kickoff_at)),
   })).filter((p) => p.matches.length > 0)
+
+  // Mostrar primero las fases en curso/próximas (por su partido sin jugar más
+  // cercano) y mandar al fondo las ya terminadas, para no caer siempre en lo
+  // viejo. El orden natural (32 → Final) se preserva entre fases del mismo tipo.
+  const phaseSortKey = (phase) => {
+    const upcoming = phase.matches.filter((m) => m.status !== 'finished')
+    // Centinela finito (no Infinity) para no producir NaN al restar en el sort.
+    if (upcoming.length === 0) return Number.MAX_SAFE_INTEGER // fase terminada: al final
+    return Math.min(...upcoming.map((m) => new Date(m.kickoff_at).getTime()))
+  }
+  phases.sort((a, b) => phaseSortKey(a) - phaseSortKey(b))
 
   if (phases.length === 0) {
     return (

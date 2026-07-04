@@ -5,7 +5,7 @@ export async function calculateAndUpdateScores(matchId) {
     // 1. Obtener resultado real del partido
     const { data: match, error: matchError } = await supabase
       .from('matches')
-      .select('id, home_goals_actual, away_goals_actual, status, goes_to_penalties, penalties_winner_real')
+      .select('id, home_team, away_team, home_goals_actual, away_goals_actual, status, goes_to_penalties, penalties_winner_real')
       .eq('id', matchId)
       .single()
 
@@ -36,7 +36,7 @@ export async function calculateAndUpdateScores(matchId) {
     for (const pred of predictions) {
       let pts = 0
       if (isFinished && home_actual !== null && away_actual !== null) {
-        pts = evaluatePrediction(pred, home_actual, away_actual, goes_to_penalties, penalties_winner_real)
+        pts = evaluatePrediction(pred, home_actual, away_actual, goes_to_penalties, penalties_winner_real, match.home_team, match.away_team)
       }
       const oldPoints = pred.points_earned || 0
       const delta = pts - oldPoints
@@ -68,7 +68,7 @@ export async function calculateAndUpdateScores(matchId) {
   }
 }
 
-function evaluatePrediction(pred, home_actual, away_actual, goes_to_penalties, penalties_winner_real) {
+export function evaluatePrediction(pred, home_actual, away_actual, goes_to_penalties, penalties_winner_real, home_team, away_team) {
   const pred_type = pred.prediction_type || 'Marcador'
   const home_pred = pred.home_goals_pred
   const away_pred = pred.away_goals_pred
@@ -89,16 +89,23 @@ function evaluatePrediction(pred, home_actual, away_actual, goes_to_penalties, p
     else if (away_pred > home_pred) pred_winner = 'away'
 
     if (goes_to_penalties && pred_winner !== 'tie') {
-      points = 0
+      // Predijo un ganador y el partido se fue a penales (empate en 90'/120').
+      // Si el equipo que eligió ganador es el que avanzó en penales, 1 punto
+      // (acertó quién pasa). Si no, 0.
+      const predTeam = pred_winner === 'home' ? home_team : away_team
+      points = (penalties_winner_real && predTeam && predTeam === penalties_winner_real) ? 1 : 0
     } else {
       if (real_winner === 'tie') {
         if (home_pred === home_actual && away_pred === away_actual) points = 3
         else if (pred_winner === 'tie') points = 1
         else points = 0
 
-        if (goes_to_penalties && pred_winner === 'tie' && penalties_winner_pred && penalties_winner_real) {
-          // Si falló en los penales, pierde sus puntos de empate
-          if (penalties_winner_pred !== penalties_winner_real) points = 0
+        // Penales: el marcador del empate vale igual (3 exacto / 1 empate),
+        // aunque se falle el penal. Acertar quién pasa suma +1 a la base, así el
+        // comodín x2 también lo duplica.
+        if (goes_to_penalties && pred_winner === 'tie' && penalties_winner_pred && penalties_winner_real
+            && penalties_winner_pred === penalties_winner_real) {
+          points += 1
         }
       } else {
         if (home_pred === home_actual && away_pred === away_actual) points = 3

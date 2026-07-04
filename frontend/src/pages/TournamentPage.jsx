@@ -1,9 +1,10 @@
 /* Página de Torneo: posiciones por grupo, goleadores y tarjetas */
 import { useState, useEffect } from 'react'
 import { motion } from 'motion/react'
-import { BarChart3, Goal, RectangleVertical } from 'lucide-react'
+import { BarChart3, Goal, RectangleVertical, Zap } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import GroupStandings from '../components/matches/GroupStandings'
+import PowerupUsage from '../components/tournament/PowerupUsage'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
 
 const GROUPS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L']
@@ -62,6 +63,7 @@ export default function TournamentPage() {
     { id: 'posiciones', label: 'Posiciones', icon: BarChart3 },
     { id: 'goleadores', label: 'Goleadores', icon: Goal },
     { id: 'tarjetas', label: 'Tarjetas', icon: RectangleVertical },
+    { id: 'comodines', label: 'Comodines', icon: Zap },
   ]
 
   return (
@@ -78,12 +80,12 @@ export default function TournamentPage() {
       </motion.div>
 
       {/* Tabs */}
-      <div className="flex gap-2 mb-5">
+      <div className="flex gap-2 mb-5 overflow-x-auto scrollbar-hide">
         {TABS.map(({ id, label, icon: Icon }) => (
           <button
             key={id}
             onClick={() => setTab(id)}
-            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-bold transition-all ${
+            className={`shrink-0 flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-bold transition-all ${
               tab === id ? 'gradient-2026 text-white shadow-lg shadow-accent/20' : 'glass-strong text-slate-600 dark:text-slate-400 bg-white dark:bg-transparent'
             }`}
           >
@@ -128,6 +130,8 @@ export default function TournamentPage() {
             </Row>
           )}
         />
+      ) : tab === 'comodines' ? (
+        <PowerupUsage />
       ) : (
         <StatList
           empty="Aún no hay tarjetas registradas"

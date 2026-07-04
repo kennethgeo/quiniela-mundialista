@@ -7,11 +7,13 @@ import { useAuth } from '../hooks/useAuth'
 import { useTheme } from '../contexts/ThemeContext'
 import LoginForm from '../components/auth/LoginForm'
 import RegisterForm from '../components/auth/RegisterForm'
+import ForgotPasswordForm from '../components/auth/ForgotPasswordForm'
 
 export default function AuthPage() {
   const { user, loading, signOut } = useAuth()
   const { theme, toggleTheme } = useTheme()
   const [isLogin, setIsLogin] = useState(true)
+  const [forgot, setForgot] = useState(false)
   const [confirmationMessage, setConfirmationMessage] = useState('')
 
   // Detectar si venimos de un link de confirmación de email
@@ -166,7 +168,17 @@ export default function AuthPage() {
         {/* Form card */}
         <div className="w-full max-w-[420px] pb-safe px-2 sm:px-0">
           <AnimatePresence mode="wait">
-            {isLogin ? (
+            {forgot ? (
+              <motion.div
+                key="forgot"
+                initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: -10 }}
+                transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+              >
+                <ForgotPasswordForm onBack={() => setForgot(false)} />
+              </motion.div>
+            ) : isLogin ? (
               <motion.div
                 key="login"
                 initial={{ opacity: 0, scale: 0.95, y: 10 }}
@@ -174,7 +186,7 @@ export default function AuthPage() {
                 exit={{ opacity: 0, scale: 0.95, y: -10 }}
                 transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
               >
-                <LoginForm onToggle={() => setIsLogin(false)} confirmationMessage={confirmationMessage} />
+                <LoginForm onToggle={() => setIsLogin(false)} onForgot={() => setForgot(true)} confirmationMessage={confirmationMessage} />
               </motion.div>
             ) : (
               <motion.div

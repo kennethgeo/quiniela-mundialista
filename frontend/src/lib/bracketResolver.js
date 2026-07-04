@@ -1,54 +1,69 @@
 // src/lib/bracketResolver.js
+//
+// Resuelve los equipos de la fase eliminatoria a partir de los códigos de cada
+// llave (ej. "1A" = ganador del grupo A, "2B" = segundo del grupo B,
+// "3C/E/F/H/I" = uno de los 8 mejores terceros de esos grupos, "W73" = ganador
+// del partido 73, "L101" = perdedor del 101).
+//
+// Los 8 mejores terceros se asignan a sus slots con un EMPAREJAMIENTO 1-a-1
+// (cada slot recibe un tercero de uno de sus grupos candidatos, sin duplicar y
+// sin meter equipos eliminados). Esto sigue la estructura real del Mundial 2026.
+
+// Asignación OFICIAL de FIFA de los terceros a sus slots (Mundial 2026),
+// confirmada en fifa.com para el escenario real de grupos (clasifican como
+// mejores terceros los de los grupos B, D, E, F, I, J, K, L):
+//   74 (3A/B/C/D/F) -> Grupo D (Paraguay)   80 (3E/H/I/J/K) -> Grupo K (DR Congo)
+//   77 (3C/D/F/G/H) -> Grupo F (Suecia)     81 (3B/E/F/I/J) -> Grupo B (Bosnia)
+//   79 (3C/E/F/H/I) -> Grupo E (Ecuador)    82 (3A/E/H/I/J) -> Grupo I (Senegal)
+//   85 (3E/F/G/I/J) -> Grupo J (Argelia)    87 (3D/E/I/J/L) -> Grupo L (Ghana)
+const FIFA_2026_THIRD_SLOT_GROUP = {
+  '3A/B/C/D/F': 'D',
+  '3C/D/F/G/H': 'F',
+  '3C/E/F/H/I': 'E',
+  '3E/H/I/J/K': 'K',
+  '3B/E/F/I/J': 'B',
+  '3A/E/H/I/J': 'I',
+  '3E/F/G/I/J': 'J',
+  '3D/E/I/J/L': 'L',
+};
+const FIFA_2026_THIRD_GROUPS = ['B', 'D', 'E', 'F', 'I', 'J', 'K', 'L'];
 
 export function resolveKnockoutTeams(allMatches) {
   const groupsMatches = allMatches.filter(m => m.phase === 'groups');
   const knockoutMatches = allMatches.filter(m => m.phase !== 'groups');
 
-  // 1. Calculate standings for each group
+  // 1. Tabla de cada grupo
   const groupStandings = {};
-  
   groupsMatches.forEach(match => {
     const group = match.group_name;
     if (!group) return;
-
-    if (!groupStandings[group]) {
-      groupStandings[group] = {};
-    }
+    if (!groupStandings[group]) groupStandings[group] = {};
 
     const initTeam = (teamName, teamCode) => {
       if (!groupStandings[group][teamName]) {
         groupStandings[group][teamName] = { name: teamName, code: teamCode, pts: 0, gd: 0, gf: 0, pld: 0 };
       }
     };
-
     initTeam(match.home_team, match.home_team_code);
     initTeam(match.away_team, match.away_team_code);
 
     if (match.status === 'finished' && match.home_goals_actual !== null && match.away_goals_actual !== null) {
       const home = groupStandings[group][match.home_team];
       const away = groupStandings[group][match.away_team];
-
       home.pld++; away.pld++;
       home.gf += match.home_goals_actual;
       away.gf += match.away_goals_actual;
       home.gd += (match.home_goals_actual - match.away_goals_actual);
       away.gd += (match.away_goals_actual - match.home_goals_actual);
-
-      if (match.home_goals_actual > match.away_goals_actual) {
-        home.pts += 3;
-      } else if (match.home_goals_actual < match.away_goals_actual) {
-        away.pts += 3;
-      } else {
-        home.pts += 1;
-        away.pts += 1;
-      }
+      if (match.home_goals_actual > match.away_goals_actual) home.pts += 3;
+      else if (match.home_goals_actual < match.away_goals_actual) away.pts += 3;
+      else { home.pts += 1; away.pts += 1; }
     }
   });
 
-  // Sort standings per group
+  // Ordenar cada grupo (PTS, DG, GF, nombre)
   const sortedGroups = {};
   const allThirdPlaces = [];
-
   Object.keys(groupStandings).forEach(group => {
     const teams = Object.values(groupStandings[group]);
     teams.sort((a, b) => {
@@ -58,31 +73,77 @@ export function resolveKnockoutTeams(allMatches) {
       return a.name.localeCompare(b.name);
     });
     sortedGroups[group] = teams;
-
-    // Solo considerar terceros si el grupo ya jug algo
     if (teams.length >= 3 && teams[2].pld > 0) {
       allThirdPlaces.push({ ...teams[2], group });
     }
   });
 
-  // 2. Determine top 8 third places (si ya hay suficientes datos)
+  // 2. Mejores 8 terceros — SOLO cuando la fase de grupos está completa (todos
+  //    los grupos con sus partidos jugados), para no asignar terceros parciales.
+  const numGroups = Object.keys(sortedGroups).length;
+  const groupStageComplete =
+    numGroups >= 12 &&
+    Object.values(sortedGroups).every(teams => teams.length >= 4 && teams.every(t => t.pld >= 3));
+
   allThirdPlaces.sort((a, b) => {
     if (b.pts !== a.pts) return b.pts - a.pts;
     if (b.gd !== a.gd) return b.gd - a.gd;
     if (b.gf !== a.gf) return b.gf - a.gf;
     return a.name.localeCompare(b.name);
   });
-  
   const bestThirds = allThirdPlaces.slice(0, 8);
-  // Diccionario rapido para buscar si un grupo pas como 3ro
-  const thirdPlaceByGroup = {};
-  bestThirds.forEach(t => thirdPlaceByGroup[t.group] = t);
 
-  // Helper para buscar equipo por cdigo (ej: '1A', '2B')
+  // 3. Slots de tercero presentes en las llaves (ej. "3C/E/F/H/I") y asignación
+  //    1-a-1 de los mejores terceros a esos slots (emparejamiento bipartito).
+  const slotCodes = new Set();
+  knockoutMatches.forEach(m => {
+    [m.home_team, m.away_team].forEach(c => {
+      if (typeof c === 'string' && /^3[A-L]/.test(c) && c.includes('/')) slotCodes.add(c);
+    });
+  });
+  const slots = [...slotCodes].map(code => ({ code, groups: new Set(code.match(/[A-L]/g) || []) }));
+
+  let thirdBySlotCode = {};
+  if (groupStageComplete && bestThirds.length === 8) {
+    const thirdByGroup = {};
+    bestThirds.forEach((t) => { thirdByGroup[t.group] = t; });
+    const qualifyingGroups = new Set(bestThirds.map((t) => t.group));
+
+    // Si clasificaron como mejores terceros EXACTAMENTE los grupos del escenario
+    // real del Mundial 2026 (B, D, E, F, I, J, K, L), usamos la asignación
+    // OFICIAL de FIFA (confirmada en fifa.com), no la heurística. Así los cruces
+    // quedan idénticos al bracket oficial. Para cualquier otro conjunto de
+    // terceros (hipotético), se cae al emparejamiento válido 1-a-1.
+    const isOfficial2026 = FIFA_2026_THIRD_GROUPS.every((g) => qualifyingGroups.has(g));
+    if (isOfficial2026) {
+      for (const [code, grp] of Object.entries(FIFA_2026_THIRD_SLOT_GROUP)) {
+        if (thirdByGroup[grp]) thirdBySlotCode[code] = thirdByGroup[grp];
+      }
+    } else {
+      thirdBySlotCode = matchThirdsToSlots(bestThirds, slots);
+    }
+  }
+
+  // 4. Resolver cada llave
+  const resolvedKnockouts = knockoutMatches.map(m => ({ ...m }));
+
+  // Resultados de llaves ya jugadas (W##/L##). Si se definió por penales, el
+  // ganador es penalties_winner_real (no se decide por goles, que están empatados).
+  const matchResults = {};
+  resolvedKnockouts.forEach(m => {
+    if (m.status === 'finished' && m.home_goals_actual !== null) {
+      const homeWins = (m.goes_to_penalties && m.penalties_winner_real)
+        ? m.penalties_winner_real === m.home_team
+        : m.home_goals_actual > m.away_goals_actual;
+      matchResults[`W${m.id}`] = homeWins ? { name: m.home_team, code: m.home_team_code } : { name: m.away_team, code: m.away_team_code };
+      matchResults[`L${m.id}`] = homeWins ? { name: m.away_team, code: m.away_team_code } : { name: m.home_team, code: m.home_team_code };
+    }
+  });
+
   const getTeamFromCode = (code) => {
     if (!code) return null;
-    
-    // Si es "1A", "2B"
+
+    // "1A" / "2B": ganador o segundo de un grupo
     const groupMatch = code.match(/^([12])([A-L])$/);
     if (groupMatch) {
       const pos = parseInt(groupMatch[1]) - 1;
@@ -92,73 +153,84 @@ export function resolveKnockoutTeams(allMatches) {
       return null;
     }
 
-    // Si es 3er lugar (ej "3A/B/C/D/F" o similar)
-    if (code.startsWith('3')) {
-      // Logica simplificada: buscar el mejor tercero de los grupos mencionados en el string que haya clasificado
-      const possibleGroups = code.match(/[A-L]/g) || [];
-      for (const pg of possibleGroups) {
-        if (thirdPlaceByGroup[pg]) {
-          const team = thirdPlaceByGroup[pg];
-          return { name: team.name, code: team.code, isPartial: team.pld < 3 };
-        }
-      }
-      
-      // Fallback si no encaja ninguno en los mencionados (porque no tenemos la tabla completa de 495)
-      // Tomamos el primer mejor tercero que an no haya sido asignado.
-      // Pero como esto es funcional y React llama esto por cada partido, es complejo mantener estado global as de facil.
-      // Mejor retornar null hasta que haya terminado la fase de grupos o solo usar el fallback si el grupo termin.
-      if (allThirdPlaces.length > 0) {
-        return null; // Dejamos pendiente si no coincide la heurstica bsica por ahora
-      }
+    // "3C/E/F/H/I": mejor tercero asignado a este slot (solo con grupos completos)
+    if (/^3[A-L]/.test(code) && code.includes('/')) {
+      const t = thirdBySlotCode[code];
+      if (t) return { name: t.name, code: t.code, isPartial: false };
+      return null;
+    }
+
+    // "W73" / "L101": ganador / perdedor de otra llave
+    if (code.startsWith('W') || code.startsWith('L')) {
+      if (matchResults[code]) return { name: matchResults[code].name, code: matchResults[code].code };
+      return null;
     }
 
     return null;
   };
 
-  // 3. Resolve matches iteratively
-  const resolvedKnockouts = knockoutMatches.map(m => ({ ...m }));
-  
-  // Diccionario para resultados de llaves (ej W73)
-  const matchResults = {};
-  resolvedKnockouts.forEach(m => {
-    if (m.status === 'finished' && m.home_goals_actual !== null) {
-      const homeWins = m.home_goals_actual > m.away_goals_actual;
-      matchResults[`W${m.id}`] = homeWins ? { name: m.home_team, code: m.home_team_code } : { name: m.away_team, code: m.away_team_code };
-      matchResults[`L${m.id}`] = homeWins ? { name: m.away_team, code: m.away_team_code } : { name: m.home_team, code: m.home_team_code };
-    }
-  });
+  // ¿Es un código de slot sin resolver (1A, 2B, 3.../, W74, L101)? Si NO lo es,
+  // ya es un equipo real (p. ej. persistido en la BD por el backend) y se marca
+  // como resuelto para que las vistas lo muestren.
+  const isSlotCode = (s) =>
+    typeof s === 'string' &&
+    (/^[12][A-L]$/.test(s) || (/^3[A-L]/.test(s) && s.includes('/')) || /^[WL]\d+$/.test(s));
 
   resolvedKnockouts.forEach(m => {
-    // Resolver Home
-    if (m.home_team.match(/^[123][A-L].*/)) {
-      const t = getTeamFromCode(m.home_team);
-      if (t) {
-        m.home_team_resolved = t.name;
-        m.home_team_code_resolved = t.code;
-        m.home_is_partial = t.isPartial;
-      }
-    } else if (m.home_team.startsWith('W') || m.home_team.startsWith('L')) {
-      if (matchResults[m.home_team]) {
-        m.home_team_resolved = matchResults[m.home_team].name;
-        m.home_team_code_resolved = matchResults[m.home_team].code;
-      }
+    const home = getTeamFromCode(m.home_team);
+    if (home) {
+      m.home_team_resolved = home.name;
+      m.home_team_code_resolved = home.code;
+      m.home_is_partial = home.isPartial || false;
+    } else if (m.home_team && !isSlotCode(m.home_team)) {
+      m.home_team_resolved = m.home_team;
+      m.home_team_code_resolved = m.home_team_code;
+      m.home_is_partial = false;
     }
-
-    // Resolver Away
-    if (m.away_team.match(/^[123][A-L].*/)) {
-      const t = getTeamFromCode(m.away_team);
-      if (t) {
-        m.away_team_resolved = t.name;
-        m.away_team_code_resolved = t.code;
-        m.away_is_partial = t.isPartial;
-      }
-    } else if (m.away_team.startsWith('W') || m.away_team.startsWith('L')) {
-      if (matchResults[m.away_team]) {
-        m.away_team_resolved = matchResults[m.away_team].name;
-        m.away_team_code_resolved = matchResults[m.away_team].code;
-      }
+    const away = getTeamFromCode(m.away_team);
+    if (away) {
+      m.away_team_resolved = away.name;
+      m.away_team_code_resolved = away.code;
+      m.away_is_partial = away.isPartial || false;
+    } else if (m.away_team && !isSlotCode(m.away_team)) {
+      m.away_team_resolved = m.away_team;
+      m.away_team_code_resolved = m.away_team_code;
+      m.away_is_partial = false;
     }
   });
 
   return resolvedKnockouts;
+}
+
+/**
+ * Empareja 1-a-1 los mejores terceros con los slots de tercero. Cada slot solo
+ * acepta un tercero de alguno de sus grupos candidatos, y cada tercero se usa
+ * una sola vez (emparejamiento bipartito, algoritmo de Kuhn). Determinista.
+ * @returns {Object} mapa código-de-slot -> tercero
+ */
+function matchThirdsToSlots(thirds, slots) {
+  const slotMatch = new Array(slots.length).fill(-1); // slot -> índice de tercero
+
+  const tryAssign = (thirdIdx, visited) => {
+    for (let s = 0; s < slots.length; s++) {
+      if (!visited[s] && slots[s].groups.has(thirds[thirdIdx].group)) {
+        visited[s] = true;
+        if (slotMatch[s] === -1 || tryAssign(slotMatch[s], visited)) {
+          slotMatch[s] = thirdIdx;
+          return true;
+        }
+      }
+    }
+    return false;
+  };
+
+  for (let t = 0; t < thirds.length; t++) {
+    tryAssign(t, new Array(slots.length).fill(false));
+  }
+
+  const map = {};
+  slots.forEach((slot, s) => {
+    if (slotMatch[s] !== -1) map[slot.code] = thirds[slotMatch[s]];
+  });
+  return map;
 }
