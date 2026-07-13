@@ -1,5 +1,6 @@
 /* Lista de partidos agrupada por jornada */
 import { motion } from 'motion/react'
+import { powerupKey } from '../../lib/powerups'
 import MatchCard from './MatchCard'
 
 const containerVariants = {
@@ -31,7 +32,7 @@ export default function MatchList({ matches, predictions, onSavePrediction, isLo
         const matchExample = groupMatches[0]
         const phase = matchExample?.phase || 'groups'
         const matchday = matchExample?.matchday
-        const limitKey = matchday ? `${phase}_${matchday}` : phase
+        const limitKey = powerupKey(phase, matchday)
 
         const limit = powerupLimits[limitKey] ?? 0; // Por defecto 0 si no se ha cargado o no existe
 

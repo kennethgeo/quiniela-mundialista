@@ -9,6 +9,7 @@ import { useAuth } from '../../hooks/useAuth'
 import { useToast } from '../ui/Toast'
 import { friendlySaveError } from '../../lib/saveError'
 import { resolveKnockoutTeams } from '../../lib/bracketResolver'
+import { powerupKey, buildPowerupLimits } from '../../lib/powerups'
 import MatchList from './MatchList'
 import LoadingSpinner from '../ui/LoadingSpinner'
 
@@ -51,9 +52,7 @@ export default function TodayMatches() {
     queryKey: ['powerup_limits'],
     queryFn: async () => {
       const { data } = await supabase.from('powerup_limits').select('*')
-      const o = {}
-      ;(data || []).forEach((l) => { o[l.matchday ? `${l.phase}_${l.matchday}` : l.phase] = l.max_uses })
-      return o
+      return buildPowerupLimits(data)
     },
   })
 
@@ -128,7 +127,7 @@ export default function TodayMatches() {
   const powerupUsage = {}
   normalized.forEach((m) => {
     if (predictions.find((p) => p.match_id === m.id)?.use_powerup_x2) {
-      const key = m.matchday ? `${m.phase}_${m.matchday}` : m.phase
+      const key = powerupKey(m.phase, m.matchday)
       powerupUsage[key] = (powerupUsage[key] || 0) + 1
     }
   })
