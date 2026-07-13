@@ -251,6 +251,10 @@ export async function calculateTournamentPredictions() {
       return { status: 'ok', message: 'Resultados globales aún no definidos' }
     }
 
+    // Puede haber EMPATE de goleador: el admin separa los nombres con coma (o ;
+    // o /). Se otorgan los 12 pts si el pick coincide con CUALQUIERA de ellos.
+    const topScorerNames = (actual_top_scorer || '').split(/[,;/]/).map((s) => s.trim()).filter(Boolean)
+
     const { data: predictions, error: predsError } = await supabase
       .from('tournament_predictions')
       .select('*')
@@ -270,7 +274,7 @@ export async function calculateTournamentPredictions() {
         championPts = 12
       }
 
-      if (actual_top_scorer && pred.top_scorer_name && scorerMatches(actual_top_scorer, pred.top_scorer_name)) {
+      if (pred.top_scorer_name && topScorerNames.some((n) => scorerMatches(n, pred.top_scorer_name))) {
         topScorerPts = 12
       }
 

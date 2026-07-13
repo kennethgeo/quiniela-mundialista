@@ -204,8 +204,9 @@ export default function TournamentPredictionsAdmin() {
               value={topScorer}
               onChange={(e) => setTopScorer(e.target.value)}
               className="w-full bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-white/10 rounded-xl px-4 py-3 text-sm text-slate-900 dark:text-white"
-              placeholder="(No definido)"
+              placeholder="Ej. Kylian Mbappé"
             />
+            <p className="text-[11px] text-slate-500">Si hay empate, separa los goleadores con coma (p. ej. <span className="font-medium">Mbappé, Harry Kane</span>). Quien haya elegido a cualquiera de ellos gana los 12 pts.</p>
           </div>
         </div>
 

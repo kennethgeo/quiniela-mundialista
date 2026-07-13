@@ -6,17 +6,18 @@ import { motion } from 'motion/react'
 import { Zap, Lock } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
+import { powerupKey, buildPowerupLimits, POWERUP_FINAL_GROUP } from '../../lib/powerups'
 import LoadingSpinner from '../ui/LoadingSpinner'
 
+// 3er puesto y final comparten un solo cupo → se muestran como un segmento único.
 const KNOCKOUT_LABELS = {
   round_of_32: 'Ronda de 32',
   round_of_16: 'Octavos',
   quarter_finals: 'Cuartos',
   semi_finals: 'Semis',
-  third_place: '3er Puesto',
-  final: 'Final',
+  [POWERUP_FINAL_GROUP]: 'Final + 3er',
 }
-const SEGMENT_ORDER = ['groups_1', 'groups_2', 'groups_3', 'round_of_32', 'round_of_16', 'quarter_finals', 'semi_finals', 'third_place', 'final']
+const SEGMENT_ORDER = ['groups_1', 'groups_2', 'groups_3', 'round_of_32', 'round_of_16', 'quarter_finals', 'semi_finals', POWERUP_FINAL_GROUP]
 
 export default function PowerupUsage() {
   const { profile } = useAuth()
@@ -41,9 +42,7 @@ export default function PowerupUsage() {
         if (pRes.error) throw pRes.error
         setMatches(mRes.data || [])
         setPowerupPreds(pRes.data || [])
-        const lo = {}
-        ;(lRes.data || []).forEach((l) => { lo[l.matchday ? `${l.phase}_${l.matchday}` : l.phase] = l.max_uses })
-        setLimits(lo)
+        setLimits(buildPowerupLimits(lRes.data))
         setUsers(uRes.data || [])
       } catch (err) {
         console.error('Error cargando comodines:', err)
@@ -73,7 +72,8 @@ export default function PowerupUsage() {
       const md = mdById[m.id] ?? m.matchday
       segByMatch[m.id] = { key: `groups_${md}`, label: `Grupos · J${md}`, status: m.status }
     } else {
-      segByMatch[m.id] = { key: m.phase, label: KNOCKOUT_LABELS[m.phase] || m.phase, status: m.status }
+      const key = powerupKey(m.phase)
+      segByMatch[m.id] = { key, label: KNOCKOUT_LABELS[key] || m.phase, status: m.status }
     }
   })
 

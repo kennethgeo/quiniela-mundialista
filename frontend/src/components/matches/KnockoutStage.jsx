@@ -7,6 +7,7 @@ import { useAuth } from '../../hooks/useAuth'
 import { useToast } from '../ui/Toast'
 import { friendlySaveError } from '../../lib/saveError'
 import { resolveKnockoutTeams } from '../../lib/bracketResolver'
+import { powerupKey, buildPowerupLimits } from '../../lib/powerups'
 import MatchCard from './MatchCard'
 import LoadingSpinner from '../ui/LoadingSpinner'
 
@@ -65,9 +66,7 @@ export default function KnockoutStage() {
     queryKey: ['powerup_limits'],
     queryFn: async () => {
       const { data } = await supabase.from('powerup_limits').select('*')
-      const o = {}
-      ;(data || []).forEach((l) => { o[l.matchday ? `${l.phase}_${l.matchday}` : l.phase] = l.max_uses })
-      return o
+      return buildPowerupLimits(data)
     },
   })
 
@@ -99,10 +98,13 @@ export default function KnockoutStage() {
   const resolved = resolveKnockoutTeams(allMatches)
   const findPred = (id) => predictions.find((p) => p.match_id === id)
 
-  // Comodines usados por fase de eliminatoria
+  // Comodines usados por cupo de eliminatoria (3er puesto + final comparten cupo)
   const powerupUsage = {}
   resolved.forEach((m) => {
-    if (findPred(m.id)?.use_powerup_x2) powerupUsage[m.phase] = (powerupUsage[m.phase] || 0) + 1
+    if (findPred(m.id)?.use_powerup_x2) {
+      const k = powerupKey(m.phase, m.matchday)
+      powerupUsage[k] = (powerupUsage[k] || 0) + 1
+    }
   })
 
   const phases = KNOCKOUT_PHASES.map((ph) => ({
@@ -135,15 +137,20 @@ export default function KnockoutStage() {
   return (
     <div className="space-y-8">
       {phases.map((phase) => {
-        const limit = powerupLimits[phase.key] ?? 0
-        const used = powerupUsage[phase.key] ?? 0
+        const key = powerupKey(phase.key)
+        const limit = powerupLimits[key] ?? 0
+        const used = powerupUsage[key] ?? 0
         const reached = used >= limit
+        const isFinalGroup = phase.key === 'third_place' || phase.key === 'final'
         return (
           <div key={phase.key}>
             <div className="flex items-center gap-3 mb-4 px-1">
               <div className="w-1.5 h-1.5 rounded-full bg-accent" />
               <h3 className="text-sm font-bold uppercase tracking-widest text-slate-700 dark:text-slate-300">{phase.label}</h3>
-              <span className="text-[11px] text-slate-400">comodines {used}/{limit}</span>
+              <span className="text-[11px] text-slate-400">
+                comodines {used}/{limit}
+                {isFinalGroup && <span className="ml-1 text-slate-500">· compartido 3er/final</span>}
+              </span>
               <div className="flex-1 h-px bg-gradient-to-r from-slate-300 dark:from-white/10 to-transparent" />
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
