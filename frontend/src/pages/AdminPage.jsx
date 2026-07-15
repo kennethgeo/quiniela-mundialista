@@ -14,6 +14,7 @@ import AvatarOptimizerAdmin from '../components/admin/AvatarOptimizerAdmin'
 import UserManagementAdmin from '../components/admin/UserManagementAdmin'
 import MatchEventsEditor from '../components/admin/MatchEventsEditor'
 import AnnouncementsAdmin from '../components/admin/AnnouncementsAdmin'
+import BannedEmailsAdmin from '../components/admin/BannedEmailsAdmin'
 
 export default function AdminPage() {
   const [activeTab, setActiveTab] = useState('settings') // 'settings' or 'matches'
@@ -300,6 +301,7 @@ export default function AdminPage() {
       {activeTab === 'users' && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="relative z-10 pb-20 mt-4">
           <UserManagementAdmin />
+          <BannedEmailsAdmin />
         </motion.div>
       )}
 
