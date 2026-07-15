@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, Fragment } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
-import { Send, MessageSquare, X, Users } from 'lucide-react'
+import { Send, MessageSquare, X, Users, Trash2 } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 
@@ -115,6 +115,13 @@ export default function GlobalChatDrawer() {
           }
         }
       )
+      .on(
+        'postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'global_chat' },
+        (payload) => {
+          setMessages((current) => current.filter((m) => m.id !== payload.old.id))
+        }
+      )
       .subscribe()
 
     return () => {
@@ -158,6 +165,18 @@ export default function GlobalChatDrawer() {
       console.error('Error sending message:', err)
       alert('Error al enviar mensaje: ' + err.message)
       setMessages((prev) => prev.filter((m) => m.content !== content))
+    }
+  }
+
+  const handleDelete = async (msg) => {
+    if (!confirm('¿Borrar este mensaje?')) return
+    const prev = messages
+    setMessages((cur) => cur.filter((m) => m.id !== msg.id)) // optimista
+    const { error } = await supabase.from('global_chat').delete().eq('id', msg.id)
+    if (error) {
+      console.error('Error al borrar:', error)
+      alert('No se pudo borrar el mensaje: ' + error.message)
+      setMessages(prev) // revertir
     }
   }
 
@@ -251,6 +270,7 @@ export default function GlobalChatDrawer() {
                 ) : (
                   messages.map((msg, idx) => {
                     const isMe = msg.user_id === profile?.id
+                    const canDelete = isMe || profile?.is_admin
                     const prev = messages[idx - 1]
                     const next = messages[idx + 1]
                     const firstOfGroup = !prev || prev.user_id !== msg.user_id
@@ -300,6 +320,15 @@ export default function GlobalChatDrawer() {
                             </span>
                           </div>
                         </div>
+                        {canDelete && (
+                          <button
+                            onClick={() => handleDelete(msg)}
+                            title={isMe ? 'Borrar mi mensaje' : 'Borrar (admin)'}
+                            className="shrink-0 self-center p-1.5 rounded-full text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 transition-colors"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        )}
                         </motion.div>
                       </Fragment>
                     )

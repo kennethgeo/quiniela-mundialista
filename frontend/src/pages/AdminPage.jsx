@@ -12,6 +12,8 @@ import ScoreReconcileAdmin from '../components/admin/ScoreReconcileAdmin'
 import RecalcScoresAdmin from '../components/admin/RecalcScoresAdmin'
 import AvatarOptimizerAdmin from '../components/admin/AvatarOptimizerAdmin'
 import UserManagementAdmin from '../components/admin/UserManagementAdmin'
+import MatchEventsEditor from '../components/admin/MatchEventsEditor'
+import AnnouncementsAdmin from '../components/admin/AnnouncementsAdmin'
 
 export default function AdminPage() {
   const [activeTab, setActiveTab] = useState('settings') // 'settings' or 'matches'
@@ -275,6 +277,7 @@ export default function AdminPage() {
           initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }}
         >
           <GlobalSettingsAdmin />
+          <AnnouncementsAdmin />
           <TournamentPredictionsAdmin />
           <ScoreReconcileAdmin />
           <div className="mt-4"><RecalcScoresAdmin /></div>
@@ -453,9 +456,15 @@ export default function AdminPage() {
                         )}
                       </div>
                     )}
+
+                    {/* Goleadores (todos los partidos) */}
+                    <MatchEventsEditor
+                      match={match}
+                      onSaved={(events) => setMatches(prev => prev.map(m => m.id === match.id ? { ...m, events_json: events } : m))}
+                    />
                   </div>
                 )}
-                
+
                 {!isEditing && (
                    <div className="mt-3 flex items-center justify-between text-[11px] text-slate-500">
                      <span className="flex items-center gap-1">

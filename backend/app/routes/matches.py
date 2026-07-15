@@ -103,13 +103,14 @@ async def reconcile_totals(
         uid = tp["user_id"]
         totals[uid] = totals.get(uid, 0) + (tp.get("champion_points") or 0) + (tp.get("top_scorer_points") or 0)
 
-    users = fetch_all("users", "id, display_name, total_points")
+    users = fetch_all("users", "id, display_name, total_points, points_adjustment")
 
     discrepancies = []
     for u in users:
         uid = u["id"]
         stored = u.get("total_points") or 0
-        computed = totals.get(uid, 0)
+        # El ajuste manual del admin también forma parte del total autoritativo.
+        computed = totals.get(uid, 0) + (u.get("points_adjustment") or 0)
         if stored != computed:
             discrepancies.append({
                 "user_id": uid,
