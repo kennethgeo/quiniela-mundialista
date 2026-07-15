@@ -207,12 +207,13 @@ export async function reconcileTotals({ apply = false } = {}) {
       totals[tp.user_id] = (totals[tp.user_id] || 0) + (tp.champion_points || 0) + (tp.top_scorer_points || 0)
     }
 
-    const users = await fetchAll('users', 'id, display_name, total_points')
+    const users = await fetchAll('users', 'id, display_name, total_points, points_adjustment')
 
     const discrepancies = []
     for (const u of users) {
       const stored = u.total_points || 0
-      const computed = totals[u.id] || 0
+      // El ajuste manual del admin también cuenta en el total autoritativo.
+      const computed = (totals[u.id] || 0) + (u.points_adjustment || 0)
       if (stored !== computed) {
         discrepancies.push({ user_id: u.id, display_name: u.display_name, stored, computed, diff: computed - stored })
       }

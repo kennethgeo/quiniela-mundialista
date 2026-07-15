@@ -1,6 +1,7 @@
 """Rutas administrativas para gestionar resultados y puntuación."""
 
 import io
+import secrets
 import time
 
 from fastapi import APIRouter, Body, Depends, HTTPException
@@ -118,6 +119,156 @@ async def delete_user(
         "display_name": display_name,
         "via": deleted_via,
     }
+
+
+@router.post("/update-user")
+async def update_user(
+    payload: dict = Body(...),
+    admin: dict = Depends(require_admin),
+):
+    """Edita el perfil de un usuario: nombre visible y/o rol de admin.
+
+    Usa la service key (salta RLS), por eso vive en el backend. Un admin no puede
+    quitarse a sí mismo el rol de admin (para no quedar sin administradores por
+    error)."""
+    user_id = (payload.get("user_id") or "").strip()
+    if not user_id:
+        raise HTTPException(status_code=400, detail="user_id requerido")
+
+    updates: dict = {}
+    if "display_name" in payload:
+        name = (payload.get("display_name") or "").strip()
+        if not name:
+            raise HTTPException(status_code=400, detail="El nombre no puede estar vacío")
+        if len(name) > 40:
+            raise HTTPException(status_code=400, detail="El nombre es demasiado largo (máx. 40)")
+        updates["display_name"] = name
+    if "is_admin" in payload:
+        is_admin = bool(payload.get("is_admin"))
+        if not is_admin and user_id == admin.get("sub"):
+            raise HTTPException(status_code=400, detail="No puedes quitarte a ti mismo el rol de admin")
+        updates["is_admin"] = is_admin
+
+    if not updates:
+        raise HTTPException(status_code=400, detail="Nada que actualizar")
+
+    supabase = get_supabase()
+    res = supabase.table("users").update(updates).eq("id", user_id).execute()
+    if not res.data:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    return {"status": "ok", "user": res.data[0]}
+
+
+@router.post("/adjust-points")
+async def adjust_points(
+    user_id: str = Body(..., embed=True),
+    points_adjustment: int = Body(..., embed=True),
+    admin: dict = Depends(require_admin),
+):
+    """Ajuste manual de puntos (bonus o penalización) para un usuario.
+
+    Guarda el ajuste en users.points_adjustment; el total autoritativo lo
+    recalcula la BD (recompute_user_total lo suma). Reemplaza el ajuste anterior
+    (no es acumulativo) para que sea fácil de revisar/revertir."""
+    if not user_id:
+        raise HTTPException(status_code=400, detail="user_id requerido")
+    try:
+        adj = int(points_adjustment)
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="points_adjustment debe ser un entero")
+
+    supabase = get_supabase()
+    res = supabase.table("users").update({"points_adjustment": adj}).eq("id", user_id).execute()
+    if not res.data:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    # Forzar recálculo del total autoritativo (la función incluye el ajuste).
+    try:
+        supabase.rpc("recompute_user_total", {"p_user_id": user_id}).execute()
+    except Exception:  # noqa: BLE001 - si falta la función, el trigger lo hará al próximo cambio
+        pass
+    return {"status": "ok", "user_id": user_id, "points_adjustment": adj}
+
+
+@router.post("/set-temp-password")
+async def set_temp_password(
+    user_id: str = Body(..., embed=True),
+    admin: dict = Depends(require_admin),
+):
+    """Genera una contraseña temporal para un usuario (sin necesidad de SMTP).
+
+    El admin se la comparte a la persona para que entre y la cambie. Usa la
+    service key (auth.admin)."""
+    if not user_id:
+        raise HTTPException(status_code=400, detail="user_id requerido")
+    temp = secrets.token_urlsafe(9)
+    supabase = get_supabase()
+    try:
+        supabase.auth.admin.update_user_by_id(user_id, {"password": temp})
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=f"No se pudo actualizar la contraseña: {exc}")
+    return {"status": "ok", "user_id": user_id, "temp_password": temp}
+
+
+@router.post("/update-match-events")
+async def update_match_events(
+    match_id: int = Body(..., embed=True),
+    events: list = Body(..., embed=True),
+    admin: dict = Depends(require_admin),
+):
+    """Reemplaza los eventos (goles) de un partido en events_json.
+
+    Sirve para cargar/corregir goleadores a mano cuando ESPN falla o falta un
+    dato. Cada evento: {player, side ('home'|'away'), penalty, own_goal, minute}.
+    De esto depende 'goles del goleador' de la vista. Usa la service key."""
+    if not isinstance(events, list):
+        raise HTTPException(status_code=400, detail="events debe ser una lista")
+
+    clean = []
+    for ev in events:
+        if not isinstance(ev, dict):
+            continue
+        player = (ev.get("player") or "").strip()
+        if not player:
+            continue
+        clean.append({
+            "type": "goal",
+            "player": player,
+            "side": "away" if ev.get("side") == "away" else "home",
+            "penalty": bool(ev.get("penalty")),
+            "own_goal": bool(ev.get("own_goal")),
+            "minute": (ev.get("minute") or "").strip() or None,
+        })
+
+    supabase = get_supabase()
+    res = supabase.table("matches").update({"events_json": clean}).eq("id", match_id).execute()
+    if not res.data:
+        raise HTTPException(status_code=404, detail="Partido no encontrado")
+    return {"status": "ok", "match_id": match_id, "events": clean}
+
+
+@router.post("/broadcast")
+async def broadcast(
+    title: str = Body(..., embed=True),
+    body: str = Body(..., embed=True),
+    url: str = Body("/", embed=True),
+    admin: dict = Depends(require_admin),
+):
+    """Envía una notificación push a TODOS los usuarios con suscripción activa."""
+    from app.services.notifications import broadcast_push_to_users
+
+    title = (title or "").strip()
+    body = (body or "").strip()
+    if not title or not body:
+        raise HTTPException(status_code=400, detail="Título y mensaje son obligatorios")
+
+    supabase = get_supabase()
+    users = supabase.table("users").select("id").execute().data or []
+    user_ids = [u["id"] for u in users]
+    try:
+        result = await broadcast_push_to_users(supabase, user_ids, title, body, url or "/")
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=f"Error enviando push: {exc}")
+    return {"status": "ok", "result": result}
 
 
 @router.post("/recalc-scores")

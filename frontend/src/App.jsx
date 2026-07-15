@@ -28,6 +28,7 @@ const TicoGamesPreviewPage = lazy(() => import('./pages/TicoGamesPreviewPage'))
 
 import Sidebar from './components/ui/Sidebar'
 import GlobalChatDrawer from './components/chat/GlobalChatDrawer'
+import AnnouncementBanner from './components/ui/AnnouncementBanner'
 import { useLiveSync } from './hooks/useLiveSync'
 
 // Layout principal que envuelve las rutas protegidas
@@ -48,6 +49,7 @@ function MainLayout({ children }) {
         </div>
 
         <main className="flex-1 min-h-0 w-full overflow-y-auto overscroll-contain md:overflow-visible relative z-0">
+          <AnnouncementBanner />
           <div className="w-full px-4 sm:px-6 lg:px-8 md:py-8 pb-6">
             {children}
           </div>
