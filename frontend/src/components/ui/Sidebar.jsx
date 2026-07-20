@@ -1,11 +1,12 @@
 import { NavLink, useNavigate } from 'react-router-dom'
-import { Home, Calendar, GitBranch, Trophy, Star, X, ShieldAlert, Moon, Sun, LogOut, User, BookOpen, BarChart3, Gamepad2 } from 'lucide-react'
+import { Home, Calendar, GitBranch, Trophy, Star, X, ShieldAlert, Moon, Sun, LogOut, User, BookOpen, BarChart3, Gamepad2, Users } from 'lucide-react'
 import { motion, AnimatePresence } from 'motion/react'
 import { useAuth } from '../../hooks/useAuth'
 import { useTheme } from '../../contexts/ThemeContext'
 
 const tabs = [
   { to: '/', icon: Home, label: 'Inicio' },
+  { to: '/hub', icon: Users, label: 'Quinielas' },
   { to: '/matches', icon: Calendar, label: 'Partidos' },
   { to: '/bracket', icon: GitBranch, label: 'Bracket' },
   { to: '/torneo', icon: BarChart3, label: 'Torneo' },
