@@ -1,14 +1,12 @@
 // Barra de navegación inferior estilo iOS con 5 pestañas
 import { NavLink } from 'react-router-dom'
-import { Home, GitBranch, Calendar, BarChart3, Trophy, User } from 'lucide-react'
+import { Home, User } from 'lucide-react'
 import { motion } from 'motion/react'
 
+// Top-level: solo lo global. Partidos/Bracket/Tabla/Torneo viven DENTRO de cada
+// quiniela (son por-torneo), no en la nav global.
 const tabs = [
-  { to: '/', icon: Home, label: 'Quinielas' },
-  { to: '/matches', icon: Calendar, label: 'Partidos' },
-  { to: '/bracket', icon: GitBranch, label: 'Bracket' },
-  { to: '/torneo', icon: BarChart3, label: 'Torneo' },
-  { to: '/leaderboard', icon: Trophy, label: 'Ranking' },
+  { to: '/', icon: Home, label: 'Mis quinielas' },
   { to: '/profile', icon: User, label: 'Perfil' },
 ]
 
