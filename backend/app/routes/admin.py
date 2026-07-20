@@ -309,6 +309,68 @@ async def update_match_events(
     return {"status": "ok", "match_id": match_id, "events": clean}
 
 
+@router.post("/create-tournament")
+async def create_tournament(
+    payload: dict = Body(...),
+    admin: dict = Depends(require_admin),
+):
+    """Crea un torneo nuevo (Copa/Liga). Sirve para estrenar el multi-torneo."""
+    name = (payload.get("name") or "").strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="El nombre es obligatorio")
+    kind = payload.get("kind") if payload.get("kind") in ("cup", "league") else "cup"
+    source = payload.get("source") if payload.get("source") in ("espn", "manual") else "manual"
+    status = payload.get("status") if payload.get("status") in ("upcoming", "active", "finished") else "upcoming"
+
+    import re
+    slug = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
+
+    supabase = get_supabase()
+    row = {
+        "name": name,
+        "slug": slug or None,
+        "kind": kind,
+        "source": source,
+        "status": status,
+        "external_ref": (payload.get("external_ref") or "").strip() or None,
+        "season": (payload.get("season") or "").strip() or None,
+    }
+    try:
+        res = supabase.table("tournaments").insert(row).execute()
+    except Exception as exc:  # noqa: BLE001 - p.ej. slug duplicado
+        raise HTTPException(status_code=400, detail=f"No se pudo crear: {exc}")
+    return {"status": "ok", "tournament": (res.data or [None])[0]}
+
+
+@router.post("/update-tournament")
+async def update_tournament(
+    payload: dict = Body(...),
+    admin: dict = Depends(require_admin),
+):
+    """Edita un torneo (nombre, estado, fuente...)."""
+    tid = payload.get("id")
+    if not tid:
+        raise HTTPException(status_code=400, detail="id requerido")
+    updates = {}
+    for f in ("name", "external_ref", "season"):
+        if f in payload:
+            updates[f] = (payload.get(f) or "").strip() or None
+    if payload.get("kind") in ("cup", "league"):
+        updates["kind"] = payload["kind"]
+    if payload.get("source") in ("espn", "manual"):
+        updates["source"] = payload["source"]
+    if payload.get("status") in ("upcoming", "active", "finished"):
+        updates["status"] = payload["status"]
+    if not updates:
+        raise HTTPException(status_code=400, detail="Nada que actualizar")
+
+    supabase = get_supabase()
+    res = supabase.table("tournaments").update(updates).eq("id", tid).execute()
+    if not res.data:
+        raise HTTPException(status_code=404, detail="Torneo no encontrado")
+    return {"status": "ok", "tournament": res.data[0]}
+
+
 @router.post("/broadcast")
 async def broadcast(
     title: str = Body(..., embed=True),

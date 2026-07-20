@@ -140,11 +140,6 @@ body {
 .bg-world-cup {
   position: relative;
   background-color: var(--bg-world-cup);
-  background-image: 
-    linear-gradient(var(--bg-world-cup-grid) 1px, transparent 1px),
-    linear-gradient(90deg, var(--bg-world-cup-grid) 1px, transparent 1px);
-  background-size: 40px 40px;
-  background-position: center center;
 }
 .bg-world-cup::before {
   content: '';
