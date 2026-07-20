@@ -124,6 +124,15 @@ async def delete_user(
         except Exception:  # noqa: BLE001 - no bloquear el borrado si falla el ban
             pass
 
+    # Limpieza explícita de tablas que apuntan a auth.users (NO se borran al
+    # eliminar solo la fila de public.users): evita predicciones globales
+    # "huérfanas" que quedaban en la portada como "Jugador".
+    for tbl in ("tournament_predictions", "push_subscriptions"):
+        try:
+            supabase.table(tbl).delete().eq("user_id", user_id).execute()
+        except Exception:  # noqa: BLE001
+            pass
+
     # Borrar de Auth → cascada a public.users y dependientes
     deleted_via = "auth"
     try:

@@ -40,6 +40,9 @@ export default function GlobalPicksBoard() {
         ;(users || []).forEach((u) => { nameById[u.id] = u.display_name })
         const list = (preds || [])
           .filter((p) => p.champion_team || p.top_scorer_name)
+          // Solo usuarios que aún existen: evita mostrar predicciones huérfanas
+          // de cuentas ya eliminadas (que salían como "Jugador").
+          .filter((p) => Object.prototype.hasOwnProperty.call(nameById, p.user_id))
           .map((p) => ({ ...p, display_name: nameById[p.user_id] || 'Jugador' }))
           .sort((a, b) => (a.display_name || '').localeCompare(b.display_name || ''))
         setRows(list)
