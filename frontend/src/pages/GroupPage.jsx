@@ -3,13 +3,13 @@ import { useState, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion } from 'motion/react'
-import { ArrowLeft, CalendarDays, ListOrdered, Users, Copy, Check, Trophy, GitBranch, BarChart3 } from 'lucide-react'
+import { ArrowLeft, CalendarDays, ListOrdered, Users, Copy, Check, Trophy, GitBranch, BarChart3, Shield } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import { useToast } from '../components/ui/Toast'
 import { friendlySaveError } from '../lib/saveError'
 import { buildPowerupLimits, powerupKey } from '../lib/powerups'
-import { fetchMyGroups, fetchGroupStandings } from '../lib/groups'
+import { fetchMyGroups, fetchGroupStandings, fetchTeamStandings } from '../lib/groups'
 import { resolveKnockoutTeams } from '../lib/bracketResolver'
 import MatchList from '../components/matches/MatchList'
 import BracketView from '../components/matches/BracketView'
@@ -140,6 +140,7 @@ export default function GroupPage() {
       <div className="flex gap-2 mb-5 overflow-x-auto scrollbar-hide">
         <TabBtn active={tab === 'matches'} onClick={() => setTab('matches')} icon={CalendarDays} label="Partidos" />
         <TabBtn active={tab === 'table'} onClick={() => setTab('table')} icon={ListOrdered} label="Tabla" />
+        {!isCup && <TabBtn active={tab === 'teams'} onClick={() => setTab('teams')} icon={Shield} label="Posiciones" />}
         {isCup && <TabBtn active={tab === 'bracket'} onClick={() => setTab('bracket')} icon={GitBranch} label="Bracket" />}
         {isCup && <TabBtn active={tab === 'global'} onClick={() => setTab('global')} icon={BarChart3} label="Global" />}
       </div>
@@ -160,6 +161,7 @@ export default function GroupPage() {
       )}
 
       {tab === 'table' && <StandingsTab leagueId={group.id} />}
+      {tab === 'teams' && <TeamStandingsTab tournamentId={tid} />}
       {tab === 'bracket' && <BracketView />}
       {tab === 'global' && (
         <div className="space-y-4">
@@ -189,6 +191,65 @@ function EmptyMatches({ kind }) {
         Esta quiniela aún no tiene partidos.{' '}
         {kind === 'cup' ? 'Se cargarán cuando arranque el torneo.' : 'El admin los sincroniza desde ESPN o los carga a mano.'}
       </p>
+    </div>
+  )
+}
+
+function TeamStandingsTab({ tournamentId }) {
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ['team_standings', tournamentId],
+    queryFn: () => fetchTeamStandings(tournamentId),
+    staleTime: 1000 * 60 * 10,
+  })
+  if (isLoading) return <LoadingSpinner />
+  if (isError || !data?.groups?.length) {
+    return <p className="text-sm text-slate-400 italic text-center py-8">ESPN aún no tiene la tabla de este torneo.</p>
+  }
+  return (
+    <div className="space-y-5">
+      {data.groups.map((g, gi) => (
+        <div key={gi} className="glass-card overflow-hidden">
+          {g.name && data.groups.length > 1 && (
+            <div className="px-4 py-2.5 text-xs font-bold text-slate-500 uppercase tracking-wide border-b border-slate-100 dark:border-white/5">{g.name}</div>
+          )}
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-[10px] uppercase tracking-wide text-slate-400 border-b border-slate-100 dark:border-white/5">
+                  <th className="text-left font-semibold py-2 pl-3">#</th>
+                  <th className="text-left font-semibold py-2">Equipo</th>
+                  <th className="font-semibold py-2 px-1.5">PJ</th>
+                  <th className="font-semibold py-2 px-1.5 hidden xs:table-cell">G</th>
+                  <th className="font-semibold py-2 px-1.5 hidden xs:table-cell">E</th>
+                  <th className="font-semibold py-2 px-1.5 hidden xs:table-cell">P</th>
+                  <th className="font-semibold py-2 px-1.5">DG</th>
+                  <th className="font-extrabold py-2 px-2.5 text-right">Pts</th>
+                </tr>
+              </thead>
+              <tbody>
+                {g.rows.map((r) => (
+                  <tr key={r.team} className="border-b border-slate-50 dark:border-white/[0.03] last:border-0">
+                    <td className="py-2 pl-3 text-slate-400 tabular-nums w-6">{r.rank}</td>
+                    <td className="py-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        {r.logo && <img src={r.logo} alt="" className="w-5 h-5 object-contain shrink-0" />}
+                        <span className="font-semibold text-slate-800 dark:text-slate-100 truncate">{r.team}</span>
+                      </div>
+                    </td>
+                    <td className="text-center tabular-nums text-slate-500 px-1.5">{r.played}</td>
+                    <td className="text-center tabular-nums text-slate-500 px-1.5 hidden xs:table-cell">{r.wins}</td>
+                    <td className="text-center tabular-nums text-slate-500 px-1.5 hidden xs:table-cell">{r.draws}</td>
+                    <td className="text-center tabular-nums text-slate-500 px-1.5 hidden xs:table-cell">{r.losses}</td>
+                    <td className="text-center tabular-nums text-slate-500 px-1.5">{r.gd > 0 ? `+${r.gd}` : r.gd}</td>
+                    <td className="text-right font-extrabold font-['Sora'] text-slate-900 dark:text-white px-2.5 tabular-nums">{r.points}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ))}
+      <p className="text-[11px] text-slate-400 text-center">Tabla oficial vía ESPN{data.season ? ` · temporada ${data.season}` : ''}</p>
     </div>
   )
 }

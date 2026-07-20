@@ -197,6 +197,68 @@ async def refresh_live():
         raise HTTPException(status_code=500, detail=f"{type(exc).__name__}: {exc}")
 
 
+@router.get("/tournament-standings")
+async def tournament_standings(tournament_id: int, user: dict = Depends(get_current_user)):
+    """Tabla real de posiciones (equipos) de un torneo ESPN: puntos, PJ, G/E/P, DG.
+    Proxy a ESPN (prueba la temporada del torneo y las 2 recientes)."""
+    from datetime import datetime, timezone
+
+    supabase = get_supabase()
+    t = (supabase.table("tournaments").select("external_ref, season")
+         .eq("id", tournament_id).single().execute().data) or {}
+    league = (t.get("external_ref") or "").strip()
+    if not league:
+        raise HTTPException(status_code=400, detail="El torneo no es de fuente ESPN")
+
+    def _i(v):
+        try:
+            return int(float(v))
+        except (TypeError, ValueError):
+            return 0
+
+    years, seen = [], set()
+    for y in ([t.get("season")] if (t.get("season") or "").isdigit() else []) + \
+             [str(datetime.now(timezone.utc).year), str(datetime.now(timezone.utc).year - 1)]:
+        if y and y not in seen:
+            seen.add(y); years.append(y)
+
+    async with httpx.AsyncClient(timeout=20.0) as client:
+        for yr in years:
+            try:
+                r = await client.get(
+                    f"https://site.web.api.espn.com/apis/v2/sports/soccer/{league}/standings",
+                    params={"lang": "es", "region": "es", "season": yr})
+                data = r.json()
+            except Exception:  # noqa: BLE001
+                continue
+            children = data.get("children") or ([{"standings": data["standings"]}] if data.get("standings") else [])
+            groups = []
+            for ch in children:
+                entries = ((ch.get("standings") or {}).get("entries")) or []
+                rows = []
+                for e in entries:
+                    stats = {s.get("name"): s.get("value") for s in e.get("stats", [])}
+                    tm = e.get("team") or {}
+                    logo = (tm.get("logos") or [{}])[0].get("href") if tm.get("logos") else tm.get("logo")
+                    rows.append({
+                        "team": tm.get("displayName") or tm.get("name"),
+                        "logo": logo,
+                        "rank": _i(stats.get("rank")),
+                        "points": _i(stats.get("points")),
+                        "played": _i(stats.get("gamesPlayed")),
+                        "wins": _i(stats.get("wins")),
+                        "draws": _i(stats.get("ties")),
+                        "losses": _i(stats.get("losses")),
+                        "gd": _i(stats.get("pointDifferential")),
+                    })
+                if rows:
+                    rows.sort(key=lambda x: x["rank"] or 999)
+                    groups.append({"name": ch.get("name") or ch.get("displayName"), "rows": rows})
+            if groups:
+                return {"tournament_id": tournament_id, "season": yr, "groups": groups}
+    return {"tournament_id": tournament_id, "groups": []}
+
+
 @router.get("/external-games")
 async def get_external_games():
     """Proxy para obtener los juegos de la API externa (worldcup26.ir)."""

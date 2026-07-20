@@ -38,3 +38,13 @@ export async function fetchGroupStandings(leagueId) {
   if (error) throw error
   return data || []
 }
+
+// Tabla real de posiciones de equipos (proxy backend a ESPN).
+export async function fetchTeamStandings(tournamentId) {
+  const { data: { session } } = await supabase.auth.getSession()
+  const res = await fetch(`/_backend/api/matches/tournament-standings?tournament_id=${tournamentId}`, {
+    headers: { Authorization: `Bearer ${session?.access_token}` },
+  })
+  if (!res.ok) throw new Error(`Error ${res.status}`)
+  return res.json()
+}
