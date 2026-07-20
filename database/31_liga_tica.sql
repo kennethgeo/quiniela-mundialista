@@ -9,8 +9,8 @@
 -- =============================================================================
 
 INSERT INTO public.tournaments (name, slug, kind, status, source, external_ref, season)
-VALUES ('Liga Tica', 'liga-tica', 'league', 'active', 'espn', 'crc.1', '2026')
+VALUES ('Primera División de Costa Rica', 'liga-tica', 'league', 'active', 'espn', 'crc.1', '2026')
 ON CONFLICT (slug) DO UPDATE
-  SET status = 'active', source = 'espn', external_ref = 'crc.1', kind = 'league';
+  SET name = 'Primera División de Costa Rica', status = 'active', source = 'espn', external_ref = 'crc.1', kind = 'league';
 
 NOTIFY pgrst, 'reload schema';
