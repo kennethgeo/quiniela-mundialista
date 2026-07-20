@@ -424,6 +424,84 @@ async def delete_match(
     return {"status": "ok", "deleted": match_id}
 
 
+@router.post("/sync-rosters")
+async def sync_rosters(
+    tournament_id: int = Body(..., embed=True),
+    admin: dict = Depends(require_admin),
+):
+    """Trae de ESPN los jugadores de todos los equipos de un torneo y los guarda
+    en `players`. Se usa para que el pick de goleador sea una selección real.
+
+    Requiere que el torneo tenga external_ref = código de liga ESPN
+    (p. ej. 'esp.1' LaLiga, 'uefa.champions', 'fifa.world', 'crc.1' Liga tica)."""
+    import httpx
+
+    supabase = get_supabase()
+    t = supabase.table("tournaments").select("external_ref").eq("id", tournament_id).single().execute().data
+    league = ((t or {}).get("external_ref") or "").strip()
+    if not league:
+        raise HTTPException(status_code=400, detail="El torneo no tiene código de liga (external_ref)")
+
+    base = f"https://site.api.espn.com/apis/site/v2/sports/soccer/{league}"
+    rows = []
+    n_teams = 0
+    async with httpx.AsyncClient(timeout=25.0) as client:
+        tr = await client.get(f"{base}/teams")
+        tr.raise_for_status()
+        try:
+            teams = tr.json()["sports"][0]["leagues"][0]["teams"]
+        except (KeyError, IndexError):
+            raise HTTPException(status_code=400, detail=f"ESPN no devolvió equipos para '{league}'")
+
+        for tw in teams:
+            tm = tw.get("team") or {}
+            tid = tm.get("id")
+            tname = tm.get("displayName") or tm.get("name") or "?"
+            if not tid:
+                continue
+            n_teams += 1
+            try:
+                rr = await client.get(f"{base}/teams/{tid}/roster")
+                athletes = rr.json().get("athletes") or []
+            except Exception:  # noqa: BLE001
+                continue
+            # ESPN devuelve lista plana o agrupada por posición ({items:[...]}).
+            flat = []
+            for a in athletes:
+                if isinstance(a, dict) and isinstance(a.get("items"), list):
+                    flat.extend(a["items"])
+                else:
+                    flat.append(a)
+            for p in flat:
+                if not isinstance(p, dict):
+                    continue
+                name = p.get("fullName") or p.get("displayName")
+                if not name:
+                    continue
+                pos = (p.get("position") or {})
+                rows.append({
+                    "tournament_id": tournament_id,
+                    "team": tname,
+                    "name": name,
+                    "position": pos.get("abbreviation") or pos.get("name"),
+                    "external_id": str(p.get("id")) if p.get("id") else None,
+                    "headshot_url": (p.get("headshot") or {}).get("href"),
+                })
+
+    # Upsert por (tournament_id, external_id). Los que no tengan id se insertan.
+    saved = 0
+    with_id = [r for r in rows if r["external_id"]]
+    without_id = [r for r in rows if not r["external_id"]]
+    if with_id:
+        supabase.table("players").upsert(with_id, on_conflict="tournament_id,external_id").execute()
+        saved += len(with_id)
+    if without_id:
+        supabase.table("players").insert(without_id).execute()
+        saved += len(without_id)
+
+    return {"status": "ok", "teams": n_teams, "players": saved}
+
+
 @router.post("/broadcast")
 async def broadcast(
     title: str = Body(..., embed=True),

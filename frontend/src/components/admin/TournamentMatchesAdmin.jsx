@@ -1,7 +1,7 @@
 /* Admin: cargar partidos (fixtures) a un torneo. Los resultados se editan en la
    pestaña 'Partidos / Resultados' como siempre. */
 import { useState, useEffect } from 'react'
-import { CalendarPlus, Plus, Trash2, Loader2, CheckCircle2, AlertTriangle } from 'lucide-react'
+import { CalendarPlus, Plus, Trash2, Loader2, CheckCircle2, AlertTriangle, Users } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 
 const empty = { home_team: '', away_team: '', home_team_code: '', away_team_code: '', kickoff_at: '', matchday: '' }
@@ -63,6 +63,17 @@ export default function TournamentMatchesAdmin() {
     } catch (e) { flash('error', e.message) } finally { setBusy(false) }
   }
 
+  const syncRosters = async () => {
+    if (!tid) return
+    try {
+      setBusy(true)
+      const r = await callAdmin('sync-rosters', { tournament_id: tid })
+      flash('ok', `Jugadores sincronizados: ${r.players} de ${r.teams} equipos.`)
+    } catch (e) {
+      flash('error', e.message.includes('external_ref') ? 'El torneo no tiene código de liga ESPN (ponelo en "Torneos", ej. esp.1).' : e.message)
+    } finally { setBusy(false) }
+  }
+
   const del = async (m) => {
     if (!confirm(`¿Borrar ${m.home_team} vs ${m.away_team}?`)) return
     try { setBusy(true); await callAdmin('delete-match', { match_id: m.id }); setMatches(prev => prev.filter(x => x.id !== m.id)) }
@@ -83,9 +94,15 @@ export default function TournamentMatchesAdmin() {
       )}
 
       <select value={tid ?? ''} onChange={e => setTid(Number(e.target.value))}
-        className="w-full bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-2.5 text-sm text-slate-900 dark:text-white mb-4">
+        className="w-full bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-2.5 text-sm text-slate-900 dark:text-white mb-3">
         {tournaments.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
       </select>
+
+      {/* Sincronizar jugadores (rosters ESPN) para el pick de goleador */}
+      <button onClick={syncRosters} disabled={busy || !tid}
+        className="w-full flex items-center justify-center gap-2 text-sm font-bold py-2.5 rounded-xl mb-4 text-violet-500 bg-violet-500/10 border border-violet-500/25 hover:bg-violet-500/20 disabled:opacity-50">
+        {busy ? <Loader2 size={15} className="animate-spin" /> : <Users size={15} />} Sincronizar jugadores (ESPN)
+      </button>
 
       {/* Form */}
       <div className="space-y-2">
