@@ -3,7 +3,7 @@ import { useState, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion } from 'motion/react'
-import { ArrowLeft, CalendarDays, ListOrdered, Users, Copy, Check, Loader2, Trophy } from 'lucide-react'
+import { ArrowLeft, CalendarDays, ListOrdered, Users, Copy, Check, Trophy, GitBranch, BarChart3 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import { useToast } from '../components/ui/Toast'
@@ -12,6 +12,9 @@ import { buildPowerupLimits, powerupKey } from '../lib/powerups'
 import { fetchMyGroups, fetchGroupStandings } from '../lib/groups'
 import { resolveKnockoutTeams } from '../lib/bracketResolver'
 import MatchList from '../components/matches/MatchList'
+import BracketView from '../components/matches/BracketView'
+import TournamentPredictionCard from '../components/dashboard/TournamentPredictionCard'
+import GlobalPicksBoard from '../components/dashboard/GlobalPicksBoard'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
 
 export default function GroupPage() {
@@ -27,6 +30,7 @@ export default function GroupPage() {
   const { data: groups = [], isLoading: lg } = useQuery({ queryKey: ['my_groups'], queryFn: fetchMyGroups })
   const group = groups.find((g) => g.id === id)
   const tid = group?.tournament_id
+  const isCup = group?.tournament_kind === 'cup'
 
   const { data: matches = [], isLoading: lm } = useQuery({
     queryKey: ['tournament_matches', tid],
@@ -132,10 +136,12 @@ export default function GroupPage() {
         </div>
       </motion.div>
 
-      {/* Tabs */}
-      <div className="flex gap-2 mb-5">
+      {/* Tabs — Partidos y Tabla siempre; Bracket y Torneo solo en copas */}
+      <div className="flex gap-2 mb-5 overflow-x-auto scrollbar-hide">
         <TabBtn active={tab === 'matches'} onClick={() => setTab('matches')} icon={CalendarDays} label="Partidos" />
         <TabBtn active={tab === 'table'} onClick={() => setTab('table')} icon={ListOrdered} label="Tabla" />
+        {isCup && <TabBtn active={tab === 'bracket'} onClick={() => setTab('bracket')} icon={GitBranch} label="Bracket" />}
+        {isCup && <TabBtn active={tab === 'global'} onClick={() => setTab('global')} icon={BarChart3} label="Global" />}
       </div>
 
       {tab === 'matches' && (
@@ -154,6 +160,13 @@ export default function GroupPage() {
       )}
 
       {tab === 'table' && <StandingsTab leagueId={group.id} />}
+      {tab === 'bracket' && <BracketView />}
+      {tab === 'global' && (
+        <div className="space-y-4">
+          <TournamentPredictionCard />
+          <GlobalPicksBoard />
+        </div>
+      )}
     </div>
   )
 }
