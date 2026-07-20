@@ -1,12 +1,12 @@
 // Barra de navegación inferior estilo iOS con 5 pestañas
 import { NavLink } from 'react-router-dom'
-import { Home, Calendar, GitBranch, BarChart3, Trophy, User } from 'lucide-react'
+import { Home, Users, Calendar, BarChart3, Trophy, User } from 'lucide-react'
 import { motion } from 'motion/react'
 
 const tabs = [
   { to: '/', icon: Home, label: 'Inicio' },
+  { to: '/hub', icon: Users, label: 'Quinielas' },
   { to: '/matches', icon: Calendar, label: 'Partidos' },
-  { to: '/bracket', icon: GitBranch, label: 'Bracket' },
   { to: '/torneo', icon: BarChart3, label: 'Torneo' },
   { to: '/leaderboard', icon: Trophy, label: 'Ranking' },
   { to: '/profile', icon: User, label: 'Perfil' },
@@ -27,7 +27,7 @@ export default function BottomNav() {
               <motion.div
                 whileTap={{ scale: 0.85 }}
                 className={`flex flex-col items-center gap-0.5 py-1.5 transition-all duration-200 ${
-                  isActive ? 'text-purple-600 dark:text-purple-400' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                  isActive ? 'text-accent' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
                 }`}
               >
                 <div className="relative">
@@ -36,16 +36,16 @@ export default function BottomNav() {
                   {isActive && (
                     <motion.div
                       layoutId="nav-indicator"
-                      className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-4 h-1 rounded-full bg-purple-500 shadow-[0_0_8px_rgba(168,85,247,0.5)]"
+                      className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-4 h-1 rounded-full bg-accent shadow-[0_0_8px_rgba(47,221,154,0.55)]"
                       transition={{ type: 'spring', stiffness: 350, damping: 28 }}
                     />
                   )}
                   {/* Subtle ambient glow behind active icon */}
                   {isActive && (
-                    <div className="absolute inset-0 -m-1 rounded-full bg-purple-500/10 dark:bg-purple-400/20 blur-md pointer-events-none" />
+                    <div className="absolute inset-0 -m-1 rounded-full bg-accent/15 blur-md pointer-events-none" />
                   )}
                 </div>
-                <span className={`text-[10px] font-semibold ${isActive ? 'text-purple-600 dark:text-purple-400' : 'text-slate-500'}`}>
+                <span className={`text-[10px] font-semibold ${isActive ? 'text-accent' : 'text-slate-500'}`}>
                   {label}
                 </span>
               </motion.div>
