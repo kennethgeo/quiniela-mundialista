@@ -6,7 +6,6 @@ import { useTheme } from '../../contexts/ThemeContext'
 
 const tabs = [
   { to: '/', icon: Home, label: 'Inicio' },
-  { to: '/hub', icon: Users, label: 'Quinielas' },
   { to: '/matches', icon: Calendar, label: 'Partidos' },
   { to: '/bracket', icon: GitBranch, label: 'Bracket' },
   { to: '/torneo', icon: BarChart3, label: 'Torneo' },

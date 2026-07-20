@@ -55,7 +55,7 @@ export default function HubPage() {
       {/* Grid de grupos */}
       {loading ? (
         <div className="grid gap-4 sm:grid-cols-2">
-          {[0, 1].map(i => <div key={i} className="h-44 rounded-3xl bg-slate-100 dark:bg-white/[0.04] animate-pulse" />)}
+          {[0, 1].map(i => <div key={i} className="h-44 rounded-2xl bg-slate-100 dark:bg-white/[0.04] animate-pulse" />)}
         </div>
       ) : (
         <motion.div layout className="grid gap-4 sm:grid-cols-2">
@@ -96,7 +96,7 @@ function GroupCard({ g, accent, onOpen }) {
       initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.97 }}
       whileHover={{ y: -3 }}
       onClick={onOpen}
-      className="relative overflow-hidden text-left rounded-3xl p-[18px] bg-white dark:bg-white/[0.035] border border-slate-200 dark:border-white/[0.07] hover:border-slate-300 dark:hover:border-white/15 transition-colors"
+      className="relative overflow-hidden text-left rounded-2xl p-[18px] bg-white dark:bg-white/[0.035] border border-slate-200 dark:border-white/[0.07] hover:border-slate-300 dark:hover:border-white/15 transition-colors"
     >
       <span className="absolute left-0 top-0 bottom-0 w-1" style={{ background: hex }} />
       <div className="flex items-center justify-between mb-3">
@@ -136,7 +136,7 @@ function Sheet({ children, onClose, title }) {
       onClick={onClose} className="fixed inset-0 z-[120] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-0 sm:p-4">
       <motion.div initial={{ y: 40, opacity: 0, scale: 0.98 }} animate={{ y: 0, opacity: 1, scale: 1 }} exit={{ y: 40, opacity: 0 }}
         transition={{ type: 'spring', stiffness: 300, damping: 30 }} onClick={e => e.stopPropagation()}
-        className="w-full sm:max-w-md bg-white dark:bg-[#12151c] rounded-t-3xl sm:rounded-3xl border border-slate-200 dark:border-white/10 shadow-2xl overflow-hidden max-h-[88vh] flex flex-col pb-[max(1rem,env(safe-area-inset-bottom))]">
+        className="w-full sm:max-w-md bg-white dark:bg-[#12151c] rounded-t-3xl sm:rounded-2xl border border-slate-200 dark:border-white/10 shadow-2xl overflow-hidden max-h-[88vh] flex flex-col pb-[max(1rem,env(safe-area-inset-bottom))]">
         <div className="flex items-center justify-between p-5 pb-3">
           <h3 className="font-bold font-['Sora'] text-lg text-slate-900 dark:text-white">{title}</h3>
           <button onClick={onClose} className="w-8 h-8 rounded-full bg-slate-100 dark:bg-white/10 grid place-items-center text-slate-500"><X size={16} /></button>
