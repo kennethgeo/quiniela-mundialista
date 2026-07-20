@@ -1,20 +1,21 @@
 // Hub de quinielas (grupos) — Fase 2 de la 2.0. Datos reales vía RPCs.
 import { useState, useEffect, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'motion/react'
-import { Plus, KeyRound, Users, Trophy, Crown, ArrowRight, X, Loader2, Copy, Check, ChevronRight } from 'lucide-react'
+import { Plus, KeyRound, Users, X, Loader2, ChevronRight } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
-import { fetchMyGroups, fetchTournaments, createGroup, joinGroupByCode, fetchGroupStandings } from '../lib/groups'
+import { fetchMyGroups, fetchTournaments, createGroup, joinGroupByCode } from '../lib/groups'
 
 const ACCENTS = ['mint', 'violet', 'coral', 'amber']
 const ACCENT_HEX = { mint: '#2fdd9a', violet: '#8b7bff', coral: '#ff6b7d', amber: '#ffbf47' }
 
 export default function HubPage() {
   const { profile } = useAuth()
+  const navigate = useNavigate()
   const [groups, setGroups] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [modal, setModal] = useState(null) // 'create' | 'join' | null
-  const [standingsFor, setStandingsFor] = useState(null)
 
   const load = useCallback(async () => {
     try {
@@ -61,7 +62,7 @@ export default function HubPage() {
         <motion.div layout className="grid gap-4 sm:grid-cols-2">
           <AnimatePresence>
             {groups.map((g, i) => (
-              <GroupCard key={g.id} g={g} accent={ACCENTS[i % ACCENTS.length]} onOpen={() => setStandingsFor(g)} />
+              <GroupCard key={g.id} g={g} accent={ACCENTS[i % ACCENTS.length]} onOpen={() => navigate(`/q/${g.id}`)} />
             ))}
           </AnimatePresence>
         </motion.div>
@@ -82,7 +83,6 @@ export default function HubPage() {
       <AnimatePresence>
         {modal === 'create' && <CreateModal onClose={() => setModal(null)} onDone={() => { setModal(null); load() }} />}
         {modal === 'join' && <JoinModal onClose={() => setModal(null)} onDone={() => { setModal(null); load() }} />}
-        {standingsFor && <StandingsModal group={standingsFor} onClose={() => setStandingsFor(null)} />}
       </AnimatePresence>
     </div>
   )
@@ -200,41 +200,6 @@ function JoinModal({ onClose, onDone }) {
         className="w-full flex items-center justify-center gap-2 font-bold font-['Sora'] text-sm py-3.5 rounded-2xl text-slate-950 bg-gradient-to-br from-accent to-accent-dark disabled:opacity-50">
         {busy ? <Loader2 size={17} className="animate-spin" /> : <KeyRound size={16} />} Unirme
       </button>
-    </Sheet>
-  )
-}
-
-function StandingsModal({ group, onClose }) {
-  const [rows, setRows] = useState(null)
-  const [copied, setCopied] = useState(false)
-  useEffect(() => { fetchGroupStandings(group.id).then(setRows).catch(() => setRows([])) }, [group.id])
-  const copy = () => { navigator.clipboard?.writeText(group.invitation_code); setCopied(true); setTimeout(() => setCopied(false), 1500) }
-
-  return (
-    <Sheet title={group.name} onClose={onClose}>
-      <div className="flex items-center gap-2 mb-4">
-        <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full text-accent bg-accent/10 border border-accent/25">{group.tournament_name}</span>
-        <button onClick={copy} className="ml-auto flex items-center gap-1.5 text-xs font-bold text-slate-500 dark:text-slate-300 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-2.5 py-1.5">
-          {copied ? <><Check size={13} className="text-emerald-500" /> Copiado</> : <><Copy size={13} /> {group.invitation_code}</>}
-        </button>
-      </div>
-      {rows === null ? (
-        <div className="py-8 text-center"><Loader2 className="animate-spin mx-auto text-slate-400" /></div>
-      ) : (
-        <div className="rounded-2xl border border-slate-200 dark:border-white/10 overflow-hidden">
-          {rows.map((r, i) => (
-            <div key={r.user_id} className={`flex items-center gap-3 px-4 py-3 border-b border-slate-100 dark:border-white/5 last:border-0 ${r.is_me ? 'bg-accent/[0.07]' : ''}`}>
-              <span className={`w-7 h-7 rounded-lg grid place-items-center font-bold font-['Sora'] text-[13px] ${i === 0 ? 'bg-amber-300 text-amber-900' : i === 1 ? 'bg-slate-300 text-slate-700' : i === 2 ? 'bg-orange-300 text-orange-900' : 'bg-slate-100 dark:bg-white/5 text-slate-500'}`}>{i + 1}</span>
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-accent/30 to-violet-500/30 grid place-items-center text-xs font-bold overflow-hidden shrink-0">
-                {r.avatar_url ? <img src={r.avatar_url} alt="" className="w-full h-full object-cover" /> : (r.display_name?.[0] || '?').toUpperCase()}
-              </div>
-              <span className="flex-1 text-sm font-semibold text-slate-800 dark:text-slate-100 truncate">{r.display_name}{r.is_me && <span className="text-accent text-xs font-bold"> · vos</span>}</span>
-              <span className="font-extrabold font-['Sora'] text-slate-900 dark:text-white">{r.points}</span>
-            </div>
-          ))}
-          {rows.length === 0 && <p className="text-sm text-slate-400 italic text-center py-6">Sin miembros todavía.</p>}
-        </div>
-      )}
     </Sheet>
   )
 }
