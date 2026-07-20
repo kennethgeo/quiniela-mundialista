@@ -99,11 +99,12 @@ export default function UserManagementAdmin() {
   const remove = async (u) => {
     const name = u.display_name || u.id
     if (!confirm(`¿Borrar a "${name}"?\n\nSe eliminarán de forma PERMANENTE todos sus datos: predicciones, puntos, membresías y su acceso. Esta acción no se puede deshacer.`)) return
+    const ban = confirm(`¿Bloquear también su correo?\n\nAceptar = NO podrá volver a registrarse con ese correo.\nCancelar = solo se borra (podría registrarse de nuevo).`)
     try {
       setBusyId(u.id)
-      await callAdmin('delete-user', { user_id: u.id })
+      const res = await callAdmin('delete-user', { user_id: u.id, ban })
       setUsers((prev) => prev.filter((x) => x.id !== u.id))
-      flash('ok', `Usuario "${name}" eliminado.`)
+      flash('ok', `Usuario "${name}" eliminado${res.banned_email ? ' y correo bloqueado' : ''}.`)
     } catch (err) { flash('error', err.message) } finally { setBusyId(null) }
   }
 

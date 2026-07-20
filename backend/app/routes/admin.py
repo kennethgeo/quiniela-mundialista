@@ -72,9 +72,14 @@ async def set_match_status(
     }
 
 
+def _norm_email(email: str) -> str:
+    return (email or "").strip().lower()
+
+
 @router.post("/delete-user")
 async def delete_user(
     user_id: str = Body(..., embed=True),
+    ban: bool = Body(False, embed=True),
     admin: dict = Depends(require_admin),
 ):
     """Elimina por completo a un usuario y todos sus datos.
@@ -82,6 +87,9 @@ async def delete_user(
     Borra al usuario de Supabase Auth, lo que elimina en cascada su fila en
     public.users y todo lo dependiente (predicciones, predicciones de torneo,
     membresías de liga, suscripciones push, chat, etc.).
+
+    Si ban=True, además agrega su correo a la lista negra (banned_emails) para
+    que NO pueda volver a registrarse.
 
     Guardas:
     - Un admin no puede borrarse a sí mismo.
@@ -94,13 +102,36 @@ async def delete_user(
 
     supabase = get_supabase()
 
-    # Nombre para el mensaje de confirmación (best-effort)
+    # Nombre y correo (best-effort, ANTES de borrar) para mensaje y ban.
     display_name = None
+    email = None
     try:
-        info = supabase.table("users").select("display_name").eq("id", user_id).single().execute()
+        info = supabase.table("users").select("display_name, email").eq("id", user_id).single().execute()
         display_name = (info.data or {}).get("display_name")
+        email = (info.data or {}).get("email")
     except Exception:  # noqa: BLE001
         pass
+
+    banned_email = None
+    if ban and email:
+        try:
+            supabase.table("banned_emails").upsert({
+                "email": _norm_email(email),
+                "reason": "Baneado al eliminar la cuenta",
+                "banned_by": admin.get("sub"),
+            }).execute()
+            banned_email = _norm_email(email)
+        except Exception:  # noqa: BLE001 - no bloquear el borrado si falla el ban
+            pass
+
+    # Limpieza explícita de tablas que apuntan a auth.users (NO se borran al
+    # eliminar solo la fila de public.users): evita predicciones globales
+    # "huérfanas" que quedaban en la portada como "Jugador".
+    for tbl in ("tournament_predictions", "push_subscriptions"):
+        try:
+            supabase.table(tbl).delete().eq("user_id", user_id).execute()
+        except Exception:  # noqa: BLE001
+            pass
 
     # Borrar de Auth → cascada a public.users y dependientes
     deleted_via = "auth"
@@ -117,8 +148,40 @@ async def delete_user(
         "status": "ok",
         "deleted": user_id,
         "display_name": display_name,
+        "banned_email": banned_email,
         "via": deleted_via,
     }
+
+
+@router.post("/ban-email")
+async def ban_email(
+    email: str = Body(..., embed=True),
+    reason: str = Body("", embed=True),
+    admin: dict = Depends(require_admin),
+):
+    """Agrega un correo a la lista negra (no podrá registrarse)."""
+    norm = _norm_email(email)
+    if not norm or "@" not in norm:
+        raise HTTPException(status_code=400, detail="Correo inválido")
+    supabase = get_supabase()
+    supabase.table("banned_emails").upsert({
+        "email": norm,
+        "reason": (reason or "").strip() or None,
+        "banned_by": admin.get("sub"),
+    }).execute()
+    return {"status": "ok", "email": norm}
+
+
+@router.post("/unban-email")
+async def unban_email(
+    email: str = Body(..., embed=True),
+    admin: dict = Depends(require_admin),
+):
+    """Quita un correo de la lista negra (podrá registrarse de nuevo)."""
+    norm = _norm_email(email)
+    supabase = get_supabase()
+    supabase.table("banned_emails").delete().eq("email", norm).execute()
+    return {"status": "ok", "email": norm}
 
 
 @router.post("/update-user")
