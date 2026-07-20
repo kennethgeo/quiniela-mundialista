@@ -24,11 +24,40 @@ def _to_int(v):
         return None
 
 
+# slug de ESPN (season.slug / type) -> etiqueta de fase en español
+_STAGE_KEYS = [
+    ("round-of-16", "Octavos"), ("round_of_16", "Octavos"),
+    ("quarter", "Cuartos"), ("semi", "Semifinal"),
+    ("third", "Tercer puesto"), ("final", "Final"),
+    ("knockout", "Eliminatoria"), ("playoff", "Repechaje"),
+    ("liguilla", "Liguilla"), ("group", "Fase de grupos"),
+    ("league-phase", "Fase de liga"), ("league_phase", "Fase de liga"),
+]
+
+
+def _stage_from_event(ev):
+    """(stage_base, leg). stage_base es la fase (o None si es liga regular)."""
+    slug = ((ev.get("season") or {}).get("slug") or "").lower()
+    leg = ""
+    for n in (ev["competitions"][0].get("notes") or []):
+        t = (n.get("text") or "").strip()
+        if t:
+            leg = t
+            break
+    base = None
+    for key, lbl in _STAGE_KEYS:
+        if key in slug:
+            base = lbl
+            break
+    return base, leg
+
+
 def _parse_event(ev):
     comp = ev["competitions"][0]
     cs = comp["competitors"]
     h = next(c for c in cs if c.get("homeAway") == "home")
     a = next(c for c in cs if c.get("homeAway") == "away")
+    stage_base, leg = _stage_from_event(ev)
     state = ev["status"]["type"]["state"]
     status = {"in": "in_progress", "post": "finished"}.get(state, "pending")
     minute = None
@@ -62,7 +91,35 @@ def _parse_event(ev):
         "away_goals": _to_int(a.get("score")),
         "minute": minute,
         "events": events,
+        "stage_base": stage_base,   # None = liga regular
+        "leg": leg,                 # "Ida"/"Vuelta"/"" (dos partidos)
     }
+
+
+def _assign_stages(parsed):
+    """Calcula stage + matchday: por fase real, o 'Jornada N' en liga regular
+    (agrupando por fin de semana, ya que ESPN no expone el número de jornada)."""
+    # Liga regular (sin fase): ordenar por fecha y agrupar en rondas semanales.
+    regular = sorted((p for p in parsed if not p["stage_base"]), key=lambda p: p["kickoff_at"] or "")
+    from datetime import datetime as _dt
+    md = 0
+    cluster_start = None
+    for p in regular:
+        try:
+            d = _dt.fromisoformat((p["kickoff_at"] or "").replace("Z", "+00:00"))
+        except Exception:  # noqa: BLE001
+            d = None
+        if cluster_start is None or (d and (d - cluster_start).days > 4):
+            md += 1
+            cluster_start = d
+        p["matchday"] = md
+        p["stage"] = f"Jornada {md}"
+    # Fases (copas): la etiqueta ya es la fase (+ leg).
+    for p in parsed:
+        if p["stage_base"]:
+            p["stage"] = " · ".join(x for x in (p["stage_base"], p["leg"]) if x)
+            p["matchday"] = None
+    return parsed
 
 
 def _date_ranges(now, full):
@@ -114,6 +171,8 @@ async def sync_espn_tournament(supabase, tournament, full=False) -> dict:
     if not parsed:
         return {"tournament_id": tid, "matches": 0, "scored": 0}
 
+    _assign_stages(parsed)
+
     # Snapshot de lo existente (para saber qué cambió y re-puntuar).
     existing = (supabase.table("matches")
                 .select("id, external_id, status, home_goals_actual, away_goals_actual")
@@ -134,7 +193,9 @@ async def sync_espn_tournament(supabase, tournament, full=False) -> dict:
         "home_goals_actual": p["home_goals"] if p["status"] != "pending" else None,
         "away_goals_actual": p["away_goals"] if p["status"] != "pending" else None,
         "minute": p["minute"],
+        "matchday": p.get("matchday"),
         "phase": "groups",
+        "stage": p.get("stage"),
         "events_json": p["events"],
     } for p in parsed]
 
