@@ -14,6 +14,7 @@ import AvatarOptimizerAdmin from '../components/admin/AvatarOptimizerAdmin'
 import UserManagementAdmin from '../components/admin/UserManagementAdmin'
 import MatchEventsEditor from '../components/admin/MatchEventsEditor'
 import AnnouncementsAdmin from '../components/admin/AnnouncementsAdmin'
+import TournamentsAdmin from '../components/admin/TournamentsAdmin'
 import BannedEmailsAdmin from '../components/admin/BannedEmailsAdmin'
 
 export default function AdminPage() {
@@ -278,6 +279,7 @@ export default function AdminPage() {
           initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }}
         >
           <GlobalSettingsAdmin />
+          <TournamentsAdmin />
           <AnnouncementsAdmin />
           <TournamentPredictionsAdmin />
           <ScoreReconcileAdmin />
