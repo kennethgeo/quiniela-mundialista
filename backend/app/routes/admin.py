@@ -371,6 +371,59 @@ async def update_tournament(
     return {"status": "ok", "tournament": res.data[0]}
 
 
+@router.post("/create-match")
+async def create_match(
+    payload: dict = Body(...),
+    admin: dict = Depends(require_admin),
+):
+    """Agrega un partido a un torneo (carga manual de fixtures).
+
+    Para ligas se usa phase='groups' + matchday = jornada. Los códigos de equipo
+    son ISO de flagcdn (ej. 'es','de') o dejar 'xx'."""
+    tid = payload.get("tournament_id")
+    home = (payload.get("home_team") or "").strip()
+    away = (payload.get("away_team") or "").strip()
+    kickoff = (payload.get("kickoff_at") or "").strip()
+    if not tid or not home or not away or not kickoff:
+        raise HTTPException(status_code=400, detail="Faltan datos (torneo, equipos, fecha)")
+
+    supabase = get_supabase()
+    if not (supabase.table("tournaments").select("id").eq("id", tid).execute().data):
+        raise HTTPException(status_code=404, detail="Torneo no encontrado")
+
+    row = {
+        "tournament_id": tid,
+        "home_team": home,
+        "away_team": away,
+        "home_team_code": (payload.get("home_team_code") or "xx").strip().lower() or "xx",
+        "away_team_code": (payload.get("away_team_code") or "xx").strip().lower() or "xx",
+        "kickoff_at": kickoff,
+        "phase": payload.get("phase") or "groups",
+        "matchday": payload.get("matchday"),
+        "group_name": (payload.get("group_name") or "").strip() or None,
+        "status": "pending",
+    }
+    try:
+        res = supabase.table("matches").insert(row).execute()
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=400, detail=f"No se pudo crear: {exc}")
+    return {"status": "ok", "match": (res.data or [None])[0]}
+
+
+@router.post("/delete-match")
+async def delete_match(
+    match_id: int = Body(..., embed=True),
+    admin: dict = Depends(require_admin),
+):
+    """Borra un partido (y sus predicciones en cascada). Solo para torneos que
+    cargaste a mano; usar con cuidado."""
+    supabase = get_supabase()
+    res = supabase.table("matches").delete().eq("id", match_id).execute()
+    if not res.data:
+        raise HTTPException(status_code=404, detail="Partido no encontrado")
+    return {"status": "ok", "deleted": match_id}
+
+
 @router.post("/broadcast")
 async def broadcast(
     title: str = Body(..., embed=True),

@@ -15,6 +15,7 @@ import UserManagementAdmin from '../components/admin/UserManagementAdmin'
 import MatchEventsEditor from '../components/admin/MatchEventsEditor'
 import AnnouncementsAdmin from '../components/admin/AnnouncementsAdmin'
 import TournamentsAdmin from '../components/admin/TournamentsAdmin'
+import TournamentMatchesAdmin from '../components/admin/TournamentMatchesAdmin'
 import BannedEmailsAdmin from '../components/admin/BannedEmailsAdmin'
 
 export default function AdminPage() {
@@ -280,6 +281,7 @@ export default function AdminPage() {
         >
           <GlobalSettingsAdmin />
           <TournamentsAdmin />
+          <TournamentMatchesAdmin />
           <AnnouncementsAdmin />
           <TournamentPredictionsAdmin />
           <ScoreReconcileAdmin />
