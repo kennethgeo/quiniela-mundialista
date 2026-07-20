@@ -12,8 +12,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'icons/*.png'],
       manifest: {
-        name: 'Quiniela Mundialista',
-        short_name: 'Quiniela',
+        name: 'Tico Games',
+        short_name: 'Tico Games',
         description: 'Predice los resultados del Mundial y compite con tus amigos',
         theme_color: '#0f172a',
         background_color: '#0f172a',

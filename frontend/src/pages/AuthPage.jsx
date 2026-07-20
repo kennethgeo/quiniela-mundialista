@@ -102,7 +102,7 @@ export default function AuthPage() {
             <div className="w-5 h-5 rounded-full bg-gradient-to-br from-purple-500 to-cyan-400 flex items-center justify-center">
               <Trophy size={10} className="text-white" />
             </div>
-            <span className="text-[11px] font-bold tracking-[0.15em] text-slate-700 dark:text-slate-300 uppercase transition-colors duration-500">FIFA World Cup 2026</span>
+            <span className="text-[11px] font-bold tracking-[0.15em] text-slate-700 dark:text-slate-300 uppercase transition-colors duration-500">Predice · Compite · Presume</span>
           </motion.div>
           
           {/* Headline */}
@@ -115,7 +115,7 @@ export default function AuthPage() {
           
           {/* Subtitle */}
           <p className="text-lg text-slate-600 dark:text-slate-400 leading-relaxed max-w-md font-light mb-12 transition-colors duration-500">
-            Únete a la quiniela mundialista definitiva. Desafía a tus amigos, acierta marcadores exactos y conviértete en leyenda.
+            Creá tu quiniela, invitá a tus amigos y competí en el Mundial, LaLiga, Champions y más. El que sabe, saca ventaja.
           </p>
 
           {/* Feature pills */}
@@ -158,10 +158,10 @@ export default function AuthPage() {
             </div>
           </div>
           <h1 className="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight transition-colors duration-500">
-            Quiniela Mundialista
+            Tico Games
           </h1>
           <p className="text-xs font-bold bg-gradient-to-r from-purple-600 to-cyan-600 dark:from-purple-400 dark:to-cyan-400 bg-clip-text text-transparent tracking-[0.2em] uppercase mt-2">
-            World Cup 2026
+            Predice · Compite
           </p>
         </motion.div>
 
@@ -209,7 +209,7 @@ export default function AuthPage() {
           transition={{ delay: 0.6 }}
           className="text-xs text-slate-500 dark:text-slate-600 mt-10 text-center transition-colors duration-500"
         >
-          © 2026 Quiniela Mundialista. Todos los derechos reservados.
+          © 2026 Tico Games. Todos los derechos reservados.
         </motion.p>
       </div>
     </div>

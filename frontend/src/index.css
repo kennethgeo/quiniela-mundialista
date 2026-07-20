@@ -1,12 +1,14 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Sora:wght@600;700;800&display=swap');
 @import "tailwindcss";
 @custom-variant dark (&:is(.dark *));
 
 @theme {
   --color-primary: var(--bg-body);
-  --color-accent: #8b5cf6;
-  --color-accent-light: #a78bfa;
-  --color-accent-dark: #6d28d9;
+  /* Tico Games — acento menta (antes morado genérico) */
+  --color-accent: #2fdd9a;
+  --color-accent-light: #5cead0;
+  --color-accent-dark: #12b98a;
+  --font-display: 'Sora', system-ui, sans-serif;
   --color-success: #10b981;
   --color-success-light: #34d399;
   --color-error: #ef4444;
@@ -45,15 +47,12 @@
   --glass-card-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
   --glass-card-hover-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
 
-  /* Background Light */
-  --bg-world-cup: #ffffff;
-  --bg-world-cup-grid: rgba(0, 0, 0, 0.03);
-  --bg-world-cup-glow-1: rgba(59, 130, 246, 0.1); /* Blue glow */
-  --bg-world-cup-glow-2: rgba(16, 185, 129, 0.08); /* Emerald glow */
-  --bg-world-cup-glow-3: rgba(245, 158, 11, 0.08); /* Amber glow */
-  --bg-world-cup-image-opacity: 0.03;
-  --bg-world-cup-image-filter: grayscale(100%);
-  --bg-world-cup-image-blend: normal;
+  /* Background Light — Tico Games (menta / violeta / coral) */
+  --bg-world-cup: #f4f6fb;
+  --bg-world-cup-grid: rgba(10, 14, 25, 0.025);
+  --bg-world-cup-glow-1: rgba(22, 185, 138, 0.14);  /* menta */
+  --bg-world-cup-glow-2: rgba(139, 123, 255, 0.12); /* violeta */
+  --bg-world-cup-glow-3: rgba(255, 107, 125, 0.07); /* coral */
 }
 
 .dark {
@@ -84,15 +83,12 @@
   --glass-card-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.05);
   --glass-card-hover-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.1), 0 8px 30px -10px rgba(168, 85, 247, 0.15);
 
-  /* Background Dark */
-  --bg-world-cup: #000000;
-  --bg-world-cup-grid: rgba(255, 255, 255, 0.03);
-  --bg-world-cup-glow-1: rgba(168, 85, 247, 0.25); /* Purple intenso */
-  --bg-world-cup-glow-2: rgba(14, 165, 233, 0.20); /* Cyan intenso */
-  --bg-world-cup-glow-3: rgba(236, 72, 153, 0.10); /* Pink centro */
-  --bg-world-cup-image-opacity: 0.05;
-  --bg-world-cup-image-filter: grayscale(100%) blur(1px);
-  --bg-world-cup-image-blend: screen;
+  /* Background Dark — Tico Games (tinta profunda + menta/violeta) */
+  --bg-world-cup: #090b10;
+  --bg-world-cup-grid: rgba(255, 255, 255, 0.025);
+  --bg-world-cup-glow-1: rgba(55, 230, 164, 0.16);  /* menta */
+  --bg-world-cup-glow-2: rgba(139, 123, 255, 0.16); /* violeta */
+  --bg-world-cup-glow-3: rgba(255, 107, 125, 0.09); /* coral */
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -155,28 +151,24 @@ body {
 .bg-world-cup::before {
   content: '';
   position: fixed; /* Mantener las luces fijas en la pantalla */
-  inset: 0;
+  inset: -20%;
   background:
-    radial-gradient(circle at 0% 0%, var(--bg-world-cup-glow-1) 0%, transparent 40%),
-    radial-gradient(circle at 100% 100%, var(--bg-world-cup-glow-2) 0%, transparent 40%),
-    radial-gradient(circle at 50% 50%, var(--bg-world-cup-glow-3) 0%, transparent 60%);
+    radial-gradient(circle at 12% 8%, var(--bg-world-cup-glow-1) 0%, transparent 38%),
+    radial-gradient(circle at 88% 92%, var(--bg-world-cup-glow-2) 0%, transparent 40%),
+    radial-gradient(circle at 60% 45%, var(--bg-world-cup-glow-3) 0%, transparent 55%);
   pointer-events: none;
   z-index: 0;
+  animation: tg-aurora 26s ease-in-out infinite alternate;
 }
 
-.bg-world-cup::after {
-  content: '';
-  position: fixed;
-  inset: 0;
-  background-image: url('/fifa26-bg.png');
-  background-size: 60vh auto;
-  background-position: center;
-  background-repeat: no-repeat;
-  opacity: var(--bg-world-cup-image-opacity);
-  filter: var(--bg-world-cup-image-filter);
-  mix-blend-mode: var(--bg-world-cup-image-blend);
-  pointer-events: none;
-  z-index: 0;
+/* Deriva lenta de las luces para que el fondo respire (sin distraer) */
+@keyframes tg-aurora {
+  0%   { transform: translate3d(0, 0, 0) scale(1); }
+  50%  { transform: translate3d(2%, -1.5%, 0) scale(1.06); }
+  100% { transform: translate3d(-2%, 2%, 0) scale(1.03); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bg-world-cup::before { animation: none; }
 }
 
 /* ── Scrollbar personalizado (Mac-like) ── */

@@ -51,13 +51,18 @@ export default function Sidebar({ isOpen, onClose }) {
         {/* Header: Logo & Close Button */}
         <div className="flex items-center justify-between mb-8 px-2 relative">
               <div className="flex flex-col items-center justify-center w-full relative pt-2">
-                <img src="/logo.png" alt="Logo Quiniela" className="w-24 h-24 object-contain mb-2 drop-shadow-[0_0_20px_rgba(168,85,247,0.4)]" />
-                <h1 className="text-3xl font-black tracking-tighter leading-none text-center font-['Russo_One'] italic transform -skew-x-6 drop-shadow-md">
-                  <span className="text-white block">QUINIELA</span>
-                  <span className="bg-gradient-to-r from-amber-400 via-amber-500 to-accent bg-clip-text text-transparent block mt-0.5">
-                    MUNDIALISTA
-                  </span>
+                <motion.img
+                  src="/tico-mark.svg"
+                  alt="Tico Games"
+                  initial={{ scale: 0.85, opacity: 0, rotate: -6 }}
+                  animate={{ scale: 1, opacity: 1, rotate: 0 }}
+                  transition={{ type: 'spring', stiffness: 200, damping: 14 }}
+                  className="w-20 h-20 object-contain mb-3 drop-shadow-[0_8px_28px_rgba(47,221,154,0.35)]"
+                />
+                <h1 className="text-2xl font-extrabold tracking-tight leading-none text-center font-['Sora']">
+                  <span className="text-slate-900 dark:text-white">Tico</span><span className="bg-gradient-to-r from-accent to-violet-400 bg-clip-text text-transparent">Games</span>
                 </h1>
+                <span className="text-[10px] font-semibold tracking-[0.2em] text-slate-400 dark:text-slate-500 uppercase mt-1.5">Predice · Compite</span>
               </div>
               <button 
                 onClick={onClose} 
