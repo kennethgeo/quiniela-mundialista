@@ -56,32 +56,32 @@
 }
 
 .dark {
-  /* DARK MODE (Linear/Vercel Style) */
-  --color-primary-val: #050505;
-  --color-primary-light-val: #121212;
-  --color-primary-lighter-val: #1e1e1e;
-  --color-accent-val: #a855f7; /* Neon Purple */
-  --color-accent-light-val: #d8b4fe;
-  --color-accent-dark-val: #7e22ce;
-  --color-success-val: #34c759;
-  --color-success-light-val: #30d158;
-  
-  --bg-body: #000000;
-  --text-body: #ededed;
+  /* DARK MODE — Tico Games (tinta profunda + menta) */
+  --color-primary-val: #0b0d13;
+  --color-primary-light-val: #14161d;
+  --color-primary-lighter-val: #1b2130;
+  --color-accent-val: #2fdd9a; /* menta */
+  --color-accent-light-val: #5cead0;
+  --color-accent-dark-val: #12b98a;
+  --color-success-val: #34e39b;
+  --color-success-light-val: #5cead0;
 
-  /* Glass Dark */
-  --glass-bg: rgba(255, 255, 255, 0.03);
-  --glass-border: rgba(255, 255, 255, 0.06);
-  --glass-strong-bg: rgba(255, 255, 255, 0.06);
-  --glass-strong-border: rgba(255, 255, 255, 0.08);
-  --glass-nav-bg: rgba(0, 0, 0, 0.85);
-  
-  --glass-card-bg: rgba(255, 255, 255, 0.02);
-  --glass-card-border: rgba(255, 255, 255, 0.04);
-  --glass-card-hover-bg: rgba(255, 255, 255, 0.05);
-  --glass-card-hover-border: rgba(255, 255, 255, 0.1);
-  --glass-card-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.05);
-  --glass-card-hover-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.1), 0 8px 30px -10px rgba(168, 85, 247, 0.15);
+  --bg-body: #090b10;
+  --text-body: #eaf0f7;
+
+  /* Superficies Dark — sólidas y limpias (menos "glass" turbio) */
+  --glass-bg: rgba(255, 255, 255, 0.04);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-strong-bg: rgba(20, 22, 29, 0.9);
+  --glass-strong-border: rgba(255, 255, 255, 0.1);
+  --glass-nav-bg: rgba(9, 11, 16, 0.72);
+
+  --glass-card-bg: #14161d;
+  --glass-card-border: rgba(255, 255, 255, 0.07);
+  --glass-card-hover-bg: #1a1d27;
+  --glass-card-hover-border: rgba(255, 255, 255, 0.14);
+  --glass-card-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.04), 0 12px 32px -20px rgba(0, 0, 0, 0.9);
+  --glass-card-hover-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.06), 0 16px 44px -18px rgba(47, 221, 154, 0.2);
 
   /* Background Dark — Tico Games (tinta profunda + menta/violeta) */
   --bg-world-cup: #090b10;
@@ -125,12 +125,10 @@ body {
 }
 .glass-card {
   background: var(--glass-card-bg);
-  backdrop-filter: saturate(180%) blur(20px);
-  -webkit-backdrop-filter: saturate(180%) blur(20px);
   border: 1px solid var(--glass-card-border);
   border-radius: 16px;
   box-shadow: var(--glass-card-shadow);
-  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  transition: transform 0.25s cubic-bezier(0.25, 0.8, 0.25, 1), border-color 0.25s ease, box-shadow 0.25s ease, background 0.25s ease;
 }
 .glass-card:hover {
   background: var(--glass-card-hover-bg);

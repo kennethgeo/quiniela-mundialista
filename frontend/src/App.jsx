@@ -97,6 +97,16 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <MainLayout>
+              <HubPage />
+            </MainLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/dashboard"
+        element={
+          <ProtectedRoute>
+            <MainLayout>
               <DashboardPage />
             </MainLayout>
           </ProtectedRoute>

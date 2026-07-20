@@ -1,12 +1,12 @@
 // Barra de navegación inferior estilo iOS con 5 pestañas
 import { NavLink } from 'react-router-dom'
-import { Home, Users, Calendar, BarChart3, Trophy, User } from 'lucide-react'
+import { Home, GitBranch, Calendar, BarChart3, Trophy, User } from 'lucide-react'
 import { motion } from 'motion/react'
 
 const tabs = [
   { to: '/', icon: Home, label: 'Inicio' },
-  { to: '/hub', icon: Users, label: 'Quinielas' },
   { to: '/matches', icon: Calendar, label: 'Partidos' },
+  { to: '/bracket', icon: GitBranch, label: 'Bracket' },
   { to: '/torneo', icon: BarChart3, label: 'Torneo' },
   { to: '/leaderboard', icon: Trophy, label: 'Ranking' },
   { to: '/profile', icon: User, label: 'Perfil' },
