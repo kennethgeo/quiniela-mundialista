@@ -424,6 +424,32 @@ async def delete_match(
     return {"status": "ok", "deleted": match_id}
 
 
+@router.post("/sync-espn")
+async def sync_espn(
+    tournament_id: int = Body(..., embed=True),
+    admin: dict = Depends(require_admin),
+):
+    """Sincroniza los partidos (fixtures + resultados) de un torneo ESPN.
+    Requiere source='espn' y external_ref (código de liga)."""
+    from app.services.espn_tournament_sync import sync_espn_tournament
+
+    supabase = get_supabase()
+    t = supabase.table("tournaments").select("id, external_ref, source").eq("id", tournament_id).single().execute().data
+    if not t:
+        raise HTTPException(status_code=404, detail="Torneo no encontrado")
+    if t.get("source") != "espn":
+        raise HTTPException(status_code=400, detail="El torneo no es de fuente ESPN")
+    if tournament_id == 1:
+        raise HTTPException(status_code=400, detail="El Mundial usa su propio sync (sync-live)")
+    try:
+        res = await sync_espn_tournament(supabase, t)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=f"Error de sync: {exc}")
+    if res.get("error"):
+        raise HTTPException(status_code=400, detail=res["error"])
+    return {"status": "ok", **res}
+
+
 @router.post("/sync-rosters")
 async def sync_rosters(
     tournament_id: int = Body(..., embed=True),
