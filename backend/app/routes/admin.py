@@ -14,6 +14,36 @@ from app.services.scoring import calculate_and_update_scores
 router = APIRouter(prefix="/api/admin", tags=["Administración"])
 
 
+# --- Match tolerante de nombres (igual que scoring.js) -----------------------
+import re as _re
+import unicodedata as _ud
+
+
+def _norm_name(s: str) -> str:
+    s = _ud.normalize("NFD", s or "")
+    s = "".join(c for c in s if _ud.category(c) != "Mn")
+    return _re.sub(r"\s+", " ", s.lower().strip())
+
+
+def _champion_matches(actual: str, pick: str) -> bool:
+    a, p = _norm_name(actual), _norm_name(pick)
+    return bool(a) and bool(p) and a == p
+
+
+def _scorer_matches(actual: str, pick: str) -> bool:
+    a, p = _norm_name(actual), _norm_name(pick)
+    if not a or not p:
+        return False
+    if a == p or (len(a) >= 3 and a in p) or (len(p) >= 3 and p in a):
+        return True
+    la, lp = a.split()[-1], p.split()[-1]
+    if len(la) >= 3 and _re.search(r"\b" + _re.escape(la) + r"\b", p):
+        return True
+    if len(lp) >= 3 and _re.search(r"\b" + _re.escape(lp) + r"\b", a):
+        return True
+    return False
+
+
 @router.post("/update-match")
 async def update_match_result(
     result: MatchResultUpdate,
@@ -369,6 +399,68 @@ async def update_tournament(
     if not res.data:
         raise HTTPException(status_code=404, detail="Torneo no encontrado")
     return {"status": "ok", "tournament": res.data[0]}
+
+
+@router.post("/set-tournament-globals")
+async def set_tournament_globals(
+    payload: dict = Body(...),
+    admin: dict = Depends(require_admin),
+):
+    """Fija el campeón/goleador reales y el bloqueo de un torneo."""
+    tid = payload.get("tournament_id")
+    if not tid:
+        raise HTTPException(status_code=400, detail="tournament_id requerido")
+    updates = {}
+    if "actual_champion" in payload:
+        updates["actual_champion"] = (payload.get("actual_champion") or "").strip() or None
+    if "actual_top_scorer" in payload:
+        updates["actual_top_scorer"] = (payload.get("actual_top_scorer") or "").strip() or None
+    if "predictions_locked" in payload:
+        updates["predictions_locked"] = bool(payload.get("predictions_locked"))
+    if not updates:
+        raise HTTPException(status_code=400, detail="Nada que actualizar")
+    supabase = get_supabase()
+    res = supabase.table("tournaments").update(updates).eq("id", tid).execute()
+    if not res.data:
+        raise HTTPException(status_code=404, detail="Torneo no encontrado")
+    return {"status": "ok", "tournament": res.data[0]}
+
+
+@router.post("/calc-tournament-globals")
+async def calc_tournament_globals(
+    tournament_id: int = Body(..., embed=True),
+    admin: dict = Depends(require_admin),
+):
+    """Reparte los 12 pts de campeón/goleador de UN torneo, usando su campeón/
+    goleador reales y match tolerante (acentos/apellido; goleador admite varios
+    separados por coma). Idempotente."""
+    supabase = get_supabase()
+    t = (supabase.table("tournaments").select("actual_champion, actual_top_scorer")
+         .eq("id", tournament_id).single().execute().data) or {}
+    champ = t.get("actual_champion")
+    scorers = [s.strip() for s in _re.split(r"[,;/]", t.get("actual_top_scorer") or "") if s.strip()]
+    if not champ and not scorers:
+        return {"status": "ok", "message": "Sin campeón/goleador definidos", "updated": 0}
+
+    preds = (supabase.table("tournament_predictions")
+             .select("id, user_id, champion_team, top_scorer_name, champion_points, top_scorer_points")
+             .eq("tournament_id", tournament_id).execute().data or [])
+    updated = 0
+    users = set()
+    for p in preds:
+        cp = 12 if (champ and p.get("champion_team") and _champion_matches(champ, p["champion_team"])) else 0
+        sp = 12 if (p.get("top_scorer_name") and any(_scorer_matches(n, p["top_scorer_name"]) for n in scorers)) else 0
+        if cp != (p.get("champion_points") or 0) or sp != (p.get("top_scorer_points") or 0):
+            supabase.table("tournament_predictions").update(
+                {"champion_points": cp, "top_scorer_points": sp}).eq("id", p["id"]).execute()
+            updated += 1
+            users.add(p["user_id"])
+    for uid in users:
+        try:
+            supabase.rpc("recompute_user_total", {"p_user_id": uid}).execute()
+        except Exception:  # noqa: BLE001
+            pass
+    return {"status": "ok", "updated": updated, "users": len(users)}
 
 
 @router.post("/create-match")
