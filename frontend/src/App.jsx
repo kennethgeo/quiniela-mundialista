@@ -26,6 +26,7 @@ const MatchDetailPage = lazy(() => import('./pages/MatchDetailPage'))
 const RulesPage = lazy(() => import('./pages/RulesPage'))
 const TicoGamesV2Preview = lazy(() => import('./pages/TicoGamesV2Preview'))
 const HubPage = lazy(() => import('./pages/HubPage'))
+const GroupPage = lazy(() => import('./pages/GroupPage'))
 
 import Sidebar from './components/ui/Sidebar'
 import GlobalChatDrawer from './components/chat/GlobalChatDrawer'
@@ -97,7 +98,27 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <MainLayout>
+              <HubPage />
+            </MainLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/dashboard"
+        element={
+          <ProtectedRoute>
+            <MainLayout>
               <DashboardPage />
+            </MainLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/q/:id"
+        element={
+          <ProtectedRoute>
+            <MainLayout>
+              <GroupPage />
             </MainLayout>
           </ProtectedRoute>
         }
