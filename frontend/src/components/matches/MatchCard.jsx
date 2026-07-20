@@ -10,12 +10,16 @@ const flagSrc = (url, code) => url || `https://flagcdn.com/w80/${(code || 'xx').
 
 // Componente a nivel de módulo (no se recrea en cada render → banderas no se recargan)
 function Team({ name, flag, code }) {
+  // Si hay URL de escudo (clubes) → cuadrado sin recortar. Si no, bandera ISO (selecciones).
+  const isLogo = !!flag
   return (
     <div className="min-w-0 flex flex-col items-center gap-2">
       <img
         src={flagSrc(flag, code)}
         alt={name}
-        className="w-12 h-8 rounded object-cover ring-1 ring-black/5 dark:ring-white/10"
+        className={isLogo
+          ? 'w-9 h-9 object-contain'
+          : 'w-12 h-8 rounded object-cover ring-1 ring-black/5 dark:ring-white/10'}
         loading="lazy"
         onError={(e) => { e.target.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg"/>' }}
       />
