@@ -74,6 +74,18 @@ export default function TournamentMatchesAdmin() {
     } finally { setBusy(false) }
   }
 
+  const syncEspn = async () => {
+    if (!tid) return
+    try {
+      setBusy(true)
+      const r = await callAdmin('sync-espn', { tournament_id: tid })
+      await loadMatches(tid)
+      flash('ok', `Partidos sincronizados: ${r.matches} (puntuados: ${r.scored}).`)
+    } catch (e) {
+      flash('error', e.message.includes('ESPN') || e.message.includes('external_ref') ? 'El torneo debe ser fuente ESPN con código de liga (external_ref).' : e.message)
+    } finally { setBusy(false) }
+  }
+
   const del = async (m) => {
     if (!confirm(`¿Borrar ${m.home_team} vs ${m.away_team}?`)) return
     try { setBusy(true); await callAdmin('delete-match', { match_id: m.id }); setMatches(prev => prev.filter(x => x.id !== m.id)) }
@@ -98,11 +110,17 @@ export default function TournamentMatchesAdmin() {
         {tournaments.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
       </select>
 
-      {/* Sincronizar jugadores (rosters ESPN) para el pick de goleador */}
-      <button onClick={syncRosters} disabled={busy || !tid}
-        className="w-full flex items-center justify-center gap-2 text-sm font-bold py-2.5 rounded-xl mb-4 text-violet-500 bg-violet-500/10 border border-violet-500/25 hover:bg-violet-500/20 disabled:opacity-50">
-        {busy ? <Loader2 size={15} className="animate-spin" /> : <Users size={15} />} Sincronizar jugadores (ESPN)
-      </button>
+      {/* Sync desde ESPN: partidos (fixtures+resultados) y jugadores (rosters) */}
+      <div className="grid grid-cols-2 gap-2 mb-4">
+        <button onClick={syncEspn} disabled={busy || !tid}
+          className="flex items-center justify-center gap-2 text-sm font-bold py-2.5 rounded-xl text-accent bg-accent/10 border border-accent/25 hover:bg-accent/20 disabled:opacity-50">
+          {busy ? <Loader2 size={15} className="animate-spin" /> : <CalendarPlus size={15} />} Sync partidos
+        </button>
+        <button onClick={syncRosters} disabled={busy || !tid}
+          className="flex items-center justify-center gap-2 text-sm font-bold py-2.5 rounded-xl text-violet-500 bg-violet-500/10 border border-violet-500/25 hover:bg-violet-500/20 disabled:opacity-50">
+          {busy ? <Loader2 size={15} className="animate-spin" /> : <Users size={15} />} Sync jugadores
+        </button>
+      </div>
 
       {/* Form */}
       <div className="space-y-2">
