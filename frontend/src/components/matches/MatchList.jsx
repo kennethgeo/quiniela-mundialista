@@ -14,7 +14,8 @@ const containerVariants = {
 export default function MatchList({ matches, predictions, onSavePrediction, isLoading, powerupLimits = {}, powerupUsage = {} }) {
   // Agrupar por jornada (matchday)
   const grouped = matches.reduce((acc, match) => {
-    const key = match.matchday ? `Jornada ${match.matchday}` : match.phase.replace(/_/g, ' ')
+    // Fase real de ESPN (Jornada N / Octavos / Liguilla…) si existe; si no, jornada o phase.
+    const key = match.stage || (match.matchday ? `Jornada ${match.matchday}` : match.phase.replace(/_/g, ' '))
     if (!acc[key]) acc[key] = []
     acc[key].push(match)
     return acc
