@@ -443,10 +443,13 @@ async def sync_rosters(
         raise HTTPException(status_code=400, detail="El torneo no tiene código de liga (external_ref)")
 
     base = f"https://site.api.espn.com/apis/site/v2/sports/soccer/{league}"
+    # Español: equipos y posiciones localizados. Los nombres de jugadores son
+    # nombres propios (no cambian), así que el match del goleador sigue calzando.
+    es = {"lang": "es", "region": "es"}
     rows = []
     n_teams = 0
     async with httpx.AsyncClient(timeout=25.0) as client:
-        tr = await client.get(f"{base}/teams")
+        tr = await client.get(f"{base}/teams", params=es)
         tr.raise_for_status()
         try:
             teams = tr.json()["sports"][0]["leagues"][0]["teams"]
@@ -461,7 +464,7 @@ async def sync_rosters(
                 continue
             n_teams += 1
             try:
-                rr = await client.get(f"{base}/teams/{tid}/roster")
+                rr = await client.get(f"{base}/teams/{tid}/roster", params=es)
                 athletes = rr.json().get("athletes") or []
             except Exception:  # noqa: BLE001
                 continue
