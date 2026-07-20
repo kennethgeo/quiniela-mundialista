@@ -442,7 +442,8 @@ async def sync_espn(
     if tournament_id == 1:
         raise HTTPException(status_code=400, detail="El Mundial usa su propio sync (sync-live)")
     try:
-        res = await sync_espn_tournament(supabase, t)
+        # Botón admin: importa la temporada completa (el cron mantiene la ventana).
+        res = await sync_espn_tournament(supabase, t, full=True)
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=f"Error de sync: {exc}")
     if res.get("error"):

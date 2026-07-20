@@ -65,26 +65,48 @@ def _parse_event(ev):
     }
 
 
-async def sync_espn_tournament(supabase, tournament) -> dict:
-    """Sincroniza un torneo ESPN (fixtures + resultados) en una ventana de fechas."""
+def _date_ranges(now, full):
+    """Ventanas de fechas a consultar. full=True → toda la temporada (por trozos);
+    full=False → ventana móvil (reciente + próximas 3 semanas)."""
+    if not full:
+        return [((now - timedelta(days=3)), (now + timedelta(days=21)))]
+    # Temporada completa: de ~10 meses atrás a ~5 adelante, en trozos de 30 días.
+    ranges = []
+    cur = now - timedelta(days=300)
+    hard_end = now + timedelta(days=150)
+    while cur < hard_end:
+        nxt = min(cur + timedelta(days=30), hard_end)
+        ranges.append((cur, nxt))
+        cur = nxt + timedelta(days=1)
+    return ranges
+
+
+async def sync_espn_tournament(supabase, tournament, full=False) -> dict:
+    """Sincroniza un torneo ESPN (fixtures + resultados).
+
+    full=False (cron): ventana móvil. full=True (botón admin): toda la temporada."""
     tid = tournament["id"]
     league = (tournament.get("external_ref") or "").strip()
     if not league:
         return {"tournament_id": tid, "error": "sin external_ref"}
 
     now = datetime.now(timezone.utc)
-    start = (now - timedelta(days=3)).strftime("%Y%m%d")
-    end = (now + timedelta(days=21)).strftime("%Y%m%d")
+    events_by_id = {}
     async with httpx.AsyncClient(timeout=25.0) as client:
-        r = await client.get(
-            f"{ESPN_BASE}/{league}/scoreboard",
-            params={"dates": f"{start}-{end}", "lang": "es", "region": "es"},
-        )
-        r.raise_for_status()
-        events = r.json().get("events", [])
+        for (s, e) in _date_ranges(now, full):
+            try:
+                r = await client.get(
+                    f"{ESPN_BASE}/{league}/scoreboard",
+                    params={"dates": f"{s.strftime('%Y%m%d')}-{e.strftime('%Y%m%d')}", "lang": "es", "region": "es"},
+                )
+                r.raise_for_status()
+                for ev in r.json().get("events", []):
+                    events_by_id[str(ev.get("id"))] = ev  # dedupe por id
+            except Exception:  # noqa: BLE001
+                continue
 
     parsed = []
-    for ev in events:
+    for ev in events_by_id.values():
         try:
             parsed.append(_parse_event(ev))
         except Exception:  # noqa: BLE001
