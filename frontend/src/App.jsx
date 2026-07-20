@@ -25,7 +25,6 @@ const AdminPage = lazy(() => import('./pages/AdminPage'))
 const MatchDetailPage = lazy(() => import('./pages/MatchDetailPage'))
 const RulesPage = lazy(() => import('./pages/RulesPage'))
 const TicoGamesV2Preview = lazy(() => import('./pages/TicoGamesV2Preview'))
-const TicoGamesPreviewPage = lazy(() => import('./pages/TicoGamesPreviewPage'))
 
 import Sidebar from './components/ui/Sidebar'
 import GlobalChatDrawer from './components/chat/GlobalChatDrawer'
@@ -190,16 +189,6 @@ function AppRoutes() {
           <ProtectedRoute>
             <MainLayout>
               <TicoGamesV2Preview />
-            </MainLayout>
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/preview-tico"
-        element={
-          <ProtectedRoute>
-            <MainLayout>
-              <TicoGamesPreviewPage />
             </MainLayout>
           </ProtectedRoute>
         }

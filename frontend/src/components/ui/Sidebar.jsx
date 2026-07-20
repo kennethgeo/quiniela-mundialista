@@ -103,7 +103,7 @@ export default function Sidebar({ isOpen, onClose }) {
 
               {profile?.is_admin && (
                 <NavLink
-                  to="/preview-tico"
+                  to="/v2"
                   className="block mt-4"
                   onClick={onClose}
                 >
@@ -122,7 +122,7 @@ export default function Sidebar({ isOpen, onClose }) {
                         {isActive && <div className="absolute inset-0 bg-fuchsia-500/20 blur-md rounded-full" />}
                       </div>
                       <span className={`text-sm font-semibold ${isActive ? 'text-fuchsia-400' : ''}`}>
-                        Preview Tico Games
+                        Preview 2.0
                       </span>
                     </motion.div>
                   )}
