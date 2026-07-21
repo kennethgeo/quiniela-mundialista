@@ -50,9 +50,9 @@ function MainLayout({ children }) {
           <Navbar onMenuClick={() => setIsSidebarOpen(true)} />
         </div>
 
-        <main className="flex-1 min-h-0 w-full overflow-y-auto overscroll-contain md:overflow-visible relative z-0">
+        <main className="flex-1 min-h-0 min-w-0 w-full overflow-x-hidden overflow-y-auto overscroll-contain md:overflow-visible relative z-0">
           <AnnouncementBanner />
-          <div className="w-full px-4 sm:px-6 lg:px-8 md:py-8 pb-6">
+          <div className="w-full min-w-0 max-w-full px-4 sm:px-6 lg:px-8 md:py-8 pb-6">
             {children}
           </div>
         </main>
