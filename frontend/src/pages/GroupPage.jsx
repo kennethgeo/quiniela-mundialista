@@ -146,7 +146,8 @@ export default function GroupPage() {
         <TabBtn active={tab === 'matches'} onClick={() => setTab('matches')} icon={CalendarDays} label="Partidos" />
         <TabBtn active={tab === 'table'} onClick={() => setTab('table')} icon={ListOrdered} label="Tabla" />
         {!isCup && <TabBtn active={tab === 'teams'} onClick={() => setTab('teams')} icon={Shield} label="Posiciones" />}
-        {isCup && <TabBtn active={tab === 'bracket'} onClick={() => setTab('bracket')} icon={GitBranch} label="Bracket" />}
+        {/* Solo el Mundial tiene bracket dedicado; el resto ve sus fases en Partidos */}
+        {tid === 1 && <TabBtn active={tab === 'bracket'} onClick={() => setTab('bracket')} icon={GitBranch} label="Bracket" />}
         <TabBtn active={tab === 'global'} onClick={() => setTab('global')} icon={BarChart3} label="Campeón/Gol" />
       </div>
 
@@ -167,7 +168,7 @@ export default function GroupPage() {
 
       {tab === 'table' && <StandingsTab leagueId={group.id} />}
       {tab === 'teams' && <TeamStandingsTab tournamentId={tid} />}
-      {tab === 'bracket' && <BracketView />}
+      {tab === 'bracket' && tid === 1 && <BracketView />}
       {tab === 'global' && <TournamentGlobalCard tournamentId={tid} teams={teams} />}
     </div>
   )
