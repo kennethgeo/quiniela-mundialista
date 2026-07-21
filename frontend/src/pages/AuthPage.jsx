@@ -27,7 +27,7 @@ export default function AuthPage() {
   if (!loading && user && !confirmationMessage) return <Navigate to="/" replace />
 
   return (
-    <div className="min-h-dvh bg-[#0C0C0C] text-[#F3F1EA] flex flex-col justify-center relative overflow-hidden px-[26px] py-8 font-['Archivo']">
+    <div className="min-h-dvh bg-[#0C0C0C] text-[#F3F1EA] flex flex-col justify-center relative overflow-hidden px-8 py-10 font-['Archivo']">
       {/* Orbes */}
       <div className="absolute -top-[60px] -right-[60px] w-[220px] h-[220px] rounded-full pointer-events-none"
         style={{ background: 'radial-gradient(circle,rgba(46,211,183,.16),transparent 70%)' }} />
@@ -37,7 +37,7 @@ export default function AuthPage() {
       <div className="relative z-10 w-full max-w-[400px] mx-auto">
         {!forgot && (
           <div className="flex flex-col items-center mb-[42px]">
-            <div className="mb-[20px]"><TicoLogo size={104} /></div>
+            <div className="mb-[17px]"><TicoLogo size={68} /></div>
             <TicoWordmark />
           </div>
         )}
