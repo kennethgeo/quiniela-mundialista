@@ -102,32 +102,17 @@ export default function PlayerStatsModal({ entry, isCurrentUser, onClose }) {
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         onClick={onClose}
-        className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-0 sm:p-4"
+        className="fixed inset-0 z-[200] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
       >
         <motion.div
-          drag="y"
-          dragListener={false}
-          dragControls={dragControls}
-          dragConstraints={overlayRef}
-          dragElastic={0.12}
-          dragMomentum={false}
-          onDragEnd={(_, info) => { if (info.offset.y > 140 && info.velocity.y >= 0) onClose() }}
-          initial={{ opacity: 0, y: 40, scale: 0.98 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, y: 40, scale: 0.98 }}
-          transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.96 }}
+          transition={{ type: 'spring', stiffness: 320, damping: 28 }}
           onClick={(e) => e.stopPropagation()}
-          className="w-full sm:max-w-md bg-white dark:bg-[#12121a] rounded-t-3xl sm:rounded-3xl border border-slate-200 dark:border-white/10 shadow-2xl overflow-hidden max-h-[92vh] flex flex-col"
+          className="w-full max-w-md bg-white dark:bg-[#0C0C0C] rounded-[20px] border border-slate-200 dark:border-[#262626] shadow-[0_20px_50px_-20px_rgba(0,0,0,0.6)] overflow-hidden max-h-[88vh] flex flex-col"
         >
-          {/* Asa para arrastrar el panel a la altura deseada (o deslizar para cerrar) */}
-          <div
-            onPointerDown={(e) => dragControls.start(e)}
-            className="shrink-0 flex justify-center pt-2.5 pb-1 cursor-grab active:cursor-grabbing touch-none"
-          >
-            <div className="h-1.5 w-11 rounded-full bg-slate-300 dark:bg-white/20" />
-          </div>
-
-          <div className="overflow-y-auto pb-[max(1rem,env(safe-area-inset-bottom))]">
+          <div className="overflow-y-auto">
           {/* Header */}
           <div className="relative p-6 pb-5 bg-gradient-to-br from-accent/15 to-transparent">
             <button onClick={onClose} className="absolute top-4 right-4 w-8 h-8 rounded-full bg-slate-100 dark:bg-white/10 flex items-center justify-center text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors">
