@@ -102,6 +102,8 @@ export default function HubPage() {
         {modal === 'create' && <CreateModal onClose={() => setModal(null)} onDone={() => { setModal(null); load() }} />}
         {modal === 'join' && <JoinModal onClose={() => setModal(null)} onDone={() => { setModal(null); load() }} />}
       </AnimatePresence>
+
+      <div className="text-center font-['JetBrains_Mono'] text-[8px] tracking-[0.12em] text-[#3a3a3a] mt-8">HUB-UI · 21jul · r1</div>
     </div>
   )
 }
@@ -119,7 +121,7 @@ function GroupCard({ g, pal, onOpen }) {
       <span className="absolute top-0 left-0 right-0 h-[3px]" style={{ background: grad }} />
 
       <div className="flex justify-between items-start gap-2.5">
-        <div className="font-['Archivo'] font-bold text-[15px] leading-[1.25] text-slate-900 dark:text-[#F3F1EA]">{g.name}</div>
+        <div className="min-w-0 font-['Archivo'] font-bold text-[15px] leading-[1.25] text-slate-900 dark:text-[#F3F1EA]">{g.name}</div>
         <span className="font-['JetBrains_Mono'] font-bold text-[9px] px-2 py-[3px] rounded-[20px] whitespace-nowrap shrink-0"
           style={{ color, background: colorBg }}>
           {g.tournament_kind === 'cup' ? 'COPA' : 'LIGA'}
