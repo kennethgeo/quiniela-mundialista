@@ -16,13 +16,40 @@ export async function fetchTournaments() {
   return data || []
 }
 
-export async function createGroup(name, tournamentId) {
-  const { data, error } = await supabase.rpc('create_group', {
-    p_name: name,
-    p_tournament_id: tournamentId,
-  })
+// Reglas por defecto que se muestran al crear una quiniela (editables).
+// Debe coincidir con el DEFAULT de leagues.rules en database/36_group_rules.sql.
+export const DEFAULT_RULES = `Reglas de la quiniela
+
+1. Predicciones: cada quiniela juega el torneo elegido por su administrador. Las predicciones se cierran al iniciar cada partido.
+
+2. Puntaje: marcador exacto = 3 pts, resultado correcto = 1 pt. El comodín ×2 duplica los puntos, según los límites de cada jornada/fase.
+
+3. Respeto ante todo: mantené el respeto hacia todas las personas del grupo. Si se le falta el respeto a cualquier integrante, el administrador procederá a eliminar a la persona de la quiniela, sin derecho a reclamo alguno.
+
+4. Juego limpio: prohibido hacer trampa o usar cuentas falsas.
+
+5. Diversión: al final es un juego entre amigos. ¡Pura vida! 🇨🇷`
+
+export async function createGroup(name, tournamentId, rules) {
+  const payload = { p_name: name, p_tournament_id: tournamentId }
+  if (rules != null) payload.p_rules = rules
+  let { data, error } = await supabase.rpc('create_group', payload)
+  // Fallback si aún no se corrió la migración 36 (RPC sin p_rules).
+  if (error && rules != null && /p_rules|does not exist|find the function/i.test(error.message || '')) {
+    ({ data, error } = await supabase.rpc('create_group', { p_name: name, p_tournament_id: tournamentId }))
+  }
   if (error) throw error
   return data
+}
+
+export async function acceptGroupRules(leagueId) {
+  const { error } = await supabase.rpc('accept_group_rules', { p_league_id: leagueId })
+  if (error) throw error
+}
+
+export async function setGroupRules(leagueId, rules) {
+  const { error } = await supabase.rpc('set_group_rules', { p_league_id: leagueId, p_rules: rules })
+  if (error) throw error
 }
 
 export async function joinGroupByCode(code) {

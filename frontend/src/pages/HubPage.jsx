@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'motion/react'
 import { Plus, KeyRound, Users, X, Loader2, ChevronRight } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
-import { fetchMyGroups, fetchTournaments, createGroup, joinGroupByCode } from '../lib/groups'
+import { fetchMyGroups, fetchTournaments, createGroup, joinGroupByCode, DEFAULT_RULES } from '../lib/groups'
 
 // Paleta cíclica idéntica al mockup de Claude Design (teal, coral, gold, gris)
 const PALETTE = [
@@ -169,6 +169,7 @@ function CreateModal({ onClose, onDone }) {
   const [name, setName] = useState('')
   const [tournaments, setTournaments] = useState([])
   const [tid, setTid] = useState(null)
+  const [rules, setRules] = useState(DEFAULT_RULES)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState(null)
 
@@ -176,7 +177,7 @@ function CreateModal({ onClose, onDone }) {
 
   const submit = async () => {
     if (!name.trim()) { setErr('Ponele un nombre'); return }
-    try { setBusy(true); setErr(null); await createGroup(name.trim(), tid); onDone() }
+    try { setBusy(true); setErr(null); await createGroup(name.trim(), tid, rules.trim()); onDone() }
     catch (e) { setErr(e.message) } finally { setBusy(false) }
   }
 
@@ -189,6 +190,9 @@ function CreateModal({ onClose, onDone }) {
       <select value={tid ?? ''} onChange={e => setTid(Number(e.target.value))} className={MODAL_INPUT + ' mb-4'}>
         {tournaments.map(t => <option key={t.id} value={t.id}>{t.name} {t.kind === 'cup' ? '· Copa' : '· Liga'}</option>)}
       </select>
+      <label className="block text-xs font-semibold text-slate-500 uppercase mb-1.5">Reglas <span className="text-[10px] normal-case text-slate-400">(editables · las verán al unirse)</span></label>
+      <textarea value={rules} onChange={e => setRules(e.target.value)} rows={7}
+        className={MODAL_INPUT + ' mb-4 resize-none leading-relaxed text-[13px]'} />
       {err && <p className="text-sm text-[#FF7A59] mb-3">{err}</p>}
       <button onClick={submit} disabled={busy || !tid}
         className="w-full flex items-center justify-center gap-2 font-bold font-['Archivo'] text-sm py-3.5 rounded-xl text-[#06231d] bg-gradient-to-r from-[#2ED3B7] to-[#26bfa5] disabled:opacity-50">
