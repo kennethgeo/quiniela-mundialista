@@ -94,7 +94,9 @@
   --bg-world-cup-glow-3: rgba(46, 211, 183, 0.05);
 }
 
-* { margin: 0; padding: 0; box-sizing: border-box; }
+/* Nota: el reset universal (margin/padding/box-sizing) lo hace el preflight de
+   Tailwind v4 en capa; un `* { padding:0; margin:0 }` sin capa aquí le ganaría a
+   las utilidades px-*/mx-auto y rompía el padding de todas las pantallas. */
 html { font-family: var(--font-family-sans); -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
 body {
   background-color: var(--bg-body);
