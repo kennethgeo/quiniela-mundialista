@@ -195,14 +195,15 @@ export default function ProfilePage() {
         animate={{ opacity: 1, y: 0 }}
         className="mb-6 relative z-10"
       >
-        <div className="flex items-center gap-4 mb-1.5">
+        <div className="flex flex-col items-center gap-2.5 mb-5">
           <div className="relative group">
-            <div 
-              className="w-16 h-16 rounded-2xl bg-gradient-to-br from-accent/30 to-primary-lighter flex items-center justify-center border border-accent/40 shadow-lg shadow-accent/10 overflow-hidden cursor-pointer transition-transform hover:scale-105"
+            <div
+              className="w-[76px] h-[76px] rounded-full flex items-center justify-center overflow-hidden cursor-pointer transition-transform hover:scale-105 font-['Unbounded'] font-bold text-[26px] text-[#06231d]"
+              style={{ background: 'linear-gradient(135deg,#2ED3B7,#1a8f7c)' }}
               onClick={() => !uploadingAvatar && fileInputRef.current?.click()}
             >
               {uploadingAvatar ? (
-                <Loader2 size={24} className="text-accent animate-spin" />
+                <Loader2 size={24} className="text-[#06231d] animate-spin" />
               ) : profile?.avatar_url ? (
                 <>
                   <img src={profile.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
@@ -212,18 +213,18 @@ export default function ProfilePage() {
                 </>
               ) : (
                 <>
-                  <User size={28} className="text-accent" />
-                  <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                  {(profile?.display_name?.charAt(0) || 'T').toUpperCase()}
+                  <div className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                     <Camera size={20} className="text-white" />
                   </div>
                 </>
               )}
             </div>
-            
+
             {profile?.avatar_url && !uploadingAvatar && (
               <button
                 onClick={handleAvatarRemove}
-                className="absolute -top-1 -right-1 bg-red-500 rounded-full p-1 shadow-md hover:bg-red-600 transition-colors"
+                className="absolute -top-1 -right-1 bg-[#FF7A59] rounded-full p-1 shadow-md hover:opacity-90 transition-opacity"
                 title="Eliminar foto"
               >
                 <Trash2 size={12} className="text-white" />
@@ -238,61 +239,65 @@ export default function ProfilePage() {
               className="hidden"
             />
           </div>
-          <div>
-            <h1 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight">Mi Perfil</h1>
-            <p className="text-xs text-slate-500">{profile?.display_name || 'Jugador'} · {profile?.total_points || 0} pts totales</p>
-          </div>
+          <h1 className="font-['Unbounded'] font-bold text-[18px] text-slate-900 dark:text-[#F3F1EA] text-center">{profile?.display_name || 'Jugador'}</h1>
+          <p className="font-['JetBrains_Mono'] font-semibold text-[11px] text-[var(--text-muted,#8A8A8A)]">{profile?.total_points || 0} pts totales</p>
         </div>
-        
+
         {/* Métricas / Dashboard */}
         {!loading && (
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
-            className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-6"
+            className="grid grid-cols-3 gap-2 mt-5"
           >
-            {/* Tasa de Efectividad */}
-            <div className="glass-card p-4 flex flex-col items-center justify-center relative overflow-hidden group">
-              <div className="absolute -right-4 -top-4 w-16 h-16 bg-accent/10 rounded-full blur-xl group-hover:bg-accent/20 transition-colors" />
-              <PieChart size={20} className="text-accent mb-2" />
-              <span className="text-2xl font-black text-slate-900 dark:text-white">
+            {/* PTS TOTALES */}
+            <div className="rounded-xl p-3 text-center bg-white dark:bg-[#161616] border border-slate-200 dark:border-[#262626]">
+              <div className="font-['JetBrains_Mono'] font-extrabold text-[20px] text-accent">{profile?.total_points || 0}</div>
+              <div className="font-['Archivo'] font-semibold text-[8.5px] text-[var(--text-muted,#8A8A8A)] mt-0.5 uppercase">Pts Totales</div>
+            </div>
+            {/* EFECTIVIDAD */}
+            <div className="rounded-xl p-3 text-center bg-white dark:bg-[#161616] border border-slate-200 dark:border-[#262626]">
+              <div className="font-['JetBrains_Mono'] font-extrabold text-[20px] text-slate-900 dark:text-[#F3F1EA]">
                 {stats.totalFinished > 0 ? Math.round(((stats.exact + stats.correct) / stats.totalFinished) * 100) : 0}%
-              </span>
-              <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider text-center">Efectividad</span>
+              </div>
+              <div className="font-['Archivo'] font-semibold text-[8.5px] text-[var(--text-muted,#8A8A8A)] mt-0.5 uppercase">Efectividad</div>
             </div>
-
-            {/* Plenos */}
-            <div className="glass-card p-4 flex flex-col items-center justify-center relative overflow-hidden group">
-              <div className="absolute -right-4 -top-4 w-16 h-16 bg-amber-500/10 rounded-full blur-xl group-hover:bg-amber-500/20 transition-colors" />
-              <Target size={20} className="text-amber-500 mb-2" />
-              <span className="text-2xl font-black text-slate-900 dark:text-white">{stats.exact}</span>
-              <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider text-center">Marcador Exacto</span>
-            </div>
-
-            {/* Aciertos */}
-            <div className="glass-card p-4 flex flex-col items-center justify-center relative overflow-hidden group">
-              <div className="absolute -right-4 -top-4 w-16 h-16 bg-emerald-500/10 rounded-full blur-xl group-hover:bg-emerald-500/20 transition-colors" />
-              <CheckCircle2 size={20} className="text-emerald-500 mb-2" />
-              <span className="text-2xl font-black text-slate-900 dark:text-white">{stats.correct}</span>
-              <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider text-center">Acierto Ganador</span>
-            </div>
-
-            {/* Desaciertos */}
-            <div className="glass-card p-4 flex flex-col items-center justify-center relative overflow-hidden group">
-              <div className="absolute -right-4 -top-4 w-16 h-16 bg-rose-500/10 rounded-full blur-xl group-hover:bg-rose-500/20 transition-colors" />
-              <XCircle size={20} className="text-rose-500 mb-2" />
-              <span className="text-2xl font-black text-slate-900 dark:text-white">{stats.miss}</span>
-              <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider text-center">Desaciertos</span>
+            {/* EXACTOS */}
+            <div className="rounded-xl p-3 text-center bg-white dark:bg-[#161616] border border-slate-200 dark:border-[#262626]">
+              <div className="font-['JetBrains_Mono'] font-extrabold text-[20px] text-[#FF7A59]">{stats.exact}</div>
+              <div className="font-['Archivo'] font-semibold text-[8.5px] text-[var(--text-muted,#8A8A8A)] mt-0.5 uppercase">Exactos</div>
             </div>
 
             {/* Barra Inferior de Métricas Secundarias e Históricas */}
-            <div className="glass-card p-3 col-span-2 md:col-span-4 flex flex-col sm:flex-row flex-wrap justify-between items-center gap-4">
+            <div className="glass-card p-3 col-span-3 flex flex-col sm:flex-row flex-wrap justify-between items-center gap-4 mt-1">
               <div className="flex w-full sm:w-auto justify-around flex-1 gap-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-amber-500/20 flex items-center justify-center text-amber-500">
+                  <div className="w-8 h-8 rounded-full bg-accent/15 flex items-center justify-center text-accent">
+                    <CheckCircle2 size={16} />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-slate-900 dark:text-[#F3F1EA]">{stats.correct}</p>
+                    <p className="text-[10px] text-slate-500 uppercase font-bold">Acierto Ganador</p>
+                  </div>
+                </div>
+                <div className="w-px h-8 bg-slate-200 dark:bg-white/10" />
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-[#FF7A59]/15 flex items-center justify-center text-[#FF7A59]">
+                    <XCircle size={16} />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-slate-900 dark:text-[#F3F1EA]">{stats.miss}</p>
+                    <p className="text-[10px] text-slate-500 uppercase font-bold">Desaciertos</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex w-full sm:w-auto justify-around flex-1 gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-accent/15 flex items-center justify-center text-accent">
                     <Zap size={16} fill="currentColor" />
                   </div>
                   <div>
-                    <p className="text-sm font-bold text-slate-900 dark:text-white">{stats.powerups}</p>
+                    <p className="text-sm font-bold text-slate-900 dark:text-[#F3F1EA]">{stats.powerups}</p>
                     <p className="text-[10px] text-slate-500 uppercase font-bold">Comodines Usados</p>
                   </div>
                 </div>
@@ -302,7 +307,7 @@ export default function ProfilePage() {
                     <Activity size={16} />
                   </div>
                   <div>
-                    <p className="text-sm font-bold text-slate-900 dark:text-white">{stats.predictedCount} <span className="text-slate-400 font-normal">/ 104</span></p>
+                    <p className="text-sm font-bold text-slate-900 dark:text-[#F3F1EA]">{stats.predictedCount} <span className="text-slate-400 font-normal">/ 104</span></p>
                     <p className="text-[10px] text-slate-500 uppercase font-bold">Partidos Pronosticados</p>
                   </div>
                 </div>

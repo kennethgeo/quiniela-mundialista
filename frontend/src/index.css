@@ -4,91 +4,94 @@
 
 @theme {
   --color-primary: var(--bg-body);
-  /* Tico Games — acento menta (antes morado genérico) */
-  --color-accent: #2fdd9a;
-  --color-accent-light: #5cead0;
-  --color-accent-dark: #12b98a;
-  --font-display: 'Sora', system-ui, sans-serif;
-  --color-success: #10b981;
-  --color-success-light: #34d399;
-  --color-error: #ef4444;
-  --color-error-light: #f87171;
-  --color-gold: #fbbf24;
-  --color-silver: #94a3b8;
-  --color-bronze: #d97706;
-  --font-family-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  /* Tico Games — sistema de diseño v1 (teal + coral) */
+  --color-accent: #2ED3B7;
+  --color-accent-light: #4de0c6;
+  --color-accent-dark: #26bfa5;
+  --color-coral: #FF7A59;
+  --font-display: 'Unbounded', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+  --color-success: #35D07F;
+  --color-success-light: #5fdd9a;
+  --color-error: #FF5A5A;
+  --color-error-light: #ff8080;
+  --color-live: #FF4D6D;
+  --color-gold: #E8B75A;
+  --color-silver: #c9cdd6;
+  --color-bronze: #d08a54;
+  --font-family-sans: 'Archivo', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
 
 :root {
-  /* LIGHT MODE (Prodefy Style) */
-  --color-primary-val: #f8fafc;
-  --color-primary-light-val: #ffffff;
-  --color-primary-lighter-val: #f1f5f9;
-  --color-accent-val: #0f172a; /* Navy blue */
-  --color-accent-light-val: #1e293b;
-  --color-accent-dark-val: #020617;
-  --color-success-val: #d9f99d; /* Lime green */
-  --color-success-light-val: #ecfccb;
-  
-  --bg-body: #f8fafc;
-  --text-body: #0f172a;
+  /* LIGHT MODE — Tico Games */
+  --color-primary-val: #F7F5F1;
+  --color-primary-light-val: #FFFFFF;
+  --color-primary-lighter-val: #EFEBE3;
+  --color-accent-val: #2ED3B7;
+  --color-accent-light-val: #4de0c6;
+  --color-accent-dark-val: #26bfa5;
+  --color-success-val: #35D07F;
+  --color-success-light-val: #5fdd9a;
 
-  /* Glass Light */
-  --glass-bg: rgba(255, 255, 255, 0.85);
-  --glass-border: rgba(0, 0, 0, 0.05);
-  --glass-strong-bg: rgba(255, 255, 255, 0.95);
-  --glass-strong-border: rgba(0, 0, 0, 0.1);
-  --glass-nav-bg: rgba(248, 250, 252, 0.9);
-  
-  --glass-card-bg: rgba(255, 255, 255, 1);
-  --glass-card-border: rgba(0, 0, 0, 0.05);
-  --glass-card-hover-bg: rgba(255, 255, 255, 1);
-  --glass-card-hover-border: rgba(0, 0, 0, 0.1);
-  --glass-card-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
-  --glass-card-hover-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --bg-body: #F7F5F1;
+  --text-body: #161412;
 
-  /* Background Light — Tico Games (menta / violeta / coral) */
-  --bg-world-cup: #f4f6fb;
-  --bg-world-cup-grid: rgba(10, 14, 25, 0.025);
-  --bg-world-cup-glow-1: rgba(22, 185, 138, 0.14);  /* menta */
-  --bg-world-cup-glow-2: rgba(139, 123, 255, 0.12); /* violeta */
-  --bg-world-cup-glow-3: rgba(255, 107, 125, 0.07); /* coral */
+  /* Superficies Light */
+  --glass-bg: rgba(255, 255, 255, 0.9);
+  --glass-border: #E4DFD5;
+  --glass-strong-bg: #FFFFFF;
+  --glass-strong-border: #E4DFD5;
+  --glass-nav-bg: rgba(247, 245, 241, 0.9);
+
+  --glass-card-bg: #FFFFFF;
+  --glass-card-border: #E4DFD5;
+  --glass-card-hover-bg: #FFFFFF;
+  --glass-card-hover-border: #d6d0c4;
+  --glass-card-shadow: 0 6px 18px -8px rgba(0, 0, 0, 0.12);
+  --glass-card-hover-shadow: 0 10px 24px -8px rgba(0, 0, 0, 0.16);
+
+  /* Fondo Light */
+  --bg-world-cup: #F7F5F1;
+  --bg-world-cup-grid: transparent;
+  --bg-world-cup-glow-1: rgba(46, 211, 183, 0.10);
+  --bg-world-cup-glow-2: rgba(255, 122, 89, 0.07);
+  --bg-world-cup-glow-3: rgba(46, 211, 183, 0.05);
 }
 
 .dark {
-  /* DARK MODE — Tico Games (tinta profunda + menta) */
-  --color-primary-val: #0b0d13;
-  --color-primary-light-val: #14161d;
-  --color-primary-lighter-val: #1b2130;
-  --color-accent-val: #2fdd9a; /* menta */
-  --color-accent-light-val: #5cead0;
-  --color-accent-dark-val: #12b98a;
-  --color-success-val: #34e39b;
-  --color-success-light-val: #5cead0;
+  /* DARK MODE — Tico Games (sistema de diseño) */
+  --color-primary-val: #0C0C0C;
+  --color-primary-light-val: #161616;
+  --color-primary-lighter-val: #1F1F1F;
+  --color-accent-val: #2ED3B7;
+  --color-accent-light-val: #4de0c6;
+  --color-accent-dark-val: #26bfa5;
+  --color-success-val: #35D07F;
+  --color-success-light-val: #5fdd9a;
 
-  --bg-body: #090b10;
-  --text-body: #eaf0f7;
+  --bg-body: #0C0C0C;
+  --text-body: #F3F1EA;
 
-  /* Superficies Dark — sólidas y limpias (menos "glass" turbio) */
-  --glass-bg: rgba(255, 255, 255, 0.04);
-  --glass-border: rgba(255, 255, 255, 0.08);
-  --glass-strong-bg: rgba(20, 22, 29, 0.9);
-  --glass-strong-border: rgba(255, 255, 255, 0.1);
-  --glass-nav-bg: rgba(9, 11, 16, 0.72);
+  /* Superficies Dark */
+  --glass-bg: #161616;
+  --glass-border: #262626;
+  --glass-strong-bg: #161616;
+  --glass-strong-border: #262626;
+  --glass-nav-bg: rgba(12, 12, 12, 0.85);
 
-  --glass-card-bg: #14161d;
-  --glass-card-border: rgba(255, 255, 255, 0.07);
-  --glass-card-hover-bg: #1a1d27;
-  --glass-card-hover-border: rgba(255, 255, 255, 0.14);
-  --glass-card-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.04), 0 12px 32px -20px rgba(0, 0, 0, 0.9);
-  --glass-card-hover-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.06), 0 16px 44px -18px rgba(47, 221, 154, 0.2);
+  --glass-card-bg: #161616;
+  --glass-card-border: #262626;
+  --glass-card-hover-bg: #1a1a1a;
+  --glass-card-hover-border: #333333;
+  --glass-card-shadow: 0 6px 18px -6px rgba(0, 0, 0, 0.5);
+  --glass-card-hover-shadow: 0 8px 24px -6px rgba(0, 0, 0, 0.6);
 
-  /* Background Dark — Tico Games (tinta profunda + menta/violeta) */
-  --bg-world-cup: #090b10;
-  --bg-world-cup-grid: rgba(255, 255, 255, 0.025);
-  --bg-world-cup-glow-1: rgba(55, 230, 164, 0.16);  /* menta */
-  --bg-world-cup-glow-2: rgba(139, 123, 255, 0.16); /* violeta */
-  --bg-world-cup-glow-3: rgba(255, 107, 125, 0.09); /* coral */
+  /* Fondo Dark */
+  --bg-world-cup: #0C0C0C;
+  --bg-world-cup-grid: transparent;
+  --bg-world-cup-glow-1: rgba(46, 211, 183, 0.10);
+  --bg-world-cup-glow-2: rgba(255, 122, 89, 0.07);
+  --bg-world-cup-glow-3: rgba(46, 211, 183, 0.05);
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }

@@ -1,6 +1,6 @@
 /* Registro — Tico Games (rediseño). */
 import { useState } from 'react'
-import { Eye, EyeOff, ArrowRight } from 'lucide-react'
+import { Eye, EyeOff } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
 import { AUTH_INPUT, AUTH_BTN } from './TicoBrand'
 
@@ -56,7 +56,7 @@ export default function RegisterForm({ onToggle }) {
       </div>
 
       <button type="submit" disabled={loading} className={AUTH_BTN + ' mt-1'}>
-        {loading ? <span className="w-5 h-5 border-2 border-[#06231d]/30 border-t-[#06231d] rounded-full animate-spin" /> : <>Crear cuenta <ArrowRight size={16} /></>}
+        {loading ? <span className="w-5 h-5 border-2 border-[#06231d]/30 border-t-[#06231d] rounded-full animate-spin" /> : 'Crear cuenta'}
       </button>
 
       <div className="text-center text-[12px] text-[#8A8A8A] mt-1.5">

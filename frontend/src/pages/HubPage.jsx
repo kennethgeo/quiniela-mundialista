@@ -1,4 +1,4 @@
-// Hub de quinielas (grupos) — Fase 2 de la 2.0. Datos reales vía RPCs.
+// Hub de quinielas (grupos) — rediseño Tico Games. Datos reales vía RPCs.
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'motion/react'
@@ -6,8 +6,13 @@ import { Plus, KeyRound, Users, X, Loader2, ChevronRight } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import { fetchMyGroups, fetchTournaments, createGroup, joinGroupByCode } from '../lib/groups'
 
-const ACCENTS = ['mint', 'violet', 'coral', 'amber']
-const ACCENT_HEX = { mint: '#2fdd9a', violet: '#8b7bff', coral: '#ff6b7d', amber: '#ffbf47' }
+// Paleta cíclica idéntica al mockup de Claude Design (teal, coral, gold, gris)
+const PALETTE = [
+  { color: '#2ED3B7', colorBg: 'rgba(46,211,183,.12)', grad: 'linear-gradient(90deg,#2ED3B7,#26bfa5)' },
+  { color: '#FF7A59', colorBg: 'rgba(255,122,89,.14)', grad: 'linear-gradient(90deg,#FF7A59,#e85f3d)' },
+  { color: '#E8B75A', colorBg: 'rgba(232,183,90,.14)', grad: 'linear-gradient(90deg,#E8B75A,#c99a3f)' },
+  { color: '#8A8A8A', colorBg: 'rgba(138,138,138,.14)', grad: 'linear-gradient(90deg,#8A8A8A,#5c5c5c)' },
+]
 
 export default function HubPage() {
   const { profile } = useAuth()
@@ -31,54 +36,67 @@ export default function HubPage() {
   useEffect(() => { load() }, [load])
 
   const firstName = (profile?.display_name || '').split(' ')[0] || 'crack'
-  const pending = groups.filter(g => g.tournament_status === 'active').length
+  const initial = (profile?.display_name?.charAt(0) || '?').toUpperCase()
 
   return (
-    <div className="max-w-3xl mx-auto">
-      {/* Hero */}
-      <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="mb-6">
-        <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">Buenas, {firstName} 👋</p>
-        <h1 className="text-3xl font-extrabold tracking-tight font-['Sora'] text-slate-900 dark:text-white mt-1">Tus quinielas</h1>
-        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1.5">
-          {loading ? 'Cargando…' : groups.length === 0
-            ? 'Todavía no estás en ninguna. ¡Creá una o unite por código!'
-            : <>Estás en <b className="text-slate-800 dark:text-slate-200">{groups.length}</b> {groups.length === 1 ? 'quiniela' : 'quinielas'}{pending > 0 && <> · {pending} activa{pending > 1 ? 's' : ''}</>}</>}
-        </p>
+    <div className="max-w-xl mx-auto">
+      {/* Header */}
+      <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
+        className="flex justify-between items-start mb-[22px]">
+        <div>
+          <div className="font-['Archivo'] font-semibold text-[13px] text-[var(--text-muted,#8A8A8A)]">Hola, {firstName} 👋</div>
+          <h1 className="font-['Unbounded'] font-bold text-[24px] tracking-[-0.02em] mt-1 text-slate-900 dark:text-[#F3F1EA]">Mis quinielas</h1>
+          <div className="font-['Archivo'] font-semibold text-xs text-[var(--text-muted,#8A8A8A)] mt-1.5">
+            {loading ? 'Cargando…' : groups.length === 0
+              ? 'Todavía no estás en ninguna'
+              : <>Estás en <span className="text-accent font-bold">{groups.length} {groups.length === 1 ? 'quiniela' : 'quinielas'}</span></>}
+          </div>
+        </div>
+        <div className="w-[42px] h-[42px] rounded-full grid place-items-center font-['Unbounded'] font-bold text-[15px] text-[#06231d] shrink-0"
+          style={{ background: 'linear-gradient(135deg,#2ED3B7,#1a8f7c)' }}>{initial}</div>
       </motion.div>
 
+      {/* CTAs */}
+      <div className="flex gap-2.5 mb-6">
+        <button onClick={() => setModal('create')}
+          className="flex-1 flex items-center justify-center gap-2 rounded-xl py-3.5 font-['Archivo'] font-bold text-[13.5px] text-[#06231d] bg-gradient-to-r from-[#2ED3B7] to-[#26bfa5] active:scale-[0.98] transition-transform">
+          <Plus size={17} /> Crear quiniela
+        </button>
+        <button onClick={() => setModal('join')}
+          className="flex-1 flex items-center justify-center gap-2 rounded-xl py-3.5 font-['Archivo'] font-bold text-[13.5px] bg-transparent border-[1.5px] border-slate-200 dark:border-[#262626] text-slate-900 dark:text-[#F3F1EA] active:scale-[0.98] transition-transform">
+          <KeyRound size={16} /> Unirme por código
+        </button>
+      </div>
+
       {error && (
-        <div className="mb-4 text-sm text-rose-500 bg-rose-500/10 border border-rose-500/20 rounded-xl p-3">
+        <div className="mb-4 text-sm text-[#FF7A59] bg-[#FF7A59]/10 border border-[#FF7A59]/25 rounded-xl p-3">
           {error.includes('function') || error.includes('does not exist')
             ? 'Falta correr la migración 26 en la base de datos.' : error}
         </div>
       )}
 
-      {/* Grid de grupos */}
+      {/* Lista de grupos */}
       {loading ? (
-        <div className="grid gap-4 sm:grid-cols-2">
-          {[0, 1].map(i => <div key={i} className="h-44 rounded-2xl bg-slate-100 dark:bg-white/[0.04] animate-pulse" />)}
+        <div className="space-y-3.5">
+          {[0, 1].map(i => <div key={i} className="h-36 rounded-2xl bg-slate-100 dark:bg-white/[0.04] animate-pulse" />)}
+        </div>
+      ) : groups.length === 0 ? (
+        <div className="border-[1.5px] border-dashed border-slate-200 dark:border-[#262626] rounded-2xl px-5 py-9 text-center">
+          <div className="text-3xl mb-2.5">⚽</div>
+          <div className="font-['Unbounded'] font-bold text-base text-slate-900 dark:text-[#F3F1EA]">Todavía no estás en ninguna</div>
+          <div className="font-['Archivo'] font-medium text-xs text-[var(--text-muted,#8A8A8A)] mt-1.5 max-w-[280px] mx-auto">
+            Creá tu propia quiniela o unite con el código de tus amigos
+          </div>
         </div>
       ) : (
-        <motion.div layout className="grid gap-4 sm:grid-cols-2">
+        <motion.div layout className="space-y-3.5">
           <AnimatePresence>
             {groups.map((g, i) => (
-              <GroupCard key={g.id} g={g} accent={ACCENTS[i % ACCENTS.length]} onOpen={() => navigate(`/q/${g.id}`)} />
+              <GroupCard key={g.id} g={g} pal={PALETTE[i % PALETTE.length]} onOpen={() => navigate(`/q/${g.id}`)} />
             ))}
           </AnimatePresence>
         </motion.div>
       )}
-
-      {/* CTAs */}
-      <div className="flex gap-3 mt-6 flex-wrap">
-        <button onClick={() => setModal('create')}
-          className="flex-1 min-w-[150px] flex items-center justify-center gap-2 font-bold font-['Sora'] text-sm py-3.5 rounded-2xl text-slate-950 bg-gradient-to-br from-accent to-accent-dark shadow-lg shadow-accent/25 active:scale-[0.98] transition-transform">
-          <Plus size={18} /> Crear quiniela
-        </button>
-        <button onClick={() => setModal('join')}
-          className="flex-1 min-w-[150px] flex items-center justify-center gap-2 font-bold font-['Sora'] text-sm py-3.5 rounded-2xl text-slate-800 dark:text-white bg-white dark:bg-white/[0.05] border border-slate-200 dark:border-white/10 active:scale-[0.98] transition-transform">
-          <KeyRound size={17} /> Unirme por código
-        </button>
-      </div>
 
       <AnimatePresence>
         {modal === 'create' && <CreateModal onClose={() => setModal(null)} onDone={() => { setModal(null); load() }} />}
@@ -88,42 +106,38 @@ export default function HubPage() {
   )
 }
 
-function GroupCard({ g, accent, onOpen }) {
-  const hex = ACCENT_HEX[accent]
+function GroupCard({ g, pal, onOpen }) {
+  const { color, colorBg, grad } = pal
   return (
     <motion.button
       layout
       initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.97 }}
-      whileHover={{ y: -3 }}
+      whileHover={{ y: -2 }}
       onClick={onOpen}
-      className="relative overflow-hidden text-left rounded-2xl p-[18px] bg-white dark:bg-white/[0.035] border border-slate-200 dark:border-white/[0.07] hover:border-slate-300 dark:hover:border-white/15 transition-colors"
+      className="relative overflow-hidden text-left w-full rounded-2xl p-[18px] bg-white dark:bg-[#161616] border border-slate-200 dark:border-[#262626] transition-colors"
     >
-      <span className="absolute left-0 top-0 bottom-0 w-1" style={{ background: hex }} />
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex gap-1.5 flex-wrap">
-          <span className="text-[10.5px] font-semibold px-2.5 py-1 rounded-full" style={{ color: hex, background: `${hex}22`, border: `1px solid ${hex}44` }}>{g.tournament_name}</span>
-          <span className="text-[10.5px] font-semibold px-2.5 py-1 rounded-full text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-white/5">
-            {g.tournament_kind === 'cup' ? '🏆 Copa' : '📊 Liga'}
-          </span>
+      <span className="absolute top-0 left-0 right-0 h-[3px]" style={{ background: grad }} />
+
+      <div className="flex justify-between items-start gap-2.5">
+        <div className="font-['Archivo'] font-bold text-[15px] leading-[1.25] text-slate-900 dark:text-[#F3F1EA]">{g.name}</div>
+        <span className="font-['JetBrains_Mono'] font-bold text-[9px] px-2 py-[3px] rounded-[20px] whitespace-nowrap shrink-0"
+          style={{ color, background: colorBg }}>
+          {g.tournament_kind === 'cup' ? 'COPA' : 'LIGA'}
+        </span>
+      </div>
+      <div className="font-['JetBrains_Mono'] font-semibold text-[10px] text-[var(--text-muted,#8A8A8A)] mt-1.5 tracking-[0.05em] uppercase truncate">{g.tournament_name}</div>
+
+      <div className="flex justify-between items-baseline mt-[18px]">
+        <div>
+          <span className="font-['Unbounded'] font-bold text-[22px]" style={{ color }}>#{g.my_rank}</span>
+          <span className="font-['Archivo'] font-semibold text-[11px] text-[var(--text-muted,#8A8A8A)]"> de {g.members}</span>
         </div>
-        <span className="text-[11px] text-slate-400 flex items-center gap-1"><Users size={12} />{g.members}</span>
+        <div className="font-['JetBrains_Mono'] font-bold text-[18px] text-slate-900 dark:text-[#F3F1EA]">{g.my_points} pts</div>
       </div>
 
-      <h3 className="font-bold font-['Sora'] text-slate-900 dark:text-white text-[17px] leading-tight mb-3.5 truncate">{g.name}</h3>
-
-      <div className="flex items-end justify-between">
-        <div className="flex items-baseline gap-1.5">
-          <span className="text-3xl font-extrabold font-['Sora'] leading-none" style={{ color: hex }}>#{g.my_rank}</span>
-          <span className="text-xs text-slate-400">de {g.members}</span>
-        </div>
-        <div className="text-right">
-          <span className="block text-xl font-extrabold font-['Sora'] text-slate-900 dark:text-white leading-none">{g.my_points}</span>
-          <span className="text-[10px] text-slate-400 uppercase tracking-wide">puntos</span>
-        </div>
-      </div>
-
-      <div className="flex items-center gap-1.5 mt-3.5 text-[12px] font-semibold" style={{ color: hex }}>
-        Ver tabla <ChevronRight size={15} />
+      <div className="flex justify-between items-center mt-3.5 pt-3 border-t border-slate-200 dark:border-[#262626]">
+        <span className="font-['Archivo'] font-semibold text-[10.5px] text-[var(--text-muted,#8A8A8A)] flex items-center gap-1"><Users size={12} /> {g.members} miembros</span>
+        <span className="font-['Archivo'] font-semibold text-[10.5px] flex items-center gap-1" style={{ color }}>Ver tabla <ChevronRight size={13} /></span>
       </div>
     </motion.button>
   )
@@ -133,12 +147,12 @@ function GroupCard({ g, accent, onOpen }) {
 function Sheet({ children, onClose, title }) {
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      onClick={onClose} className="fixed inset-0 z-[120] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-0 sm:p-4">
+      onClick={onClose} className="fixed inset-0 z-[120] flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm p-0 sm:p-4">
       <motion.div initial={{ y: 40, opacity: 0, scale: 0.98 }} animate={{ y: 0, opacity: 1, scale: 1 }} exit={{ y: 40, opacity: 0 }}
         transition={{ type: 'spring', stiffness: 300, damping: 30 }} onClick={e => e.stopPropagation()}
-        className="w-full sm:max-w-md bg-white dark:bg-[#12151c] rounded-t-3xl sm:rounded-2xl border border-slate-200 dark:border-white/10 shadow-2xl overflow-hidden max-h-[88vh] flex flex-col pb-[max(1rem,env(safe-area-inset-bottom))]">
+        className="w-full sm:max-w-md bg-white dark:bg-[#161616] rounded-t-3xl sm:rounded-2xl border border-slate-200 dark:border-[#262626] shadow-2xl overflow-hidden max-h-[88vh] flex flex-col pb-[max(1rem,env(safe-area-inset-bottom))]">
         <div className="flex items-center justify-between p-5 pb-3">
-          <h3 className="font-bold font-['Sora'] text-lg text-slate-900 dark:text-white">{title}</h3>
+          <h3 className="font-bold font-['Unbounded'] text-lg text-slate-900 dark:text-[#F3F1EA]">{title}</h3>
           <button onClick={onClose} className="w-8 h-8 rounded-full bg-slate-100 dark:bg-white/10 grid place-items-center text-slate-500"><X size={16} /></button>
         </div>
         <div className="px-5 pb-5 overflow-y-auto">{children}</div>
@@ -146,6 +160,8 @@ function Sheet({ children, onClose, title }) {
     </motion.div>
   )
 }
+
+const MODAL_INPUT = "w-full bg-slate-100 dark:bg-[#0C0C0C] border border-slate-200 dark:border-[#262626] rounded-xl px-4 py-3 text-sm text-slate-900 dark:text-[#F3F1EA] focus:outline-none focus:border-accent"
 
 function CreateModal({ onClose, onDone }) {
   const [name, setName] = useState('')
@@ -166,15 +182,14 @@ function CreateModal({ onClose, onDone }) {
     <Sheet title="Crear quiniela" onClose={onClose}>
       <label className="block text-xs font-semibold text-slate-500 uppercase mb-1.5">Nombre</label>
       <input value={name} onChange={e => setName(e.target.value)} maxLength={40} placeholder="La Mejenga del Barrio"
-        className="w-full bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-accent mb-4" />
+        className={MODAL_INPUT + ' mb-4'} />
       <label className="block text-xs font-semibold text-slate-500 uppercase mb-1.5">Torneo</label>
-      <select value={tid ?? ''} onChange={e => setTid(Number(e.target.value))}
-        className="w-full bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-accent mb-4">
+      <select value={tid ?? ''} onChange={e => setTid(Number(e.target.value))} className={MODAL_INPUT + ' mb-4'}>
         {tournaments.map(t => <option key={t.id} value={t.id}>{t.name} {t.kind === 'cup' ? '· Copa' : '· Liga'}</option>)}
       </select>
-      {err && <p className="text-sm text-rose-500 mb-3">{err}</p>}
+      {err && <p className="text-sm text-[#FF7A59] mb-3">{err}</p>}
       <button onClick={submit} disabled={busy || !tid}
-        className="w-full flex items-center justify-center gap-2 font-bold font-['Sora'] text-sm py-3.5 rounded-2xl text-slate-950 bg-gradient-to-br from-accent to-accent-dark disabled:opacity-50">
+        className="w-full flex items-center justify-center gap-2 font-bold font-['Archivo'] text-sm py-3.5 rounded-xl text-[#06231d] bg-gradient-to-r from-[#2ED3B7] to-[#26bfa5] disabled:opacity-50">
         {busy ? <Loader2 size={17} className="animate-spin" /> : <Plus size={17} />} Crear
       </button>
     </Sheet>
@@ -194,10 +209,10 @@ function JoinModal({ onClose, onDone }) {
     <Sheet title="Unirme por código" onClose={onClose}>
       <p className="text-sm text-slate-500 dark:text-slate-400 mb-3">Pedile el código a quien creó la quiniela.</p>
       <input value={code} onChange={e => setCode(e.target.value.toUpperCase())} maxLength={6} placeholder="ABC123"
-        className="w-full tracking-[0.4em] text-center font-['Sora'] font-bold text-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3.5 text-slate-900 dark:text-white focus:outline-none focus:border-accent mb-4" />
-      {err && <p className="text-sm text-rose-500 mb-3">{err}</p>}
+        className="w-full tracking-[0.4em] text-center font-['JetBrains_Mono'] font-bold text-xl bg-slate-100 dark:bg-[#0C0C0C] border border-slate-200 dark:border-[#262626] rounded-xl px-4 py-3.5 text-slate-900 dark:text-[#F3F1EA] focus:outline-none focus:border-accent mb-4" />
+      {err && <p className="text-sm text-[#FF7A59] mb-3">{err}</p>}
       <button onClick={submit} disabled={busy}
-        className="w-full flex items-center justify-center gap-2 font-bold font-['Sora'] text-sm py-3.5 rounded-2xl text-slate-950 bg-gradient-to-br from-accent to-accent-dark disabled:opacity-50">
+        className="w-full flex items-center justify-center gap-2 font-bold font-['Archivo'] text-sm py-3.5 rounded-xl text-[#06231d] bg-gradient-to-r from-[#2ED3B7] to-[#26bfa5] disabled:opacity-50">
         {busy ? <Loader2 size={17} className="animate-spin" /> : <KeyRound size={16} />} Unirme
       </button>
     </Sheet>

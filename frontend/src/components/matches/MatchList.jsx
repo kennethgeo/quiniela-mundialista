@@ -46,15 +46,11 @@ export default function MatchList({ matches, predictions, onSavePrediction, isLo
         return (
         <div key={label}>
           {/* Section header */}
-          <div className="flex items-center gap-3 mb-4 px-1">
-            <div className="w-1.5 h-1.5 rounded-full bg-accent shadow-sm shadow-amber-500/50" />
-            <h3 className="text-sm font-bold text-slate-700 dark:text-slate-300 uppercase tracking-widest">
-              {label}
-            </h3>
-            <div className="flex-1 h-px bg-gradient-to-r from-slate-300 dark:from-white/10 to-transparent" />
-          </div>
+          <h3 className="font-['JetBrains_Mono'] font-bold text-[9.5px] uppercase tracking-[0.18em] text-[var(--text-muted,#8A8A8A)] mb-2.5 px-0.5">
+            {label}
+          </h3>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 md:gap-6 w-full">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 w-full">
             {groupMatches.map(match => (
               <MatchCard
                 key={match.id}

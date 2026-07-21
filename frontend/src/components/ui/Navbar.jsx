@@ -1,6 +1,7 @@
 import { useAuth } from '../../hooks/useAuth'
 import { LogOut, Star, Menu, RefreshCw } from 'lucide-react'
 import { motion } from 'motion/react'
+import { TicoLogo } from '../auth/TicoBrand'
 
 export default function Navbar({ onMenuClick }) {
   const { profile, signOut } = useAuth()
@@ -26,9 +27,9 @@ export default function Navbar({ onMenuClick }) {
           </button>
 
           {/* Nombre de la app */}
-          <h1 className="text-lg font-extrabold tracking-tight flex items-center gap-2 font-['Sora']">
-            <img src="/tico-mark.svg" alt="" className="w-7 h-7" />
-            <span className="text-slate-900 dark:text-white">Tico</span><span className="bg-gradient-to-r from-accent to-violet-400 bg-clip-text text-transparent -ml-1.5">Games</span>
+          <h1 className="text-lg font-bold tracking-[-0.02em] flex items-center gap-2 font-['Unbounded']">
+            <TicoLogo size={26} />
+            <span className="text-slate-900 dark:text-[#F3F1EA]">Tico Games</span>
           </h1>
         </div>
 

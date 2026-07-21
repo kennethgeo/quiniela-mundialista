@@ -1,6 +1,6 @@
 /* Login — Tico Games (rediseño). */
 import { useState } from 'react'
-import { Eye, EyeOff, ArrowRight } from 'lucide-react'
+import { Eye, EyeOff } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
 import { AUTH_INPUT, AUTH_BTN } from './TicoBrand'
 
@@ -32,7 +32,7 @@ export default function LoginForm({ onToggle, onForgot, confirmationMessage }) {
         <div className="text-[12px] leading-snug rounded-lg p-3 bg-[#FF7A59]/10 border border-[#FF7A59]/25 text-[#FF7A59]">{error}</div>
       )}
 
-      <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Correo" required className={AUTH_INPUT} />
+      <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Correo o usuario" required className={AUTH_INPUT} />
 
       <div className="relative">
         <input type={showPassword ? 'text' : 'password'} value={password} onChange={(e) => setPassword(e.target.value)}
@@ -48,7 +48,7 @@ export default function LoginForm({ onToggle, onForgot, confirmationMessage }) {
       </button>
 
       <button type="submit" disabled={loading} className={AUTH_BTN + ' mt-1'}>
-        {loading ? <span className="w-5 h-5 border-2 border-[#06231d]/30 border-t-[#06231d] rounded-full animate-spin" /> : <>Entrar <ArrowRight size={16} /></>}
+        {loading ? <span className="w-5 h-5 border-2 border-[#06231d]/30 border-t-[#06231d] rounded-full animate-spin" /> : 'Entrar'}
       </button>
 
       <div className="text-center text-[12px] text-[#8A8A8A] mt-1.5">
