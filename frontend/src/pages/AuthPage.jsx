@@ -34,10 +34,10 @@ export default function AuthPage() {
       <div className="absolute -bottom-[80px] -left-[60px] w-[220px] h-[220px] rounded-full pointer-events-none"
         style={{ background: 'radial-gradient(circle,rgba(255,122,89,.12),transparent 70%)' }} />
 
-      <div className="relative z-10 w-full max-w-[320px] mx-auto">
+      <div className="relative z-10 w-full max-w-[400px] mx-auto">
         {!forgot && (
-          <div className="flex flex-col items-center mb-[34px]">
-            <div className="mb-[14px]"><TicoLogo size={56} /></div>
+          <div className="flex flex-col items-center mb-[42px]">
+            <div className="mb-[20px]"><TicoLogo size={104} /></div>
             <TicoWordmark />
           </div>
         )}
