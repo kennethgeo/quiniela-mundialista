@@ -3,13 +3,13 @@ import { useState, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion } from 'motion/react'
-import { ArrowLeft, CalendarDays, ListOrdered, Users, Copy, Check, Trophy, GitBranch, BarChart3, Shield } from 'lucide-react'
+import { ArrowLeft, CalendarDays, ListOrdered, Users, Copy, Check, Trophy, GitBranch, BarChart3, Shield, ScrollText, Loader2, Pencil } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import { useToast } from '../components/ui/Toast'
 import { friendlySaveError } from '../lib/saveError'
 import { buildPowerupLimits, powerupKey } from '../lib/powerups'
-import { fetchMyGroups, fetchGroupStandings, fetchTeamStandings } from '../lib/groups'
+import { fetchMyGroups, fetchGroupStandings, fetchTeamStandings, acceptGroupRules, setGroupRules } from '../lib/groups'
 import { resolveKnockoutTeams } from '../lib/bracketResolver'
 import MatchList from '../components/matches/MatchList'
 import BracketView from '../components/matches/BracketView'
@@ -153,6 +153,7 @@ export default function GroupPage() {
         {/* Solo el Mundial tiene bracket dedicado; el resto ve sus fases en Partidos */}
         {tid === 1 && <TabBtn active={tab === 'bracket'} onClick={() => setTab('bracket')} icon={GitBranch} label="Bracket" />}
         <TabBtn active={tab === 'global'} onClick={() => setTab('global')} icon={BarChart3} label="Campeón/Gol" />
+        <TabBtn active={tab === 'rules'} onClick={() => setTab('rules')} icon={ScrollText} label="Reglas" />
       </div>
 
       {tab === 'matches' && (
@@ -174,6 +175,102 @@ export default function GroupPage() {
       {tab === 'teams' && <TeamStandingsTab tournamentId={tid} />}
       {tab === 'bracket' && tid === 1 && <BracketView />}
       {tab === 'global' && <TournamentGlobalCard tournamentId={tid} teams={teams} />}
+      {tab === 'rules' && (
+        <RulesTab group={group} isAdmin={!!group.is_admin}
+          onSaved={() => queryClient.invalidateQueries({ queryKey: ['my_groups'] })} showToast={showToast} />
+      )}
+
+      {/* Puerta de reglas: hay que aceptarlas para poder usar la quiniela */}
+      {group.rules_accepted === false && !!group.rules && (
+        <RulesGate group={group}
+          onAccepted={() => queryClient.invalidateQueries({ queryKey: ['my_groups'] })}
+          onLeave={() => navigate('/')} />
+      )}
+    </div>
+  )
+}
+
+/* ---- Reglas ---- */
+function RulesGate({ group, onAccepted, onLeave }) {
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState(null)
+  const accept = async () => {
+    try { setBusy(true); setErr(null); await acceptGroupRules(group.id); onAccepted() }
+    catch (e) { setErr(e.message); setBusy(false) }
+  }
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+      className="fixed inset-0 z-[130] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+      <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+        transition={{ type: 'spring', stiffness: 320, damping: 28 }}
+        className="w-full max-w-[380px] bg-white dark:bg-[#0C0C0C] rounded-[20px] border border-slate-200 dark:border-[#262626] shadow-[0_20px_50px_-20px_rgba(0,0,0,0.6)] overflow-hidden max-h-[88vh] flex flex-col">
+        <div className="px-[22px] pt-[22px] pb-2 flex items-center gap-2.5">
+          <ScrollText size={18} className="text-accent shrink-0" />
+          <h3 className="font-bold font-['Unbounded'] text-[16px] text-slate-900 dark:text-[#F3F1EA]">Reglas de la quiniela</h3>
+        </div>
+        <p className="px-[22px] text-[11.5px] text-[var(--text-muted,#8A8A8A)] mb-2">Antes de entrar a <b className="text-slate-700 dark:text-[#F3F1EA]">{group.name}</b> tenés que leer y aceptar sus reglas.</p>
+        <div className="px-[22px] overflow-y-auto flex-1">
+          <div className="whitespace-pre-wrap text-[13px] leading-relaxed text-slate-700 dark:text-[#e5e3dc] bg-slate-50 dark:bg-[#161616] border border-slate-200 dark:border-[#262626] rounded-xl p-3.5">{group.rules}</div>
+        </div>
+        {err && <p className="px-[22px] text-[12px] text-[#FF7A59] mt-2">{err}</p>}
+        <div className="p-[22px] pt-3 flex flex-col gap-2">
+          <button onClick={accept} disabled={busy}
+            className="w-full flex items-center justify-center gap-2 rounded-xl py-3.5 font-['Archivo'] font-bold text-[13.5px] text-[#06231d] bg-gradient-to-r from-[#2ED3B7] to-[#26bfa5] disabled:opacity-60">
+            {busy ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />} Acepto las reglas
+          </button>
+          <button onClick={onLeave} className="w-full text-center text-[12px] font-semibold text-[var(--text-muted,#8A8A8A)] py-1">No acepto · salir</button>
+        </div>
+      </motion.div>
+    </motion.div>
+  )
+}
+
+function RulesTab({ group, isAdmin, onSaved, showToast }) {
+  const [editing, setEditing] = useState(false)
+  const [text, setText] = useState(group.rules || '')
+  const [busy, setBusy] = useState(false)
+
+  const save = async () => {
+    try {
+      setBusy(true)
+      await setGroupRules(group.id, text)
+      showToast('Reglas actualizadas. Los demás miembros deberán aceptarlas de nuevo.', 'success', 5000)
+      setEditing(false)
+      onSaved()
+    } catch (e) { showToast(e.message, 'error', 6000) } finally { setBusy(false) }
+  }
+
+  return (
+    <div className="rounded-2xl bg-white dark:bg-[#161616] border border-slate-200 dark:border-[#262626] p-5">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <ScrollText size={18} className="text-accent" />
+          <h3 className="font-bold font-['Unbounded'] text-slate-900 dark:text-[#F3F1EA] text-[15px]">Reglas</h3>
+        </div>
+        {isAdmin && !editing && (
+          <button onClick={() => { setText(group.rules || ''); setEditing(true) }}
+            className="flex items-center gap-1.5 text-[12px] font-bold text-accent bg-accent/10 border border-accent/25 rounded-lg px-2.5 py-1.5">
+            <Pencil size={13} /> Editar
+          </button>
+        )}
+      </div>
+
+      {editing ? (
+        <>
+          <textarea value={text} onChange={(e) => setText(e.target.value)} rows={12}
+            className="w-full bg-slate-50 dark:bg-[#0C0C0C] border border-slate-200 dark:border-[#262626] rounded-xl p-3.5 text-[13px] leading-relaxed text-slate-800 dark:text-[#F3F1EA] focus:outline-none focus:border-accent resize-none" />
+          <div className="flex gap-2 mt-3">
+            <button onClick={() => setEditing(false)} className="flex-1 py-2.5 rounded-xl font-bold text-sm text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-[#262626]">Cancelar</button>
+            <button onClick={save} disabled={busy}
+              className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl font-bold text-sm text-[#06231d] bg-gradient-to-r from-[#2ED3B7] to-[#26bfa5] disabled:opacity-60">
+              {busy ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />} Guardar
+            </button>
+          </div>
+          <p className="text-[11px] text-[var(--text-muted,#8A8A8A)] mt-2">Al guardar, los demás miembros deberán volver a aceptar las reglas.</p>
+        </>
+      ) : (
+        <div className="whitespace-pre-wrap text-[13.5px] leading-relaxed text-slate-700 dark:text-[#e5e3dc]">{group.rules || 'Esta quiniela no tiene reglas definidas.'}</div>
+      )}
     </div>
   )
 }
