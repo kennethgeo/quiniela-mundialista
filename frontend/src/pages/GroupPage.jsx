@@ -13,8 +13,7 @@ import { fetchMyGroups, fetchGroupStandings, fetchTeamStandings } from '../lib/g
 import { resolveKnockoutTeams } from '../lib/bracketResolver'
 import MatchList from '../components/matches/MatchList'
 import BracketView from '../components/matches/BracketView'
-import TournamentPredictionCard from '../components/dashboard/TournamentPredictionCard'
-import GlobalPicksBoard from '../components/dashboard/GlobalPicksBoard'
+import TournamentGlobalCard from '../components/tournament/TournamentGlobalCard'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
 
 export default function GroupPage() {
@@ -91,6 +90,12 @@ export default function GroupPage() {
     })
   }, [matches])
 
+  const teams = useMemo(() => {
+    const s = new Set()
+    resolved.forEach((m) => { if (m.home_team) s.add(m.home_team); if (m.away_team) s.add(m.away_team) })
+    return [...s].sort((a, b) => a.localeCompare(b))
+  }, [resolved])
+
   const powerupUsage = useMemo(() => {
     const o = {}
     resolved.forEach((m) => {
@@ -142,7 +147,7 @@ export default function GroupPage() {
         <TabBtn active={tab === 'table'} onClick={() => setTab('table')} icon={ListOrdered} label="Tabla" />
         {!isCup && <TabBtn active={tab === 'teams'} onClick={() => setTab('teams')} icon={Shield} label="Posiciones" />}
         {isCup && <TabBtn active={tab === 'bracket'} onClick={() => setTab('bracket')} icon={GitBranch} label="Bracket" />}
-        {isCup && <TabBtn active={tab === 'global'} onClick={() => setTab('global')} icon={BarChart3} label="Global" />}
+        <TabBtn active={tab === 'global'} onClick={() => setTab('global')} icon={BarChart3} label="Campeón/Gol" />
       </div>
 
       {tab === 'matches' && (
@@ -163,12 +168,7 @@ export default function GroupPage() {
       {tab === 'table' && <StandingsTab leagueId={group.id} />}
       {tab === 'teams' && <TeamStandingsTab tournamentId={tid} />}
       {tab === 'bracket' && <BracketView />}
-      {tab === 'global' && (
-        <div className="space-y-4">
-          <TournamentPredictionCard />
-          <GlobalPicksBoard />
-        </div>
-      )}
+      {tab === 'global' && <TournamentGlobalCard tournamentId={tid} teams={teams} />}
     </div>
   )
 }
