@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react'
+import { useLocation } from 'react-router-dom'
 import { motion, AnimatePresence } from 'motion/react'
 import { Download, X, Share, PlusSquare } from 'lucide-react'
 
 export default function InstallPrompt() {
+  const { pathname } = useLocation()
   const [isIOS, setIsIOS] = useState(false)
   const [isStandalone, setIsStandalone] = useState(false)
   const [deferredPrompt, setDeferredPrompt] = useState(null)
@@ -60,6 +62,8 @@ export default function InstallPrompt() {
     localStorage.setItem('pwaPromptDismissed', 'true')
   }
 
+  // No mostrar el banner sobre las pantallas de autenticación.
+  if (['/auth', '/login', '/reset-password'].some((p) => pathname.startsWith(p))) return null
   if (isStandalone || !showPrompt) return null
 
   return (
