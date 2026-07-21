@@ -1,45 +1,39 @@
-// Identidad Tico Games — transcripción exacta de "Tico Games - Auth y Bracket.dc.html"
-// (marco de 320px del diseño, escalado ~1.22× para llenar el ancho del teléfono).
+// Identidad Tico Games — copia VERBATIM de "Tico Games - Auth y Bracket.dc.html".
+// Todos los valores son los exactos del diseño (marco de 320px). AuthPage escala
+// el bloque completo al ancho del teléfono con transform:scale, así queda idéntico.
 
-// Logo: aro coral en órbita (detrás) + bola teal con punto blanco. Mismas proporciones
-// que el diseño: aro 70×32, bola 42, punto 15, sobre un contenedor de 56 (× escala).
-export function TicoLogo({ size = 68 }) {
-  const ball = size * 0.75      // 42/56
-  const dot = size * 0.268      // 15/56
-  const ringW = size * 1.25     // 70/56
-  const ringH = size * 0.571    // 32/56
+// Logo exacto: aro coral 70×32 (rotate -24deg) detrás de bola teal 42 con punto 15.
+export function TicoLogo() {
   return (
-    <div style={{ width: size, height: size }} className="relative grid place-items-center">
-      <div
-        className="absolute rounded-full"
-        style={{ width: ringW, height: ringH, border: `${Math.max(1.8, size * 0.032)}px solid #FF7A59`, transform: 'rotate(-24deg)', opacity: 0.75 }}
-      />
-      <div
-        className="rounded-full grid place-items-center"
-        style={{ width: ball, height: ball, background: 'linear-gradient(135deg,#2ED3B7,#1a8f7c)', boxShadow: '0 0 22px -2px rgba(46,211,183,.6)' }}
-      >
-        <div className="rounded-full bg-white" style={{ width: dot, height: dot }} />
+    <div style={{ width: 56, height: 56, borderRadius: '50%', position: 'relative', display: 'grid', placeItems: 'center', marginBottom: 14 }}>
+      <div style={{ position: 'absolute', width: 70, height: 32, border: '1.8px solid #FF7A59', borderRadius: '50%', transform: 'rotate(-24deg)', opacity: 0.75 }} />
+      <div style={{ width: 42, height: 42, borderRadius: '50%', background: 'linear-gradient(135deg,#2ED3B7,#1a8f7c)', display: 'grid', placeItems: 'center', boxShadow: '0 0 22px -2px rgba(46,211,183,.6)' }}>
+        <div style={{ width: 15, height: 15, borderRadius: '50%', background: '#fff' }} />
       </div>
     </div>
   )
 }
 
-// Wordmark + tagline — diseño: Unbounded 700 22px + JetBrains Mono 600 9px .24em (× escala)
 export function TicoWordmark() {
   return (
-    <div className="flex flex-col items-center">
-      <div className="text-[#F3F1EA] tracking-[-.02em] font-['Unbounded'] font-bold text-[27px] leading-none">Tico Games</div>
-      <div className="font-['JetBrains_Mono'] font-semibold text-[11px] tracking-[0.24em] text-[#2ED3B7] mt-2.5 text-center">
-        PREDECÍ · COMPETÍ · PURA VIDA
-      </div>
-    </div>
+    <>
+      <div style={{ fontFamily: "'Unbounded',sans-serif", fontWeight: 700, fontSize: 22, letterSpacing: '-.02em' }}>Tico Games</div>
+      <div style={{ font: "600 9px 'JetBrains Mono',monospace", letterSpacing: '.24em', color: '#2ED3B7', marginTop: 8 }}>PREDECÍ · COMPETÍ · PURA VIDA</div>
+    </>
   )
 }
 
-// Inputs y botón — diseño: input 600 14px / pad 13-14 / radio 11 / #161616 borde 1.5px #262626;
-// botón gradiente / radio 12 / pad 13 / 700 13.5px #06231d  (todo × ~1.22).
-export const AUTH_INPUT =
-  "w-full bg-[#161616] border-[1.5px] border-[#262626] text-[#F3F1EA] rounded-[13px] px-[17px] py-[16px] font-['Archivo'] font-semibold text-[17px] placeholder-[#7c7c7c] outline-none focus:border-[#2ED3B7] transition-colors"
-
-export const AUTH_BTN =
-  "w-full bg-gradient-to-r from-[#2ED3B7] to-[#26bfa5] text-[#06231d] rounded-[15px] py-[16px] font-['Archivo'] font-bold text-[16.5px] text-center transition-transform active:scale-[0.98] disabled:opacity-60 flex items-center justify-center gap-2"
+// Estilos inline exactos del .dc.html
+export const authStyles = {
+  header: { position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 34 },
+  form: { position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', gap: 12 },
+  input: { background: '#161616', border: '1.5px solid #262626', color: '#F3F1EA', font: "600 14px 'Archivo',sans-serif", padding: '13px 14px', borderRadius: 11, outline: 'none', width: '100%' },
+  forgot: { textAlign: 'right', font: "600 11px 'Archivo',sans-serif", color: '#8A8A8A', cursor: 'pointer', background: 'none', border: 'none', padding: 0 },
+  button: { background: 'linear-gradient(90deg,#2ED3B7,#26bfa5)', borderRadius: 12, padding: 13, textAlign: 'center', fontWeight: 700, fontSize: 13.5, color: '#06231d', cursor: 'pointer', marginTop: 4, border: 'none', width: '100%', fontFamily: "'Archivo',sans-serif" },
+  sub: { textAlign: 'center', font: "600 12px 'Archivo',sans-serif", color: '#8A8A8A', marginTop: 6 },
+  link: { color: '#2ED3B7', fontWeight: 700, cursor: 'pointer', background: 'none', border: 'none', padding: 0, font: 'inherit' },
+  title: { fontFamily: "'Unbounded',sans-serif", fontWeight: 700, fontSize: 19, marginBottom: 8 },
+  subtitle: { font: "500 12px 'Archivo',sans-serif", color: '#8A8A8A', marginBottom: 24, lineHeight: 1.5 },
+  errorBox: { font: "600 11.5px 'Archivo',sans-serif", color: '#FF7A59', background: 'rgba(255,122,89,.1)', border: '1px solid rgba(255,122,89,.25)', borderRadius: 9, padding: '9px 11px' },
+  okBox: { font: "600 11.5px 'Archivo',sans-serif", color: '#2ED3B7', background: 'rgba(46,211,183,.1)', border: '1px solid rgba(46,211,183,.25)', borderRadius: 9, padding: '9px 11px' },
+}
