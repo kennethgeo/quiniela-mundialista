@@ -1,17 +1,21 @@
 import { useState, useEffect, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'motion/react'
-import { User, Activity, Trophy, Clock, Search, History, Target, Zap, CheckCircle2, XCircle, PieChart, Camera, Trash2, Loader2, Edit3 } from 'lucide-react'
+import { User, Activity, Trophy, Clock, Search, History, Target, Zap, CheckCircle2, XCircle, PieChart, Camera, Trash2, Loader2, Edit3, Moon, Sun, LogOut, ShieldAlert, Gamepad2, BookOpen } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { resizeImage } from '../lib/image'
 import { getTournamentLocked } from '../lib/tournamentLock'
 import { useAuth } from '../hooks/useAuth'
+import { useTheme } from '../contexts/ThemeContext'
 import PushNotificationToggle from '../components/ui/PushNotificationToggle'
 import GlobalPredictionsModal from '../components/profile/GlobalPredictionsModal'
 
 
 
 export default function ProfilePage() {
-  const { profile } = useAuth()
+  const { profile, signOut } = useAuth()
+  const navigate = useNavigate()
+  const { theme, toggleTheme } = useTheme()
   const [activeTab, setActiveTab] = useState('predictions')
   
   const [predictions, setPredictions] = useState([])
@@ -374,6 +378,34 @@ export default function ProfilePage() {
         )}
 
         <PushNotificationToggle />
+
+        {/* Ajustes / acciones (movidos aquí al quitar la barra superior) */}
+        <div className="mt-6 space-y-2">
+          <div className="font-['JetBrains_Mono'] font-bold text-[9.5px] tracking-[0.14em] text-[var(--text-muted,#8A8A8A)] mb-2 px-1">AJUSTES</div>
+
+          <button onClick={toggleTheme}
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-white dark:bg-[#161616] border border-slate-200 dark:border-[#262626] text-slate-700 dark:text-[#F3F1EA] font-['Archivo'] font-semibold text-sm">
+            {theme === 'light' ? <Moon size={18} className="text-accent" /> : <Sun size={18} className="text-accent" />}
+            Modo {theme === 'light' ? 'oscuro' : 'claro'}
+          </button>
+
+          <button onClick={() => navigate('/rules')}
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-white dark:bg-[#161616] border border-slate-200 dark:border-[#262626] text-slate-700 dark:text-[#F3F1EA] font-['Archivo'] font-semibold text-sm">
+            <BookOpen size={18} className="text-accent" /> Reglas del juego
+          </button>
+
+          {profile?.is_admin && (
+            <button onClick={() => navigate('/admin')}
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-white dark:bg-[#161616] border border-slate-200 dark:border-[#262626] text-[#FF7A59] font-['Archivo'] font-semibold text-sm">
+              <ShieldAlert size={18} /> Panel de administración
+            </button>
+          )}
+
+          <button onClick={async () => { try { await signOut(); navigate('/auth') } catch (e) { console.error(e) } }}
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-[#FF5A5A]/10 border border-[#FF5A5A]/25 text-[#FF5A5A] font-['Archivo'] font-semibold text-sm">
+            <LogOut size={18} /> Cerrar sesión
+          </button>
+        </div>
 
         <div className="flex gap-4 mt-6 border-b border-white/10 pb-1">
           <button 
