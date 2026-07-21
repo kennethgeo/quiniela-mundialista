@@ -103,7 +103,7 @@ export default function HubPage() {
         {modal === 'join' && <JoinModal onClose={() => setModal(null)} onDone={() => { setModal(null); load() }} />}
       </AnimatePresence>
 
-      <div className="text-center font-['JetBrains_Mono'] text-[8px] tracking-[0.12em] text-[#3a3a3a] mt-8">HUB-UI · 21jul · r1</div>
+      <div className="text-center font-['JetBrains_Mono'] text-[8px] tracking-[0.12em] text-[#3a3a3a] mt-8">HUB-UI · 21jul · r2</div>
     </div>
   )
 }
