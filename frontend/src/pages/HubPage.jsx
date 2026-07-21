@@ -149,21 +149,21 @@ function GroupCard({ g, pal, onOpen }) {
 function Sheet({ children, onClose, title }) {
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      onClick={onClose} className="fixed inset-0 z-[120] flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm p-0 sm:p-4">
-      <motion.div initial={{ y: 40, opacity: 0, scale: 0.98 }} animate={{ y: 0, opacity: 1, scale: 1 }} exit={{ y: 40, opacity: 0 }}
-        transition={{ type: 'spring', stiffness: 300, damping: 30 }} onClick={e => e.stopPropagation()}
-        className="w-full sm:max-w-md bg-white dark:bg-[#161616] rounded-t-3xl sm:rounded-2xl border border-slate-200 dark:border-[#262626] shadow-2xl overflow-hidden max-h-[88vh] flex flex-col pb-[max(1rem,env(safe-area-inset-bottom))]">
-        <div className="flex items-center justify-between p-5 pb-3">
-          <h3 className="font-bold font-['Unbounded'] text-lg text-slate-900 dark:text-[#F3F1EA]">{title}</h3>
-          <button onClick={onClose} className="w-8 h-8 rounded-full bg-slate-100 dark:bg-white/10 grid place-items-center text-slate-500"><X size={16} /></button>
+      onClick={onClose} className="fixed inset-0 z-[120] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+      <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.96, opacity: 0 }}
+        transition={{ type: 'spring', stiffness: 320, damping: 28 }} onClick={e => e.stopPropagation()}
+        className="w-full max-w-[360px] bg-white dark:bg-[#0C0C0C] rounded-[20px] border border-slate-200 dark:border-[#262626] shadow-[0_20px_50px_-20px_rgba(0,0,0,0.6)] overflow-hidden max-h-[85vh] flex flex-col">
+        <div className="flex items-center justify-between px-[22px] pt-[22px] pb-2">
+          <h3 className="font-bold font-['Unbounded'] text-[17px] text-slate-900 dark:text-[#F3F1EA]">{title}</h3>
+          <button onClick={onClose} className="w-8 h-8 rounded-full bg-slate-100 dark:bg-white/10 grid place-items-center text-slate-500 shrink-0"><X size={16} /></button>
         </div>
-        <div className="px-5 pb-5 overflow-y-auto">{children}</div>
+        <div className="px-[22px] pb-[22px] overflow-y-auto">{children}</div>
       </motion.div>
     </motion.div>
   )
 }
 
-const MODAL_INPUT = "w-full bg-slate-100 dark:bg-[#0C0C0C] border border-slate-200 dark:border-[#262626] rounded-xl px-4 py-3 text-sm text-slate-900 dark:text-[#F3F1EA] focus:outline-none focus:border-accent"
+const MODAL_INPUT = "w-full bg-slate-100 dark:bg-[#161616] border-[1.5px] border-slate-200 dark:border-[#262626] rounded-xl px-4 py-3 text-sm text-slate-900 dark:text-[#F3F1EA] focus:outline-none focus:border-accent"
 
 function CreateModal({ onClose, onDone }) {
   const [name, setName] = useState('')
@@ -211,7 +211,7 @@ function JoinModal({ onClose, onDone }) {
     <Sheet title="Unirme por código" onClose={onClose}>
       <p className="text-sm text-slate-500 dark:text-slate-400 mb-3">Pedile el código a quien creó la quiniela.</p>
       <input value={code} onChange={e => setCode(e.target.value.toUpperCase())} maxLength={6} placeholder="ABC123"
-        className="w-full tracking-[0.4em] text-center font-['JetBrains_Mono'] font-bold text-xl bg-slate-100 dark:bg-[#0C0C0C] border border-slate-200 dark:border-[#262626] rounded-xl px-4 py-3.5 text-slate-900 dark:text-[#F3F1EA] focus:outline-none focus:border-accent mb-4" />
+        className="w-full tracking-[0.4em] text-center font-['JetBrains_Mono'] font-bold text-xl bg-slate-100 dark:bg-[#161616] border-[1.5px] border-slate-200 dark:border-[#262626] rounded-xl px-4 py-3.5 text-slate-900 dark:text-[#F3F1EA] focus:outline-none focus:border-accent mb-4" />
       {err && <p className="text-sm text-[#FF7A59] mb-3">{err}</p>}
       <button onClick={submit} disabled={busy}
         className="w-full flex items-center justify-center gap-2 font-bold font-['Archivo'] text-sm py-3.5 rounded-xl text-[#06231d] bg-gradient-to-r from-[#2ED3B7] to-[#26bfa5] disabled:opacity-50">
