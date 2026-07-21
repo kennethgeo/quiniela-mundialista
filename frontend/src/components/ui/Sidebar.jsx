@@ -3,6 +3,7 @@ import { Home, Calendar, GitBranch, Trophy, Star, X, ShieldAlert, Moon, Sun, Log
 import { motion, AnimatePresence } from 'motion/react'
 import { useAuth } from '../../hooks/useAuth'
 import { useTheme } from '../../contexts/ThemeContext'
+import { TicoLogo } from '../auth/TicoBrand'
 
 // Top-level: solo lo global. Partidos/Bracket/Tabla/Torneo/Reglas viven DENTRO
 // de cada quiniela.
@@ -48,18 +49,18 @@ export default function Sidebar({ isOpen, onClose }) {
         {/* Header: Logo & Close Button */}
         <div className="flex items-center justify-between mb-8 px-2 relative">
               <div className="flex flex-col items-center justify-center w-full relative pt-2">
-                <motion.img
-                  src="/tico-mark.svg"
-                  alt="Tico Games"
+                <motion.div
                   initial={{ scale: 0.85, opacity: 0, rotate: -6 }}
                   animate={{ scale: 1, opacity: 1, rotate: 0 }}
                   transition={{ type: 'spring', stiffness: 200, damping: 14 }}
-                  className="w-20 h-20 object-contain mb-3 drop-shadow-[0_8px_28px_rgba(47,221,154,0.35)]"
-                />
-                <h1 className="text-2xl font-extrabold tracking-tight leading-none text-center font-['Unbounded']">
-                  <span className="text-slate-900 dark:text-white">Tico</span><span className="bg-gradient-to-r from-accent to-violet-400 bg-clip-text text-transparent">Games</span>
+                  className="mb-3"
+                >
+                  <TicoLogo size={64} />
+                </motion.div>
+                <h1 className="text-2xl font-bold tracking-[-0.02em] leading-none text-center font-['Unbounded']">
+                  <span className="text-slate-900 dark:text-[#F3F1EA]">Tico Games</span>
                 </h1>
-                <span className="text-[10px] font-semibold tracking-[0.2em] text-slate-400 dark:text-slate-500 uppercase mt-1.5">Predice · Compite</span>
+                <span className="font-['JetBrains_Mono'] text-[9px] font-semibold tracking-[0.24em] text-accent uppercase mt-2">Predecí · Competí · Pura Vida</span>
               </div>
               <button 
                 onClick={onClose} 

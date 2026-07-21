@@ -122,27 +122,31 @@ export default function GroupPage() {
   return (
     <div className="max-w-3xl mx-auto">
       {/* Header */}
-      <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="mb-5">
-        <button onClick={() => navigate('/')} className="flex items-center gap-1 text-sm text-slate-500 dark:text-slate-400 mb-3 hover:text-accent">
-          <ArrowLeft size={15} /> Mis quinielas
-        </button>
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <h1 className="text-2xl font-extrabold tracking-tight font-['Unbounded'] text-slate-900 dark:text-white truncate">{group.name}</h1>
-            <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-              <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full text-accent bg-accent/10 border border-accent/25">{group.tournament_name}</span>
-              <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-white/5">{group.tournament_kind === 'cup' ? '🏆 Copa' : '📊 Liga'}</span>
-              <span className="text-[11px] text-slate-400 flex items-center gap-1"><Users size={12} />{group.members}</span>
+      <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="mb-4">
+        <div className="flex items-center gap-2.5">
+          <button onClick={() => navigate('/')}
+            className="w-[30px] h-[30px] rounded-[9px] bg-white dark:bg-[#161616] border border-slate-200 dark:border-[#262626] grid place-items-center shrink-0 text-slate-600 dark:text-[#F3F1EA] hover:border-accent transition-colors">
+            <ArrowLeft size={15} />
+          </button>
+          <div className="flex-1 min-w-0">
+            <h1 className="font-['Archivo'] font-bold text-[15.5px] truncate text-slate-900 dark:text-[#F3F1EA]">{group.name}</h1>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <span className="font-['JetBrains_Mono'] font-bold text-[8.5px] px-[7px] py-0.5 rounded-[20px]"
+                style={{ color: isCup ? '#FF7A59' : '#2ED3B7', background: isCup ? 'rgba(255,122,89,.12)' : 'rgba(46,211,183,.12)' }}>
+                {isCup ? 'COPA' : 'LIGA'}
+              </span>
+              <span className="font-['Archivo'] font-semibold text-[10px] text-[var(--text-muted,#8A8A8A)] truncate">{group.tournament_name} · {group.members} miembros</span>
             </div>
           </div>
-          <button onClick={copyCode} className="shrink-0 flex items-center gap-1.5 text-xs font-bold text-slate-500 dark:text-slate-300 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-2.5 py-2">
-            {copied ? <><Check size={13} className="text-emerald-500" /> Copiado</> : <><Copy size={13} /> {group.invitation_code}</>}
+          <button onClick={copyCode}
+            className="shrink-0 flex items-center gap-1.5 font-['JetBrains_Mono'] font-bold text-[10px] text-slate-600 dark:text-[#F3F1EA] bg-white dark:bg-[#161616] border border-slate-200 dark:border-[#262626] rounded-[9px] px-2.5 py-2">
+            {copied ? <><Check size={12} className="text-accent" /> COPIADO</> : <>{group.invitation_code} <Copy size={12} /></>}
           </button>
         </div>
       </motion.div>
 
       {/* Tabs — Partidos y Tabla siempre; Bracket y Torneo solo en copas */}
-      <div className="flex gap-2 mb-5 overflow-x-auto scrollbar-hide">
+      <div className="flex gap-1.5 mb-4 overflow-x-auto scrollbar-hide">
         <TabBtn active={tab === 'matches'} onClick={() => setTab('matches')} icon={CalendarDays} label="Partidos" />
         <TabBtn active={tab === 'table'} onClick={() => setTab('table')} icon={ListOrdered} label="Tabla" />
         {!isCup && <TabBtn active={tab === 'teams'} onClick={() => setTab('teams')} icon={Shield} label="Posiciones" />}
@@ -177,9 +181,11 @@ export default function GroupPage() {
 function TabBtn({ active, onClick, icon: Icon, label }) {
   return (
     <button onClick={onClick}
-      className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold transition-all ${
-        active ? 'bg-accent text-slate-950 shadow-lg shadow-accent/20' : 'glass-strong text-slate-600 dark:text-slate-400 bg-white dark:bg-transparent'}`}>
-      <Icon size={15} /> {label}
+      className={`shrink-0 flex items-center gap-1.5 px-3.5 py-2 rounded-[10px] font-['Archivo'] font-bold text-[11.5px] whitespace-nowrap transition-all ${
+        active
+          ? 'bg-accent text-[#06231d]'
+          : 'bg-white dark:bg-[#161616] text-[var(--text-muted,#8A8A8A)] border border-slate-200 dark:border-[#262626]'}`}>
+      <Icon size={14} /> {label}
     </button>
   )
 }
@@ -262,16 +268,22 @@ function StandingsTab({ leagueId }) {
   })
   if (isLoading) return <LoadingSpinner />
   if (!rows?.length) return <p className="text-sm text-slate-400 italic text-center py-8">Sin miembros todavía.</p>
+  const rankColor = (i) => i === 0 ? '#E8B75A' : i === 1 ? '#C7CDD6' : i === 2 ? '#FF7A59' : 'var(--text-muted,#8A8A8A)'
   return (
-    <div className="glass-card overflow-hidden">
+    <div className="space-y-1.5">
       {rows.map((r, i) => (
-        <div key={r.user_id} className={`flex items-center gap-3 px-4 py-3 border-b border-slate-100 dark:border-white/5 last:border-0 ${r.is_me ? 'bg-accent/[0.07]' : ''}`}>
-          <span className={`w-7 h-7 rounded-lg grid place-items-center font-bold font-['Unbounded'] text-[13px] ${i === 0 ? 'bg-amber-300 text-amber-900' : i === 1 ? 'bg-slate-300 text-slate-700' : i === 2 ? 'bg-orange-300 text-orange-900' : 'bg-slate-100 dark:bg-white/5 text-slate-500'}`}>{i + 1}</span>
-          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-accent/30 to-violet-500/30 grid place-items-center text-xs font-bold overflow-hidden shrink-0">
+        <div key={r.user_id}
+          className="flex items-center gap-3 px-3 py-2.5 rounded-xl border"
+          style={r.is_me
+            ? { background: 'rgba(46,211,183,.08)', borderColor: '#2ED3B7' }
+            : { background: 'transparent', borderColor: 'transparent' }}>
+          <span className="w-[22px] text-center font-['JetBrains_Mono'] font-bold text-[12px]" style={{ color: rankColor(i) }}>{i + 1}</span>
+          <div className="w-8 h-8 rounded-full grid place-items-center text-[11px] font-bold font-['Archivo'] text-white overflow-hidden shrink-0"
+            style={{ background: r.is_me ? 'linear-gradient(135deg,#2ED3B7,#1a8f7c)' : 'linear-gradient(135deg,#5a2d8a,#3a1c5c)' }}>
             {r.avatar_url ? <img src={r.avatar_url} alt="" className="w-full h-full object-cover" /> : (r.display_name?.[0] || '?').toUpperCase()}
           </div>
-          <span className="flex-1 text-sm font-semibold text-slate-800 dark:text-slate-100 truncate">{r.display_name}{r.is_me && <span className="text-accent text-xs font-bold"> · vos</span>}</span>
-          <span className="font-extrabold font-['Unbounded'] text-slate-900 dark:text-white">{r.points}</span>
+          <span className="flex-1 font-['Archivo'] font-semibold text-[13px] text-slate-800 dark:text-[#F3F1EA] truncate">{r.display_name}{r.is_me && <span className="text-accent font-bold"> (vos)</span>}</span>
+          <span className="font-['JetBrains_Mono'] font-bold text-[14px] text-slate-900 dark:text-[#F3F1EA]">{r.points}</span>
         </div>
       ))}
     </div>
