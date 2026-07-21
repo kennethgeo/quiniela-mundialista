@@ -56,7 +56,7 @@ export default function Sidebar({ isOpen, onClose }) {
                   transition={{ type: 'spring', stiffness: 200, damping: 14 }}
                   className="w-20 h-20 object-contain mb-3 drop-shadow-[0_8px_28px_rgba(47,221,154,0.35)]"
                 />
-                <h1 className="text-2xl font-extrabold tracking-tight leading-none text-center font-['Sora']">
+                <h1 className="text-2xl font-extrabold tracking-tight leading-none text-center font-['Unbounded']">
                   <span className="text-slate-900 dark:text-white">Tico</span><span className="bg-gradient-to-r from-accent to-violet-400 bg-clip-text text-transparent">Games</span>
                 </h1>
                 <span className="text-[10px] font-semibold tracking-[0.2em] text-slate-400 dark:text-slate-500 uppercase mt-1.5">Predice · Compite</span>

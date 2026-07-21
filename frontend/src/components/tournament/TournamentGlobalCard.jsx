@@ -52,7 +52,7 @@ export default function TournamentGlobalCard({ tournamentId, teams = [] }) {
     <div className="glass-card p-5">
       <div className="flex items-center gap-2 mb-4">
         <Crown size={18} className="text-accent" />
-        <h3 className="font-bold font-['Sora'] text-slate-900 dark:text-white">Campeón y Goleador</h3>
+        <h3 className="font-bold font-['Unbounded'] text-slate-900 dark:text-white">Campeón y Goleador</h3>
         <span className="text-[11px] text-slate-400 ml-auto">12 pts c/u</span>
       </div>
 
@@ -88,7 +88,7 @@ export default function TournamentGlobalCard({ tournamentId, teams = [] }) {
 
       {!locked && (
         <button onClick={save} disabled={saving}
-          className="w-full flex items-center justify-center gap-2 font-bold font-['Sora'] text-sm py-3 rounded-xl text-slate-950 bg-gradient-to-br from-accent to-accent-dark disabled:opacity-50">
+          className="w-full flex items-center justify-center gap-2 font-bold font-['Unbounded'] text-sm py-3 rounded-xl text-slate-950 bg-gradient-to-br from-accent to-accent-dark disabled:opacity-50">
           {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} Guardar predicción
         </button>
       )}

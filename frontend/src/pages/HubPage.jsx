@@ -38,7 +38,7 @@ export default function HubPage() {
       {/* Hero */}
       <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="mb-6">
         <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">Buenas, {firstName} 👋</p>
-        <h1 className="text-3xl font-extrabold tracking-tight font-['Sora'] text-slate-900 dark:text-white mt-1">Tus quinielas</h1>
+        <h1 className="text-3xl font-extrabold tracking-tight font-['Unbounded'] text-slate-900 dark:text-white mt-1">Tus quinielas</h1>
         <p className="text-sm text-slate-500 dark:text-slate-400 mt-1.5">
           {loading ? 'Cargando…' : groups.length === 0
             ? 'Todavía no estás en ninguna. ¡Creá una o unite por código!'
@@ -71,11 +71,11 @@ export default function HubPage() {
       {/* CTAs */}
       <div className="flex gap-3 mt-6 flex-wrap">
         <button onClick={() => setModal('create')}
-          className="flex-1 min-w-[150px] flex items-center justify-center gap-2 font-bold font-['Sora'] text-sm py-3.5 rounded-2xl text-slate-950 bg-gradient-to-br from-accent to-accent-dark shadow-lg shadow-accent/25 active:scale-[0.98] transition-transform">
+          className="flex-1 min-w-[150px] flex items-center justify-center gap-2 font-bold font-['Unbounded'] text-sm py-3.5 rounded-2xl text-slate-950 bg-gradient-to-br from-accent to-accent-dark shadow-lg shadow-accent/25 active:scale-[0.98] transition-transform">
           <Plus size={18} /> Crear quiniela
         </button>
         <button onClick={() => setModal('join')}
-          className="flex-1 min-w-[150px] flex items-center justify-center gap-2 font-bold font-['Sora'] text-sm py-3.5 rounded-2xl text-slate-800 dark:text-white bg-white dark:bg-white/[0.05] border border-slate-200 dark:border-white/10 active:scale-[0.98] transition-transform">
+          className="flex-1 min-w-[150px] flex items-center justify-center gap-2 font-bold font-['Unbounded'] text-sm py-3.5 rounded-2xl text-slate-800 dark:text-white bg-white dark:bg-white/[0.05] border border-slate-200 dark:border-white/10 active:scale-[0.98] transition-transform">
           <KeyRound size={17} /> Unirme por código
         </button>
       </div>
@@ -109,15 +109,15 @@ function GroupCard({ g, accent, onOpen }) {
         <span className="text-[11px] text-slate-400 flex items-center gap-1"><Users size={12} />{g.members}</span>
       </div>
 
-      <h3 className="font-bold font-['Sora'] text-slate-900 dark:text-white text-[17px] leading-tight mb-3.5 truncate">{g.name}</h3>
+      <h3 className="font-bold font-['Unbounded'] text-slate-900 dark:text-white text-[17px] leading-tight mb-3.5 truncate">{g.name}</h3>
 
       <div className="flex items-end justify-between">
         <div className="flex items-baseline gap-1.5">
-          <span className="text-3xl font-extrabold font-['Sora'] leading-none" style={{ color: hex }}>#{g.my_rank}</span>
+          <span className="text-3xl font-extrabold font-['Unbounded'] leading-none" style={{ color: hex }}>#{g.my_rank}</span>
           <span className="text-xs text-slate-400">de {g.members}</span>
         </div>
         <div className="text-right">
-          <span className="block text-xl font-extrabold font-['Sora'] text-slate-900 dark:text-white leading-none">{g.my_points}</span>
+          <span className="block text-xl font-extrabold font-['Unbounded'] text-slate-900 dark:text-white leading-none">{g.my_points}</span>
           <span className="text-[10px] text-slate-400 uppercase tracking-wide">puntos</span>
         </div>
       </div>
@@ -138,7 +138,7 @@ function Sheet({ children, onClose, title }) {
         transition={{ type: 'spring', stiffness: 300, damping: 30 }} onClick={e => e.stopPropagation()}
         className="w-full sm:max-w-md bg-white dark:bg-[#12151c] rounded-t-3xl sm:rounded-2xl border border-slate-200 dark:border-white/10 shadow-2xl overflow-hidden max-h-[88vh] flex flex-col pb-[max(1rem,env(safe-area-inset-bottom))]">
         <div className="flex items-center justify-between p-5 pb-3">
-          <h3 className="font-bold font-['Sora'] text-lg text-slate-900 dark:text-white">{title}</h3>
+          <h3 className="font-bold font-['Unbounded'] text-lg text-slate-900 dark:text-white">{title}</h3>
           <button onClick={onClose} className="w-8 h-8 rounded-full bg-slate-100 dark:bg-white/10 grid place-items-center text-slate-500"><X size={16} /></button>
         </div>
         <div className="px-5 pb-5 overflow-y-auto">{children}</div>
@@ -174,7 +174,7 @@ function CreateModal({ onClose, onDone }) {
       </select>
       {err && <p className="text-sm text-rose-500 mb-3">{err}</p>}
       <button onClick={submit} disabled={busy || !tid}
-        className="w-full flex items-center justify-center gap-2 font-bold font-['Sora'] text-sm py-3.5 rounded-2xl text-slate-950 bg-gradient-to-br from-accent to-accent-dark disabled:opacity-50">
+        className="w-full flex items-center justify-center gap-2 font-bold font-['Unbounded'] text-sm py-3.5 rounded-2xl text-slate-950 bg-gradient-to-br from-accent to-accent-dark disabled:opacity-50">
         {busy ? <Loader2 size={17} className="animate-spin" /> : <Plus size={17} />} Crear
       </button>
     </Sheet>
@@ -194,10 +194,10 @@ function JoinModal({ onClose, onDone }) {
     <Sheet title="Unirme por código" onClose={onClose}>
       <p className="text-sm text-slate-500 dark:text-slate-400 mb-3">Pedile el código a quien creó la quiniela.</p>
       <input value={code} onChange={e => setCode(e.target.value.toUpperCase())} maxLength={6} placeholder="ABC123"
-        className="w-full tracking-[0.4em] text-center font-['Sora'] font-bold text-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3.5 text-slate-900 dark:text-white focus:outline-none focus:border-accent mb-4" />
+        className="w-full tracking-[0.4em] text-center font-['Unbounded'] font-bold text-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3.5 text-slate-900 dark:text-white focus:outline-none focus:border-accent mb-4" />
       {err && <p className="text-sm text-rose-500 mb-3">{err}</p>}
       <button onClick={submit} disabled={busy}
-        className="w-full flex items-center justify-center gap-2 font-bold font-['Sora'] text-sm py-3.5 rounded-2xl text-slate-950 bg-gradient-to-br from-accent to-accent-dark disabled:opacity-50">
+        className="w-full flex items-center justify-center gap-2 font-bold font-['Unbounded'] text-sm py-3.5 rounded-2xl text-slate-950 bg-gradient-to-br from-accent to-accent-dark disabled:opacity-50">
         {busy ? <Loader2 size={17} className="animate-spin" /> : <KeyRound size={16} />} Unirme
       </button>
     </Sheet>

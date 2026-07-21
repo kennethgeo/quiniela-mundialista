@@ -96,7 +96,7 @@ export default function TournamentMatchesAdmin() {
     <div className="glass-card p-5 mt-4">
       <div className="flex items-center gap-2 mb-4 border-b border-white/10 pb-3">
         <CalendarPlus className="text-accent" size={20} />
-        <h2 className="text-lg font-bold text-slate-900 dark:text-white font-['Sora']">Cargar partidos a un torneo</h2>
+        <h2 className="text-lg font-bold text-slate-900 dark:text-white font-['Unbounded']">Cargar partidos a un torneo</h2>
       </div>
 
       {msg && (

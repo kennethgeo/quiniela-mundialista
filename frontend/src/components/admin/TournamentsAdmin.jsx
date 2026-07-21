@@ -58,7 +58,7 @@ export default function TournamentsAdmin() {
     <div className="glass-card p-5 mt-4">
       <div className="flex items-center gap-2 mb-4 border-b border-white/10 pb-3">
         <Trophy className="text-accent" size={20} />
-        <h2 className="text-lg font-bold text-slate-900 dark:text-white font-['Sora']">Torneos</h2>
+        <h2 className="text-lg font-bold text-slate-900 dark:text-white font-['Unbounded']">Torneos</h2>
       </div>
 
       {msg && (

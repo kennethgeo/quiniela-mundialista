@@ -57,7 +57,7 @@ export default function TournamentGlobalsAdmin() {
     <div className="glass-card p-5 mt-4">
       <div className="flex items-center gap-2 mb-4 border-b border-white/10 pb-3">
         <Crown className="text-accent" size={20} />
-        <h2 className="text-lg font-bold text-slate-900 dark:text-white font-['Sora']">Campeón / Goleador por torneo</h2>
+        <h2 className="text-lg font-bold text-slate-900 dark:text-white font-['Unbounded']">Campeón / Goleador por torneo</h2>
       </div>
 
       {msg && (

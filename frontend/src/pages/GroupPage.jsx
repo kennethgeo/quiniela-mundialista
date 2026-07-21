@@ -128,7 +128,7 @@ export default function GroupPage() {
         </button>
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <h1 className="text-2xl font-extrabold tracking-tight font-['Sora'] text-slate-900 dark:text-white truncate">{group.name}</h1>
+            <h1 className="text-2xl font-extrabold tracking-tight font-['Unbounded'] text-slate-900 dark:text-white truncate">{group.name}</h1>
             <div className="flex items-center gap-2 mt-1.5 flex-wrap">
               <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full text-accent bg-accent/10 border border-accent/25">{group.tournament_name}</span>
               <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-white/5">{group.tournament_kind === 'cup' ? '🏆 Copa' : '📊 Liga'}</span>
@@ -242,7 +242,7 @@ function TeamStandingsTab({ tournamentId }) {
                     <td className="text-center tabular-nums text-slate-500 px-1.5 hidden xs:table-cell">{r.draws}</td>
                     <td className="text-center tabular-nums text-slate-500 px-1.5 hidden xs:table-cell">{r.losses}</td>
                     <td className="text-center tabular-nums text-slate-500 px-1.5">{r.gd > 0 ? `+${r.gd}` : r.gd}</td>
-                    <td className="text-right font-extrabold font-['Sora'] text-slate-900 dark:text-white px-2.5 tabular-nums">{r.points}</td>
+                    <td className="text-right font-extrabold font-['Unbounded'] text-slate-900 dark:text-white px-2.5 tabular-nums">{r.points}</td>
                   </tr>
                 ))}
               </tbody>
@@ -266,12 +266,12 @@ function StandingsTab({ leagueId }) {
     <div className="glass-card overflow-hidden">
       {rows.map((r, i) => (
         <div key={r.user_id} className={`flex items-center gap-3 px-4 py-3 border-b border-slate-100 dark:border-white/5 last:border-0 ${r.is_me ? 'bg-accent/[0.07]' : ''}`}>
-          <span className={`w-7 h-7 rounded-lg grid place-items-center font-bold font-['Sora'] text-[13px] ${i === 0 ? 'bg-amber-300 text-amber-900' : i === 1 ? 'bg-slate-300 text-slate-700' : i === 2 ? 'bg-orange-300 text-orange-900' : 'bg-slate-100 dark:bg-white/5 text-slate-500'}`}>{i + 1}</span>
+          <span className={`w-7 h-7 rounded-lg grid place-items-center font-bold font-['Unbounded'] text-[13px] ${i === 0 ? 'bg-amber-300 text-amber-900' : i === 1 ? 'bg-slate-300 text-slate-700' : i === 2 ? 'bg-orange-300 text-orange-900' : 'bg-slate-100 dark:bg-white/5 text-slate-500'}`}>{i + 1}</span>
           <div className="w-8 h-8 rounded-full bg-gradient-to-br from-accent/30 to-violet-500/30 grid place-items-center text-xs font-bold overflow-hidden shrink-0">
             {r.avatar_url ? <img src={r.avatar_url} alt="" className="w-full h-full object-cover" /> : (r.display_name?.[0] || '?').toUpperCase()}
           </div>
           <span className="flex-1 text-sm font-semibold text-slate-800 dark:text-slate-100 truncate">{r.display_name}{r.is_me && <span className="text-accent text-xs font-bold"> · vos</span>}</span>
-          <span className="font-extrabold font-['Sora'] text-slate-900 dark:text-white">{r.points}</span>
+          <span className="font-extrabold font-['Unbounded'] text-slate-900 dark:text-white">{r.points}</span>
         </div>
       ))}
     </div>
