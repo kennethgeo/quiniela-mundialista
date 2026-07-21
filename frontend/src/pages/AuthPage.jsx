@@ -7,7 +7,7 @@ import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../lib/supabase'
 import { TicoLogo, TicoWordmark, authStyles as S } from '../components/auth/TicoBrand'
 
-const BUILD = 'TICO-UI · 21jul · r2'   // sello de versión (para verificar caché)
+const BUILD = 'TICO-UI · 21jul · r3'   // sello de versión (para verificar caché)
 
 // Escala el marco de 320px al ancho del viewport (tope 1.5×).
 function useScale() {
@@ -41,12 +41,12 @@ export default function AuthPage() {
 
   return (
     <div style={{ minHeight: '100dvh', width: '100%', background: '#0C0C0C', color: '#F3F1EA', display: 'grid', placeItems: 'center', overflow: 'hidden', fontFamily: "'Archivo',sans-serif", position: 'relative' }}>
-      <div style={{ width: 320, transform: `scale(${scale})`, transformOrigin: 'center center' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '32px 26px', position: 'relative', overflow: 'hidden' }}>
-          {/* Orbes */}
-          <div style={{ position: 'absolute', top: -60, right: -60, width: 220, height: 220, borderRadius: '50%', background: 'radial-gradient(circle,rgba(46,211,183,.16),transparent 70%)', pointerEvents: 'none' }} />
-          <div style={{ position: 'absolute', bottom: -80, left: -60, width: 220, height: 220, borderRadius: '50%', background: 'radial-gradient(circle,rgba(255,122,89,.12),transparent 70%)', pointerEvents: 'none' }} />
+      {/* Orbes de glow a pantalla completa (fuera de la caja escalada, para que no se recorten) */}
+      <div style={{ position: 'absolute', top: -120, right: -120, width: 380, height: 380, borderRadius: '50%', background: 'radial-gradient(circle,rgba(46,211,183,.16),transparent 70%)', pointerEvents: 'none' }} />
+      <div style={{ position: 'absolute', bottom: -140, left: -120, width: 380, height: 380, borderRadius: '50%', background: 'radial-gradient(circle,rgba(255,122,89,.12),transparent 70%)', pointerEvents: 'none' }} />
 
+      <div style={{ width: 320, transform: `scale(${scale})`, transformOrigin: 'center center', position: 'relative', zIndex: 1 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '32px 26px', position: 'relative' }}>
           {mode !== 'forgot' && (
             <div style={S.header}>
               <TicoLogo />
