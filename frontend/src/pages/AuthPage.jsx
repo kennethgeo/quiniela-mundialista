@@ -27,14 +27,15 @@ export default function AuthPage() {
   if (!loading && user && !confirmationMessage) return <Navigate to="/" replace />
 
   return (
-    <div className="min-h-dvh bg-[#0C0C0C] text-[#F3F1EA] flex flex-col justify-center relative overflow-hidden px-8 py-10 font-['Archivo']">
+    <div className="min-h-dvh w-full bg-[#0C0C0C] text-[#F3F1EA] relative overflow-hidden font-['Archivo']">
       {/* Orbes */}
       <div className="absolute -top-[60px] -right-[60px] w-[220px] h-[220px] rounded-full pointer-events-none"
         style={{ background: 'radial-gradient(circle,rgba(46,211,183,.16),transparent 70%)' }} />
       <div className="absolute -bottom-[80px] -left-[60px] w-[220px] h-[220px] rounded-full pointer-events-none"
         style={{ background: 'radial-gradient(circle,rgba(255,122,89,.12),transparent 70%)' }} />
 
-      <div className="relative z-10 w-full max-w-[400px] mx-auto">
+      <div className="relative z-10 min-h-dvh w-full flex items-center justify-center px-7 py-10">
+        <div className="w-full max-w-[352px] min-w-0 overflow-hidden">
         {!forgot && (
           <div className="flex flex-col items-center mb-[42px]">
             <div className="mb-[17px]"><TicoLogo size={68} /></div>
@@ -57,6 +58,7 @@ export default function AuthPage() {
             </motion.div>
           )}
         </AnimatePresence>
+        </div>
       </div>
     </div>
   )
