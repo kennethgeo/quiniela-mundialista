@@ -57,7 +57,7 @@ export default function TournamentGlobalCard({ tournamentId, teams = [] }) {
       </div>
 
       {locked && (
-        <div className="flex items-center gap-2 text-xs font-semibold text-amber-500 bg-amber-500/10 border border-amber-500/20 rounded-lg p-2.5 mb-4">
+        <div className="flex items-center gap-2 text-xs font-semibold text-[#E8B75A] bg-[#E8B75A]/10 border border-[#E8B75A]/25 rounded-lg p-2.5 mb-4">
           <Lock size={14} /> Predicciones bloqueadas.
         </div>
       )}
@@ -65,7 +65,7 @@ export default function TournamentGlobalCard({ tournamentId, teams = [] }) {
       {/* Campeón */}
       <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wide mb-1.5 flex items-center gap-1.5"><Crown size={12} className="text-gold" /> Equipo campeón</label>
       <select value={champion} onChange={e => setChampion(e.target.value)} disabled={locked}
-        className="w-full bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-accent disabled:opacity-60 mb-4">
+        className="w-full bg-slate-100 dark:bg-[#0C0C0C] border border-slate-200 dark:border-[#262626] rounded-xl px-4 py-3 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-accent disabled:opacity-60 mb-4">
         <option value="">— elegir campeón —</option>
         {teams.map(t => <option key={t} value={t}>{t}</option>)}
       </select>
@@ -74,7 +74,7 @@ export default function TournamentGlobalCard({ tournamentId, teams = [] }) {
       <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wide mb-1.5 flex items-center gap-1.5"><Target size={12} className="text-accent" /> Goleador (Bota de Oro)</label>
       <input list="tg-players" value={scorer} onChange={e => setScorer(e.target.value)} disabled={locked}
         placeholder={players.length ? 'Escribí para buscar…' : 'Sincronizá jugadores en el admin'}
-        className="w-full bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-accent disabled:opacity-60 mb-1" />
+        className="w-full bg-slate-100 dark:bg-[#0C0C0C] border border-slate-200 dark:border-[#262626] rounded-xl px-4 py-3 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-accent disabled:opacity-60 mb-1" />
       <datalist id="tg-players">
         {players.map((p, i) => <option key={i} value={p.name}>{p.team}</option>)}
       </datalist>
@@ -88,7 +88,7 @@ export default function TournamentGlobalCard({ tournamentId, teams = [] }) {
 
       {!locked && (
         <button onClick={save} disabled={saving}
-          className="w-full flex items-center justify-center gap-2 font-bold font-['Unbounded'] text-sm py-3 rounded-xl text-slate-950 bg-gradient-to-br from-accent to-accent-dark disabled:opacity-50">
+          className="w-full flex items-center justify-center gap-2 font-bold font-['Archivo'] text-sm py-3 rounded-xl text-[#06231d] bg-gradient-to-r from-[#2ED3B7] to-[#26bfa5] disabled:opacity-50">
           {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} Guardar predicción
         </button>
       )}
