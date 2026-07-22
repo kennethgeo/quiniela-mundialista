@@ -10,6 +10,7 @@ import { useToast } from '../components/ui/Toast'
 import { friendlySaveError } from '../lib/saveError'
 import { powerupKey } from '../lib/powerups'
 import { fetchMyGroups, fetchGroupStandings, fetchTeamStandings, acceptGroupRules, setGroupRules, setGroupScoring } from '../lib/groups'
+import { initialsDataUri, crestOnError } from '../lib/teamLogo'
 import { resolveKnockoutTeams } from '../lib/bracketResolver'
 import MatchList from '../components/matches/MatchList'
 import BracketView from '../components/matches/BracketView'
@@ -417,7 +418,7 @@ function TeamStandingsTab({ tournamentId }) {
                     <td className="py-2 pl-3 text-slate-400 tabular-nums w-6">{r.rank}</td>
                     <td className="py-2">
                       <div className="flex items-center gap-2 min-w-0">
-                        {r.logo && <img src={r.logo} alt="" className="w-5 h-5 object-contain shrink-0" />}
+                        <img src={r.logo || initialsDataUri(r.team, 40)} alt="" className="w-5 h-5 object-contain shrink-0" onError={crestOnError(r.team)} />
                         <span className="font-semibold text-slate-800 dark:text-slate-100 truncate">{r.team}</span>
                       </div>
                     </td>
