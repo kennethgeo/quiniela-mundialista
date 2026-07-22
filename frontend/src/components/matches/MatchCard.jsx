@@ -5,6 +5,7 @@ import { Lock, Check, X, Zap, Timer, Info } from 'lucide-react'
 import { differenceInMinutes, differenceInSeconds } from 'date-fns'
 import { useNavigate } from 'react-router-dom'
 import GoalCounter from './GoalCounter'
+import { crestOnError } from '../../lib/teamLogo'
 
 const flagSrc = (url, code) => url || `https://flagcdn.com/w80/${(code || 'xx').toLowerCase()}.png`
 
@@ -20,7 +21,7 @@ function Team({ name, flag, code, align = 'left' }) {
         ? 'w-7 h-7 object-contain shrink-0'
         : 'w-7 h-5 rounded object-cover ring-1 ring-black/5 dark:ring-white/10 shrink-0'}
       loading="lazy"
-      onError={(e) => { e.target.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg"/>' }}
+      onError={crestOnError(name)}
     />
   )
   const label = <span className="font-semibold text-[12.5px] text-slate-800 dark:text-[#F3F1EA] truncate leading-tight">{name}</span>
