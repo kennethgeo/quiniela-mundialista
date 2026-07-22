@@ -8,6 +8,7 @@ import { ToastProvider } from './components/ui/Toast'
 import { useAuth } from './hooks/useAuth'
 import Navbar from './components/ui/Navbar'
 import BottomNav from './components/ui/BottomNav'
+import QuickBar from './components/ui/QuickBar'
 import ProtectedRoute from './components/auth/ProtectedRoute'
 import InstallPrompt from './components/ui/InstallPrompt'
 import LoadingSpinner from './components/ui/LoadingSpinner'
@@ -47,8 +48,9 @@ function MainLayout({ children }) {
       <div className="flex-1 flex flex-col min-w-0 h-dvh overflow-hidden md:h-auto md:min-h-dvh md:overflow-visible transition-all duration-300 relative z-0">
 
         <main className="flex-1 min-h-0 min-w-0 w-full overflow-x-hidden overflow-y-auto overscroll-contain md:overflow-visible relative z-0">
+          <QuickBar />
           <AnnouncementBanner />
-          <div className="w-full min-w-0 max-w-full px-4 sm:px-6 lg:px-8 pt-[max(0.75rem,env(safe-area-inset-top))] md:pt-8 md:py-8 pb-6">
+          <div className="w-full min-w-0 max-w-full px-4 sm:px-6 lg:px-8 pt-2 md:pt-8 md:py-8 pb-6">
             {children}
           </div>
         </main>
