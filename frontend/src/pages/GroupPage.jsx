@@ -3,13 +3,13 @@ import { useState, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion } from 'motion/react'
-import { ArrowLeft, CalendarDays, ListOrdered, Users, Copy, Check, Trophy, GitBranch, BarChart3, Shield, ScrollText, Loader2, Pencil, Lock, Trash2, AlertTriangle } from 'lucide-react'
+import { ArrowLeft, CalendarDays, ListOrdered, Users, Copy, Check, Trophy, GitBranch, BarChart3, Shield, ScrollText, Loader2, Pencil, Lock, Trash2, AlertTriangle, Vote, ThumbsUp, ThumbsDown, X } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import { useToast } from '../components/ui/Toast'
 import { friendlySaveError } from '../lib/saveError'
 import { powerupKey } from '../lib/powerups'
-import { fetchMyGroups, fetchGroupStandings, fetchTeamStandings, acceptGroupRules, setGroupRules, setGroupScoring, deleteGroup } from '../lib/groups'
+import { fetchMyGroups, fetchGroupStandings, fetchTeamStandings, acceptGroupRules, setGroupRules, setGroupScoring, deleteGroup, proposeRuleChange, castRuleVote, cancelRuleProposal, fetchLeagueProposals } from '../lib/groups'
 import { initialsDataUri, crestOnError } from '../lib/teamLogo'
 import { resolveKnockoutTeams } from '../lib/bracketResolver'
 import MatchList from '../components/matches/MatchList'
@@ -189,17 +189,9 @@ export default function GroupPage() {
       {tab === 'bracket' && tid === 1 && <BracketView />}
       {tab === 'global' && <TournamentGlobalCard tournamentId={tid} teams={teams} leagueId={group.id} championPoints={group.champion_points ?? 12} scorerPoints={group.scorer_points ?? 12} />}
       {tab === 'rules' && (
-        <div className="space-y-4">
-          <ScoringConfig group={group} isAdmin={!!group.is_admin} tournamentStarted={tournamentStarted}
-            onSaved={() => queryClient.invalidateQueries({ queryKey: ['my_groups'] })} showToast={showToast} />
-          <RulesTab group={group} isAdmin={!!group.is_admin} tournamentStarted={tournamentStarted}
-            onSaved={() => queryClient.invalidateQueries({ queryKey: ['my_groups'] })} showToast={showToast} />
-          {!!group.is_admin && (
-            <DangerZone group={group}
-              onDeleted={() => { queryClient.invalidateQueries({ queryKey: ['my_groups'] }); navigate('/') }}
-              showToast={showToast} />
-          )}
-        </div>
+        <RulesPanel group={group} tournamentStarted={tournamentStarted} showToast={showToast}
+          onDeleted={() => { queryClient.invalidateQueries({ queryKey: ['my_groups'] }); navigate('/') }}
+          invalidateGroups={() => queryClient.invalidateQueries({ queryKey: ['my_groups'] })} />
       )}
 
       {/* Puerta de reglas: hay que aceptarlas para poder usar la quiniela */}
@@ -247,9 +239,164 @@ function RulesGate({ group, onAccepted, onLeave }) {
   )
 }
 
-function ScoringConfig({ group, isAdmin, tournamentStarted, onSaved, showToast }) {
+// Etiquetas de las reglas de puntaje (para propuestas y diffs).
+const SCORING_LABELS = {
+  points_exact: 'Marcador exacto',
+  points_correct: 'Resultado correcto',
+  powerup_limit: 'Comodines ×2 por jornada',
+  champion_points: 'Acertar campeón',
+  scorer_points: 'Acertar goleador',
+}
+
+// Panel completo de la pestaña Reglas: votación (si hay propuesta abierta),
+// puntaje, reglas de texto, historial de propuestas y zona de peligro.
+function RulesPanel({ group, tournamentStarted, showToast, onDeleted, invalidateGroups }) {
+  const isAdmin = !!group.is_admin
+  const { data: proposals = [], refetch } = useQuery({
+    queryKey: ['league_proposals', group.id],
+    queryFn: () => fetchLeagueProposals(group.id),
+    enabled: !!group.id,
+  })
+  const openProposal = proposals.find((p) => p.status === 'open') || null
+  const history = proposals.filter((p) => p.status !== 'open')
+  const afterChange = () => { refetch(); invalidateGroups() }
+
+  return (
+    <div className="space-y-4">
+      {openProposal && (
+        <RuleVoting proposal={openProposal} group={group} isAdmin={isAdmin} onChanged={afterChange} showToast={showToast} />
+      )}
+      <ScoringConfig group={group} isAdmin={isAdmin} tournamentStarted={tournamentStarted}
+        hasOpenProposal={!!openProposal} onSaved={afterChange} onProposed={afterChange} showToast={showToast} />
+      <RulesTab group={group} isAdmin={isAdmin} tournamentStarted={tournamentStarted}
+        hasOpenProposal={!!openProposal} onSaved={afterChange} onProposed={afterChange} showToast={showToast} />
+      {history.length > 0 && <ProposalHistory items={history} />}
+      {isAdmin && <DangerZone group={group} onDeleted={onDeleted} showToast={showToast} />}
+    </div>
+  )
+}
+
+// Tarjeta de la propuesta abierta: muestra el cambio, los votos y permite votar.
+function RuleVoting({ proposal, group, isAdmin, onChanged, showToast }) {
+  const [busy, setBusy] = useState(null) // 'yes' | 'no' | 'cancel'
+  const vote = async (v) => {
+    try { setBusy(v ? 'yes' : 'no'); await castRuleVote(proposal.id, v); onChanged() }
+    catch (e) { showToast(e.message, 'error', 6000); setBusy(null) }
+  }
+  const cancel = async () => {
+    try { setBusy('cancel'); await cancelRuleProposal(proposal.id); showToast('Propuesta cancelada.', 'success', 3000); onChanged() }
+    catch (e) { showToast(e.message, 'error', 6000); setBusy(null) }
+  }
+  const needed = Math.floor((proposal.members || 0) / 2) + 1
+
+  return (
+    <div className="rounded-2xl bg-white dark:bg-[#161616] border-2 border-accent/50 p-5">
+      <div className="flex items-center gap-2 mb-1">
+        <Vote size={18} className="text-accent" />
+        <h3 className="font-bold font-['Unbounded'] text-slate-900 dark:text-[#F3F1EA] text-[15px]">Propuesta en votación</h3>
+      </div>
+      <p className="text-[11.5px] text-[var(--text-muted,#8A8A8A)] mb-3">
+        Propuesta de <b className="text-slate-700 dark:text-[#F3F1EA]">{proposal.proposer_name || 'el admin'}</b>. Se aprueba con la mayoría del grupo ({needed} de {proposal.members} votos a favor).
+      </p>
+
+      <ProposalDiff proposal={proposal} group={group} />
+      {proposal.note && <p className="text-[12.5px] italic text-slate-600 dark:text-[#c9c7c0] mt-3 border-l-2 border-accent/40 pl-3">“{proposal.note}”</p>}
+
+      {/* Contador de votos */}
+      <div className="flex items-center gap-4 mt-4 mb-3 text-[13px]">
+        <span className="flex items-center gap-1.5 font-bold text-[#2ED3B7]"><ThumbsUp size={15} /> {proposal.yes_count} a favor</span>
+        <span className="flex items-center gap-1.5 font-bold text-[#FF7A59]"><ThumbsDown size={15} /> {proposal.no_count} en contra</span>
+      </div>
+
+      {/* Botones de voto */}
+      <div className="flex gap-2">
+        <button onClick={() => vote(true)} disabled={!!busy}
+          className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl font-bold text-sm transition-colors disabled:opacity-60 ${
+            proposal.my_vote === true ? 'bg-[#2ED3B7] text-[#06231d]' : 'bg-[#2ED3B7]/12 text-[#2ED3B7] border border-[#2ED3B7]/30'}`}>
+          {busy === 'yes' ? <Loader2 size={15} className="animate-spin" /> : <ThumbsUp size={15} />} A favor
+        </button>
+        <button onClick={() => vote(false)} disabled={!!busy}
+          className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl font-bold text-sm transition-colors disabled:opacity-60 ${
+            proposal.my_vote === false ? 'bg-[#FF7A59] text-white' : 'bg-[#FF7A59]/12 text-[#FF7A59] border border-[#FF7A59]/30'}`}>
+          {busy === 'no' ? <Loader2 size={15} className="animate-spin" /> : <ThumbsDown size={15} />} En contra
+        </button>
+      </div>
+      {proposal.my_vote != null && <p className="text-[11px] text-[var(--text-muted,#8A8A8A)] mt-2 text-center">Ya votaste. Podés cambiar tu voto mientras la propuesta siga abierta.</p>}
+
+      {isAdmin && (
+        <button onClick={cancel} disabled={!!busy}
+          className="w-full mt-3 flex items-center justify-center gap-1.5 text-[12px] font-bold text-[var(--text-muted,#8A8A8A)] py-1.5 disabled:opacity-60">
+          {busy === 'cancel' ? <Loader2 size={13} className="animate-spin" /> : <X size={13} />} Cancelar propuesta
+        </button>
+      )}
+    </div>
+  )
+}
+
+// Resumen visual de lo que cambiaría una propuesta (puntaje: solo lo distinto).
+function ProposalDiff({ proposal, group }) {
+  if (proposal.kind === 'scoring') {
+    const rows = Object.keys(SCORING_LABELS)
+      .map((k) => ({ k, from: group?.[k], to: proposal.payload?.[k] }))
+      .filter((r) => r.to != null && Number(r.to) !== Number(r.from))
+    if (!rows.length) return <p className="text-[12.5px] text-[var(--text-muted,#8A8A8A)]">Sin cambios respecto al puntaje actual.</p>
+    return (
+      <div className="space-y-1.5">
+        {rows.map((r) => (
+          <div key={r.k} className="flex items-center justify-between gap-3 text-[13px]">
+            <span className="text-slate-600 dark:text-[#c9c7c0]">{SCORING_LABELS[r.k]}</span>
+            <span className="font-['JetBrains_Mono'] font-bold">
+              <span className="text-slate-400 line-through">{r.from ?? '—'}</span>
+              <span className="text-slate-400 mx-1">→</span>
+              <span className="text-accent">{r.to}</span>
+            </span>
+          </div>
+        ))}
+      </div>
+    )
+  }
+  // kind === 'rules'
+  return (
+    <div>
+      <p className="text-[11.5px] font-bold text-[var(--text-muted,#8A8A8A)] mb-1.5 uppercase tracking-wide">Nuevo texto de reglas</p>
+      <div className="whitespace-pre-wrap text-[12.5px] leading-relaxed text-slate-700 dark:text-[#e5e3dc] bg-slate-50 dark:bg-[#0C0C0C] border border-slate-200 dark:border-[#262626] rounded-xl p-3 max-h-52 overflow-y-auto">
+        {proposal.payload?.rules || '(vacío)'}
+      </div>
+    </div>
+  )
+}
+
+// Historial de propuestas cerradas.
+function ProposalHistory({ items }) {
+  const badge = (s) => s === 'approved'
+    ? { t: 'Aprobada', c: '#2ED3B7', b: 'rgba(46,211,183,.12)' }
+    : s === 'rejected' ? { t: 'Rechazada', c: '#FF7A59', b: 'rgba(255,122,89,.12)' }
+    : { t: 'Cancelada', c: '#8A8A8A', b: 'rgba(138,138,138,.12)' }
+  return (
+    <div className="rounded-2xl bg-white dark:bg-[#161616] border border-slate-200 dark:border-[#262626] p-5">
+      <h3 className="font-bold font-['Unbounded'] text-slate-900 dark:text-[#F3F1EA] text-[15px] mb-3">Historial de propuestas</h3>
+      <div className="space-y-2.5">
+        {items.map((p) => {
+          const bg = badge(p.status)
+          return (
+            <div key={p.id} className="flex items-center justify-between gap-3 text-[12.5px]">
+              <span className="text-slate-600 dark:text-[#c9c7c0] truncate">
+                {p.kind === 'scoring' ? 'Cambio de puntaje' : 'Cambio de reglas'} · {p.proposer_name}
+                <span className="text-slate-400"> · {p.yes_count}–{p.no_count}</span>
+              </span>
+              <span className="shrink-0 font-['JetBrains_Mono'] font-bold text-[9px] px-[7px] py-0.5 rounded-[20px]" style={{ color: bg.c, background: bg.b }}>{bg.t}</span>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+function ScoringConfig({ group, isAdmin, tournamentStarted, hasOpenProposal, onSaved, onProposed, showToast }) {
   const [editing, setEditing] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [note, setNote] = useState('')
   const [cfg, setCfg] = useState({
     points_exact: group.points_exact ?? 3,
     points_correct: group.points_correct ?? 1,
@@ -257,6 +404,8 @@ function ScoringConfig({ group, isAdmin, tournamentStarted, onSaved, showToast }
     champion_points: group.champion_points ?? 12,
     scorer_points: group.scorer_points ?? 12,
   })
+  // Con el torneo iniciado, editar = proponer a votación (no guardar directo).
+  const propose = tournamentStarted
   const rows = [
     ['points_exact', 'Marcador exacto', 'pts'],
     ['points_correct', 'Resultado correcto', 'pts'],
@@ -265,18 +414,26 @@ function ScoringConfig({ group, isAdmin, tournamentStarted, onSaved, showToast }
     ['scorer_points', 'Acertar goleador', 'pts'],
   ]
   const save = async () => {
+    const parsed = {
+      points_exact: parseInt(cfg.points_exact) || 0,
+      points_correct: parseInt(cfg.points_correct) || 0,
+      powerup_limit: parseInt(cfg.powerup_limit) || 0,
+      champion_points: parseInt(cfg.champion_points) || 0,
+      scorer_points: parseInt(cfg.scorer_points) || 0,
+    }
     try {
       setBusy(true)
-      await setGroupScoring(group.id, {
-        points_exact: parseInt(cfg.points_exact) || 0,
-        points_correct: parseInt(cfg.points_correct) || 0,
-        powerup_limit: parseInt(cfg.powerup_limit) || 0,
-        champion_points: parseInt(cfg.champion_points) || 0,
-        scorer_points: parseInt(cfg.scorer_points) || 0,
-      })
-      showToast('Reglas de puntaje actualizadas.', 'success', 4000)
+      if (propose) {
+        await proposeRuleChange(group.id, 'scoring', parsed, note)
+        showToast('Propuesta de puntaje enviada a votación del grupo.', 'success', 5000)
+        setNote('')
+        onProposed?.()
+      } else {
+        await setGroupScoring(group.id, parsed)
+        showToast('Reglas de puntaje actualizadas.', 'success', 4000)
+        onSaved()
+      }
       setEditing(false)
-      onSaved()
     } catch (e) { showToast(e.message, 'error', 6000) } finally { setBusy(false) }
   }
   return (
@@ -286,14 +443,19 @@ function ScoringConfig({ group, isAdmin, tournamentStarted, onSaved, showToast }
           <BarChart3 size={18} className="text-accent" />
           <h3 className="font-bold font-['Unbounded'] text-slate-900 dark:text-[#F3F1EA] text-[15px]">Puntaje</h3>
         </div>
-        {isAdmin && !editing && !tournamentStarted && (
+        {isAdmin && !editing && !propose && (
           <button onClick={() => setEditing(true)} className="flex items-center gap-1.5 text-[12px] font-bold text-accent bg-accent/10 border border-accent/25 rounded-lg px-2.5 py-1.5">
             <Pencil size={13} /> Editar
           </button>
         )}
-        {isAdmin && tournamentStarted && (
+        {isAdmin && !editing && propose && !hasOpenProposal && (
+          <button onClick={() => setEditing(true)} className="flex items-center gap-1.5 text-[12px] font-bold text-accent bg-accent/10 border border-accent/25 rounded-lg px-2.5 py-1.5">
+            <Vote size={13} /> Proponer cambio
+          </button>
+        )}
+        {isAdmin && propose && hasOpenProposal && (
           <span className="flex items-center gap-1.5 text-[11px] font-bold text-[var(--text-muted,#8A8A8A)] bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-[#262626] rounded-lg px-2.5 py-1.5">
-            <Lock size={12} /> Bloqueado
+            <Vote size={12} /> En votación
           </span>
         )}
       </div>
@@ -312,35 +474,50 @@ function ScoringConfig({ group, isAdmin, tournamentStarted, onSaved, showToast }
         ))}
       </div>
       {editing && (
-        <div className="flex gap-2 mt-4">
-          <button onClick={() => setEditing(false)} className="flex-1 py-2.5 rounded-xl font-bold text-sm text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-[#262626]">Cancelar</button>
-          <button onClick={save} disabled={busy} className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl font-bold text-sm text-[#06231d] bg-gradient-to-r from-[#2ED3B7] to-[#26bfa5] disabled:opacity-60">
-            {busy ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />} Guardar
-          </button>
-        </div>
+        <>
+          {propose && (
+            <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} placeholder="Motivo del cambio (opcional) — se muestra al grupo al votar"
+              className="w-full mt-4 bg-slate-50 dark:bg-[#0C0C0C] border border-slate-200 dark:border-[#262626] rounded-xl p-3 text-[12.5px] text-slate-800 dark:text-[#F3F1EA] focus:outline-none focus:border-accent resize-none" />
+          )}
+          <div className="flex gap-2 mt-4">
+            <button onClick={() => setEditing(false)} className="flex-1 py-2.5 rounded-xl font-bold text-sm text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-[#262626]">Cancelar</button>
+            <button onClick={save} disabled={busy} className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl font-bold text-sm text-[#06231d] bg-gradient-to-r from-[#2ED3B7] to-[#26bfa5] disabled:opacity-60">
+              {busy ? <Loader2 size={15} className="animate-spin" /> : propose ? <Vote size={15} /> : <Check size={15} />} {propose ? 'Enviar a votación' : 'Guardar'}
+            </button>
+          </div>
+        </>
       )}
-      {isAdmin && tournamentStarted && (
+      {isAdmin && propose && !editing && (
         <p className="text-[11px] text-[var(--text-muted,#8A8A8A)] mt-3 flex items-start gap-1.5">
-          <Lock size={12} className="mt-0.5 shrink-0" /> El torneo ya inició: el puntaje queda bloqueado. Los cambios durante el torneo se someterán a votación del grupo.
+          <Lock size={12} className="mt-0.5 shrink-0" /> El torneo ya inició: el puntaje queda bloqueado. Para cambiarlo, proponé el cambio y el grupo lo vota.
         </p>
       )}
-      {isAdmin && !tournamentStarted && <p className="text-[11px] text-[var(--text-muted,#8A8A8A)] mt-3">Si cambiás el puntaje con partidos ya jugados, corré “Recalcular puntajes” en el Panel Admin para re-puntuar con las nuevas reglas.</p>}
+      {isAdmin && !propose && <p className="text-[11px] text-[var(--text-muted,#8A8A8A)] mt-3">Si cambiás el puntaje con partidos ya jugados, corré “Recalcular puntajes” en el Panel Admin para re-puntuar con las nuevas reglas.</p>}
     </div>
   )
 }
 
-function RulesTab({ group, isAdmin, tournamentStarted, onSaved, showToast }) {
+function RulesTab({ group, isAdmin, tournamentStarted, hasOpenProposal, onSaved, onProposed, showToast }) {
   const [editing, setEditing] = useState(false)
   const [text, setText] = useState(group.rules || '')
+  const [note, setNote] = useState('')
   const [busy, setBusy] = useState(false)
+  const propose = tournamentStarted
 
   const save = async () => {
     try {
       setBusy(true)
-      await setGroupRules(group.id, text)
-      showToast('Reglas actualizadas. Los demás miembros deberán aceptarlas de nuevo.', 'success', 5000)
+      if (propose) {
+        await proposeRuleChange(group.id, 'rules', { rules: text }, note)
+        showToast('Propuesta de reglas enviada a votación del grupo.', 'success', 5000)
+        setNote('')
+        onProposed?.()
+      } else {
+        await setGroupRules(group.id, text)
+        showToast('Reglas actualizadas. Los demás miembros deberán aceptarlas de nuevo.', 'success', 5000)
+        onSaved()
+      }
       setEditing(false)
-      onSaved()
     } catch (e) { showToast(e.message, 'error', 6000) } finally { setBusy(false) }
   }
 
@@ -351,15 +528,21 @@ function RulesTab({ group, isAdmin, tournamentStarted, onSaved, showToast }) {
           <ScrollText size={18} className="text-accent" />
           <h3 className="font-bold font-['Unbounded'] text-slate-900 dark:text-[#F3F1EA] text-[15px]">Reglas</h3>
         </div>
-        {isAdmin && !editing && !tournamentStarted && (
+        {isAdmin && !editing && !propose && (
           <button onClick={() => { setText(group.rules || ''); setEditing(true) }}
             className="flex items-center gap-1.5 text-[12px] font-bold text-accent bg-accent/10 border border-accent/25 rounded-lg px-2.5 py-1.5">
             <Pencil size={13} /> Editar
           </button>
         )}
-        {isAdmin && tournamentStarted && (
+        {isAdmin && !editing && propose && !hasOpenProposal && (
+          <button onClick={() => { setText(group.rules || ''); setEditing(true) }}
+            className="flex items-center gap-1.5 text-[12px] font-bold text-accent bg-accent/10 border border-accent/25 rounded-lg px-2.5 py-1.5">
+            <Vote size={13} /> Proponer cambio
+          </button>
+        )}
+        {isAdmin && propose && hasOpenProposal && (
           <span className="flex items-center gap-1.5 text-[11px] font-bold text-[var(--text-muted,#8A8A8A)] bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-[#262626] rounded-lg px-2.5 py-1.5">
-            <Lock size={12} /> Bloqueado
+            <Vote size={12} /> En votación
           </span>
         )}
       </div>
@@ -368,21 +551,27 @@ function RulesTab({ group, isAdmin, tournamentStarted, onSaved, showToast }) {
         <>
           <textarea value={text} onChange={(e) => setText(e.target.value)} rows={12}
             className="w-full bg-slate-50 dark:bg-[#0C0C0C] border border-slate-200 dark:border-[#262626] rounded-xl p-3.5 text-[13px] leading-relaxed text-slate-800 dark:text-[#F3F1EA] focus:outline-none focus:border-accent resize-none" />
+          {propose && (
+            <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} placeholder="Motivo del cambio (opcional) — se muestra al grupo al votar"
+              className="w-full mt-3 bg-slate-50 dark:bg-[#0C0C0C] border border-slate-200 dark:border-[#262626] rounded-xl p-3 text-[12.5px] text-slate-800 dark:text-[#F3F1EA] focus:outline-none focus:border-accent resize-none" />
+          )}
           <div className="flex gap-2 mt-3">
             <button onClick={() => setEditing(false)} className="flex-1 py-2.5 rounded-xl font-bold text-sm text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-[#262626]">Cancelar</button>
             <button onClick={save} disabled={busy}
               className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl font-bold text-sm text-[#06231d] bg-gradient-to-r from-[#2ED3B7] to-[#26bfa5] disabled:opacity-60">
-              {busy ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />} Guardar
+              {busy ? <Loader2 size={15} className="animate-spin" /> : propose ? <Vote size={15} /> : <Check size={15} />} {propose ? 'Enviar a votación' : 'Guardar'}
             </button>
           </div>
-          <p className="text-[11px] text-[var(--text-muted,#8A8A8A)] mt-2">Al guardar, los demás miembros deberán volver a aceptar las reglas.</p>
+          <p className="text-[11px] text-[var(--text-muted,#8A8A8A)] mt-2">
+            {propose ? 'Se abrirá una votación en el grupo. Si se aprueba, los demás deberán volver a aceptar las reglas.' : 'Al guardar, los demás miembros deberán volver a aceptar las reglas.'}
+          </p>
         </>
       ) : (
         <>
           <div className="whitespace-pre-wrap text-[13.5px] leading-relaxed text-slate-700 dark:text-[#e5e3dc]">{group.rules || 'Esta quiniela no tiene reglas definidas.'}</div>
-          {isAdmin && tournamentStarted && (
+          {isAdmin && propose && (
             <p className="text-[11px] text-[var(--text-muted,#8A8A8A)] mt-3 flex items-start gap-1.5">
-              <Lock size={12} className="mt-0.5 shrink-0" /> El torneo ya inició: las reglas quedan bloqueadas. Los cambios durante el torneo se someterán a votación del grupo.
+              <Lock size={12} className="mt-0.5 shrink-0" /> El torneo ya inició: para cambiar las reglas, proponé el cambio y el grupo lo vota.
             </p>
           )}
         </>
