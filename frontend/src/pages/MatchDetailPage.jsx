@@ -225,12 +225,15 @@ export default function MatchDetailPage() {
             <div className="flex-1 flex flex-col items-center gap-3">
               <div className="relative">
                 <div className="absolute inset-0 bg-white/5 blur-xl rounded-full scale-150" />
-                <img
-                  src={`https://flagcdn.com/w160/${(match.home_team_code || 'xx').toLowerCase()}.png`}
-                  alt={match.home_team}
-                  className="relative w-24 h-16 object-cover rounded-lg shadow-lg ring-1 ring-white/10"
-                  onError={(e) => { e.target.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg"/>' }}
-                />
+                {match.home_flag_url ? (
+                  <img src={match.home_flag_url} alt={match.home_team}
+                    className="relative w-16 h-16 object-contain"
+                    onError={(e) => { e.target.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg"/>' }} />
+                ) : (
+                  <img src={`https://flagcdn.com/w160/${(match.home_team_code || 'xx').toLowerCase()}.png`} alt={match.home_team}
+                    className="relative w-24 h-16 object-cover rounded-lg shadow-lg ring-1 ring-white/10"
+                    onError={(e) => { e.target.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg"/>' }} />
+                )}
               </div>
               <span className="text-lg font-black text-slate-900 dark:text-white text-center leading-tight">
                 {match.home_team || 'Local'}
@@ -270,12 +273,15 @@ export default function MatchDetailPage() {
             <div className="flex-1 flex flex-col items-center gap-3">
               <div className="relative">
                 <div className="absolute inset-0 bg-white/5 blur-xl rounded-full scale-150" />
-                <img
-                  src={`https://flagcdn.com/w160/${(match.away_team_code || 'xx').toLowerCase()}.png`}
-                  alt={match.away_team}
-                  className="relative w-24 h-16 object-cover rounded-lg shadow-lg ring-1 ring-white/10"
-                  onError={(e) => { e.target.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg"/>' }}
-                />
+                {match.away_flag_url ? (
+                  <img src={match.away_flag_url} alt={match.away_team}
+                    className="relative w-16 h-16 object-contain"
+                    onError={(e) => { e.target.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg"/>' }} />
+                ) : (
+                  <img src={`https://flagcdn.com/w160/${(match.away_team_code || 'xx').toLowerCase()}.png`} alt={match.away_team}
+                    className="relative w-24 h-16 object-cover rounded-lg shadow-lg ring-1 ring-white/10"
+                    onError={(e) => { e.target.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg"/>' }} />
+                )}
               </div>
               <span className="text-lg font-black text-slate-900 dark:text-white text-center leading-tight">
                 {match.away_team || 'Visitante'}
