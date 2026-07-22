@@ -28,7 +28,13 @@ def evaluate_prediction(
     penalties_winner_real: str,
     home_team: str = None,
     away_team: str = None,
+    config: dict = None,
 ) -> int:
+
+    # Puntajes configurables por quiniela (config del league). Por defecto 3/1.
+    cfg = config or {}
+    P_EXACT = cfg.get("points_exact", 3) if cfg.get("points_exact") is not None else 3
+    P_CORRECT = cfg.get("points_correct", 1) if cfg.get("points_correct") is not None else 1
 
     pred_type = pred.get("prediction_type", "Marcador")
     home_pred = pred.get("home_goals_pred")
@@ -62,13 +68,13 @@ def evaluate_prediction(
         # (acertó quién pasa). Si no, 0.
         if goes_to_penalties and pred_winner != "tie":
             pred_team = home_team if pred_winner == "home" else away_team
-            points = 1 if (penalties_winner_real and pred_team and pred_team == penalties_winner_real) else 0
+            points = P_CORRECT if (penalties_winner_real and pred_team and pred_team == penalties_winner_real) else 0
         else:
             if real_winner == "tie":
                 if home_pred == home_actual and away_pred == away_actual:
-                    points = 3  # empate exacto
+                    points = P_EXACT  # empate exacto
                 elif pred_winner == "tie":
-                    points = 1  # acierta empate, no el marcador
+                    points = P_CORRECT  # acierta empate, no el marcador
                 else:
                     points = 0
                 # Penales: el marcador del empate vale igual (3/1) aunque se
@@ -80,9 +86,9 @@ def evaluate_prediction(
                     points += 1
             else:
                 if home_pred == home_actual and away_pred == away_actual:
-                    points = 3  # marcador exacto
+                    points = P_EXACT  # marcador exacto
                 elif pred_winner == real_winner:
-                    points = 1  # acierta el ganador, no el marcador
+                    points = P_CORRECT  # acierta el ganador, no el marcador
                 else:
                     points = 0
 
@@ -97,13 +103,13 @@ def evaluate_prediction(
         if goes_to_penalties:
             if pred_winner == "tie":
                 if penalties_winner_pred and penalties_winner_real and penalties_winner_pred == penalties_winner_real:
-                    points = 1
+                    points = P_CORRECT
                 else:
                     points = 0
             else:
                 points = 0
         else:
-            points = 1 if pred_winner == real_winner else 0
+            points = P_CORRECT if pred_winner == real_winner else 0
 
     # Comodín x2: duplica los puntos ganados (incluido el +1 de penales).
     if use_powerup:
@@ -147,10 +153,19 @@ async def calculate_and_update_scores(supabase, match_id: int) -> dict:
     if not predictions:
         return {"status": "ok", "message": "No hay predicciones para este partido"}
 
+    # 2b. Config de puntaje por quiniela (cada predicción pertenece a un league).
+    league_ids = list({p.get("league_id") for p in predictions if p.get("league_id")})
+    configs = {}
+    if league_ids:
+        lrows = (supabase.table("leagues")
+                 .select("id, points_exact, points_correct")
+                 .in_("id", league_ids).execute().data or [])
+        configs = {r["id"]: r for r in lrows}
+
     updates = []
     user_points_delta = {}
 
-    # 3. Evaluar cada predicción
+    # 3. Evaluar cada predicción con la config de su quiniela
     for pred in predictions:
         pts = evaluate_prediction(
             pred,
@@ -159,7 +174,8 @@ async def calculate_and_update_scores(supabase, match_id: int) -> dict:
             goes_to_penalties,
             penalties_winner_real,
             match.get("home_team"),
-            match.get("away_team")
+            match.get("away_team"),
+            config=configs.get(pred.get("league_id")),
         )
         
         # Calcular la diferencia si ya tenía puntos calculados antes

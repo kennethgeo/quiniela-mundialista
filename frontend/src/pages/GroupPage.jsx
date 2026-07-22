@@ -8,8 +8,8 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import { useToast } from '../components/ui/Toast'
 import { friendlySaveError } from '../lib/saveError'
-import { buildPowerupLimits, powerupKey } from '../lib/powerups'
-import { fetchMyGroups, fetchGroupStandings, fetchTeamStandings, acceptGroupRules, setGroupRules } from '../lib/groups'
+import { powerupKey } from '../lib/powerups'
+import { fetchMyGroups, fetchGroupStandings, fetchTeamStandings, acceptGroupRules, setGroupRules, setGroupScoring } from '../lib/groups'
 import { resolveKnockoutTeams } from '../lib/bracketResolver'
 import MatchList from '../components/matches/MatchList'
 import BracketView from '../components/matches/BracketView'
@@ -44,30 +44,29 @@ export default function GroupPage() {
     },
   })
 
+  // Predicciones de ESTA quiniela (por league_id, ya no compartidas por torneo).
   const { data: predictions = [] } = useQuery({
-    queryKey: ['predictions', profile?.id],
-    enabled: !!profile?.id,
+    queryKey: ['predictions', profile?.id, id],
+    enabled: !!profile?.id && !!group,
     queryFn: async () => {
-      const { data, error } = await supabase.from('predictions').select('*').eq('user_id', profile.id)
+      const { data, error } = await supabase.from('predictions').select('*').eq('user_id', profile.id).eq('league_id', id)
       if (error) throw error
       return data || []
     },
   })
 
-  const { data: powerupLimits = {} } = useQuery({
-    queryKey: ['powerup_limits'],
-    queryFn: async () => buildPowerupLimits((await supabase.from('powerup_limits').select('*')).data),
-  })
+  // Límite de comodines ×2 por jornada/fase: viene de la config de la quiniela.
+  const powerupLimit = group?.powerup_limit ?? 2
 
   const saveMutation = useMutation({
     mutationFn: async (prediction) => {
       const { data, error } = await supabase.from('predictions')
-        .upsert({ ...prediction, user_id: profile.id }, { onConflict: 'user_id, match_id' }).select()
+        .upsert({ ...prediction, user_id: profile.id, league_id: id }, { onConflict: 'user_id, league_id, match_id' }).select()
       if (error) throw error
       return data?.[0] || prediction
     },
     onSuccess: (newPred) => {
-      queryClient.setQueryData(['predictions', profile?.id], (old = []) => {
+      queryClient.setQueryData(['predictions', profile?.id, id], (old = []) => {
         const i = old.findIndex((p) => p.match_id === newPred.match_id)
         if (i >= 0) { const u = [...old]; u[i] = { ...u[i], ...newPred }; return u }
         return [...old, newPred]
@@ -171,7 +170,7 @@ export default function GroupPage() {
             predictions={predictions}
             onSavePrediction={(p) => saveMutation.mutate(p)}
             isLoading={saveMutation.isPending}
-            powerupLimits={powerupLimits}
+            powerupLimit={powerupLimit}
             powerupUsage={powerupUsage}
           />
         )
@@ -180,10 +179,14 @@ export default function GroupPage() {
       {tab === 'table' && <StandingsTab leagueId={group.id} />}
       {tab === 'teams' && <TeamStandingsTab tournamentId={tid} />}
       {tab === 'bracket' && tid === 1 && <BracketView />}
-      {tab === 'global' && <TournamentGlobalCard tournamentId={tid} teams={teams} />}
+      {tab === 'global' && <TournamentGlobalCard tournamentId={tid} teams={teams} leagueId={group.id} championPoints={group.champion_points ?? 12} scorerPoints={group.scorer_points ?? 12} />}
       {tab === 'rules' && (
-        <RulesTab group={group} isAdmin={!!group.is_admin}
-          onSaved={() => queryClient.invalidateQueries({ queryKey: ['my_groups'] })} showToast={showToast} />
+        <div className="space-y-4">
+          <ScoringConfig group={group} isAdmin={!!group.is_admin}
+            onSaved={() => queryClient.invalidateQueries({ queryKey: ['my_groups'] })} showToast={showToast} />
+          <RulesTab group={group} isAdmin={!!group.is_admin}
+            onSaved={() => queryClient.invalidateQueries({ queryKey: ['my_groups'] })} showToast={showToast} />
+        </div>
       )}
 
       {/* Puerta de reglas: hay que aceptarlas para poder usar la quiniela */}
@@ -228,6 +231,78 @@ function RulesGate({ group, onAccepted, onLeave }) {
         </div>
       </motion.div>
     </motion.div>
+  )
+}
+
+function ScoringConfig({ group, isAdmin, onSaved, showToast }) {
+  const [editing, setEditing] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [cfg, setCfg] = useState({
+    points_exact: group.points_exact ?? 3,
+    points_correct: group.points_correct ?? 1,
+    powerup_limit: group.powerup_limit ?? 2,
+    champion_points: group.champion_points ?? 12,
+    scorer_points: group.scorer_points ?? 12,
+  })
+  const rows = [
+    ['points_exact', 'Marcador exacto', 'pts'],
+    ['points_correct', 'Resultado correcto', 'pts'],
+    ['powerup_limit', 'Comodines ×2 por jornada', ''],
+    ['champion_points', 'Acertar campeón', 'pts'],
+    ['scorer_points', 'Acertar goleador', 'pts'],
+  ]
+  const save = async () => {
+    try {
+      setBusy(true)
+      await setGroupScoring(group.id, {
+        points_exact: parseInt(cfg.points_exact) || 0,
+        points_correct: parseInt(cfg.points_correct) || 0,
+        powerup_limit: parseInt(cfg.powerup_limit) || 0,
+        champion_points: parseInt(cfg.champion_points) || 0,
+        scorer_points: parseInt(cfg.scorer_points) || 0,
+      })
+      showToast('Reglas de puntaje actualizadas.', 'success', 4000)
+      setEditing(false)
+      onSaved()
+    } catch (e) { showToast(e.message, 'error', 6000) } finally { setBusy(false) }
+  }
+  return (
+    <div className="rounded-2xl bg-white dark:bg-[#161616] border border-slate-200 dark:border-[#262626] p-5">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <BarChart3 size={18} className="text-accent" />
+          <h3 className="font-bold font-['Unbounded'] text-slate-900 dark:text-[#F3F1EA] text-[15px]">Puntaje</h3>
+        </div>
+        {isAdmin && !editing && (
+          <button onClick={() => setEditing(true)} className="flex items-center gap-1.5 text-[12px] font-bold text-accent bg-accent/10 border border-accent/25 rounded-lg px-2.5 py-1.5">
+            <Pencil size={13} /> Editar
+          </button>
+        )}
+      </div>
+      <div className="space-y-2.5">
+        {rows.map(([k, label, unit]) => (
+          <div key={k} className="flex items-center justify-between gap-3">
+            <span className="text-[13px] text-slate-600 dark:text-[#c9c7c0]">{label}</span>
+            {editing ? (
+              <input type="number" min="0" value={cfg[k]}
+                onChange={(e) => setCfg({ ...cfg, [k]: e.target.value })}
+                className="w-20 text-center bg-slate-50 dark:bg-[#0C0C0C] border border-slate-200 dark:border-[#262626] rounded-lg px-2 py-1.5 text-sm font-bold text-slate-900 dark:text-[#F3F1EA] focus:outline-none focus:border-accent" />
+            ) : (
+              <span className="font-['JetBrains_Mono'] font-bold text-[14px] text-slate-900 dark:text-[#F3F1EA]">{group[k] ?? '—'}{unit ? <span className="text-[10px] text-slate-400 ml-1">{unit}</span> : null}</span>
+            )}
+          </div>
+        ))}
+      </div>
+      {editing && (
+        <div className="flex gap-2 mt-4">
+          <button onClick={() => setEditing(false)} className="flex-1 py-2.5 rounded-xl font-bold text-sm text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-[#262626]">Cancelar</button>
+          <button onClick={save} disabled={busy} className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl font-bold text-sm text-[#06231d] bg-gradient-to-r from-[#2ED3B7] to-[#26bfa5] disabled:opacity-60">
+            {busy ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />} Guardar
+          </button>
+        </div>
+      )}
+      {isAdmin && <p className="text-[11px] text-[var(--text-muted,#8A8A8A)] mt-3">Si cambiás el puntaje con partidos ya jugados, corré “Recalcular puntajes” en el Panel Admin para re-puntuar con las nuevas reglas.</p>}
+    </div>
   )
 }
 

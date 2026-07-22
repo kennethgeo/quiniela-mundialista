@@ -443,13 +443,25 @@ async def calc_tournament_globals(
         return {"status": "ok", "message": "Sin campeón/goleador definidos", "updated": 0}
 
     preds = (supabase.table("tournament_predictions")
-             .select("id, user_id, champion_team, top_scorer_name, champion_points, top_scorer_points")
+             .select("id, user_id, league_id, champion_team, top_scorer_name, champion_points, top_scorer_points")
              .eq("tournament_id", tournament_id).execute().data or [])
+
+    # Puntos de campeón/goleador configurables por quiniela.
+    league_ids = list({p.get("league_id") for p in preds if p.get("league_id")})
+    lcfg = {}
+    if league_ids:
+        for r in (supabase.table("leagues").select("id, champion_points, scorer_points")
+                  .in_("id", league_ids).execute().data or []):
+            lcfg[r["id"]] = r
+
     updated = 0
     users = set()
     for p in preds:
-        cp = 12 if (champ and p.get("champion_team") and _champion_matches(champ, p["champion_team"])) else 0
-        sp = 12 if (p.get("top_scorer_name") and any(_scorer_matches(n, p["top_scorer_name"]) for n in scorers)) else 0
+        cfg = lcfg.get(p.get("league_id")) or {}
+        champ_pts = cfg.get("champion_points", 12) if cfg.get("champion_points") is not None else 12
+        scorer_pts = cfg.get("scorer_points", 12) if cfg.get("scorer_points") is not None else 12
+        cp = champ_pts if (champ and p.get("champion_team") and _champion_matches(champ, p["champion_team"])) else 0
+        sp = scorer_pts if (p.get("top_scorer_name") and any(_scorer_matches(n, p["top_scorer_name"]) for n in scorers)) else 0
         if cp != (p.get("champion_points") or 0) or sp != (p.get("top_scorer_points") or 0):
             supabase.table("tournament_predictions").update(
                 {"champion_points": cp, "top_scorer_points": sp}).eq("id", p["id"]).execute()

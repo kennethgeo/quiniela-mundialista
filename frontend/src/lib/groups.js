@@ -52,6 +52,19 @@ export async function setGroupRules(leagueId, rules) {
   if (error) throw error
 }
 
+// Config de puntaje por quiniela (solo admin de la quiniela).
+export async function setGroupScoring(leagueId, cfg) {
+  const { error } = await supabase.rpc('set_group_scoring', {
+    p_league_id: leagueId,
+    p_points_exact: cfg.points_exact,
+    p_points_correct: cfg.points_correct,
+    p_champion_points: cfg.champion_points,
+    p_scorer_points: cfg.scorer_points,
+    p_powerup_limit: cfg.powerup_limit,
+  })
+  if (error) throw error
+}
+
 export async function joinGroupByCode(code) {
   const { data, error } = await supabase.rpc('join_group_by_code', {
     p_code: (code || '').trim().toUpperCase(),

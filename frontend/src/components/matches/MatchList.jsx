@@ -11,7 +11,7 @@ const containerVariants = {
   }
 }
 
-export default function MatchList({ matches, predictions, onSavePrediction, isLoading, powerupLimits = {}, powerupUsage = {} }) {
+export default function MatchList({ matches, predictions, onSavePrediction, isLoading, powerupLimit = 0, powerupUsage = {} }) {
   // Agrupar por jornada (matchday)
   const grouped = matches.reduce((acc, match) => {
     // Fase real de ESPN (Jornada N / Octavos / Liguilla…) si existe; si no, jornada o phase.
@@ -35,7 +35,7 @@ export default function MatchList({ matches, predictions, onSavePrediction, isLo
         const matchday = matchExample?.matchday
         const limitKey = powerupKey(phase, matchday)
 
-        const limit = powerupLimits[limitKey] ?? 0; // Por defecto 0 si no se ha cargado o no existe
+        const limit = powerupLimit; // límite ×2 por jornada/fase (config de la quiniela)
 
         // Comodines usados en TODA la fase/jornada (no solo los partidos visibles
         // por el filtro de grupo). Si no llega el conteo global, se cae al local.
