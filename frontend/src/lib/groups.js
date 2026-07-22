@@ -52,6 +52,12 @@ export async function setGroupRules(leagueId, rules) {
   if (error) throw error
 }
 
+// Eliminar quiniela (solo admin).
+export async function deleteGroup(leagueId) {
+  const { error } = await supabase.rpc('delete_group', { p_league_id: leagueId })
+  if (error) throw error
+}
+
 // Config de puntaje por quiniela (solo admin de la quiniela).
 export async function setGroupScoring(leagueId, cfg) {
   const { error } = await supabase.rpc('set_group_scoring', {

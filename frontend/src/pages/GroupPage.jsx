@@ -3,13 +3,13 @@ import { useState, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion } from 'motion/react'
-import { ArrowLeft, CalendarDays, ListOrdered, Users, Copy, Check, Trophy, GitBranch, BarChart3, Shield, ScrollText, Loader2, Pencil } from 'lucide-react'
+import { ArrowLeft, CalendarDays, ListOrdered, Users, Copy, Check, Trophy, GitBranch, BarChart3, Shield, ScrollText, Loader2, Pencil, Lock, Trash2, AlertTriangle } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import { useToast } from '../components/ui/Toast'
 import { friendlySaveError } from '../lib/saveError'
 import { powerupKey } from '../lib/powerups'
-import { fetchMyGroups, fetchGroupStandings, fetchTeamStandings, acceptGroupRules, setGroupRules, setGroupScoring } from '../lib/groups'
+import { fetchMyGroups, fetchGroupStandings, fetchTeamStandings, acceptGroupRules, setGroupRules, setGroupScoring, deleteGroup } from '../lib/groups'
 import { initialsDataUri, crestOnError } from '../lib/teamLogo'
 import { resolveKnockoutTeams } from '../lib/bracketResolver'
 import MatchList from '../components/matches/MatchList'
@@ -110,6 +110,13 @@ export default function GroupPage() {
     return o
   }, [resolved, predictions])
 
+  // ¿El torneo ya arrancó? (algún partido con kickoff <= ahora). Con eso bloqueamos
+  // la edición de reglas/puntaje en el front (el backend también lo rechaza).
+  const tournamentStarted = useMemo(
+    () => matches.some((m) => m.kickoff_at && new Date(m.kickoff_at) <= new Date()),
+    [matches],
+  )
+
   if (lg) return <LoadingSpinner />
   // Si todavía no está en la lista pero seguimos trayendo datos, esperá (evita el
   // falso "No encontramos" cuando la quiniela recién se creó).
@@ -183,10 +190,15 @@ export default function GroupPage() {
       {tab === 'global' && <TournamentGlobalCard tournamentId={tid} teams={teams} leagueId={group.id} championPoints={group.champion_points ?? 12} scorerPoints={group.scorer_points ?? 12} />}
       {tab === 'rules' && (
         <div className="space-y-4">
-          <ScoringConfig group={group} isAdmin={!!group.is_admin}
+          <ScoringConfig group={group} isAdmin={!!group.is_admin} tournamentStarted={tournamentStarted}
             onSaved={() => queryClient.invalidateQueries({ queryKey: ['my_groups'] })} showToast={showToast} />
-          <RulesTab group={group} isAdmin={!!group.is_admin}
+          <RulesTab group={group} isAdmin={!!group.is_admin} tournamentStarted={tournamentStarted}
             onSaved={() => queryClient.invalidateQueries({ queryKey: ['my_groups'] })} showToast={showToast} />
+          {!!group.is_admin && (
+            <DangerZone group={group}
+              onDeleted={() => { queryClient.invalidateQueries({ queryKey: ['my_groups'] }); navigate('/') }}
+              showToast={showToast} />
+          )}
         </div>
       )}
 
@@ -235,7 +247,7 @@ function RulesGate({ group, onAccepted, onLeave }) {
   )
 }
 
-function ScoringConfig({ group, isAdmin, onSaved, showToast }) {
+function ScoringConfig({ group, isAdmin, tournamentStarted, onSaved, showToast }) {
   const [editing, setEditing] = useState(false)
   const [busy, setBusy] = useState(false)
   const [cfg, setCfg] = useState({
@@ -274,10 +286,15 @@ function ScoringConfig({ group, isAdmin, onSaved, showToast }) {
           <BarChart3 size={18} className="text-accent" />
           <h3 className="font-bold font-['Unbounded'] text-slate-900 dark:text-[#F3F1EA] text-[15px]">Puntaje</h3>
         </div>
-        {isAdmin && !editing && (
+        {isAdmin && !editing && !tournamentStarted && (
           <button onClick={() => setEditing(true)} className="flex items-center gap-1.5 text-[12px] font-bold text-accent bg-accent/10 border border-accent/25 rounded-lg px-2.5 py-1.5">
             <Pencil size={13} /> Editar
           </button>
+        )}
+        {isAdmin && tournamentStarted && (
+          <span className="flex items-center gap-1.5 text-[11px] font-bold text-[var(--text-muted,#8A8A8A)] bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-[#262626] rounded-lg px-2.5 py-1.5">
+            <Lock size={12} /> Bloqueado
+          </span>
         )}
       </div>
       <div className="space-y-2.5">
@@ -302,12 +319,17 @@ function ScoringConfig({ group, isAdmin, onSaved, showToast }) {
           </button>
         </div>
       )}
-      {isAdmin && <p className="text-[11px] text-[var(--text-muted,#8A8A8A)] mt-3">Si cambiás el puntaje con partidos ya jugados, corré “Recalcular puntajes” en el Panel Admin para re-puntuar con las nuevas reglas.</p>}
+      {isAdmin && tournamentStarted && (
+        <p className="text-[11px] text-[var(--text-muted,#8A8A8A)] mt-3 flex items-start gap-1.5">
+          <Lock size={12} className="mt-0.5 shrink-0" /> El torneo ya inició: el puntaje queda bloqueado. Los cambios durante el torneo se someterán a votación del grupo.
+        </p>
+      )}
+      {isAdmin && !tournamentStarted && <p className="text-[11px] text-[var(--text-muted,#8A8A8A)] mt-3">Si cambiás el puntaje con partidos ya jugados, corré “Recalcular puntajes” en el Panel Admin para re-puntuar con las nuevas reglas.</p>}
     </div>
   )
 }
 
-function RulesTab({ group, isAdmin, onSaved, showToast }) {
+function RulesTab({ group, isAdmin, tournamentStarted, onSaved, showToast }) {
   const [editing, setEditing] = useState(false)
   const [text, setText] = useState(group.rules || '')
   const [busy, setBusy] = useState(false)
@@ -329,11 +351,16 @@ function RulesTab({ group, isAdmin, onSaved, showToast }) {
           <ScrollText size={18} className="text-accent" />
           <h3 className="font-bold font-['Unbounded'] text-slate-900 dark:text-[#F3F1EA] text-[15px]">Reglas</h3>
         </div>
-        {isAdmin && !editing && (
+        {isAdmin && !editing && !tournamentStarted && (
           <button onClick={() => { setText(group.rules || ''); setEditing(true) }}
             className="flex items-center gap-1.5 text-[12px] font-bold text-accent bg-accent/10 border border-accent/25 rounded-lg px-2.5 py-1.5">
             <Pencil size={13} /> Editar
           </button>
+        )}
+        {isAdmin && tournamentStarted && (
+          <span className="flex items-center gap-1.5 text-[11px] font-bold text-[var(--text-muted,#8A8A8A)] bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-[#262626] rounded-lg px-2.5 py-1.5">
+            <Lock size={12} /> Bloqueado
+          </span>
         )}
       </div>
 
@@ -351,9 +378,75 @@ function RulesTab({ group, isAdmin, onSaved, showToast }) {
           <p className="text-[11px] text-[var(--text-muted,#8A8A8A)] mt-2">Al guardar, los demás miembros deberán volver a aceptar las reglas.</p>
         </>
       ) : (
-        <div className="whitespace-pre-wrap text-[13.5px] leading-relaxed text-slate-700 dark:text-[#e5e3dc]">{group.rules || 'Esta quiniela no tiene reglas definidas.'}</div>
+        <>
+          <div className="whitespace-pre-wrap text-[13.5px] leading-relaxed text-slate-700 dark:text-[#e5e3dc]">{group.rules || 'Esta quiniela no tiene reglas definidas.'}</div>
+          {isAdmin && tournamentStarted && (
+            <p className="text-[11px] text-[var(--text-muted,#8A8A8A)] mt-3 flex items-start gap-1.5">
+              <Lock size={12} className="mt-0.5 shrink-0" /> El torneo ya inició: las reglas quedan bloqueadas. Los cambios durante el torneo se someterán a votación del grupo.
+            </p>
+          )}
+        </>
       )}
     </div>
+  )
+}
+
+/* ---- Zona de peligro: eliminar quiniela (solo admin) ---- */
+function DangerZone({ group, onDeleted, showToast }) {
+  const [confirming, setConfirming] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const del = async () => {
+    try {
+      setBusy(true)
+      await deleteGroup(group.id)
+      showToast('Quiniela eliminada.', 'success', 4000)
+      onDeleted()
+    } catch (e) { showToast(e.message, 'error', 6000); setBusy(false) }
+  }
+  return (
+    <>
+      <div className="rounded-2xl bg-white dark:bg-[#161616] border border-[#FF7A59]/40 p-5">
+        <div className="flex items-center gap-2 mb-2">
+          <AlertTriangle size={18} className="text-[#FF7A59]" />
+          <h3 className="font-bold font-['Unbounded'] text-slate-900 dark:text-[#F3F1EA] text-[15px]">Zona de peligro</h3>
+        </div>
+        <p className="text-[12.5px] leading-relaxed text-[var(--text-muted,#8A8A8A)] mb-4">
+          Al eliminar la quiniela se borran <b className="text-slate-700 dark:text-[#F3F1EA]">todas</b> sus predicciones, miembros y la tabla de posiciones. Esta acción no se puede deshacer.
+        </p>
+        <button onClick={() => setConfirming(true)}
+          className="flex items-center gap-2 rounded-xl px-4 py-2.5 font-['Archivo'] font-bold text-[13px] text-white bg-[#e5533b] hover:bg-[#d64a34] transition-colors">
+          <Trash2 size={15} /> Eliminar quiniela
+        </button>
+      </div>
+
+      {confirming && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+          className="fixed inset-0 z-[130] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+          onClick={() => !busy && setConfirming(false)}>
+          <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+            transition={{ type: 'spring', stiffness: 320, damping: 28 }} onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-[360px] bg-white dark:bg-[#0C0C0C] rounded-[20px] border border-slate-200 dark:border-[#262626] shadow-[0_20px_50px_-20px_rgba(0,0,0,0.6)] p-[22px]">
+            <div className="flex items-center gap-2.5 mb-2">
+              <div className="w-9 h-9 rounded-xl grid place-items-center bg-[#FF7A59]/12 shrink-0">
+                <AlertTriangle size={18} className="text-[#FF7A59]" />
+              </div>
+              <h3 className="font-bold font-['Unbounded'] text-[16px] text-slate-900 dark:text-[#F3F1EA]">¿Eliminar quiniela?</h3>
+            </div>
+            <p className="text-[12.5px] leading-relaxed text-[var(--text-muted,#8A8A8A)] mb-5">
+              Vas a eliminar <b className="text-slate-700 dark:text-[#F3F1EA]">{group.name}</b> para todos sus miembros. Esta acción es permanente.
+            </p>
+            <div className="flex gap-2">
+              <button onClick={() => setConfirming(false)} disabled={busy}
+                className="flex-1 py-2.5 rounded-xl font-bold text-sm text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-[#262626] disabled:opacity-60">Cancelar</button>
+              <button onClick={del} disabled={busy}
+                className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl font-bold text-sm text-white bg-[#e5533b] hover:bg-[#d64a34] disabled:opacity-60">
+                {busy ? <Loader2 size={15} className="animate-spin" /> : <Trash2 size={15} />} Eliminar
+              </button>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </>
   )
 }
 
