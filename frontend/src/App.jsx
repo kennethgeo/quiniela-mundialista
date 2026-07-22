@@ -116,16 +116,7 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
-      <Route
-        path="/dashboard"
-        element={
-          <ProtectedRoute>
-            <MainLayout>
-              <DashboardPage />
-            </MainLayout>
-          </ProtectedRoute>
-        }
-      />
+      <Route path="/dashboard" element={<Navigate to="/" replace />} />
       <Route
         path="/q/:id"
         element={
@@ -136,46 +127,12 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
-      <Route
-        path="/matches"
-        element={
-          <ProtectedRoute>
-            <MainLayout>
-              <MatchesPage />
-            </MainLayout>
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/bracket"
-        element={
-          <ProtectedRoute>
-            <MainLayout>
-              <BracketPage />
-            </MainLayout>
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/leaderboard"
-        element={
-          <ProtectedRoute>
-            <MainLayout>
-              <LeaderboardPage />
-            </MainLayout>
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/torneo"
-        element={
-          <ProtectedRoute>
-            <MainLayout>
-              <TournamentPage />
-            </MainLayout>
-          </ProtectedRoute>
-        }
-      />
+      {/* Rutas del flujo viejo (no están en la nav): predecir/ver ahora es por
+          quiniela en /q/:id. Se redirigen al Hub para no usar el guardado antiguo. */}
+      <Route path="/matches" element={<Navigate to="/" replace />} />
+      <Route path="/bracket" element={<Navigate to="/" replace />} />
+      <Route path="/leaderboard" element={<Navigate to="/" replace />} />
+      <Route path="/torneo" element={<Navigate to="/" replace />} />
       <Route
         path="/profile"
         element={

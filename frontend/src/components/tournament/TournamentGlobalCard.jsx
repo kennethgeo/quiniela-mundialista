@@ -6,7 +6,7 @@ import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import { fetchTeamStandings } from '../../lib/groups'
 
-export default function TournamentGlobalCard({ tournamentId, teams = [] }) {
+export default function TournamentGlobalCard({ tournamentId, teams = [], leagueId, championPoints = 12, scorerPoints = 12 }) {
   const { profile } = useAuth()
   const [locked, setLocked] = useState(false)
   const [players, setPlayers] = useState([])
@@ -38,14 +38,14 @@ export default function TournamentGlobalCard({ tournamentId, teams = [] }) {
   }, [teams, standingsTeams])
 
   useEffect(() => {
-    if (!tournamentId || !profile?.id) return
+    if (!tournamentId || !profile?.id || !leagueId) return
     let alive = true
     ;(async () => {
       setLoading(true)
       const [{ data: t }, { data: pl }, { data: pred }] = await Promise.all([
         supabase.from('tournaments').select('predictions_locked').eq('id', tournamentId).single(),
         supabase.from('players').select('name, team').eq('tournament_id', tournamentId).order('name'),
-        supabase.from('tournament_predictions').select('*').eq('user_id', profile.id).eq('tournament_id', tournamentId).maybeSingle(),
+        supabase.from('tournament_predictions').select('*').eq('user_id', profile.id).eq('tournament_id', tournamentId).eq('league_id', leagueId).maybeSingle(),
       ])
       if (!alive) return
       setLocked(!!t?.predictions_locked)
@@ -54,14 +54,14 @@ export default function TournamentGlobalCard({ tournamentId, teams = [] }) {
       setLoading(false)
     })()
     return () => { alive = false }
-  }, [tournamentId, profile?.id])
+  }, [tournamentId, profile?.id, leagueId])
 
   const save = async () => {
     try {
       setSaving(true); setMsg(null)
       const { error } = await supabase.from('tournament_predictions').upsert(
-        { user_id: profile.id, tournament_id: tournamentId, champion_team: champion || null, top_scorer_name: scorer || null },
-        { onConflict: 'user_id, tournament_id' })
+        { user_id: profile.id, tournament_id: tournamentId, league_id: leagueId, champion_team: champion || null, top_scorer_name: scorer || null },
+        { onConflict: 'user_id, league_id' })
       if (error) throw error
       setMsg({ type: 'ok', text: 'Guardado.' })
       setTimeout(() => setMsg(null), 3000)
@@ -75,7 +75,7 @@ export default function TournamentGlobalCard({ tournamentId, teams = [] }) {
       <div className="flex items-center gap-2 mb-4">
         <Crown size={18} className="text-accent" />
         <h3 className="font-bold font-['Unbounded'] text-slate-900 dark:text-white">Campeón y Goleador</h3>
-        <span className="text-[11px] text-slate-400 ml-auto">12 pts c/u</span>
+        <span className="text-[11px] text-slate-400 ml-auto">{championPoints}/{scorerPoints} pts</span>
       </div>
 
       {locked && (
