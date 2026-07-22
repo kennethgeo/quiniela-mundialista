@@ -2,15 +2,17 @@
 // Todos los valores son los exactos del diseño (marco de 320px). AuthPage escala
 // el bloque completo al ancho del teléfono con transform:scale, así queda idéntico.
 
-// Logo exacto: aro coral 70×32 (rotate -24deg) detrás de bola teal 42 con punto 15.
-export function TicoLogo() {
+// Logo: emblema Tico Games (imagen con fondo transparente).
+export function TicoLogo({ size = 60, style = {} }) {
   return (
-    <div style={{ width: 56, height: 56, borderRadius: '50%', position: 'relative', display: 'grid', placeItems: 'center', marginBottom: 14 }}>
-      <div style={{ position: 'absolute', width: 70, height: 32, border: '1.8px solid #FF7A59', borderRadius: '50%', transform: 'rotate(-24deg)', opacity: 0.75 }} />
-      <div style={{ width: 42, height: 42, borderRadius: '50%', background: 'linear-gradient(135deg,#2ED3B7,#1a8f7c)', display: 'grid', placeItems: 'center', boxShadow: '0 0 22px -2px rgba(46,211,183,.6)' }}>
-        <div style={{ width: 15, height: 15, borderRadius: '50%', background: '#fff' }} />
-      </div>
-    </div>
+    <img
+      src="/tico-logo.png"
+      alt="Tico Games"
+      width={size}
+      height={size}
+      draggable={false}
+      style={{ display: 'block', width: size, height: size, objectFit: 'contain', marginBottom: 14, ...style }}
+    />
   )
 }
 
