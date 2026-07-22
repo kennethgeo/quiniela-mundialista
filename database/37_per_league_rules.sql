@@ -27,6 +27,10 @@ ALTER TABLE public.leagues ADD COLUMN IF NOT EXISTS powerup_limit   int DEFAULT 
 ALTER TABLE public.predictions
   ADD COLUMN IF NOT EXISTS league_id uuid REFERENCES public.leagues(id) ON DELETE CASCADE;
 
+-- Quitar el trigger de límite de comodines (era global) para que no bloquee el
+-- backfill; más abajo se recrea por-liga.
+DROP TRIGGER IF EXISTS enforce_powerup_limit ON public.predictions;
+
 -- Backfill: cada predicción existente se copia a cada quiniela del usuario que
 -- juega el torneo de ese partido.
 INSERT INTO public.predictions
@@ -55,6 +59,40 @@ DO $$ BEGIN
     UNIQUE (user_id, league_id, match_id);
 EXCEPTION WHEN duplicate_table THEN NULL; WHEN others THEN NULL; END $$;
 CREATE INDEX IF NOT EXISTS idx_predictions_league ON public.predictions(league_id);
+
+-- Límite de comodines ×2 POR QUINIELA (usa leagues.powerup_limit y cuenta solo
+-- las predicciones de esa quiniela). Reemplaza al trigger global anterior.
+CREATE OR REPLACE FUNCTION public.check_powerup_limit() RETURNS trigger AS $$
+DECLARE v_phase text; v_matchday integer; v_limit integer; v_current integer;
+BEGIN
+  IF NEW.use_powerup_x2 = TRUE AND NEW.league_id IS NOT NULL THEN
+    SELECT phase, COALESCE(matchday, 0) INTO v_phase, v_matchday
+    FROM public.matches WHERE id = NEW.match_id;
+
+    SELECT powerup_limit INTO v_limit FROM public.leagues WHERE id = NEW.league_id;
+
+    SELECT COUNT(*) INTO v_current
+    FROM public.predictions p
+    JOIN public.matches m ON p.match_id = m.id
+    WHERE p.user_id = NEW.user_id
+      AND p.league_id = NEW.league_id
+      AND p.use_powerup_x2 = TRUE
+      AND m.phase = v_phase
+      AND COALESCE(m.matchday, 0) = v_matchday
+      AND p.id <> NEW.id;
+
+    IF v_limit IS NOT NULL AND v_current >= v_limit THEN
+      RAISE EXCEPTION 'Límite de comodines x2 alcanzado para esta jornada.';
+    END IF;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS enforce_powerup_limit ON public.predictions;
+CREATE TRIGGER enforce_powerup_limit
+  BEFORE INSERT OR UPDATE ON public.predictions
+  FOR EACH ROW EXECUTE FUNCTION public.check_powerup_limit();
 
 -- 3) tournament_predictions.league_id (campeón/goleador por quiniela) ---------
 ALTER TABLE public.tournament_predictions
