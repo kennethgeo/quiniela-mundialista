@@ -128,14 +128,51 @@ def _date_ranges(now, full):
     if not full:
         return [((now - timedelta(days=3)), (now + timedelta(days=21)))]
     # Temporada completa: de ~10 meses atrás a ~5 adelante, en trozos de 30 días.
-    ranges = []
-    cur = now - timedelta(days=300)
-    hard_end = now + timedelta(days=150)
-    while cur < hard_end:
-        nxt = min(cur + timedelta(days=30), hard_end)
-        ranges.append((cur, nxt))
+    # (Fallback si ESPN no expone los límites de la temporada actual.)
+    return _chunks(now - timedelta(days=300), now + timedelta(days=150))
+
+
+def _chunks(lo, hi):
+    """Divide [lo, hi] en ventanas de 30 días para consultar el scoreboard."""
+    out, cur = [], lo
+    while cur < hi:
+        nxt = min(cur + timedelta(days=30), hi)
+        out.append((cur, nxt))
         cur = nxt + timedelta(days=1)
-    return ranges
+    return out
+
+
+def _parse_iso(s):
+    try:
+        return datetime.fromisoformat(s.replace("Z", "+00:00")) if s else None
+    except Exception:  # noqa: BLE001
+        return None
+
+
+async def _season_window(client, league, now):
+    """Ventana [inicio, fin] de la temporada ACTUAL de ESPN (para no arrastrar
+    torneos anteriores, p. ej. la Clausura pasada en ligas de dos semestres).
+    Devuelve None si ESPN no lo expone."""
+    try:
+        r = await client.get(f"{ESPN_BASE}/{league}/scoreboard", params={"lang": "es", "region": "es"})
+        r.raise_for_status()
+        lg = (r.json().get("leagues") or [{}])[0]
+        se = lg.get("season") or {}
+        cal = [c for c in (lg.get("calendar") or []) if isinstance(c, str)]
+        start = _parse_iso(se.get("startDate")) or (_parse_iso(min(cal)) if cal else None)
+        if not start:
+            return None
+        end = _parse_iso(se.get("endDate"))
+        if cal:  # el calendario acota mejor el segmento actual (Apertura/Clausura)
+            cmax = _parse_iso(max(cal))
+            if cmax:
+                end = min(end, cmax + timedelta(days=10)) if end else cmax + timedelta(days=10)
+        end = min(end or (now + timedelta(days=150)), now + timedelta(days=150))
+        if end <= start:
+            end = start + timedelta(days=30)
+        return (start, end)
+    except Exception:  # noqa: BLE001
+        return None
 
 
 async def sync_espn_tournament(supabase, tournament, full=False) -> dict:
@@ -149,8 +186,17 @@ async def sync_espn_tournament(supabase, tournament, full=False) -> dict:
 
     now = datetime.now(timezone.utc)
     events_by_id = {}
+    season_start = None
     async with httpx.AsyncClient(timeout=25.0) as client:
-        for (s, e) in _date_ranges(now, full):
+        if full:
+            win = await _season_window(client, league, now)
+            if win:
+                season_start, ranges = win[0], _chunks(win[0], win[1])
+            else:
+                ranges = _date_ranges(now, True)
+        else:
+            ranges = _date_ranges(now, False)
+        for (s, e) in ranges:
             try:
                 r = await client.get(
                     f"{ESPN_BASE}/{league}/scoreboard",
@@ -225,7 +271,23 @@ async def sync_espn_tournament(supabase, tournament, full=False) -> dict:
             except Exception:  # noqa: BLE001
                 pass
 
-    return {"tournament_id": tid, "matches": len(rows), "scored": scored}
+    # Limpieza: si acotamos a la temporada actual, quitar los partidos de
+    # temporadas anteriores que hubieran quedado cargados (p. ej. la Clausura pasada).
+    removed = 0
+    if full and season_start is not None:
+        try:
+            cutoff = season_start.isoformat()
+            old = (supabase.table("matches").select("id")
+                   .eq("tournament_id", tid).lt("kickoff_at", cutoff).execute().data or [])
+            old_ids = [m["id"] for m in old]
+            if old_ids:
+                supabase.table("predictions").delete().in_("match_id", old_ids).execute()
+                supabase.table("matches").delete().in_("id", old_ids).execute()
+                removed = len(old_ids)
+        except Exception:  # noqa: BLE001
+            pass
+
+    return {"tournament_id": tid, "matches": len(rows), "scored": scored, "removed_old": removed}
 
 
 async def sync_all_espn_tournaments(supabase) -> dict:
