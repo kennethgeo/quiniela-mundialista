@@ -1,4 +1,5 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom'
+import { supabase } from './lib/supabase'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ThemeProvider } from './contexts/ThemeContext'
 import { SettingsProvider } from './contexts/SettingsContext'
@@ -11,7 +12,7 @@ import ProtectedRoute from './components/auth/ProtectedRoute'
 import InstallPrompt from './components/ui/InstallPrompt'
 import LoadingSpinner from './components/ui/LoadingSpinner'
 
-import { useState, lazy, Suspense } from 'react'
+import { useState, useEffect, lazy, Suspense } from 'react'
 
 const AuthPage = lazy(() => import('./pages/AuthPage'))
 const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage'))
@@ -69,7 +70,24 @@ import { useGlobalRealtime } from './hooks/useRealtime'
 
 function AppRoutes() {
   const { user, loading } = useAuth()
+  const navigate = useNavigate()
   useGlobalRealtime()
+
+  // Red de seguridad: si el enlace de recuperación de contraseña cae en cualquier
+  // pantalla (p. ej. el inicio, por el Site URL de Supabase), llevamos al usuario
+  // a /reset-password en cuanto Supabase emite el evento PASSWORD_RECOVERY.
+  useEffect(() => {
+    const hash = window.location.hash || ''
+    if (hash.includes('type=recovery') && !window.location.pathname.startsWith('/reset-password')) {
+      navigate('/reset-password' + hash, { replace: true })
+    }
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'PASSWORD_RECOVERY' && !window.location.pathname.startsWith('/reset-password')) {
+        navigate('/reset-password', { replace: true })
+      }
+    })
+    return () => subscription?.unsubscribe?.()
+  }, [navigate])
 
   if (loading) {
     return <div className="min-h-dvh bg-primary flex items-center justify-center text-accent">⚽ Cargando...</div>
