@@ -1,6 +1,7 @@
 // Hub de quinielas (grupos) — rediseño Tico Games. Datos reales vía RPCs.
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'motion/react'
 import { Plus, KeyRound, Users, X, Loader2, ChevronRight } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
@@ -17,6 +18,7 @@ const PALETTE = [
 export default function HubPage() {
   const { profile } = useAuth()
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const [groups, setGroups] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -25,13 +27,16 @@ export default function HubPage() {
   const load = useCallback(async () => {
     try {
       setLoading(true); setError(null)
-      setGroups(await fetchMyGroups())
+      const data = await fetchMyGroups()
+      setGroups(data)
+      // Mantener sincronizada la caché de React Query que usa la página de quiniela.
+      queryClient.setQueryData(['my_groups'], data)
     } catch (err) {
       setError(err.message)
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [queryClient])
 
   useEffect(() => { load() }, [load])
 
