@@ -150,12 +150,15 @@ async def sync_live(authorization: Optional[str] = Header(default=None)):
         raise HTTPException(status_code=401, detail="No autorizado")
 
     supabase = get_supabase()
+
+    # El sync del Mundial y el de los demás torneos ESPN son independientes: si uno
+    # falla (p. ej. el Mundial ya terminó y su fuente viene vacía), el otro igual corre.
+    result = {}
     try:
         result = await sync_live_scores(supabase)
-    except Exception as exc:  # noqa: BLE001 - exponer el error al cron para diagnóstico
-        raise HTTPException(status_code=500, detail=f"{type(exc).__name__}: {exc}")
+    except Exception as exc:  # noqa: BLE001 - no bloquear el resto de torneos
+        result["live_scores_error"] = f"{type(exc).__name__}: {exc}"
 
-    # Además, sincronizar torneos ESPN nuevos (best-effort, no rompe el del Mundial).
     try:
         from app.services.espn_tournament_sync import sync_all_espn_tournaments
         result["espn_tournaments"] = await sync_all_espn_tournaments(supabase)
