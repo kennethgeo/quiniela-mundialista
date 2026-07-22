@@ -6,6 +6,9 @@ import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import { fetchTeamStandings } from '../../lib/groups'
 
+// normaliza para comparar sin acentos ni mayúsculas
+const norm = (s) => (s || '').toString().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim()
+
 export default function TournamentGlobalCard({ tournamentId, teams = [], leagueId, championPoints = 12, scorerPoints = 12 }) {
   const { profile } = useAuth()
   const [locked, setLocked] = useState(false)
@@ -16,6 +19,7 @@ export default function TournamentGlobalCard({ tournamentId, teams = [], leagueI
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState(null)
+  const [showSug, setShowSug] = useState(false)
 
   // Lista de equipos: une los de los partidos cargados con los de la tabla oficial
   // (ESPN), así el selector de campeón funciona aunque aún no haya partidos.
@@ -36,6 +40,13 @@ export default function TournamentGlobalCard({ tournamentId, teams = [], leagueI
     const s = new Set([...(teams || []), ...standingsTeams])
     return [...s].sort((a, b) => a.localeCompare(b))
   }, [teams, standingsTeams])
+
+  // Sugerencias de goleador: jugadores cuyo nombre EMPIEZA por lo escrito.
+  const scorerSuggestions = useMemo(() => {
+    const q = norm(scorer)
+    if (!q) return []
+    return players.filter((p) => norm(p.name).startsWith(q)).slice(0, 8)
+  }, [scorer, players])
 
   useEffect(() => {
     if (!tournamentId || !profile?.id || !leagueId) return
@@ -95,12 +106,25 @@ export default function TournamentGlobalCard({ tournamentId, teams = [], leagueI
 
       {/* Goleador (autocompletar desde players) */}
       <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wide mb-1.5 flex items-center gap-1.5"><Target size={12} className="text-accent" /> Goleador (Bota de Oro)</label>
-      <input list="tg-players" value={scorer} onChange={e => setScorer(e.target.value)} disabled={locked}
-        placeholder={players.length ? 'Escribí para buscar…' : 'Sincronizá jugadores en el admin'}
-        className="w-full bg-slate-100 dark:bg-[#0C0C0C] border border-slate-200 dark:border-[#262626] rounded-xl px-4 py-3 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-accent disabled:opacity-60 mb-1" />
-      <datalist id="tg-players">
-        {players.map((p, i) => <option key={i} value={p.name}>{p.team}</option>)}
-      </datalist>
+      <div className="relative mb-1">
+        <input value={scorer} onChange={e => { setScorer(e.target.value); setShowSug(true) }}
+          onFocus={() => setShowSug(true)} onBlur={() => setTimeout(() => setShowSug(false), 150)}
+          disabled={locked} autoComplete="off"
+          placeholder={players.length ? 'Escribí el nombre…' : 'Sincronizá jugadores en el admin'}
+          className="w-full bg-slate-100 dark:bg-[#0C0C0C] border border-slate-200 dark:border-[#262626] rounded-xl px-4 py-3 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-accent disabled:opacity-60" />
+        {showSug && scorerSuggestions.length > 0 && !(scorerSuggestions.length === 1 && norm(scorerSuggestions[0].name) === norm(scorer)) && (
+          <div className="absolute z-30 left-0 right-0 mt-1 max-h-60 overflow-y-auto rounded-xl bg-white dark:bg-[#161616] border border-slate-200 dark:border-[#262626] shadow-2xl">
+            {scorerSuggestions.map((p, i) => (
+              <button key={i} type="button"
+                onMouseDown={(e) => { e.preventDefault(); setScorer(p.name); setShowSug(false) }}
+                className="w-full text-left px-4 py-2.5 hover:bg-slate-100 dark:hover:bg-white/5 flex items-center justify-between gap-2 border-b border-slate-100 dark:border-white/5 last:border-0">
+                <span className="text-sm text-slate-900 dark:text-[#F3F1EA] truncate">{p.name}</span>
+                <span className="text-[11px] text-slate-400 shrink-0">{p.team}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
       <p className="text-[11px] text-slate-400 mb-4">{players.length ? `${players.length} jugadores disponibles` : 'Sin lista de jugadores para este torneo aún.'}</p>
 
       {msg && (
