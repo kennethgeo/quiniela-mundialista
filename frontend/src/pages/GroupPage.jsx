@@ -25,8 +25,11 @@ export default function GroupPage() {
   const [tab, setTab] = useState('matches') // 'matches' | 'table'
   const [copied, setCopied] = useState(false)
 
-  // Grupo (de mis grupos)
-  const { data: groups = [], isLoading: lg } = useQuery({ queryKey: ['my_groups'], queryFn: fetchMyGroups })
+  // Grupo (de mis grupos). refetchOnMount 'always' para que una quiniela recién
+  // creada/unida aparezca aunque la caché tenga una lista vieja.
+  const { data: groups = [], isLoading: lg, isFetching: fg } = useQuery({
+    queryKey: ['my_groups'], queryFn: fetchMyGroups, refetchOnMount: 'always',
+  })
   const group = groups.find((g) => g.id === id)
   const tid = group?.tournament_id
   const isCup = group?.tournament_kind === 'cup'
@@ -108,6 +111,9 @@ export default function GroupPage() {
   }, [resolved, predictions])
 
   if (lg) return <LoadingSpinner />
+  // Si todavía no está en la lista pero seguimos trayendo datos, esperá (evita el
+  // falso "No encontramos" cuando la quiniela recién se creó).
+  if (!group && fg) return <LoadingSpinner />
   if (!group) {
     return (
       <div className="max-w-3xl mx-auto text-center py-16">
