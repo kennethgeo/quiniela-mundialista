@@ -52,6 +52,12 @@ export async function setGroupRules(leagueId, rules) {
   if (error) throw error
 }
 
+// Eliminar quiniela (solo admin).
+export async function deleteGroup(leagueId) {
+  const { error } = await supabase.rpc('delete_group', { p_league_id: leagueId })
+  if (error) throw error
+}
+
 // Config de puntaje por quiniela (solo admin de la quiniela).
 export async function setGroupScoring(leagueId, cfg) {
   const { error } = await supabase.rpc('set_group_scoring', {
@@ -63,6 +69,36 @@ export async function setGroupScoring(leagueId, cfg) {
     p_powerup_limit: cfg.powerup_limit,
   })
   if (error) throw error
+}
+
+/* ---- Votación de cambios de reglas durante el torneo (migración 42) ---- */
+
+// Proponer un cambio (solo admin). kind: 'scoring' | 'rules'.
+export async function proposeRuleChange(leagueId, kind, payload, note) {
+  const { data, error } = await supabase.rpc('propose_rule_change', {
+    p_league_id: leagueId, p_kind: kind, p_payload: payload, p_note: note ?? null,
+  })
+  if (error) throw error
+  return data
+}
+
+// Votar una propuesta abierta (a favor / en contra).
+export async function castRuleVote(proposalId, vote) {
+  const { error } = await supabase.rpc('cast_rule_vote', { p_proposal_id: proposalId, p_vote: vote })
+  if (error) throw error
+}
+
+// Cancelar la propuesta abierta (solo admin).
+export async function cancelRuleProposal(proposalId) {
+  const { error } = await supabase.rpc('cancel_rule_proposal', { p_proposal_id: proposalId })
+  if (error) throw error
+}
+
+// Propuestas de una quiniela (abierta + historial).
+export async function fetchLeagueProposals(leagueId) {
+  const { data, error } = await supabase.rpc('league_proposals', { p_league_id: leagueId })
+  if (error) throw error
+  return data || []
 }
 
 export async function joinGroupByCode(code) {
