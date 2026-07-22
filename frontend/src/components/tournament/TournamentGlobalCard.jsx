@@ -1,19 +1,41 @@
 // Predicción de campeón + goleador PARA UN TORNEO (con goleador autocompletado
 // desde la tabla players). Reemplaza al viejo card global del Mundial.
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Crown, Target, Save, Lock, Loader2, CheckCircle2 } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
+import { fetchTeamStandings } from '../../lib/groups'
 
 export default function TournamentGlobalCard({ tournamentId, teams = [] }) {
   const { profile } = useAuth()
   const [locked, setLocked] = useState(false)
   const [players, setPlayers] = useState([])
+  const [standingsTeams, setStandingsTeams] = useState([])
   const [champion, setChampion] = useState('')
   const [scorer, setScorer] = useState('')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState(null)
+
+  // Lista de equipos: une los de los partidos cargados con los de la tabla oficial
+  // (ESPN), así el selector de campeón funciona aunque aún no haya partidos.
+  useEffect(() => {
+    if (!tournamentId) return
+    let alive = true
+    fetchTeamStandings(tournamentId)
+      .then((d) => {
+        if (!alive) return
+        const names = (d?.groups || []).flatMap((g) => (g.rows || []).map((r) => r.team)).filter(Boolean)
+        setStandingsTeams([...new Set(names)])
+      })
+      .catch(() => {})
+    return () => { alive = false }
+  }, [tournamentId])
+
+  const teamOptions = useMemo(() => {
+    const s = new Set([...(teams || []), ...standingsTeams])
+    return [...s].sort((a, b) => a.localeCompare(b))
+  }, [teams, standingsTeams])
 
   useEffect(() => {
     if (!tournamentId || !profile?.id) return
@@ -65,10 +87,11 @@ export default function TournamentGlobalCard({ tournamentId, teams = [] }) {
       {/* Campeón */}
       <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wide mb-1.5 flex items-center gap-1.5"><Crown size={12} className="text-gold" /> Equipo campeón</label>
       <select value={champion} onChange={e => setChampion(e.target.value)} disabled={locked}
-        className="w-full bg-slate-100 dark:bg-[#0C0C0C] border border-slate-200 dark:border-[#262626] rounded-xl px-4 py-3 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-accent disabled:opacity-60 mb-4">
+        className="w-full bg-slate-100 dark:bg-[#0C0C0C] border border-slate-200 dark:border-[#262626] rounded-xl px-4 py-3 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-accent disabled:opacity-60 mb-1">
         <option value="">— elegir campeón —</option>
-        {teams.map(t => <option key={t} value={t}>{t}</option>)}
+        {teamOptions.map(t => <option key={t} value={t}>{t}</option>)}
       </select>
+      <p className="text-[11px] text-slate-400 mb-4">{teamOptions.length ? `${teamOptions.length} equipos` : 'Los equipos aparecen cuando ESPN publica la tabla o los partidos del torneo.'}</p>
 
       {/* Goleador (autocompletar desde players) */}
       <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wide mb-1.5 flex items-center gap-1.5"><Target size={12} className="text-accent" /> Goleador (Bota de Oro)</label>
