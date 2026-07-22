@@ -32,21 +32,26 @@ jobs:
       - name: Poll backend sync endpoint (~1 min granularity for 5 min)
         env:
           # La URL no es secreta: si no defines la variable, usa la de producción por defecto.
-          LIVE_SYNC_URL: ${{ vars.LIVE_SYNC_URL || 'https://quiniela-mundialista-one.vercel.app/_backend/api/matches/sync-live' }}
+          LIVE_SYNC_URL: ${{ vars.LIVE_SYNC_URL || 'https://tico-games-one.vercel.app/_backend/api/matches/sync-live' }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
           if [ -z "$CRON_SECRET" ]; then
             echo "::error::Falta el secreto CRON_SECRET (repo > Settings > Secrets and variables > Actions > pestaña Secrets)."
             exit 1
           fi
+          echo "Endpoint: $LIVE_SYNC_URL"
           for i in 1 2 3 4 5; do
             echo "Pasada $i de 5..."
-            code=$(curl -s -o /tmp/resp.json -w "%{http_code}" \
+            # -L sigue redirecciones (307) preservando el POST; así no se pierde el sync.
+            code=$(curl -sSL -o /tmp/resp.json -w "%{http_code}" \
               -X POST "$LIVE_SYNC_URL" \
               -H "Authorization: Bearer $CRON_SECRET" || echo "000")
             echo "HTTP $code"
             cat /tmp/resp.json 2>/dev/null || true
             echo ""
+            if [ "$code" != "200" ]; then
+              echo "::warning::El endpoint de sync respondió $code (esperado 200)."
+            fi
             if [ "$i" -lt 5 ]; then
               sleep 55
             fi
