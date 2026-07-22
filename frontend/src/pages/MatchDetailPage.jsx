@@ -5,6 +5,7 @@ import { ArrowLeft, Clock, Calendar, MapPin, ShieldAlert, Star, TrendingUp, Help
 import { supabase } from '../lib/supabase'
 import { resolveKnockoutTeams } from '../lib/bracketResolver'
 import { useAuth } from '../hooks/useAuth'
+import { crestOnError } from '../lib/teamLogo'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 
@@ -228,11 +229,11 @@ export default function MatchDetailPage() {
                 {match.home_flag_url ? (
                   <img src={match.home_flag_url} alt={match.home_team}
                     className="relative w-16 h-16 object-contain"
-                    onError={(e) => { e.target.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg"/>' }} />
+                    onError={crestOnError(match.home_team)} />
                 ) : (
                   <img src={`https://flagcdn.com/w160/${(match.home_team_code || 'xx').toLowerCase()}.png`} alt={match.home_team}
                     className="relative w-24 h-16 object-cover rounded-lg shadow-lg ring-1 ring-white/10"
-                    onError={(e) => { e.target.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg"/>' }} />
+                    onError={crestOnError(match.home_team)} />
                 )}
               </div>
               <span className="text-lg font-black text-slate-900 dark:text-white text-center leading-tight">
@@ -276,11 +277,11 @@ export default function MatchDetailPage() {
                 {match.away_flag_url ? (
                   <img src={match.away_flag_url} alt={match.away_team}
                     className="relative w-16 h-16 object-contain"
-                    onError={(e) => { e.target.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg"/>' }} />
+                    onError={crestOnError(match.away_team)} />
                 ) : (
                   <img src={`https://flagcdn.com/w160/${(match.away_team_code || 'xx').toLowerCase()}.png`} alt={match.away_team}
                     className="relative w-24 h-16 object-cover rounded-lg shadow-lg ring-1 ring-white/10"
-                    onError={(e) => { e.target.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg"/>' }} />
+                    onError={crestOnError(match.away_team)} />
                 )}
               </div>
               <span className="text-lg font-black text-slate-900 dark:text-white text-center leading-tight">
