@@ -415,6 +415,8 @@ async def set_tournament_globals(
         updates["actual_champion"] = (payload.get("actual_champion") or "").strip() or None
     if "actual_top_scorer" in payload:
         updates["actual_top_scorer"] = (payload.get("actual_top_scorer") or "").strip() or None
+    if "actual_top_assist" in payload:
+        updates["actual_top_assist"] = (payload.get("actual_top_assist") or "").strip() or None
     if "predictions_locked" in payload:
         updates["predictions_locked"] = bool(payload.get("predictions_locked"))
     if not updates:
@@ -435,22 +437,24 @@ async def calc_tournament_globals(
     goleador reales y match tolerante (acentos/apellido; goleador admite varios
     separados por coma). Idempotente."""
     supabase = get_supabase()
-    t = (supabase.table("tournaments").select("actual_champion, actual_top_scorer")
+    t = (supabase.table("tournaments").select("actual_champion, actual_top_scorer, actual_top_assist")
          .eq("id", tournament_id).single().execute().data) or {}
     champ = t.get("actual_champion")
     scorers = [s.strip() for s in _re.split(r"[,;/]", t.get("actual_top_scorer") or "") if s.strip()]
-    if not champ and not scorers:
-        return {"status": "ok", "message": "Sin campeón/goleador definidos", "updated": 0}
+    assisters = [s.strip() for s in _re.split(r"[,;/]", t.get("actual_top_assist") or "") if s.strip()]
+    if not champ and not scorers and not assisters:
+        return {"status": "ok", "message": "Sin campeón/goleador/asistidor definidos", "updated": 0}
 
     preds = (supabase.table("tournament_predictions")
-             .select("id, user_id, league_id, champion_team, top_scorer_name, champion_points, top_scorer_points")
+             .select("id, user_id, league_id, champion_team, top_scorer_name, top_assist_name, "
+                     "champion_points, top_scorer_points, top_assist_points")
              .eq("tournament_id", tournament_id).execute().data or [])
 
-    # Puntos de campeón/goleador configurables por quiniela.
+    # Puntos de campeón/goleador/asistidor configurables por quiniela.
     league_ids = list({p.get("league_id") for p in preds if p.get("league_id")})
     lcfg = {}
     if league_ids:
-        for r in (supabase.table("leagues").select("id, champion_points, scorer_points")
+        for r in (supabase.table("leagues").select("id, champion_points, scorer_points, assist_points")
                   .in_("id", league_ids).execute().data or []):
             lcfg[r["id"]] = r
 
@@ -460,11 +464,14 @@ async def calc_tournament_globals(
         cfg = lcfg.get(p.get("league_id")) or {}
         champ_pts = cfg.get("champion_points", 12) if cfg.get("champion_points") is not None else 12
         scorer_pts = cfg.get("scorer_points", 12) if cfg.get("scorer_points") is not None else 12
+        assist_pts = cfg.get("assist_points", 12) if cfg.get("assist_points") is not None else 12
         cp = champ_pts if (champ and p.get("champion_team") and _champion_matches(champ, p["champion_team"])) else 0
         sp = scorer_pts if (p.get("top_scorer_name") and any(_scorer_matches(n, p["top_scorer_name"]) for n in scorers)) else 0
-        if cp != (p.get("champion_points") or 0) or sp != (p.get("top_scorer_points") or 0):
+        ap = assist_pts if (p.get("top_assist_name") and any(_scorer_matches(n, p["top_assist_name"]) for n in assisters)) else 0
+        if (cp != (p.get("champion_points") or 0) or sp != (p.get("top_scorer_points") or 0)
+                or ap != (p.get("top_assist_points") or 0)):
             supabase.table("tournament_predictions").update(
-                {"champion_points": cp, "top_scorer_points": sp}).eq("id", p["id"]).execute()
+                {"champion_points": cp, "top_scorer_points": sp, "top_assist_points": ap}).eq("id", p["id"]).execute()
             updated += 1
             users.add(p["user_id"])
     for uid in users:
