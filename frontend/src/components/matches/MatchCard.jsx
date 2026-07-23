@@ -51,6 +51,13 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
   const isTiePredicted = homeGoals === awayGoals && homeGoals !== null
   const editable = !isLocked && !isFinished && !isInProgress
 
+  // Comodines ×2 restantes en la jornada (en vivo: cuenta el toggle local aún sin guardar).
+  const savedThis = prediction?.use_powerup_x2 ? 1 : 0
+  const usedLive = (powerupsUsed || 0) - savedThis + (usePowerup ? 1 : 0)
+  const remaining = Math.max(0, (powerupLimit || 0) - usedLive)
+  // Neón del comodín: la tarjeta brilla en el color del ×2 cuando está activo.
+  const powerupOn = editable ? usePowerup : !!prediction?.use_powerup_x2
+
   // Cuenta regresiva: cada 30s, sin segundos (eficiente con muchas tarjetas)
   useEffect(() => {
     if (isFinished || isInProgress) return
@@ -104,8 +111,17 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
   return (
     <motion.div
       initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      style={borderStyle}
+      animate={{
+        opacity: 1, y: 0,
+        boxShadow: powerupOn
+          ? ['0 0 0px rgba(46,211,183,0)', '0 0 16px 1px rgba(46,211,183,0.55)', '0 0 0px rgba(46,211,183,0)']
+          : '0 0 0px rgba(46,211,183,0)',
+      }}
+      transition={{
+        opacity: { duration: 0.3 }, y: { duration: 0.3 },
+        boxShadow: powerupOn ? { duration: 1.8, repeat: Infinity, ease: 'easeInOut' } : { duration: 0.4 },
+      }}
+      style={{ ...(borderStyle || {}), ...(powerupOn ? { borderColor: '#2ED3B7' } : {}) }}
       className="relative overflow-hidden rounded-[14px] bg-white dark:bg-[#161616] border border-slate-200 dark:border-[#262626] px-3.5 pt-3.5 pb-3"
     >
       {isInProgress && <div className="absolute top-0 left-0 right-0 h-0.5" style={{ background: 'linear-gradient(90deg,#FF4D6D,transparent)' }} />}
@@ -222,8 +238,8 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
               setUsePowerup(!usePowerup)
             }}
             disabled={!usePowerup && hasReachedLimit && !prediction?.use_powerup_x2}
-            title={`Comodín ×2 · ${powerupsUsed}/${powerupLimit}`}
-            className={`shrink-0 flex items-center gap-2 px-2.5 py-2 rounded-[9px] border transition-colors ${
+            title={`Comodín ×2 · quedan ${remaining} de ${powerupLimit} en esta jornada`}
+            className={`shrink-0 flex items-center gap-1.5 px-2.5 py-2 rounded-[9px] border transition-colors ${
               (hasReachedLimit && !usePowerup && !prediction?.use_powerup_x2) ? 'opacity-50 cursor-not-allowed' : ''
             } bg-slate-50 dark:bg-[#0C0C0C] border-slate-200 dark:border-[#262626]`}
           >
@@ -231,6 +247,13 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
               <span className="absolute top-0.5 w-2.5 h-2.5 rounded-full transition-all" style={{ [usePowerup ? 'right' : 'left']: '2px', background: usePowerup ? '#06231d' : '#8A8A8A' }} />
             </span>
             <span className="font-['Archivo'] font-bold text-[9.5px] text-slate-700 dark:text-[#F3F1EA]">×2</span>
+            {powerupLimit > 0 && (
+              <span className="font-['JetBrains_Mono'] font-bold text-[8.5px] tabular-nums leading-none px-1 py-0.5 rounded-md"
+                style={{ color: remaining > 0 ? '#2ED3B7' : '#FF7A59', background: remaining > 0 ? 'rgba(46,211,183,.12)' : 'rgba(255,122,89,.14)' }}
+                title={`${remaining} comodines ×2 disponibles en la jornada`}>
+                {remaining}
+              </span>
+            )}
           </motion.button>
 
           <button

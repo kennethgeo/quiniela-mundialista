@@ -92,15 +92,15 @@ export default function RulesPage() {
             </div>
             <div>
               <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">Predicciones Globales</h2>
-              <p className="text-sm font-medium text-amber-600 dark:text-amber-500">24 Puntos en juego</p>
+              <p className="text-sm font-medium text-amber-600 dark:text-amber-500">Hasta 36 puntos en juego</p>
             </div>
           </div>
-          
+
           <div className="space-y-4 relative z-10">
             <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
-              Antes de que inicie el primer partido del Mundial, puedes intentar adivinar quién será el <strong>Campeón del Mundo</strong> y el <strong>Goleador del Torneo</strong>. Estas predicciones se bloquean automáticamente apenas el balón ruede por primera vez en el partido inaugural.
+              Antes de que inicie el primer partido, puedes intentar adivinar quién será el <strong>Campeón</strong>, el <strong>Goleador</strong> y el <strong>Asistidor</strong> del torneo. Estas predicciones se bloquean automáticamente apenas el balón ruede por primera vez. <span className="text-xs text-slate-500 dark:text-slate-400">(Cada quiniela puede ajustar estos puntos.)</span>
             </p>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="bg-white/60 dark:bg-black/20 backdrop-blur-sm p-4 rounded-2xl border border-amber-200/50 dark:border-white/5">
                 <div className="text-2xl font-black text-amber-500 mb-1">12 Pts</div>
                 <h3 className="font-bold text-slate-800 dark:text-slate-200 text-sm mb-1">Acertar Campeón</h3>
@@ -110,6 +110,11 @@ export default function RulesPage() {
                 <div className="text-2xl font-black text-amber-500 mb-1">12 Pts</div>
                 <h3 className="font-bold text-slate-800 dark:text-slate-200 text-sm mb-1">Acertar Goleador</h3>
                 <p className="text-xs text-slate-600 dark:text-slate-400">Si el jugador que escribiste gana la bota de oro.</p>
+              </div>
+              <div className="bg-white/60 dark:bg-black/20 backdrop-blur-sm p-4 rounded-2xl border border-amber-200/50 dark:border-white/5">
+                <div className="text-2xl font-black text-amber-500 mb-1">12 Pts</div>
+                <h3 className="font-bold text-slate-800 dark:text-slate-200 text-sm mb-1">Acertar Asistidor</h3>
+                <p className="text-xs text-slate-600 dark:text-slate-400">Si acertás quién reparte más asistencias en el torneo.</p>
               </div>
             </div>
           </div>

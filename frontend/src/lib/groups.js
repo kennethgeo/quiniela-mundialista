@@ -69,6 +69,7 @@ export async function setGroupScoring(leagueId, cfg) {
     p_champion_points: cfg.champion_points,
     p_scorer_points: cfg.scorer_points,
     p_powerup_limit: cfg.powerup_limit,
+    p_assist_points: cfg.assist_points,
   })
   if (error) throw error
 }

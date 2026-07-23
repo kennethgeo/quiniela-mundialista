@@ -199,7 +199,7 @@ export default function GroupPage() {
       {tab === 'table' && <StandingsTab leagueId={group.id} />}
       {tab === 'teams' && <TeamStandingsTab tournamentId={tid} />}
       {tab === 'bracket' && tid === 1 && <BracketView />}
-      {tab === 'global' && <TournamentGlobalCard tournamentId={tid} teams={teams} leagueId={group.id} championPoints={group.champion_points ?? 12} scorerPoints={group.scorer_points ?? 12} />}
+      {tab === 'global' && <TournamentGlobalCard tournamentId={tid} teams={teams} leagueId={group.id} championPoints={group.champion_points ?? 12} scorerPoints={group.scorer_points ?? 12} assistPoints={group.assist_points ?? 12} />}
       {tab === 'rules' && (
         <RulesPanel group={group} tournamentStarted={tournamentStarted} showToast={showToast}
           onDeleted={() => { queryClient.invalidateQueries({ queryKey: ['my_groups'] }); navigate('/') }} />
@@ -438,6 +438,7 @@ function ScoringConfig({ group, isAdmin, tournamentStarted, hasOpenProposal, onS
     powerup_limit: group.powerup_limit ?? 2,
     champion_points: group.champion_points ?? 12,
     scorer_points: group.scorer_points ?? 12,
+    assist_points: group.assist_points ?? 12,
   })
   // Con el torneo iniciado, editar = proponer a votación (no guardar directo).
   const propose = tournamentStarted
@@ -447,6 +448,7 @@ function ScoringConfig({ group, isAdmin, tournamentStarted, hasOpenProposal, onS
     ['powerup_limit', 'Comodines ×2 por jornada', ''],
     ['champion_points', 'Acertar campeón', 'pts'],
     ['scorer_points', 'Acertar goleador', 'pts'],
+    ['assist_points', 'Acertar asistidor', 'pts'],
   ]
   const save = async () => {
     const parsed = {
@@ -455,6 +457,7 @@ function ScoringConfig({ group, isAdmin, tournamentStarted, hasOpenProposal, onS
       powerup_limit: parseInt(cfg.powerup_limit) || 0,
       champion_points: parseInt(cfg.champion_points) || 0,
       scorer_points: parseInt(cfg.scorer_points) || 0,
+      assist_points: parseInt(cfg.assist_points) || 0,
     }
     try {
       setBusy(true)

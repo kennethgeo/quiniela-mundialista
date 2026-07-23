@@ -45,10 +45,19 @@ export default function MatchList({ matches, predictions, onSavePrediction, isLo
         
         return (
         <div key={label}>
-          {/* Section header */}
-          <h3 className="font-['JetBrains_Mono'] font-bold text-[9.5px] uppercase tracking-[0.18em] text-[var(--text-muted,#8A8A8A)] mb-2.5 px-0.5">
-            {label}
-          </h3>
+          {/* Section header + comodines ×2 disponibles en la jornada */}
+          <div className="flex items-center justify-between gap-2 mb-2.5 px-0.5">
+            <h3 className="font-['JetBrains_Mono'] font-bold text-[9.5px] uppercase tracking-[0.18em] text-[var(--text-muted,#8A8A8A)]">
+              {label}
+            </h3>
+            {limit > 0 && (
+              <span className="shrink-0 flex items-center gap-1 font-['JetBrains_Mono'] font-bold text-[9px] px-2 py-0.5 rounded-[20px]"
+                style={{ color: hasReachedLimit ? '#FF7A59' : '#2ED3B7', background: hasReachedLimit ? 'rgba(255,122,89,.12)' : 'rgba(46,211,183,.12)' }}
+                title="Comodines ×2 disponibles en esta jornada">
+                ×2 · {Math.max(0, limit - powerupsUsed)}/{limit}
+              </span>
+            )}
+          </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 w-full">
             {groupMatches.map(match => (
