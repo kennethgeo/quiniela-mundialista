@@ -24,7 +24,9 @@ export const DEFAULT_RULES = `Reglas de la quiniela
 
 2. Puntaje: marcador exacto = 3 pts, resultado correcto = 1 pt. El comodín ×2 duplica los puntos, según los límites de cada jornada/fase.
 
-2.1 Formato del torneo: en las ligas, la fase regular puntúa así (3 / 1). Al terminar la fase regular, la postemporada (semifinales, final o liguilla) se juega como eliminatoria: aplican las reglas de penales (el empate puntúa aunque falles el penal, +1 por acertar quién avanza, y el ×2 duplica todo). En las copas, la fase de grupos es 3 / 1 y la eliminatoria usa esas mismas reglas de penales. El campeón se define en la final y suma con tu predicción global de campeón.
+2.1 Formato del torneo: en las ligas, la fase regular puntúa así (3 / 1). Al terminar la fase regular, la postemporada (semifinales, final o liguilla) se juega como eliminatoria: aplican las reglas de penales (el empate puntúa aunque falles el penal, +1 por acertar quién avanza, y el ×2 duplica todo). En las copas, la fase de grupos es 3 / 1 y la eliminatoria usa esas mismas reglas de penales.
+
+2.2 Predicciones globales: antes de que arranque el torneo podés predecir el campeón, el goleador y el asistidor. Cada acierto suma puntos extra (por defecto 12 pts cada uno, configurable por la quiniela) y se bloquean al iniciar el primer partido.
 
 3. Respeto ante todo: mantené el respeto hacia todas las personas del grupo. Si se le falta el respeto a cualquier integrante, el administrador procederá a eliminar a la persona de la quiniela, sin derecho a reclamo alguno.
 
