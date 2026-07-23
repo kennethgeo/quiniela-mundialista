@@ -193,6 +193,17 @@ export default function RulesPage() {
                 </p>
               </div>
             </div>
+            <div className="bg-accent/5 p-5 rounded-2xl border border-accent/20 flex gap-4 items-start">
+              <div className="mt-1 w-8 h-8 rounded-full bg-accent/15 flex items-center justify-center shrink-0">
+                <Trophy size={16} className="text-accent" />
+              </div>
+              <div>
+                <h3 className="font-bold text-base text-slate-800 dark:text-slate-200">Ligas: la postemporada juega como eliminatoria</h3>
+                <p className="text-sm text-slate-600 dark:text-slate-400 mt-2 leading-relaxed">
+                  En los torneos de <strong>liga</strong> (Ej. Primera División), la <strong>fase regular</strong> puntúa normal: <strong>3 pts</strong> por marcador exacto y <strong>1 pt</strong> por resultado correcto. Cuando termina la fase regular y empieza la <strong>postemporada</strong> (semifinales, final o liguilla), esos partidos se puntúan <strong>igual que la eliminatoria del Mundial</strong>: aplican las mismas reglas de penales (el empate puntúa aunque falles el penal, <strong>+1</strong> por acertar quién avanza, y el comodín ×2 duplica todo). El <strong>campeón</strong> de la liga es quien gana la final, y se puntúa con tu predicción global de campeón.
+                </p>
+              </div>
+            </div>
           </div>
         </motion.section>
 
