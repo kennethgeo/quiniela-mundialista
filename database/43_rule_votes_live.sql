@@ -88,6 +88,8 @@ BEGIN
 END; $$;
 
 -- 4) league_proposals: resuelve vencidas y devuelve también expires_at.
+-- Se elimina primero porque cambia el tipo de retorno (agrega expires_at).
+DROP FUNCTION IF EXISTS public.league_proposals(uuid);
 CREATE OR REPLACE FUNCTION public.league_proposals(p_league_id uuid)
 RETURNS TABLE (
   id uuid, kind text, payload jsonb, note text, status text,
