@@ -1,5 +1,5 @@
 // Página de una quiniela (grupo): sus partidos (predecir, scoped al torneo) + tabla.
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion } from 'motion/react'
@@ -166,8 +166,20 @@ export default function GroupPage() {
         {/* Solo el Mundial tiene bracket dedicado; el resto ve sus fases en Partidos */}
         {tid === 1 && <TabBtn active={tab === 'bracket'} onClick={() => setTab('bracket')} icon={GitBranch} label="Bracket" />}
         <TabBtn active={tab === 'global'} onClick={() => setTab('global')} icon={BarChart3} label="Campeón/Gol" />
-        <TabBtn active={tab === 'rules'} onClick={() => setTab('rules')} icon={ScrollText} label="Reglas" />
+        <TabBtn active={tab === 'rules'} onClick={() => setTab('rules')} icon={ScrollText} label="Reglas" dot={!!group.open_proposal} />
       </div>
+
+      {/* Aviso de votación abierta (visible desde cualquier pestaña) */}
+      {group.open_proposal && tab !== 'rules' && (
+        <button onClick={() => setTab('rules')}
+          className="w-full mb-4 flex items-center gap-2.5 rounded-xl px-4 py-3 bg-accent/10 border border-accent/30 text-left">
+          <Vote size={17} className="text-accent shrink-0" />
+          <span className="flex-1 text-[12.5px] font-semibold text-slate-700 dark:text-[#F3F1EA]">
+            {group.my_pending_vote ? 'Hay una propuesta de cambio de reglas — falta tu voto.' : 'Hay una propuesta de cambio de reglas en votación.'}
+          </span>
+          <span className="text-[11px] font-bold text-accent shrink-0">Ver →</span>
+        </button>
+      )}
 
       {tab === 'matches' && (
         lm ? <LoadingSpinner /> : resolved.length === 0 ? (
@@ -190,8 +202,7 @@ export default function GroupPage() {
       {tab === 'global' && <TournamentGlobalCard tournamentId={tid} teams={teams} leagueId={group.id} championPoints={group.champion_points ?? 12} scorerPoints={group.scorer_points ?? 12} />}
       {tab === 'rules' && (
         <RulesPanel group={group} tournamentStarted={tournamentStarted} showToast={showToast}
-          onDeleted={() => { queryClient.invalidateQueries({ queryKey: ['my_groups'] }); navigate('/') }}
-          invalidateGroups={() => queryClient.invalidateQueries({ queryKey: ['my_groups'] })} />
+          onDeleted={() => { queryClient.invalidateQueries({ queryKey: ['my_groups'] }); navigate('/') }} />
       )}
 
       {/* Puerta de reglas: hay que aceptarlas para poder usar la quiniela */}
@@ -239,6 +250,15 @@ function RulesGate({ group, onAccepted, onLeave }) {
   )
 }
 
+// "Expira en 12 h" / "Expira en 45 min" / "Cerrando…" para una propuesta.
+function timeLeft(iso) {
+  const ms = new Date(iso).getTime() - Date.now()
+  if (ms <= 0) return 'Cerrando…'
+  const h = Math.floor(ms / 3600000)
+  const m = Math.floor((ms % 3600000) / 60000)
+  return h >= 1 ? `Expira en ${h} h` : `Expira en ${m} min`
+}
+
 // Etiquetas de las reglas de puntaje (para propuestas y diffs).
 const SCORING_LABELS = {
   points_exact: 'Marcador exacto',
@@ -250,16 +270,30 @@ const SCORING_LABELS = {
 
 // Panel completo de la pestaña Reglas: votación (si hay propuesta abierta),
 // puntaje, reglas de texto, historial de propuestas y zona de peligro.
-function RulesPanel({ group, tournamentStarted, showToast, onDeleted, invalidateGroups }) {
+function RulesPanel({ group, tournamentStarted, showToast, onDeleted }) {
   const isAdmin = !!group.is_admin
+  const qc = useQueryClient()
   const { data: proposals = [], refetch } = useQuery({
     queryKey: ['league_proposals', group.id],
     queryFn: () => fetchLeagueProposals(group.id),
     enabled: !!group.id,
+    // Fallback si el realtime no está habilitado: mientras haya votación abierta,
+    // refrescamos el conteo cada 8 s.
+    refetchInterval: (query) => (query.state.data?.some((p) => p.status === 'open') ? 8000 : false),
   })
   const openProposal = proposals.find((p) => p.status === 'open') || null
   const history = proposals.filter((p) => p.status !== 'open')
-  const afterChange = () => { refetch(); invalidateGroups() }
+  const afterChange = () => { refetch(); qc.invalidateQueries({ queryKey: ['my_groups'] }) }
+
+  // Realtime: el conteo de votos se actualiza solo para todos los miembros.
+  useEffect(() => {
+    if (!group.id) return
+    const ch = supabase.channel(`rules-${group.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'rule_proposals', filter: `league_id=eq.${group.id}` }, () => { refetch(); qc.invalidateQueries({ queryKey: ['my_groups'] }) })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'rule_votes' }, () => refetch())
+      .subscribe()
+    return () => { supabase.removeChannel(ch) }
+  }, [group.id, refetch, qc])
 
   return (
     <div className="space-y-4">
@@ -293,10 +327,11 @@ function RuleVoting({ proposal, group, isAdmin, onChanged, showToast }) {
     <div className="rounded-2xl bg-white dark:bg-[#161616] border-2 border-accent/50 p-5">
       <div className="flex items-center gap-2 mb-1">
         <Vote size={18} className="text-accent" />
-        <h3 className="font-bold font-['Unbounded'] text-slate-900 dark:text-[#F3F1EA] text-[15px]">Propuesta en votación</h3>
+        <h3 className="font-bold font-['Unbounded'] text-slate-900 dark:text-[#F3F1EA] text-[15px] flex-1">Propuesta en votación</h3>
+        {proposal.expires_at && <span className="shrink-0 font-['JetBrains_Mono'] font-bold text-[10px] text-[var(--text-muted,#8A8A8A)]">{timeLeft(proposal.expires_at)}</span>}
       </div>
       <p className="text-[11.5px] text-[var(--text-muted,#8A8A8A)] mb-3">
-        Propuesta de <b className="text-slate-700 dark:text-[#F3F1EA]">{proposal.proposer_name || 'el admin'}</b>. Se aprueba con la mayoría del grupo ({needed} de {proposal.members} votos a favor).
+        Propuesta de <b className="text-slate-700 dark:text-[#F3F1EA]">{proposal.proposer_name || 'el admin'}</b>. Se aprueba con la mayoría del grupo ({needed} de {proposal.members} votos a favor). Al vencer el plazo se decide por mayoría de lo votado.
       </p>
 
       <ProposalDiff proposal={proposal} group={group} />
@@ -639,14 +674,15 @@ function DangerZone({ group, onDeleted, showToast }) {
   )
 }
 
-function TabBtn({ active, onClick, icon: Icon, label }) {
+function TabBtn({ active, onClick, icon: Icon, label, dot }) {
   return (
     <button onClick={onClick}
-      className={`shrink-0 flex items-center gap-1.5 px-3.5 py-2 rounded-[10px] font-['Archivo'] font-bold text-[11.5px] whitespace-nowrap transition-all ${
+      className={`relative shrink-0 flex items-center gap-1.5 px-3.5 py-2 rounded-[10px] font-['Archivo'] font-bold text-[11.5px] whitespace-nowrap transition-all ${
         active
           ? 'bg-accent text-[#06231d]'
           : 'bg-white dark:bg-[#161616] text-[var(--text-muted,#8A8A8A)] border border-slate-200 dark:border-[#262626]'}`}>
       <Icon size={14} /> {label}
+      {dot && <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-[#FF7A59] ring-2 ring-white dark:ring-[#0C0C0C] animate-pulse" />}
     </button>
   )
 }

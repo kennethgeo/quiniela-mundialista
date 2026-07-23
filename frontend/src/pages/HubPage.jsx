@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'motion/react'
-import { Plus, KeyRound, Users, X, Loader2, ChevronRight } from 'lucide-react'
+import { Plus, KeyRound, Users, X, Loader2, ChevronRight, Vote } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import { fetchMyGroups, fetchTournaments, createGroup, joinGroupByCode, DEFAULT_RULES } from '../lib/groups'
 
@@ -133,6 +133,13 @@ function GroupCard({ g, pal, onOpen }) {
         </span>
       </div>
       <div className="font-['JetBrains_Mono'] font-semibold text-[10px] text-[var(--text-muted,#8A8A8A)] mt-1.5 tracking-[0.05em] uppercase truncate">{g.tournament_name}</div>
+
+      {g.open_proposal && (
+        <div className="mt-2.5 inline-flex items-center gap-1.5 rounded-lg px-2 py-1 bg-accent/12 border border-accent/30">
+          <Vote size={12} className="text-accent" />
+          <span className="font-['Archivo'] font-bold text-[10px] text-accent">{g.my_pending_vote ? 'Falta tu voto' : 'Votación en curso'}</span>
+        </div>
+      )}
 
       <div className="flex justify-between items-baseline mt-[18px]">
         <div>
