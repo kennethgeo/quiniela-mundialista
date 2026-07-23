@@ -240,7 +240,10 @@ async def sync_espn_tournament(supabase, tournament, full=False) -> dict:
         "away_goals_actual": p["away_goals"] if p["status"] != "pending" else None,
         "minute": p["minute"],
         "matchday": p.get("matchday"),
-        "phase": "groups",
+        # La postemporada de una liga (semis/final/liguilla) puntúa como
+        # ELIMINATORIA (reglas de penales), igual que la fase final de una copa.
+        # La fase regular queda como 'groups' (marcador exacto / resultado).
+        "phase": "knockout" if p.get("stage_base") else "groups",
         "stage": p.get("stage"),
         "events_json": p["events"],
     } for p in parsed]
