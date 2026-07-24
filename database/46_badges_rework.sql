@@ -48,14 +48,14 @@ BEGIN
   WITH
   mem AS (SELECT user_id FROM public.league_members WHERE league_id = p_league_id),
   mj AS (
-    SELECT m.id, m.status, m.kickoff_at,
+    SELECT m.id, m.status, m.kickoff_at, m.home_goals_actual, m.away_goals_actual,
       COALESCE(m.stage, CASE WHEN m.matchday IS NOT NULL THEN 'J'||m.matchday END, m.phase) AS jkey
     FROM public.matches m
     WHERE m.tournament_id = v_tid AND m.status NOT IN ('cancelled','postponed')
   ),
   fin AS (
     SELECT p.user_id, p.home_goals_pred hp, p.away_goals_pred ap, p.use_powerup_x2 x2,
-           COALESCE(p.points_earned,0) pts, m.home_goals_actual ha, m.away_goals_actual aa,
+           COALESCE(p.points_earned,0) pts, mj.home_goals_actual ha, mj.away_goals_actual aa,
            mj.jkey, mj.kickoff_at
     FROM public.predictions p
     JOIN mj ON mj.id = p.match_id AND mj.status = 'finished'
