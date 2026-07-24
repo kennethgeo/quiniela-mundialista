@@ -3,7 +3,7 @@ import { useState, useMemo, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion } from 'motion/react'
-import { ArrowLeft, CalendarDays, ListOrdered, Users, Copy, Check, Trophy, GitBranch, BarChart3, Shield, ScrollText, Loader2, Pencil, Lock, Trash2, AlertTriangle, Vote, ThumbsUp, ThumbsDown, X } from 'lucide-react'
+import { ArrowLeft, CalendarDays, ListOrdered, Users, Copy, Check, Trophy, GitBranch, BarChart3, Shield, ScrollText, Loader2, Pencil, Lock, Trash2, AlertTriangle, Vote, ThumbsUp, ThumbsDown, X, Home, Clock, ChevronRight, Target } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import { useToast } from '../components/ui/Toast'
@@ -11,7 +11,7 @@ import { friendlySaveError } from '../lib/saveError'
 import { powerupKey } from '../lib/powerups'
 import { fetchMyGroups, fetchGroupStandings, fetchTeamStandings, acceptGroupRules, setGroupRules, setGroupScoring, deleteGroup, proposeRuleChange, castRuleVote, cancelRuleProposal, fetchLeagueProposals } from '../lib/groups'
 import { initialsDataUri, crestOnError } from '../lib/teamLogo'
-import { fetchLeagueMedals } from '../lib/medals'
+import { fetchLeagueMedals, recomputeLeagueBadges } from '../lib/medals'
 import { MedalStrip } from '../components/medals/BadgeShowcase'
 import { resolveKnockoutTeams } from '../lib/bracketResolver'
 import MatchList from '../components/matches/MatchList'
@@ -30,7 +30,7 @@ export default function GroupPage() {
   const { profile } = useAuth()
   const { showToast } = useToast()
   const queryClient = useQueryClient()
-  const [tab, setTab] = useState('matches') // 'matches' | 'table'
+  const [tab, setTab] = useState('home') // 'home' | 'matches' | 'table' | ...
   const [copied, setCopied] = useState(false)
 
   // Grupo (de mis grupos). refetchOnMount 'always' para que una quiniela recién
@@ -192,6 +192,7 @@ export default function GroupPage() {
 
       {/* Tabs — Partidos y Tabla siempre; Bracket y Torneo solo en copas */}
       <div className="flex gap-1.5 mb-4 overflow-x-auto scrollbar-hide">
+        <TabBtn active={tab === 'home'} onClick={() => setTab('home')} icon={Home} label="Resumen" />
         <TabBtn active={tab === 'matches'} onClick={() => setTab('matches')} icon={CalendarDays} label="Partidos" />
         <TabBtn active={tab === 'table'} onClick={() => setTab('table')} icon={ListOrdered} label="Tabla" />
         {!isCup && <TabBtn active={tab === 'teams'} onClick={() => setTab('teams')} icon={Shield} label="Posiciones" />}
@@ -211,6 +212,11 @@ export default function GroupPage() {
           </span>
           <span className="text-[11px] font-bold text-accent shrink-0">Ver →</span>
         </button>
+      )}
+
+      {tab === 'home' && (
+        <SummaryTab group={group} matches={resolved} predictions={predictions} leagueId={group.id}
+          profileId={profile?.id} loading={lm} onTab={setTab} onOpenMatch={(mid) => navigate(`/match/${mid}`)} />
       )}
 
       {tab === 'matches' && (
@@ -347,6 +353,7 @@ function RulesPanel({ group, tournamentStarted, showToast, onDeleted }) {
       <RulesTab group={group} isAdmin={isAdmin} tournamentStarted={tournamentStarted}
         hasOpenProposal={!!openProposal} onSaved={afterChange} onProposed={afterChange} showToast={showToast} />
       {history.length > 0 && <ProposalHistory items={history} />}
+      {isAdmin && <AdminTools group={group} showToast={showToast} onDone={() => qc.invalidateQueries({ queryKey: ['league_medals', group.id] })} />}
       {isAdmin && <DangerZone group={group} onDeleted={onDeleted} showToast={showToast} />}
     </div>
   )
@@ -660,6 +667,34 @@ function RulesTab({ group, isAdmin, tournamentStarted, hasOpenProposal, onSaved,
   )
 }
 
+/* ---- Herramientas de admin ---- */
+function AdminTools({ group, showToast, onDone }) {
+  const [busy, setBusy] = useState(false)
+  const recalc = async () => {
+    try {
+      setBusy(true)
+      await recomputeLeagueBadges(group.id)
+      showToast('Medallas recalculadas.', 'success', 3500)
+      onDone?.()
+    } catch (e) { showToast(e.message, 'error', 6000) } finally { setBusy(false) }
+  }
+  return (
+    <div className="rounded-2xl bg-white dark:bg-[#161616] border border-slate-200 dark:border-[#262626] p-5">
+      <div className="flex items-center gap-2 mb-2">
+        <Trophy size={18} className="text-accent" />
+        <h3 className="font-bold font-['Unbounded'] text-slate-900 dark:text-[#F3F1EA] text-[15px]">Herramientas</h3>
+      </div>
+      <p className="text-[12.5px] leading-relaxed text-[var(--text-muted,#8A8A8A)] mb-3">
+        Las medallas se recalculan solas tras cada sincronización. Si querés forzarlo (por ejemplo, tras un cambio manual), usá el botón.
+      </p>
+      <button onClick={recalc} disabled={busy}
+        className="flex items-center gap-2 rounded-xl px-4 py-2.5 font-['Archivo'] font-bold text-[13px] text-[#06231d] bg-gradient-to-r from-[#2ED3B7] to-[#26bfa5] disabled:opacity-60">
+        {busy ? <Loader2 size={15} className="animate-spin" /> : <Trophy size={15} />} Recalcular medallas
+      </button>
+    </div>
+  )
+}
+
 /* ---- Zona de peligro: eliminar quiniela (solo admin) ---- */
 function DangerZone({ group, onDeleted, showToast }) {
   const [confirming, setConfirming] = useState(false)
@@ -813,6 +848,187 @@ function TeamStandingsTab({ tournamentId }) {
       <p className="text-[11px] text-slate-400 text-center">Tabla oficial vía ESPN{data.season ? ` · temporada ${data.season}` : ''}</p>
     </div>
   )
+}
+
+// Pantalla de aterrizaje de la quiniela: resumen, próximos, últimos, torneo.
+function SummaryTab({ group, matches, predictions, leagueId, profileId, loading, onTab, onOpenMatch }) {
+  const predByMatch = useMemo(() => {
+    const m = {}; predictions.forEach((p) => { m[p.match_id] = p }); return m
+  }, [predictions])
+
+  const upcoming = useMemo(() => matches
+    .filter((m) => m.status === 'pending' || m.status === 'in_progress')
+    .sort((a, b) => new Date(a.kickoff_at) - new Date(b.kickoff_at))
+    .slice(0, 4), [matches])
+
+  const recent = useMemo(() => matches
+    .filter((m) => m.status === 'finished')
+    .sort((a, b) => new Date(b.kickoff_at) - new Date(a.kickoff_at))
+    .slice(0, 4), [matches])
+
+  const stats = useMemo(() => {
+    let made = 0, hits = 0, exact = 0, x2 = 0
+    predictions.forEach((p) => { made++; if (p.use_powerup_x2) x2++ })
+    matches.forEach((m) => {
+      if (m.status !== 'finished') return
+      const p = predByMatch[m.id]; if (!p) return
+      if ((p.points_earned || 0) > 0) hits++
+      if (p.home_goals_pred === m.home_goals_actual && p.away_goals_pred === m.away_goals_actual) exact++
+    })
+    return { made, hits, exact, x2 }
+  }, [predictions, matches, predByMatch])
+
+  const played = matches.filter((m) => m.status === 'finished').length
+  const totalM = matches.filter((m) => m.status !== 'cancelled' && m.status !== 'postponed').length
+
+  const { data: medalRows = [] } = useQuery({
+    queryKey: ['league_medals', leagueId], queryFn: () => fetchLeagueMedals(leagueId), staleTime: 1000 * 60 * 5,
+  })
+  const myMedals = useMemo(() => medalRows
+    .filter((r) => r.user_id === profileId)
+    .map((r) => ({ badge_key: r.badge_key, tier: r.tier }))
+    .sort((a, b) => b.tier - a.tier), [medalRows, profileId])
+
+  if (loading) return <LoadingSpinner />
+
+  const eff = stats.made ? Math.round((stats.hits / stats.made) * 100) : 0
+
+  return (
+    <div className="space-y-4">
+      {/* Stat tiles */}
+      <div className="grid grid-cols-3 gap-2.5">
+        <StatTile label="Posición" value={`#${group.my_rank}`} sub={`de ${group.members}`} color="#E8B75A" />
+        <StatTile label="Puntos" value={group.my_points ?? 0} color="#2ED3B7" />
+        <StatTile label="Efectividad" value={`${eff}%`} sub={`${stats.hits}/${stats.made}`} color="#FF7A59" />
+      </div>
+
+      {/* Próximos partidos */}
+      <Section title="Próximos partidos" icon={CalendarDays} actionLabel="Ver todos" onAction={() => onTab('matches')}>
+        {upcoming.length === 0 ? (
+          <p className="text-[12px] text-[var(--text-muted,#8A8A8A)] py-1">No hay partidos próximos.</p>
+        ) : upcoming.map((m) => {
+          const p = predByMatch[m.id]
+          return (
+            <button key={m.id} onClick={() => onOpenMatch(m.id)} className="w-full flex items-center gap-2 py-2 border-b border-slate-100 dark:border-white/5 last:border-0 text-left">
+              <TeamMini name={m.home_team} flag={m.home_flag_url} code={m.home_team_code} />
+              <span className="shrink-0 text-[10px] font-['JetBrains_Mono'] text-[var(--text-muted,#8A8A8A)]">vs</span>
+              <TeamMini name={m.away_team} flag={m.away_flag_url} code={m.away_team_code} right />
+              <div className="shrink-0 text-right ml-1">
+                <div className="text-[9px] font-['JetBrains_Mono'] text-[var(--text-muted,#8A8A8A)] whitespace-nowrap">{kickoffLabel(m.kickoff_at)}</div>
+                {p ? <span className="text-[8.5px] font-bold text-accent">✓ {p.home_goals_pred}-{p.away_goals_pred}</span>
+                   : <span className="text-[8.5px] font-bold text-[#FF7A59]">falta tu pick</span>}
+              </div>
+            </button>
+          )
+        })}
+      </Section>
+
+      {/* Últimos resultados */}
+      {recent.length > 0 && (
+        <Section title="Últimos resultados" icon={ListOrdered}>
+          {recent.map((m) => {
+            const p = predByMatch[m.id]
+            const pts = p?.points_earned || 0
+            return (
+              <button key={m.id} onClick={() => onOpenMatch(m.id)} className="w-full flex items-center gap-2 py-2 border-b border-slate-100 dark:border-white/5 last:border-0 text-left">
+                <TeamMini name={m.home_team} flag={m.home_flag_url} code={m.home_team_code} />
+                <span className="shrink-0 font-['JetBrains_Mono'] font-bold text-[13px] text-slate-900 dark:text-[#F3F1EA]">{m.home_goals_actual}-{m.away_goals_actual}</span>
+                <TeamMini name={m.away_team} flag={m.away_flag_url} code={m.away_team_code} right />
+                <span className="shrink-0 w-12 text-right font-['JetBrains_Mono'] font-bold text-[10px]"
+                  style={{ color: pts >= 3 ? '#2ED3B7' : pts >= 1 ? '#E8B75A' : '#8A8A8A' }}>
+                  {p ? `+${pts}` : '—'}
+                </span>
+              </button>
+            )
+          })}
+        </Section>
+      )}
+
+      {/* Datos del torneo */}
+      <Section title="Torneo" icon={Trophy}>
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-[13px] font-semibold text-slate-800 dark:text-[#F3F1EA] truncate">{group.tournament_name}</span>
+          <span className="shrink-0 font-['JetBrains_Mono'] font-bold text-[8.5px] px-[7px] py-0.5 rounded-[20px]"
+            style={{ color: group.tournament_kind === 'cup' ? '#FF7A59' : '#2ED3B7', background: group.tournament_kind === 'cup' ? 'rgba(255,122,89,.12)' : 'rgba(46,211,183,.12)' }}>
+            {group.tournament_kind === 'cup' ? 'COPA' : 'LIGA'}
+          </span>
+        </div>
+        <div className="h-1.5 rounded-full bg-slate-200 dark:bg-[#262626] overflow-hidden">
+          <div className="h-full rounded-full bg-accent" style={{ width: `${totalM ? (played / totalM) * 100 : 0}%` }} />
+        </div>
+        <div className="font-['JetBrains_Mono'] text-[9px] text-[var(--text-muted,#8A8A8A)] mt-1">{played}/{totalM} partidos jugados</div>
+      </Section>
+
+      {/* Tu resumen */}
+      <Section title="Tu resumen" icon={Target}>
+        <div className="grid grid-cols-3 gap-2 mb-2">
+          <MiniStat label="Predicciones" value={stats.made} />
+          <MiniStat label="Exactos" value={stats.exact} />
+          <MiniStat label="Comodines" value={stats.x2} />
+        </div>
+        {myMedals.length > 0 ? (
+          <div className="flex items-center gap-2 pt-2 border-t border-slate-100 dark:border-white/5">
+            <span className="text-[10px] font-bold text-[var(--text-muted,#8A8A8A)] uppercase tracking-wide">Medallas</span>
+            <MedalStrip keys={myMedals} max={8} />
+          </div>
+        ) : (
+          <p className="text-[11px] text-[var(--text-muted,#8A8A8A)] pt-2 border-t border-slate-100 dark:border-white/5">Todavía no ganaste medallas en esta quiniela.</p>
+        )}
+      </Section>
+    </div>
+  )
+}
+
+function StatTile({ label, value, sub, color }) {
+  return (
+    <div className="rounded-2xl bg-white dark:bg-[#161616] border border-slate-200 dark:border-[#262626] p-3 text-center">
+      <div className="font-['Unbounded'] font-bold text-[20px] leading-none" style={{ color }}>{value}</div>
+      {sub && <div className="font-['Archivo'] text-[9px] text-[var(--text-muted,#8A8A8A)] mt-0.5">{sub}</div>}
+      <div className="font-['Archivo'] font-semibold text-[8.5px] text-[var(--text-muted,#8A8A8A)] mt-1 uppercase tracking-wide">{label}</div>
+    </div>
+  )
+}
+
+function MiniStat({ label, value }) {
+  return (
+    <div className="text-center">
+      <div className="font-['JetBrains_Mono'] font-bold text-[16px] text-slate-900 dark:text-[#F3F1EA]">{value}</div>
+      <div className="font-['Archivo'] font-semibold text-[8.5px] text-[var(--text-muted,#8A8A8A)] uppercase tracking-wide">{label}</div>
+    </div>
+  )
+}
+
+function Section({ title, icon: Icon, actionLabel, onAction, children }) {
+  return (
+    <div className="rounded-2xl bg-white dark:bg-[#161616] border border-slate-200 dark:border-[#262626] p-4">
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2">
+          <Icon size={15} className="text-accent" />
+          <h3 className="font-bold font-['Archivo'] text-[13px] text-slate-900 dark:text-[#F3F1EA]">{title}</h3>
+        </div>
+        {actionLabel && (
+          <button onClick={onAction} className="flex items-center gap-0.5 text-[11px] font-bold text-accent">{actionLabel} <ChevronRight size={13} /></button>
+        )}
+      </div>
+      {children}
+    </div>
+  )
+}
+
+function TeamMini({ name, flag, code, right }) {
+  const src = flag || `https://flagcdn.com/w40/${(code || 'xx').toLowerCase()}.png`
+  return (
+    <div className={`flex-1 min-w-0 flex items-center gap-1.5 ${right ? 'flex-row-reverse text-right' : ''}`}>
+      <img src={src} alt="" className="w-4 h-4 object-contain shrink-0" onError={crestOnError(name)} />
+      <span className="font-['Archivo'] font-semibold text-[11.5px] text-slate-800 dark:text-[#F3F1EA] truncate">{name}</span>
+    </div>
+  )
+}
+
+function kickoffLabel(iso) {
+  const d = new Date((iso && (iso.endsWith('Z') || iso.includes('+'))) ? iso : `${iso}Z`)
+  return d.toLocaleDateString('es', { weekday: 'short', day: '2-digit', month: 'short' }).replace(/\./g, '')
+    + ' ' + d.toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit', hour12: false })
 }
 
 function StandingsTab({ leagueId }) {
