@@ -9,6 +9,8 @@ import { useAuth } from '../hooks/useAuth'
 import { useTheme } from '../contexts/ThemeContext'
 import PushNotificationToggle from '../components/ui/PushNotificationToggle'
 import GlobalPredictionsModal from '../components/profile/GlobalPredictionsModal'
+import BadgeShowcase, { MedalStrip } from '../components/medals/BadgeShowcase'
+import { fetchMyMedals, aggregateMedals } from '../lib/medals'
 
 
 
@@ -35,6 +37,7 @@ export default function ProfilePage() {
   })
 
   const [badges, setBadges] = useState(null)
+  const [medalsAgg, setMedalsAgg] = useState({})
   const [advancedStats, setAdvancedStats] = useState(null)
   
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
@@ -169,6 +172,7 @@ export default function ProfilePage() {
         setLogs(enrichedLogs)
       }
 
+      fetchMyMedals().then((rows) => setMedalsAgg(aggregateMedals(rows))).catch(() => {})
       const { data: bData } = await supabase.from('user_badges_view').select('*').eq('user_id', profile.id).maybeSingle()
       const { data: sData } = await supabase.from('user_stats_view').select('*').eq('user_id', profile.id).maybeSingle()
       
@@ -346,36 +350,21 @@ export default function ProfilePage() {
           </motion.div>
         )}
 
-        {/* Medallas (Badges) */}
-        {badges && (
-          <motion.div 
-            initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
-            className="mt-6 glass-card p-4 flex gap-3 overflow-x-auto scrollbar-hide"
-          >
-            <div className="flex items-center gap-2 text-slate-500 mr-2 flex-shrink-0">
-              <Trophy size={16} />
-              <span className="text-xs font-bold uppercase tracking-wider">Logros:</span>
-            </div>
-            
-            {badges.is_nostradamus && <Badge emoji="🎯" name="Nostradamus" desc="3+ Exactos" color="amber" />}
-            {badges.is_rey_empate && <Badge emoji="🤝" name="Rey del Empate" desc="3+ Empates exactos" color="blue" />}
-            {badges.is_francotirador && <Badge emoji="🔥" name="Francotirador" desc="Acierto con x2 (3+ pts)" color="rose" />}
-            {badges.is_pecho_frio && <Badge emoji="🥶" name="Pecho Frío" desc="0 pts con x2" color="cyan" />}
-            {badges.is_mas_conocedor && <Badge emoji="🤡" name="El Más Conocedor" desc="5+ ceros" color="purple" />}
-            {badges.is_tortuga && <Badge emoji="🐢" name="La Tortuga" desc="Predijo a última hora" color="emerald" />}
-            {badges.is_taylor && <Badge emoji="💩" name="0T" desc="Por ser tan Tay" color="stone" />}
-            {badges.is_optimista && <Badge emoji="🧨" name="El Optimista" desc="Todo es goleada" color="rose" />}
-            {badges.is_aburrido && <Badge emoji="🥱" name="El Aburrido" desc="Ama el 0-0" color="stone" />}
-            {badges.is_fantasma && <Badge emoji="👻" name="El Fantasma" desc="No juega ni un partido" color="purple" />}
-            {badges.is_calientabancas && <Badge emoji="🪑" name="Calientabancas" desc="Varios partidos, 0 pts" color="cyan" />}
-            {badges.is_gallina && <Badge emoji="🐔" name="El Precavido" desc="Le teme al comodín" color="amber" />}
-            {badges.is_ludopata && <Badge emoji="🎰" name="Ludópata" desc="Adicto al x2" color="emerald" />}
-
-            {(!badges.is_nostradamus && !badges.is_rey_empate && !badges.is_francotirador && !badges.is_pecho_frio && !badges.is_mas_conocedor && !badges.is_tortuga && !badges.is_taylor && !badges.is_optimista && !badges.is_aburrido && !badges.is_fantasma && !badges.is_calientabancas && !badges.is_gallina && !badges.is_ludopata) && (
-              <span className="text-xs text-slate-400 flex items-center italic">Aún no has desbloqueado logros</span>
-            )}
-          </motion.div>
-        )}
+        {/* Medallas (preview) — el detalle completo está en la pestaña Medallas */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
+          className="mt-6 glass-card p-4 flex items-center gap-3 overflow-x-auto scrollbar-hide"
+        >
+          <div className="flex items-center gap-2 text-slate-500 mr-1 flex-shrink-0">
+            <Trophy size={16} />
+            <span className="text-xs font-bold uppercase tracking-wider">Medallas</span>
+          </div>
+          {Object.keys(medalsAgg).length ? (
+            <MedalStrip keys={Object.entries(medalsAgg).map(([k, v]) => ({ badge_key: k, tier: v.tier }))} max={14} />
+          ) : (
+            <span className="text-xs text-slate-400 italic">Aún no desbloqueaste medallas</span>
+          )}
+        </motion.div>
 
         <PushNotificationToggle />
 
@@ -561,24 +550,8 @@ export default function ProfilePage() {
 
             {activeTab === 'badges' && (
               <motion.div initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }}>
-                <div className="glass-card p-4 flex flex-wrap gap-3">
-                  {badges?.is_nostradamus && <Badge emoji="🎯" name="Nostradamus" desc="3+ Exactos" color="amber" />}
-                  {badges?.is_rey_empate && <Badge emoji="🤝" name="Rey del Empate" desc="3+ Empates exactos" color="blue" />}
-                  {badges?.is_francotirador && <Badge emoji="🔥" name="Francotirador" desc="Acierto con x2 (3+ pts)" color="rose" />}
-                  {badges?.is_pecho_frio && <Badge emoji="🥶" name="Pecho Frío" desc="0 pts con x2" color="cyan" />}
-                  {badges?.is_mas_conocedor && <Badge emoji="🤡" name="El Más Conocedor" desc="5+ ceros" color="purple" />}
-                  {badges?.is_tortuga && <Badge emoji="🐢" name="La Tortuga" desc="Predijo a última hora" color="emerald" />}
-                  {badges?.is_taylor && <Badge emoji="💩" name="0T" desc="Por ser tan Tay" color="stone" />}
-                  {badges?.is_optimista && <Badge emoji="🧨" name="El Optimista" desc="Todo es goleada" color="rose" />}
-                  {badges?.is_aburrido && <Badge emoji="🥱" name="El Aburrido" desc="Ama el 0-0" color="stone" />}
-                  {badges?.is_fantasma && <Badge emoji="👻" name="El Fantasma" desc="No juega ni un partido" color="purple" />}
-                  {badges?.is_calientabancas && <Badge emoji="🪑" name="Calientabancas" desc="Varios partidos, 0 pts" color="cyan" />}
-                  {badges?.is_gallina && <Badge emoji="🐔" name="El Precavido" desc="Le teme al comodín" color="amber" />}
-                  {badges?.is_ludopata && <Badge emoji="🎰" name="Ludópata" desc="Adicto al x2" color="emerald" />}
-
-                  {(!badges?.is_nostradamus && !badges?.is_rey_empate && !badges?.is_francotirador && !badges?.is_pecho_frio && !badges?.is_mas_conocedor && !badges?.is_tortuga && !badges?.is_taylor && !badges?.is_optimista && !badges?.is_aburrido && !badges?.is_fantasma && !badges?.is_calientabancas && !badges?.is_gallina && !badges?.is_ludopata) && (
-                    <span className="text-xs text-slate-400 flex items-center italic">Aún no has desbloqueado logros</span>
-                  )}
+                <div className="glass-card p-4">
+                  <BadgeShowcase earned={medalsAgg} />
                 </div>
               </motion.div>
             )}
