@@ -323,6 +323,14 @@ async def sync_live_scores(supabase) -> dict:
         except Exception as exc:  # noqa: BLE001
             errors.append(str(exc))
 
+    # Recalcular medallas de las quinielas del Mundial (tid=1) si hubo puntaje nuevo.
+    if summary["finished_calculated"]:
+        for lg in (supabase.table("leagues").select("id").eq("tournament_id", 1).execute().data or []):
+            try:
+                supabase.rpc("recompute_league_badges", {"p_league_id": lg["id"]}).execute()
+            except Exception:  # noqa: BLE001
+                pass
+
     return {
         "status": "ok",
         "source": source,

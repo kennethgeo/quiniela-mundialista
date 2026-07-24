@@ -285,6 +285,14 @@ async def sync_espn_tournament(supabase, tournament, full=False) -> dict:
             except Exception:  # noqa: BLE001
                 pass
 
+    # Recalcular medallas de las quinielas de este torneo si hubo puntaje nuevo.
+    if scored:
+        for lg in (supabase.table("leagues").select("id").eq("tournament_id", tid).execute().data or []):
+            try:
+                supabase.rpc("recompute_league_badges", {"p_league_id": lg["id"]}).execute()
+            except Exception:  # noqa: BLE001
+                pass
+
     # Limpieza: si acotamos a la temporada actual, quitar los partidos de
     # temporadas anteriores que hubieran quedado cargados (p. ej. la Clausura pasada).
     removed = 0

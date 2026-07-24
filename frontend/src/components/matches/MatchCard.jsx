@@ -118,7 +118,7 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
       style={powerupOn ? { borderColor: 'transparent' } : borderStyle}
       className={`relative rounded-[14px] bg-white dark:bg-[#161616] border border-slate-200 dark:border-[#262626] px-3.5 pt-3.5 pb-3 ${powerupOn ? '' : 'overflow-hidden'}`}
     >
-      {powerupOn && <NeonElectricBorder color="#2ED3B7" radius={14} thickness={2} />}
+      {powerupOn && <NeonElectricBorder radius={14} />}
       {isInProgress && <div className="absolute top-0 left-0 right-0 h-0.5" style={{ background: 'linear-gradient(90deg,#FF4D6D,transparent)' }} />}
 
       {/* Cabecera: estado / contexto + badge */}
