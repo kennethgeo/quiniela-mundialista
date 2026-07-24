@@ -194,10 +194,20 @@ async def refresh_live():
     except Exception:  # noqa: BLE001
         pass
 
+    # Mundial + torneos ESPN (Liga CR, etc.), desacoplados: si uno falla, el otro
+    # igual corre. Antes esto solo sincronizaba el Mundial, por eso el marcador en
+    # vivo de la Liga CR no avanzaba entre corridas del cron.
+    result = {}
     try:
-        return await sync_live_scores(supabase)
+        result = await sync_live_scores(supabase)
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(status_code=500, detail=f"{type(exc).__name__}: {exc}")
+        result["live_scores_error"] = f"{type(exc).__name__}: {exc}"
+    try:
+        from app.services.espn_tournament_sync import sync_all_espn_tournaments
+        result["espn_tournaments"] = await sync_all_espn_tournaments(supabase)
+    except Exception as exc:  # noqa: BLE001
+        result["espn_tournaments_error"] = str(exc)
+    return result
 
 
 @router.get("/tournament-standings")

@@ -18,11 +18,19 @@ export function useLiveSync() {
 
     const update = async () => {
       try {
-        const { count } = await supabase
+        // "En vivo" = ya en curso, O ya arrancó (kickoff en las últimas ~4h) pero
+        // sigue 'pending' porque el sync todavía no lo pasó a in_progress. Sin esto
+        // había un bloqueo circular: la Liga CR nunca arrancaba el polling.
+        const nowIso = new Date().toISOString()
+        const cutoff = new Date(Date.now() - 4 * 3600 * 1000).toISOString()
+        const { data } = await supabase
           .from('matches')
-          .select('id', { count: 'exact', head: true })
-          .eq('status', 'in_progress')
-        const hasLive = (count || 0) > 0
+          .select('id')
+          .in('status', ['pending', 'in_progress'])
+          .lte('kickoff_at', nowIso)
+          .gte('kickoff_at', cutoff)
+          .limit(1)
+        const hasLive = (data?.length || 0) > 0
         if (hasLive && !interval) {
           tick()
           interval = setInterval(tick, 30000)
