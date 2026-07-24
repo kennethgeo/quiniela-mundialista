@@ -11,6 +11,8 @@ import { friendlySaveError } from '../lib/saveError'
 import { powerupKey } from '../lib/powerups'
 import { fetchMyGroups, fetchGroupStandings, fetchTeamStandings, acceptGroupRules, setGroupRules, setGroupScoring, deleteGroup, proposeRuleChange, castRuleVote, cancelRuleProposal, fetchLeagueProposals } from '../lib/groups'
 import { initialsDataUri, crestOnError } from '../lib/teamLogo'
+import { fetchLeagueMedals } from '../lib/medals'
+import { MedalStrip } from '../components/medals/BadgeShowcase'
 import { resolveKnockoutTeams } from '../lib/bracketResolver'
 import MatchList from '../components/matches/MatchList'
 import BracketView from '../components/matches/BracketView'
@@ -818,6 +820,19 @@ function StandingsTab({ leagueId }) {
     queryKey: ['group_standings', leagueId],
     queryFn: () => fetchGroupStandings(leagueId),
   })
+  const { data: medalRows = [] } = useQuery({
+    queryKey: ['league_medals', leagueId],
+    queryFn: () => fetchLeagueMedals(leagueId),
+    staleTime: 1000 * 60 * 5,
+  })
+  // user_id -> lista de {badge_key, tier} (mejor tier primero)
+  const medalsByUser = useMemo(() => {
+    const m = {}
+    for (const r of medalRows) (m[r.user_id] ||= []).push({ badge_key: r.badge_key, tier: r.tier })
+    for (const k in m) m[k].sort((a, b) => b.tier - a.tier)
+    return m
+  }, [medalRows])
+
   if (isLoading) return <LoadingSpinner />
   if (!rows?.length) return <p className="text-sm text-slate-400 italic text-center py-8">Sin miembros todavía.</p>
   const rankColor = (i) => i === 0 ? '#E8B75A' : i === 1 ? '#C7CDD6' : i === 2 ? '#FF7A59' : 'var(--text-muted,#8A8A8A)'
@@ -834,7 +849,12 @@ function StandingsTab({ leagueId }) {
             style={{ background: r.is_me ? 'linear-gradient(135deg,#2ED3B7,#1a8f7c)' : 'linear-gradient(135deg,#5a2d8a,#3a1c5c)' }}>
             {r.avatar_url ? <img src={r.avatar_url} alt="" className="w-full h-full object-cover" /> : (r.display_name?.[0] || '?').toUpperCase()}
           </div>
-          <span className="flex-1 font-['Archivo'] font-semibold text-[13px] text-slate-800 dark:text-[#F3F1EA] truncate">{r.display_name}{r.is_me && <span className="text-accent font-bold"> (vos)</span>}</span>
+          <div className="flex-1 min-w-0">
+            <span className="font-['Archivo'] font-semibold text-[13px] text-slate-800 dark:text-[#F3F1EA] truncate block">{r.display_name}{r.is_me && <span className="text-accent font-bold"> (vos)</span>}</span>
+            {medalsByUser[r.user_id]?.length > 0 && (
+              <div className="mt-0.5"><MedalStrip keys={medalsByUser[r.user_id]} max={5} /></div>
+            )}
+          </div>
           <span className="font-['JetBrains_Mono'] font-bold text-[14px] text-slate-900 dark:text-[#F3F1EA]">{r.points}</span>
         </div>
       ))}
