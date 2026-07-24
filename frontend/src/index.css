@@ -233,57 +233,33 @@ input:-webkit-autofill:active {
   -webkit-text-fill-color: white !important;
 }
 
-/* ── Neon Fire Border: borde de fuego animado para la tarjeta con comodín ×2 ── */
-@property --fire-angle {
-  syntax: '<angle>';
-  initial-value: 0deg;
-  inherits: false;
-}
-@keyframes fire-spin { to { --fire-angle: 360deg; } }
-@keyframes fire-flicker {
-  0%, 100% { opacity: 0.55; }
-  45%      { opacity: 0.85; }
-  60%      { opacity: 0.45; }
-  75%      { opacity: 0.9; }
-}
-
-.powerup-fire {
-  position: relative;
-  border-color: transparent !important;
-  isolation: isolate;
-}
-/* Anillo de fuego nítido (borde) */
-.powerup-fire::before {
-  content: "";
+/* ── Neon Electric Border: borde eléctrico animado para la tarjeta con ×2 ── */
+/* La distorsión eléctrica la da un filtro SVG (turbulence + displacement) que
+   se inyecta desde el componente NeonElectricBorder. Aquí van solo las capas. */
+.eb-root {
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  padding: 1.8px;
-  background: conic-gradient(from var(--fire-angle),
-    #ff2d00, #ff6a00, #ffb300, #ffe66b, #ff9500, #ff2d00, #b31200, #ff2d00);
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-          mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-          mask-composite: exclude;
-  animation: fire-spin 3s linear infinite;
-  z-index: 1;
   pointer-events: none;
+  z-index: 0;
 }
-/* Resplandor neón desenfocado detrás */
-.powerup-fire::after {
-  content: "";
+.eb-root .eb-svg { position: absolute; width: 0; height: 0; }
+.eb-stroke,
+.eb-glow-1 {
   position: absolute;
-  inset: -3px;
+  inset: 0;
   border-radius: inherit;
-  background: conic-gradient(from var(--fire-angle),
-    #ff2d00, #ff7a00, #ffc400, #ff9500, #ff2d00);
-  filter: blur(11px) saturate(1.35);
-  opacity: 0.6;
-  z-index: -1;
-  pointer-events: none;
-  animation: fire-spin 3s linear infinite, fire-flicker 1.3s ease-in-out infinite;
+  border: var(--eb-thickness, 2px) solid var(--eb-color, #2ED3B7);
 }
-/* Respeta a quien prefiere menos movimiento: se queda el borde, sin girar */
-@media (prefers-reduced-motion: reduce) {
-  .powerup-fire::before, .powerup-fire::after { animation: none; }
+/* Halo suave alrededor (no distorsionado) para el brillo neón */
+.eb-glow-2 {
+  position: absolute;
+  inset: -2px;
+  border-radius: inherit;
+  box-shadow: 0 0 10px var(--eb-color, #2ED3B7),
+              0 0 20px color-mix(in srgb, var(--eb-color, #2ED3B7) 55%, transparent);
+  opacity: 0.55;
+  animation: eb-pulse 1.6s ease-in-out infinite;
 }
+@keyframes eb-pulse { 0%,100% { opacity: 0.4; } 50% { opacity: 0.7; } }
+@media (prefers-reduced-motion: reduce) { .eb-glow-2 { animation: none; } }
