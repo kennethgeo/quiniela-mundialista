@@ -25,6 +25,16 @@ from app.services.bracket_resolver import persist_resolved_knockouts
 ESPN_URL = "https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard"
 WORLDCUP_API_URL = "https://worldcup26.ir/get/games"
 
+
+def _espn_status(status_obj):
+    """Mapea el estado de ESPN a nuestro status. Detecta partidos NO disputados
+    (cancelados / pospuestos / abandonados / suspendidos) → 'cancelled'."""
+    t = (status_obj or {}).get("type") or {}
+    name = (t.get("name") or "").upper()
+    if any(k in name for k in ("CANCEL", "POSTPON", "ABANDON", "SUSPEND", "FORFEIT")):
+        return "cancelled"
+    return {"in": "in_progress", "post": "finished"}.get(t.get("state"), "pending")
+
 # Alias de nombres de las fuentes -> nombres en la BD
 TEAM_ALIAS = {
     "Czech Republic": "Czechia",
@@ -80,8 +90,7 @@ async def _fetch_espn_games():
                     competitors = comp["competitors"]
                     h = next(c for c in competitors if c.get("homeAway") == "home")
                     a = next(c for c in competitors if c.get("homeAway") == "away")
-                    state = ev["status"]["type"]["state"]
-                    status = {"in": "in_progress", "post": "finished"}.get(state, "pending")
+                    status = _espn_status(ev.get("status"))
                     minute = None
                     if status == "in_progress":
                         minute = (ev["status"].get("displayClock") or "").strip() or None
@@ -265,8 +274,9 @@ async def sync_live_scores(supabase) -> dict:
         summary["updated"] += 1
 
         # Re-puntuar al finalizar, o cuando cambian datos relevantes de un partido
-        # YA finalizado (p. ej. se detectó el ganador de penales). Es idempotente.
-        if status == "finished" and score_relevant:
+        # YA finalizado (p. ej. se detectó el ganador de penales). También al
+        # cancelarse (anula los puntos). Es idempotente.
+        if status in ("finished", "cancelled") and score_relevant:
             await calculate_and_update_scores(supabase, db_match["id"])
             summary["finished_calculated"] += 1
 

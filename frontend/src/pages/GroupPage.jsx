@@ -17,6 +17,11 @@ import BracketView from '../components/matches/BracketView'
 import TournamentGlobalCard from '../components/tournament/TournamentGlobalCard'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
 
+// Clave de jornada/fase de un partido (misma lógica de agrupación que MatchList).
+function jornadaKeyOf(m) {
+  return m.stage || (m.matchday ? `Jornada ${m.matchday}` : (m.phase ? m.phase.replace(/_/g, ' ') : 'Partidos'))
+}
+
 export default function GroupPage() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -117,6 +122,31 @@ export default function GroupPage() {
     [matches],
   )
 
+  // Jornadas/fases para dividir la pestaña Partidos (útil en ligas largas).
+  const jornadas = useMemo(() => {
+    const first = new Map()
+    resolved.forEach((m) => {
+      const k = jornadaKeyOf(m)
+      const t = m.kickoff_at ? new Date(m.kickoff_at).getTime() : Infinity
+      if (!first.has(k) || t < first.get(k)) first.set(k, t)
+    })
+    return [...first.entries()].sort((a, b) => a[1] - b[1]).map(([k]) => k)
+  }, [resolved])
+  const [jornadaSel, setJornadaSel] = useState(null) // null hasta elegir default; '__all__' = todas
+
+  // Default: la primera jornada con partidos por jugar (si no, la última).
+  useEffect(() => {
+    if (jornadaSel !== null || jornadas.length <= 1) return
+    const upcoming = jornadas.find((k) =>
+      resolved.some((m) => jornadaKeyOf(m) === k && m.status !== 'finished' && m.status !== 'cancelled'))
+    setJornadaSel(upcoming || jornadas[jornadas.length - 1])
+  }, [jornadas, resolved, jornadaSel])
+
+  const shownMatches = useMemo(
+    () => (jornadaSel && jornadaSel !== '__all__' ? resolved.filter((m) => jornadaKeyOf(m) === jornadaSel) : resolved),
+    [resolved, jornadaSel],
+  )
+
   if (lg) return <LoadingSpinner />
   // Si todavía no está en la lista pero seguimos trayendo datos, esperá (evita el
   // falso "No encontramos" cuando la quiniela recién se creó).
@@ -185,14 +215,24 @@ export default function GroupPage() {
         lm ? <LoadingSpinner /> : resolved.length === 0 ? (
           <EmptyMatches kind={group.tournament_kind} />
         ) : (
-          <MatchList
-            matches={resolved}
-            predictions={predictions}
-            onSavePrediction={(p) => saveMutation.mutate(p)}
-            isLoading={saveMutation.isPending}
-            powerupLimit={powerupLimit}
-            powerupUsage={powerupUsage}
-          />
+          <>
+            {jornadas.length > 1 && (
+              <div className="flex gap-1.5 mb-4 overflow-x-auto scrollbar-hide">
+                <JornadaChip active={jornadaSel === '__all__'} onClick={() => setJornadaSel('__all__')} label="Todas" />
+                {jornadas.map((j) => (
+                  <JornadaChip key={j} active={jornadaSel === j} onClick={() => setJornadaSel(j)} label={j} />
+                ))}
+              </div>
+            )}
+            <MatchList
+              matches={shownMatches}
+              predictions={predictions}
+              onSavePrediction={(p) => saveMutation.mutate(p)}
+              isLoading={saveMutation.isPending}
+              powerupLimit={powerupLimit}
+              powerupUsage={powerupUsage}
+            />
+          </>
         )
       )}
 
@@ -674,6 +714,18 @@ function DangerZone({ group, onDeleted, showToast }) {
         </motion.div>
       )}
     </>
+  )
+}
+
+function JornadaChip({ active, onClick, label }) {
+  return (
+    <button onClick={onClick}
+      className={`shrink-0 px-3 py-1.5 rounded-[10px] font-['JetBrains_Mono'] font-bold text-[10px] uppercase tracking-[0.08em] whitespace-nowrap transition-all ${
+        active
+          ? 'bg-accent text-[#06231d]'
+          : 'bg-white dark:bg-[#161616] text-[var(--text-muted,#8A8A8A)] border border-slate-200 dark:border-[#262626]'}`}>
+      {label}
+    </button>
   )
 }
 

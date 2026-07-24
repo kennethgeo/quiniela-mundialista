@@ -423,6 +423,7 @@ export default function AdminPage() {
                           <option value="pending">Pendiente / Programado</option>
                           <option value="in_progress">En Vivo</option>
                           <option value="finished">Finalizado</option>
+                          <option value="cancelled">Suspendido / No disputado</option>
                         </select>
                       </div>
                       <div className="flex-1">
@@ -479,8 +480,8 @@ export default function AdminPage() {
                        <Clock size={10} /> 
                        {new Date(match.kickoff_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
                      </span>
-                     <span className={`font-semibold ${match.status === 'in_progress' ? 'text-accent' : match.status === 'finished' ? 'text-slate-500 dark:text-slate-400' : 'text-slate-600 dark:text-slate-300'}`}>
-                       {match.status === 'in_progress' ? 'En Vivo' : match.status === 'finished' ? 'Finalizado' : 'Pendiente'}
+                     <span className={`font-semibold ${match.status === 'in_progress' ? 'text-accent' : match.status === 'cancelled' || match.status === 'postponed' ? 'text-[#FF7A59]' : match.status === 'finished' ? 'text-slate-500 dark:text-slate-400' : 'text-slate-600 dark:text-slate-300'}`}>
+                       {match.status === 'in_progress' ? 'En Vivo' : match.status === 'cancelled' || match.status === 'postponed' ? 'Suspendido' : match.status === 'finished' ? 'Finalizado' : 'Pendiente'}
                      </span>
                    </div>
                 )}

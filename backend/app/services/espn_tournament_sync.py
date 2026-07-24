@@ -58,8 +58,12 @@ def _parse_event(ev):
     h = next(c for c in cs if c.get("homeAway") == "home")
     a = next(c for c in cs if c.get("homeAway") == "away")
     stage_base, leg = _stage_from_event(ev)
-    state = ev["status"]["type"]["state"]
-    status = {"in": "in_progress", "post": "finished"}.get(state, "pending")
+    st = (ev.get("status") or {}).get("type") or {}
+    _name = (st.get("name") or "").upper()
+    if any(k in _name for k in ("CANCEL", "POSTPON", "ABANDON", "SUSPEND", "FORFEIT")):
+        status = "cancelled"
+    else:
+        status = {"in": "in_progress", "post": "finished"}.get(st.get("state"), "pending")
     minute = None
     if status == "in_progress":
         minute = (ev["status"].get("displayClock") or "").strip() or None
@@ -257,17 +261,24 @@ async def sync_espn_tournament(supabase, tournament, full=False) -> dict:
 
     scored = 0
     for p in parsed:
-        if p["status"] != "finished":
+        mid = idmap.get(p["external_id"])
+        if not mid:
             continue
         old = snap.get(p["external_id"])
-        changed = (
-            old is None
-            or old.get("status") != "finished"
-            or old.get("home_goals_actual") != p["home_goals"]
-            or old.get("away_goals_actual") != p["away_goals"]
-        )
-        mid = idmap.get(p["external_id"])
-        if changed and mid:
+        st = p["status"]
+        if st == "finished":
+            changed = (
+                old is None
+                or old.get("status") != "finished"
+                or old.get("home_goals_actual") != p["home_goals"]
+                or old.get("away_goals_actual") != p["away_goals"]
+            )
+        elif st == "cancelled":
+            # Transición a cancelado → anular puntos del partido (idempotente).
+            changed = old is None or old.get("status") != "cancelled"
+        else:
+            continue
+        if changed:
             try:
                 await calculate_and_update_scores(supabase, mid)
                 scored += 1
