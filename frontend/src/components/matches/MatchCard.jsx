@@ -5,6 +5,7 @@ import { Lock, Check, X, Zap, Timer, Info } from 'lucide-react'
 import { differenceInMinutes, differenceInSeconds } from 'date-fns'
 import { useNavigate } from 'react-router-dom'
 import GoalCounter from './GoalCounter'
+import NeonElectricBorder from '../ui/NeonElectricBorder'
 import { crestOnError } from '../../lib/teamLogo'
 
 const flagSrc = (url, code) => url || `https://flagcdn.com/w80/${(code || 'xx').toLowerCase()}.png`
@@ -114,9 +115,10 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ opacity: { duration: 0.3 }, y: { duration: 0.3 } }}
-      style={powerupOn ? undefined : borderStyle}
-      className={`relative rounded-[14px] bg-white dark:bg-[#161616] border border-slate-200 dark:border-[#262626] px-3.5 pt-3.5 pb-3 ${powerupOn ? 'powerup-fire' : 'overflow-hidden'}`}
+      style={powerupOn ? { borderColor: 'transparent' } : borderStyle}
+      className={`relative rounded-[14px] bg-white dark:bg-[#161616] border border-slate-200 dark:border-[#262626] px-3.5 pt-3.5 pb-3 ${powerupOn ? '' : 'overflow-hidden'}`}
     >
+      {powerupOn && <NeonElectricBorder color="#2ED3B7" radius={14} thickness={2} />}
       {isInProgress && <div className="absolute top-0 left-0 right-0 h-0.5" style={{ background: 'linear-gradient(90deg,#FF4D6D,transparent)' }} />}
 
       {/* Cabecera: estado / contexto + badge */}
