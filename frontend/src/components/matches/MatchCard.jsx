@@ -49,6 +49,10 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
   const isFinished = match.status === 'finished'
   const isInProgress = match.status === 'in_progress'
   const isCancelled = ['cancelled', 'canceled', 'postponed', 'suspended'].includes(match.status)
+  // El partido ya arrancó (pasó el saque) pero la BD aún lo tiene 'pending' porque
+  // el sync todavía no lo actualizó. Evita el "Cierra en En curso" / "Cierra pronto".
+  const started = minutesUntil <= 0
+  const awaitingData = started && !isFinished && !isInProgress && !isCancelled
   const isKnockout = match.phase !== 'groups'
   const isTiePredicted = homeGoals === awayGoals && homeGoals !== null
   const editable = !isLocked && !isFinished && !isInProgress && !isCancelled
@@ -138,8 +142,13 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
           {isCancelled && (
             <span className="font-['Archivo'] font-bold text-[8.5px] px-2 py-[3px] rounded-[20px]" style={{ color: '#FF7A59', background: 'rgba(255,122,89,.14)' }}>NO SE JUGÓ</span>
           )}
-          {isLocked && !isFinished && !isInProgress && !isCancelled && (
+          {isLocked && !started && !isFinished && !isInProgress && !isCancelled && (
             <span className="font-['Archivo'] font-bold text-[8.5px] px-2 py-[3px] rounded-[20px]" style={{ color: '#E8B75A', background: 'rgba(232,183,90,.14)' }}>⏳ Cierra pronto</span>
+          )}
+          {awaitingData && (
+            <span className="flex items-center gap-1 font-['Archivo'] font-bold text-[8.5px] px-2 py-[3px] rounded-[20px]" style={{ color: '#FF4D6D', background: 'rgba(255,77,109,.14)' }}>
+              <span className="w-1.5 h-1.5 rounded-full bg-[#FF4D6D] animate-pulse" /> EN JUEGO
+            </span>
           )}
           {(isFinished || isInProgress) && match.goes_to_penalties && (
             <span className="font-['Archivo'] font-bold text-[8.5px] px-2 py-[3px] rounded-[20px]" style={{ color: '#E8B75A', background: 'rgba(232,183,90,.14)' }}>PENALES</span>
@@ -281,7 +290,9 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
       {/* Footer bloqueado */}
       {isLocked && !isFinished && !isInProgress && !isCancelled && (
         <div className="mt-3 pt-2.5 border-t border-slate-200 dark:border-[#262626] flex items-center justify-between">
-          <span className="font-['Archivo'] font-semibold text-[9.5px] text-[var(--text-muted,#8A8A8A)]">🔒 Cierra en {countdown}</span>
+          <span className="font-['Archivo'] font-semibold text-[9.5px] text-[var(--text-muted,#8A8A8A)]">
+            {awaitingData ? '🔒 En juego · el marcador se actualiza solo' : `🔒 Cierra en ${countdown}`}
+          </span>
           {prediction && (
             <span className="font-['Archivo'] font-semibold text-[9.5px] text-slate-700 dark:text-[#F3F1EA] flex items-center gap-1">
               {prediction.use_powerup_x2 && <Zap size={10} className="text-accent fill-current" />}
