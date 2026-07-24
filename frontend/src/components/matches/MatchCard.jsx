@@ -112,18 +112,10 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
   return (
     <motion.div
       initial={{ opacity: 0, y: 12 }}
-      animate={{
-        opacity: 1, y: 0,
-        boxShadow: powerupOn
-          ? ['0 0 0px rgba(46,211,183,0)', '0 0 16px 1px rgba(46,211,183,0.55)', '0 0 0px rgba(46,211,183,0)']
-          : '0 0 0px rgba(46,211,183,0)',
-      }}
-      transition={{
-        opacity: { duration: 0.3 }, y: { duration: 0.3 },
-        boxShadow: powerupOn ? { duration: 1.8, repeat: Infinity, ease: 'easeInOut' } : { duration: 0.4 },
-      }}
-      style={{ ...(borderStyle || {}), ...(powerupOn ? { borderColor: '#2ED3B7' } : {}) }}
-      className="relative overflow-hidden rounded-[14px] bg-white dark:bg-[#161616] border border-slate-200 dark:border-[#262626] px-3.5 pt-3.5 pb-3"
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ opacity: { duration: 0.3 }, y: { duration: 0.3 } }}
+      style={powerupOn ? undefined : borderStyle}
+      className={`relative rounded-[14px] bg-white dark:bg-[#161616] border border-slate-200 dark:border-[#262626] px-3.5 pt-3.5 pb-3 ${powerupOn ? 'powerup-fire' : 'overflow-hidden'}`}
     >
       {isInProgress && <div className="absolute top-0 left-0 right-0 h-0.5" style={{ background: 'linear-gradient(90deg,#FF4D6D,transparent)' }} />}
 

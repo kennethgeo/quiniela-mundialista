@@ -232,3 +232,58 @@ input:-webkit-autofill:active {
 .dark input:-webkit-autofill:active {
   -webkit-text-fill-color: white !important;
 }
+
+/* ── Neon Fire Border: borde de fuego animado para la tarjeta con comodín ×2 ── */
+@property --fire-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+@keyframes fire-spin { to { --fire-angle: 360deg; } }
+@keyframes fire-flicker {
+  0%, 100% { opacity: 0.55; }
+  45%      { opacity: 0.85; }
+  60%      { opacity: 0.45; }
+  75%      { opacity: 0.9; }
+}
+
+.powerup-fire {
+  position: relative;
+  border-color: transparent !important;
+  isolation: isolate;
+}
+/* Anillo de fuego nítido (borde) */
+.powerup-fire::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1.8px;
+  background: conic-gradient(from var(--fire-angle),
+    #ff2d00, #ff6a00, #ffb300, #ffe66b, #ff9500, #ff2d00, #b31200, #ff2d00);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+          mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+          mask-composite: exclude;
+  animation: fire-spin 3s linear infinite;
+  z-index: 1;
+  pointer-events: none;
+}
+/* Resplandor neón desenfocado detrás */
+.powerup-fire::after {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border-radius: inherit;
+  background: conic-gradient(from var(--fire-angle),
+    #ff2d00, #ff7a00, #ffc400, #ff9500, #ff2d00);
+  filter: blur(11px) saturate(1.35);
+  opacity: 0.6;
+  z-index: -1;
+  pointer-events: none;
+  animation: fire-spin 3s linear infinite, fire-flicker 1.3s ease-in-out infinite;
+}
+/* Respeta a quien prefiere menos movimiento: se queda el borde, sin girar */
+@media (prefers-reduced-motion: reduce) {
+  .powerup-fire::before, .powerup-fire::after { animation: none; }
+}
