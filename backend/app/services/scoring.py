@@ -133,7 +133,22 @@ async def calculate_and_update_scores(supabase, match_id: int) -> dict:
     )
     match = match_response.data
 
-    if not match or match.get("status") != "finished":
+    if not match:
+        return {"status": "error", "message": "Partido no encontrado"}
+
+    # Partido no disputado (suspendido/cancelado/pospuesto): NO cuenta para el
+    # puntaje. Anulamos (0) las predicciones que hubieran quedado con puntos.
+    if match.get("status") in ("cancelled", "canceled", "postponed", "suspended"):
+        preds = (supabase.table("predictions").select("id, points_earned")
+                 .eq("match_id", match_id).execute().data or [])
+        zeroed = 0
+        for p in preds:
+            if (p.get("points_earned") or 0) != 0:
+                supabase.table("predictions").update({"points_earned": 0}).eq("id", p["id"]).execute()
+                zeroed += 1
+        return {"status": "ok", "message": "Partido no disputado; puntos anulados", "predictions_zeroed": zeroed}
+
+    if match.get("status") != "finished":
         return {"status": "error", "message": "Partido no finalizado o no encontrado"}
 
     home_actual = match["home_goals_actual"]

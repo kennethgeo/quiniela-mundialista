@@ -82,8 +82,9 @@ async def set_match_status(
     payload: MatchStatusUpdate,
     admin: dict = Depends(require_admin),
 ):
-    """Cambia el estado de un partido (in_progress, finished)."""
-    if payload.status not in ("in_progress", "finished"):
+    """Cambia el estado de un partido. Admite 'cancelled'/'postponed' para
+    partidos suspendidos o no disputados (sus predicciones no cuentan)."""
+    if payload.status not in ("pending", "in_progress", "finished", "cancelled", "postponed"):
         raise HTTPException(status_code=400, detail="Estado inválido")
 
     supabase = get_supabase()
@@ -96,6 +97,10 @@ async def set_match_status(
 
     if not response.data:
         raise HTTPException(status_code=404, detail="Partido no encontrado")
+
+    # Al finalizar o cancelar, re-puntuar (cancelado → anula los puntos). Idempotente.
+    if payload.status in ("finished", "cancelled", "postponed"):
+        await calculate_and_update_scores(supabase, payload.match_id)
 
     return {
         "message": f"Estado del partido actualizado a '{payload.status}'"

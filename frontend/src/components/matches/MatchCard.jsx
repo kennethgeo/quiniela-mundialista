@@ -47,9 +47,10 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
   const isLocked = minutesUntil <= 15
   const isFinished = match.status === 'finished'
   const isInProgress = match.status === 'in_progress'
+  const isCancelled = ['cancelled', 'canceled', 'postponed', 'suspended'].includes(match.status)
   const isKnockout = match.phase !== 'groups'
   const isTiePredicted = homeGoals === awayGoals && homeGoals !== null
-  const editable = !isLocked && !isFinished && !isInProgress
+  const editable = !isLocked && !isFinished && !isInProgress && !isCancelled
 
   // Comodines ×2 restantes en la jornada (en vivo: cuenta el toggle local aún sin guardar).
   const savedThis = prediction?.use_powerup_x2 ? 1 : 0
@@ -135,12 +136,15 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
           </span>
         ) : (
           <span className="font-['JetBrains_Mono'] font-medium text-[9px] tracking-[0.06em] text-[var(--text-muted,#8A8A8A)] truncate">
-            {isFinished ? `${contextLabel} · FINAL` : dateLabel}
+            {isCancelled ? `${contextLabel} · SUSPENDIDO` : isFinished ? `${contextLabel} · FINAL` : dateLabel}
           </span>
         )}
 
         <div className="shrink-0 flex items-center gap-1.5">
-          {isLocked && !isFinished && !isInProgress && (
+          {isCancelled && (
+            <span className="font-['Archivo'] font-bold text-[8.5px] px-2 py-[3px] rounded-[20px]" style={{ color: '#FF7A59', background: 'rgba(255,122,89,.14)' }}>NO SE JUGÓ</span>
+          )}
+          {isLocked && !isFinished && !isInProgress && !isCancelled && (
             <span className="font-['Archivo'] font-bold text-[8.5px] px-2 py-[3px] rounded-[20px]" style={{ color: '#E8B75A', background: 'rgba(232,183,90,.14)' }}>⏳ Cierra pronto</span>
           )}
           {(isFinished || isInProgress) && match.goes_to_penalties && (
@@ -167,7 +171,7 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
               <span className="text-[var(--text-muted,#8A8A8A)] font-bold">-</span>
               <div className={`w-8 h-9 rounded-lg grid place-items-center font-['JetBrains_Mono'] font-bold text-[17px] tabular-nums bg-slate-100 dark:bg-[#0C0C0C] border border-slate-200 dark:border-[#262626] ${isInProgress ? 'text-[#FF4D6D]' : 'text-slate-900 dark:text-[#F3F1EA]'}`}>{match.away_goals_actual ?? 0}</div>
             </div>
-          ) : isLocked ? (
+          ) : (isLocked || isCancelled) ? (
             <span className="font-['JetBrains_Mono'] font-bold text-[13px] text-[var(--text-muted,#8A8A8A)]">vs</span>
           ) : (
             <div className="flex items-center justify-center gap-1.5">
@@ -268,8 +272,20 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
         </div>
       )}
 
+      {/* Footer: partido no disputado (suspendido / cancelado) */}
+      {isCancelled && (
+        <div className="mt-3 pt-2.5 border-t border-slate-200 dark:border-[#262626] flex items-center justify-between gap-2">
+          <span className="font-['Archivo'] font-semibold text-[9.5px] text-[#FF7A59]">Partido no disputado · no cuenta para el puntaje</span>
+          {prediction && (
+            <span className="font-['Archivo'] font-semibold text-[9.5px] text-[var(--text-muted,#8A8A8A)] line-through shrink-0">
+              {prediction.home_goals_pred}–{prediction.away_goals_pred}
+            </span>
+          )}
+        </div>
+      )}
+
       {/* Footer bloqueado */}
-      {isLocked && !isFinished && !isInProgress && (
+      {isLocked && !isFinished && !isInProgress && !isCancelled && (
         <div className="mt-3 pt-2.5 border-t border-slate-200 dark:border-[#262626] flex items-center justify-between">
           <span className="font-['Archivo'] font-semibold text-[9.5px] text-[var(--text-muted,#8A8A8A)]">🔒 Cierra en {countdown}</span>
           {prediction && (
