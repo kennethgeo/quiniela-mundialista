@@ -15,6 +15,12 @@ export async function fetchLeagueMedals(leagueId) {
   return data || []
 }
 
+// Recalcular las medallas de una quiniela a demanda (idempotente).
+export async function recomputeLeagueBadges(leagueId) {
+  const { error } = await supabase.rpc('recompute_league_badges', { p_league_id: leagueId })
+  if (error) throw error
+}
+
 // Agrupa filas de my_medals por badge_key: mejor tier, mejor count, en qué quinielas.
 export function aggregateMedals(rows) {
   const by = {}

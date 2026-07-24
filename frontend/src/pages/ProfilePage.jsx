@@ -36,7 +36,6 @@ export default function ProfilePage() {
     predictedCount: 0
   })
 
-  const [badges, setBadges] = useState(null)
   const [medalsAgg, setMedalsAgg] = useState({})
   const [advancedStats, setAdvancedStats] = useState(null)
   
@@ -173,10 +172,8 @@ export default function ProfilePage() {
       }
 
       fetchMyMedals().then((rows) => setMedalsAgg(aggregateMedals(rows))).catch(() => {})
-      const { data: bData } = await supabase.from('user_badges_view').select('*').eq('user_id', profile.id).maybeSingle()
       const { data: sData } = await supabase.from('user_stats_view').select('*').eq('user_id', profile.id).maybeSingle()
-      
-      if (bData) setBadges(bData)
+
       if (sData) setAdvancedStats(sData)
 
       const { data: globalData } = await supabase
