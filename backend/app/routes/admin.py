@@ -424,6 +424,8 @@ async def set_tournament_globals(
         updates["actual_top_assist"] = (payload.get("actual_top_assist") or "").strip() or None
     if "predictions_locked" in payload:
         updates["predictions_locked"] = bool(payload.get("predictions_locked"))
+    if "predictions_force_open" in payload:
+        updates["predictions_force_open"] = bool(payload.get("predictions_force_open"))
     if not updates:
         raise HTTPException(status_code=400, detail="Nada que actualizar")
     supabase = get_supabase()
