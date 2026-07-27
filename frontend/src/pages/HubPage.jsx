@@ -1,9 +1,9 @@
 // Hub de quinielas (grupos) — rediseño Tico Games. Datos reales vía RPCs.
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'motion/react'
-import { Plus, KeyRound, Users, X, Loader2, ChevronRight, Vote } from 'lucide-react'
+import { Plus, KeyRound, Users, X, Loader2, ChevronRight, Vote, CheckCircle2 } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import { fetchMyGroups, fetchTournaments, createGroup, joinGroupByCode, DEFAULT_RULES } from '../lib/groups'
 
@@ -42,6 +42,11 @@ export default function HubPage() {
 
   const firstName = (profile?.display_name || '').split(' ')[0] || 'crack'
   const initial = (profile?.display_name?.charAt(0) || '?').toUpperCase()
+
+  // Quinielas de un torneo ya finalizado: se muestran aparte, como burbujas
+  // chiquitas al final, para no competir en tamaño con las activas.
+  const activeGroups = useMemo(() => groups.filter((g) => g.tournament_status !== 'finished'), [groups])
+  const finishedGroups = useMemo(() => groups.filter((g) => g.tournament_status === 'finished'), [groups])
 
   return (
     <div className="max-w-xl mx-auto">
@@ -94,13 +99,32 @@ export default function HubPage() {
           </div>
         </div>
       ) : (
-        <motion.div layout className="space-y-3.5">
-          <AnimatePresence>
-            {groups.map((g, i) => (
-              <GroupCard key={g.id} g={g} pal={PALETTE[i % PALETTE.length]} onOpen={() => navigate(`/q/${g.id}`)} />
-            ))}
-          </AnimatePresence>
-        </motion.div>
+        <>
+          {activeGroups.length === 0 ? (
+            <p className="text-center font-['Archivo'] text-xs text-[var(--text-muted,#8A8A8A)] py-4">Todas tus quinielas ya finalizaron.</p>
+          ) : (
+            <motion.div layout className="space-y-3.5">
+              <AnimatePresence>
+                {activeGroups.map((g, i) => (
+                  <GroupCard key={g.id} g={g} pal={PALETTE[i % PALETTE.length]} onOpen={() => navigate(`/q/${g.id}`)} />
+                ))}
+              </AnimatePresence>
+            </motion.div>
+          )}
+
+          {finishedGroups.length > 0 && (
+            <div className="mt-6">
+              <div className="font-['JetBrains_Mono'] font-bold text-[9.5px] uppercase tracking-[0.18em] text-[var(--text-muted,#8A8A8A)] mb-2.5 px-0.5">
+                Finalizadas
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {finishedGroups.map((g) => (
+                  <FinishedChip key={g.id} g={g} onOpen={() => navigate(`/q/${g.id}`)} />
+                ))}
+              </div>
+            </div>
+          )}
+        </>
       )}
 
       <AnimatePresence>
@@ -154,6 +178,21 @@ function GroupCard({ g, pal, onOpen }) {
         <span className="font-['Archivo'] font-semibold text-[10.5px] flex items-center gap-1" style={{ color }}>Ver tabla <ChevronRight size={13} /></span>
       </div>
     </motion.button>
+  )
+}
+
+// Burbuja pequeña para una quiniela ya finalizada: nombre + posición, sin
+// competir en tamaño con las tarjetas grandes de las activas.
+function FinishedChip({ g, onOpen }) {
+  return (
+    <button onClick={onOpen}
+      className="flex items-center gap-1.5 rounded-full pl-1.5 pr-3 py-1.5 bg-white dark:bg-[#161616] border border-slate-200 dark:border-[#262626] active:scale-95 transition-transform">
+      <span className="w-5 h-5 rounded-full grid place-items-center bg-slate-100 dark:bg-white/10 text-slate-500 shrink-0">
+        <CheckCircle2 size={12} />
+      </span>
+      <span className="font-['Archivo'] font-bold text-[11px] text-slate-700 dark:text-[#F3F1EA] truncate max-w-[120px]">{g.name}</span>
+      <span className="font-['JetBrains_Mono'] font-bold text-[9px] text-[var(--text-muted,#8A8A8A)] shrink-0">#{g.my_rank}</span>
+    </button>
   )
 }
 
