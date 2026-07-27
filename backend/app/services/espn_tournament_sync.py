@@ -228,6 +228,10 @@ async def sync_espn_tournament(supabase, tournament, full=False) -> dict:
                 .select("id, external_id, status, home_goals_actual, away_goals_actual")
                 .eq("tournament_id", tid).execute().data or [])
     snap = {m["external_id"]: m for m in existing if m.get("external_id")}
+    # Partidos que un admin marcó a mano como no disputados (suspendido/pospuesto/
+    # cancelado sin que ESPN lo refleje, p. ej. un walkover que ESPN sigue mostrando
+    # como jugado). El sync automático NO debe pisarlos: se excluyen del upsert.
+    frozen_ids = {eid for eid, m in snap.items() if m.get("status") in ("cancelled", "postponed")}
 
     rows = [{
         "tournament_id": tid,
@@ -250,9 +254,10 @@ async def sync_espn_tournament(supabase, tournament, full=False) -> dict:
         "phase": "knockout" if p.get("stage_base") else "groups",
         "stage": p.get("stage"),
         "events_json": p["events"],
-    } for p in parsed]
+    } for p in parsed if p["external_id"] not in frozen_ids]
 
-    supabase.table("matches").upsert(rows, on_conflict="tournament_id,external_id").execute()
+    if rows:
+        supabase.table("matches").upsert(rows, on_conflict="tournament_id,external_id").execute()
 
     # id por external_id (para puntuar los finalizados que cambiaron).
     idmap = {m["external_id"]: m["id"] for m in (
@@ -261,6 +266,8 @@ async def sync_espn_tournament(supabase, tournament, full=False) -> dict:
 
     scored = 0
     for p in parsed:
+        if p["external_id"] in frozen_ids:
+            continue  # no disputado (marcado a mano); no se re-puntúa desde ESPN
         mid = idmap.get(p["external_id"])
         if not mid:
             continue

@@ -232,6 +232,10 @@ async def sync_live_scores(supabase) -> dict:
     flipped = []
 
     async def apply_update(db_match, status, home_goals, away_goals, minute, events, goes_pen=None, pen_winner=None):
+        # Partido marcado a mano como no disputado (suspendido/pospuesto), aunque
+        # la fuente lo siga reportando como jugado: no se pisa automáticamente.
+        if db_match.get("status") in ("cancelled", "postponed"):
+            return
         pen_changed = (
             (goes_pen is not None and bool(db_match.get("goes_to_penalties")) != bool(goes_pen))
             or (pen_winner is not None and (db_match.get("penalties_winner_real") or None) != (pen_winner or None))
