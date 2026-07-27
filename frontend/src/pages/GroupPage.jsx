@@ -9,7 +9,7 @@ import { useAuth } from '../hooks/useAuth'
 import { useToast } from '../components/ui/Toast'
 import { friendlySaveError } from '../lib/saveError'
 import { powerupKey } from '../lib/powerups'
-import { fetchMyGroups, fetchGroupStandings, fetchTeamStandings, acceptGroupRules, setGroupRules, setGroupScoring, deleteGroup, proposeRuleChange, castRuleVote, cancelRuleProposal, fetchLeagueProposals } from '../lib/groups'
+import { fetchMyGroups, fetchGroupStandings, fetchTeamStandings, acceptGroupRules, setGroupRules, setGroupScoring, deleteGroup, proposeRuleChange, castRuleVote, cancelRuleProposal, fetchLeagueProposals, fetchMyPowerupCredits } from '../lib/groups'
 import { initialsDataUri, crestOnError } from '../lib/teamLogo'
 import { fetchLeagueMedals, recomputeLeagueBadges } from '../lib/medals'
 import { MedalStrip } from '../components/medals/BadgeShowcase'
@@ -65,6 +65,15 @@ export default function GroupPage() {
 
   // Límite de comodines ×2 por jornada/fase: viene de la config de la quiniela.
   const powerupLimit = group?.powerup_limit ?? 2
+
+  // Créditos de ×2 arrastrados de partidos cancelados (uso extra en la próxima
+  // jornada/fase), otorgados por void_cancelled_match. { [powerupKey]: cantidad }
+  const { data: powerupCredits = {} } = useQuery({
+    queryKey: ['powerup_credits', id],
+    queryFn: () => fetchMyPowerupCredits(id),
+    enabled: !!id,
+    staleTime: 1000 * 30,
+  })
 
   const saveMutation = useMutation({
     mutationFn: async (prediction) => {
@@ -239,6 +248,7 @@ export default function GroupPage() {
               isLoading={saveMutation.isPending}
               powerupLimit={powerupLimit}
               powerupUsage={powerupUsage}
+              powerupCredits={powerupCredits}
             />
           </>
         )

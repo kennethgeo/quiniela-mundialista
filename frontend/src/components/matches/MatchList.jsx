@@ -11,7 +11,7 @@ const containerVariants = {
   }
 }
 
-export default function MatchList({ matches, predictions, onSavePrediction, isLoading, powerupLimit = 0, powerupUsage = {} }) {
+export default function MatchList({ matches, predictions, onSavePrediction, isLoading, powerupLimit = 0, powerupUsage = {}, powerupCredits = {} }) {
   // Agrupar por jornada (matchday)
   const grouped = matches.reduce((acc, match) => {
     // Fase real de ESPN (Jornada N / Octavos / Liguilla…) si existe; si no, jornada o phase.
@@ -35,7 +35,10 @@ export default function MatchList({ matches, predictions, onSavePrediction, isLo
         const matchday = matchExample?.matchday
         const limitKey = powerupKey(phase, matchday)
 
-        const limit = powerupLimit; // límite ×2 por jornada/fase (config de la quiniela)
+        // Límite efectivo = cupo base de la quiniela + créditos arrastrados de
+        // partidos cancelados (uso extra ganado por votación del grupo).
+        const credit = powerupCredits[limitKey] || 0
+        const limit = powerupLimit + credit;
 
         // Comodines usados en TODA la fase/jornada (no solo los partidos visibles
         // por el filtro de grupo). Si no llega el conteo global, se cae al local.
@@ -53,8 +56,9 @@ export default function MatchList({ matches, predictions, onSavePrediction, isLo
             {limit > 0 && (
               <span className="shrink-0 flex items-center gap-1 font-['JetBrains_Mono'] font-bold text-[9px] px-2 py-0.5 rounded-[20px]"
                 style={{ color: hasReachedLimit ? '#FF7A59' : '#2ED3B7', background: hasReachedLimit ? 'rgba(255,122,89,.12)' : 'rgba(46,211,183,.12)' }}
-                title="Comodines ×2 disponibles en esta jornada">
+                title={credit > 0 ? `Incluye ${credit} comodín arrastrado de un partido cancelado` : 'Comodines ×2 disponibles en esta jornada'}>
                 ×2 · {Math.max(0, limit - powerupsUsed)}/{limit}
+                {credit > 0 && <span className="ml-0.5" title="Comodín arrastrado">🎁</span>}
               </span>
             )}
           </div>

@@ -137,28 +137,17 @@ async def calculate_and_update_scores(supabase, match_id: int) -> dict:
         return {"status": "error", "message": "Partido no encontrado"}
 
     # Partido no disputado (suspendido/cancelado/pospuesto): NO cuenta para el
-    # puntaje. Anulamos (0) los puntos y DEVOLVEMOS el comodín ×2 si lo usaron
-    # (no es justo que un partido que no se jugó gaste el cupo de la jornada).
-    if match.get("status") in ("cancelled", "canceled", "postponed", "suspended"):
-        preds = (supabase.table("predictions").select("id, points_earned, use_powerup_x2")
-                 .eq("match_id", match_id).execute().data or [])
-        zeroed = 0
-        refunded = 0
-        for p in preds:
-            patch = {}
-            if (p.get("points_earned") or 0) != 0:
-                patch["points_earned"] = 0
-            if p.get("use_powerup_x2"):
-                patch["use_powerup_x2"] = False
-            if patch:
-                supabase.table("predictions").update(patch).eq("id", p["id"]).execute()
-                if "points_earned" in patch:
-                    zeroed += 1
-                if "use_powerup_x2" in patch:
-                    refunded += 1
+    # puntaje. void_cancelled_match (SQL, SECURITY DEFINER) anula los puntos,
+    # devuelve el comodín ×2 si lo usaron, y otorga un crédito de arrastre para
+    # usarlo en la jornada/fase siguiente del torneo (decisión del grupo).
+    if match.get("status") in ("cancelled", "postponed"):
+        result = supabase.rpc("void_cancelled_match", {"p_match_id": match_id}).execute()
+        data = result.data or {}
         return {
-            "status": "ok", "message": "Partido no disputado; puntos anulados y comodines devueltos",
-            "predictions_zeroed": zeroed, "powerups_refunded": refunded,
+            "status": data.get("status", "ok"),
+            "message": "Partido no disputado; puntos anulados y comodines devueltos/arrastrados",
+            "predictions_zeroed": data.get("zeroed", 0),
+            "powerups_refunded": data.get("refunded", 0),
         }
 
     if match.get("status") != "finished":
