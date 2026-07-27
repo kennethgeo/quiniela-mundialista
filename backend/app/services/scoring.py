@@ -137,16 +137,29 @@ async def calculate_and_update_scores(supabase, match_id: int) -> dict:
         return {"status": "error", "message": "Partido no encontrado"}
 
     # Partido no disputado (suspendido/cancelado/pospuesto): NO cuenta para el
-    # puntaje. Anulamos (0) las predicciones que hubieran quedado con puntos.
+    # puntaje. Anulamos (0) los puntos y DEVOLVEMOS el comodín ×2 si lo usaron
+    # (no es justo que un partido que no se jugó gaste el cupo de la jornada).
     if match.get("status") in ("cancelled", "canceled", "postponed", "suspended"):
-        preds = (supabase.table("predictions").select("id, points_earned")
+        preds = (supabase.table("predictions").select("id, points_earned, use_powerup_x2")
                  .eq("match_id", match_id).execute().data or [])
         zeroed = 0
+        refunded = 0
         for p in preds:
+            patch = {}
             if (p.get("points_earned") or 0) != 0:
-                supabase.table("predictions").update({"points_earned": 0}).eq("id", p["id"]).execute()
-                zeroed += 1
-        return {"status": "ok", "message": "Partido no disputado; puntos anulados", "predictions_zeroed": zeroed}
+                patch["points_earned"] = 0
+            if p.get("use_powerup_x2"):
+                patch["use_powerup_x2"] = False
+            if patch:
+                supabase.table("predictions").update(patch).eq("id", p["id"]).execute()
+                if "points_earned" in patch:
+                    zeroed += 1
+                if "use_powerup_x2" in patch:
+                    refunded += 1
+        return {
+            "status": "ok", "message": "Partido no disputado; puntos anulados y comodines devueltos",
+            "predictions_zeroed": zeroed, "powerups_refunded": refunded,
+        }
 
     if match.get("status") != "finished":
         return {"status": "error", "message": "Partido no finalizado o no encontrado"}

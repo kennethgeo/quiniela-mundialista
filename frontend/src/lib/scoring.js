@@ -49,6 +49,7 @@ export async function calculateAndUpdateScores(matchId) {
     }
 
     const isFinished = match.status === 'finished'
+    const isCancelled = ['cancelled', 'canceled', 'postponed', 'suspended'].includes(match.status)
     const home_actual = match.home_goals_actual
     const away_actual = match.away_goals_actual
     const goes_to_penalties = match.goes_to_penalties || false
@@ -67,7 +68,8 @@ export async function calculateAndUpdateScores(matchId) {
     const updates = []
     const userPointsDelta = {}
 
-    // 3. Evaluar
+    // 3. Evaluar. Partido no disputado (cancelado/pospuesto): además de anular
+    // los puntos, devolvemos el comodín ×2 si lo usaron (no gasta el cupo).
     for (const pred of predictions) {
       let pts = 0
       if (isFinished && home_actual !== null && away_actual !== null) {
@@ -75,11 +77,16 @@ export async function calculateAndUpdateScores(matchId) {
       }
       const oldPoints = pred.points_earned || 0
       const delta = pts - oldPoints
+      const patch = {}
+      if (delta !== 0) patch.points_earned = pts
+      if (isCancelled && pred.use_powerup_x2) patch.use_powerup_x2 = false
 
-      if (delta !== 0) {
-        updates.push({ id: pred.id, points_earned: pts })
-        const uid = pred.user_id
-        userPointsDelta[uid] = (userPointsDelta[uid] || 0) + delta
+      if (Object.keys(patch).length > 0) {
+        updates.push({ id: pred.id, ...patch })
+        if (delta !== 0) {
+          const uid = pred.user_id
+          userPointsDelta[uid] = (userPointsDelta[uid] || 0) + delta
+        }
       }
     }
 
@@ -89,8 +96,8 @@ export async function calculateAndUpdateScores(matchId) {
     //    (leer-sumar-escribir) causaba "lost updates" bajo concurrencia.
     if (updates.length > 0) {
       await Promise.all(
-        updates.map(u =>
-          supabase.from('predictions').update({ points_earned: u.points_earned }).eq('id', u.id)
+        updates.map(({ id, ...patch }) =>
+          supabase.from('predictions').update(patch).eq('id', id)
         )
       )
     }
