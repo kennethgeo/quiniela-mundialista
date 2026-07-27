@@ -1,5 +1,6 @@
 // Acceso a grupos (quinielas) — envuelve las RPCs de database/26_groups_rpc.sql
 import { supabase } from './supabase'
+import { powerupKey } from './powerups'
 
 export async function fetchMyGroups() {
   const { data, error } = await supabase.rpc('my_groups')
@@ -104,6 +105,19 @@ export async function fetchLeagueProposals(leagueId) {
   const { data, error } = await supabase.rpc('league_proposals', { p_league_id: leagueId })
   if (error) throw error
   return data || []
+}
+
+// Mis créditos de comodín ×2 sin consumir en una quiniela (arrastrados de un
+// partido cancelado). Devuelve { [powerupKey]: cantidad }.
+export async function fetchMyPowerupCredits(leagueId) {
+  const { data, error } = await supabase.rpc('my_powerup_credits', { p_league_id: leagueId })
+  if (error) throw error
+  const o = {}
+  for (const r of data || []) {
+    const k = powerupKey(r.phase, r.matchday)
+    o[k] = (o[k] || 0) + r.credits
+  }
+  return o
 }
 
 export async function joinGroupByCode(code) {

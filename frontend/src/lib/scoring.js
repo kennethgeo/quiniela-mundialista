@@ -49,7 +49,23 @@ export async function calculateAndUpdateScores(matchId) {
     }
 
     const isFinished = match.status === 'finished'
-    const isCancelled = ['cancelled', 'canceled', 'postponed', 'suspended'].includes(match.status)
+    const isCancelled = ['cancelled', 'postponed'].includes(match.status)
+
+    // Partido no disputado: anular puntos, devolver el ×2 y otorgar el crédito
+    // de arrastre para la jornada siguiente. Centralizado en una función SQL
+    // (SECURITY DEFINER) para que funcione sin depender de las políticas RLS
+    // de "predictions" (que solo dejan escribir al propio usuario o a
+    // service_role — un admin editando las predicciones de OTROS no podría).
+    if (isCancelled) {
+      const { data, error } = await supabase.rpc('void_cancelled_match', { p_match_id: matchId })
+      if (error) return { status: 'error', message: error.message }
+      return {
+        status: data?.status || 'ok',
+        updatedPredictions: (data?.zeroed || 0) + (data?.refunded || 0),
+        powerupsRefunded: data?.refunded || 0,
+      }
+    }
+
     const home_actual = match.home_goals_actual
     const away_actual = match.away_goals_actual
     const goes_to_penalties = match.goes_to_penalties || false
@@ -68,8 +84,7 @@ export async function calculateAndUpdateScores(matchId) {
     const updates = []
     const userPointsDelta = {}
 
-    // 3. Evaluar. Partido no disputado (cancelado/pospuesto): además de anular
-    // los puntos, devolvemos el comodín ×2 si lo usaron (no gasta el cupo).
+    // 3. Evaluar
     for (const pred of predictions) {
       let pts = 0
       if (isFinished && home_actual !== null && away_actual !== null) {
@@ -77,16 +92,11 @@ export async function calculateAndUpdateScores(matchId) {
       }
       const oldPoints = pred.points_earned || 0
       const delta = pts - oldPoints
-      const patch = {}
-      if (delta !== 0) patch.points_earned = pts
-      if (isCancelled && pred.use_powerup_x2) patch.use_powerup_x2 = false
 
-      if (Object.keys(patch).length > 0) {
-        updates.push({ id: pred.id, ...patch })
-        if (delta !== 0) {
-          const uid = pred.user_id
-          userPointsDelta[uid] = (userPointsDelta[uid] || 0) + delta
-        }
+      if (delta !== 0) {
+        updates.push({ id: pred.id, points_earned: pts })
+        const uid = pred.user_id
+        userPointsDelta[uid] = (userPointsDelta[uid] || 0) + delta
       }
     }
 
