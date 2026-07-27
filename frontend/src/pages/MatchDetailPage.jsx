@@ -181,6 +181,7 @@ export default function MatchDetailPage() {
     : `${match.kickoff_at}Z`
   const kickoff = new Date(dateString)
   const isFinished = match.status === 'finished'
+  const isCancelled = ['cancelled', 'canceled', 'postponed', 'suspended'].includes(match.status)
 
   return (
     <div className="space-y-6 pb-8">
@@ -211,11 +212,13 @@ export default function MatchDetailPage() {
               {format(kickoff, "EEEE d 'de' MMMM", { locale: es })}
             </div>
             <div className={`flex items-center gap-1.5 text-xs font-bold uppercase px-3 py-1.5 rounded-full shrink-0 ${
+              isCancelled ? 'bg-[#FF7A59]/10 text-[#FF7A59] border border-[#FF7A59]/25' :
               match.status === 'finished' ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' :
               match.status === 'in_progress' ? 'bg-rose-500/10 text-rose-500 border border-rose-500/20 animate-pulse' :
               'bg-slate-500/10 text-slate-500 border border-slate-500/20'
             }`}>
-              {match.status === 'finished' ? 'Finalizado' :
+              {isCancelled ? 'No disputado' :
+               match.status === 'finished' ? 'Finalizado' :
                match.status === 'in_progress' ? 'En Vivo' :
                'Programado'}
             </div>
@@ -244,7 +247,9 @@ export default function MatchDetailPage() {
             {/* Marcador / VS */}
             <div className="flex flex-col items-center gap-2">
               <div className="flex items-center gap-3 text-4xl font-black font-['Russo_One'] tracking-tight">
-                {isFinished || match.status === 'in_progress' ? (
+                {isCancelled ? (
+                  <span className="text-slate-600 text-3xl">VS</span>
+                ) : isFinished || match.status === 'in_progress' ? (
                   <>
                     <span className="text-white">{match.home_goals_actual ?? 0}</span>
                     <span className="text-slate-600">-</span>
@@ -254,7 +259,12 @@ export default function MatchDetailPage() {
                   <span className="text-slate-600 text-3xl">VS</span>
                 )}
               </div>
-              {match.status === 'in_progress' ? (
+              {isCancelled ? (
+                <div className="flex items-center gap-1.5 text-[#FF7A59] text-sm font-bold">
+                  <ShieldAlert size={14} />
+                  <span>No se disputó · no cuenta para el puntaje</span>
+                </div>
+              ) : match.status === 'in_progress' ? (
                 <div className="flex items-center gap-1.5 text-rose-500 text-sm font-bold">
                   <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
                   <span>
@@ -420,10 +430,14 @@ export default function MatchDetailPage() {
                         ⚽ Pasa: {pred.penalties_winner_pred}
                       </span>
                     )}
-                    {isFinished && (
+                    {isCancelled ? (
+                      <span className="text-xs font-bold px-2 py-0.5 rounded-md bg-[#FF7A59]/15 text-[#FF7A59]">
+                        No cuenta
+                      </span>
+                    ) : isFinished && (
                       <span className={`text-xs font-bold px-2 py-0.5 rounded-md ${
-                        pred.points_earned > 0 
-                          ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400' 
+                        pred.points_earned > 0
+                          ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400'
                           : 'bg-rose-500/20 text-rose-600 dark:text-rose-400'
                       }`}>
                         +{pred.points_earned} pts
