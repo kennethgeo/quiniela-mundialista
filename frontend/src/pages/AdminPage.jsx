@@ -12,7 +12,6 @@ import RecalcScoresAdmin from '../components/admin/RecalcScoresAdmin'
 import ScoreReconcileAdmin from '../components/admin/ScoreReconcileAdmin'
 import UserManagementAdmin from '../components/admin/UserManagementAdmin'
 import BannedEmailsAdmin from '../components/admin/BannedEmailsAdmin'
-import GlobalSettingsAdmin from '../components/admin/GlobalSettingsAdmin'
 import AnnouncementsAdmin from '../components/admin/AnnouncementsAdmin'
 import AvatarOptimizerAdmin from '../components/admin/AvatarOptimizerAdmin'
 
@@ -129,9 +128,6 @@ export default function AdminPage() {
 
         {activeTab === 'site' && (
           <motion.div key="site" initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 12 }} className="relative z-10 pb-20">
-            <AdminSection icon={Settings2} title="Configuración global">
-              <GlobalSettingsAdmin />
-            </AdminSection>
             <AdminSection icon={Settings2} title="Anuncios">
               <AnnouncementsAdmin />
             </AdminSection>

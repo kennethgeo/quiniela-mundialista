@@ -77,6 +77,16 @@ export async function setGroupScoring(leagueId, cfg) {
   if (error) throw error
 }
 
+// Premios y grupo de WhatsApp de la quiniela (solo admin).
+export async function setGroupExtras(leagueId, { prizesText, whatsappLink }) {
+  const { error } = await supabase.rpc('set_group_extras', {
+    p_league_id: leagueId,
+    p_prizes_text: prizesText ?? null,
+    p_whatsapp_link: whatsappLink ?? null,
+  })
+  if (error) throw error
+}
+
 /* ---- Votación de cambios de reglas durante el torneo (migración 42) ---- */
 
 // Proponer un cambio (solo admin). kind: 'scoring' | 'rules'.
