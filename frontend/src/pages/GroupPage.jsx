@@ -3,13 +3,13 @@ import { useState, useMemo, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion } from 'motion/react'
-import { ArrowLeft, CalendarDays, ListOrdered, Users, Copy, Check, Trophy, GitBranch, BarChart3, Shield, ScrollText, Loader2, Pencil, Lock, Trash2, AlertTriangle, Vote, ThumbsUp, ThumbsDown, X, Home, Clock, ChevronRight, Target } from 'lucide-react'
+import { ArrowLeft, CalendarDays, ListOrdered, Users, Copy, Check, Trophy, GitBranch, BarChart3, Shield, ScrollText, Loader2, Pencil, Lock, Trash2, AlertTriangle, Vote, ThumbsUp, ThumbsDown, X, Home, Clock, ChevronRight, Target, Gift, MessageCircle } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import { useToast } from '../components/ui/Toast'
 import { friendlySaveError } from '../lib/saveError'
 import { powerupKey } from '../lib/powerups'
-import { fetchMyGroups, fetchGroupStandings, fetchTeamStandings, acceptGroupRules, setGroupRules, setGroupScoring, deleteGroup, proposeRuleChange, castRuleVote, cancelRuleProposal, fetchLeagueProposals, fetchMyPowerupCredits } from '../lib/groups'
+import { fetchMyGroups, fetchGroupStandings, fetchTeamStandings, acceptGroupRules, setGroupRules, setGroupScoring, deleteGroup, proposeRuleChange, castRuleVote, cancelRuleProposal, fetchLeagueProposals, fetchMyPowerupCredits, setGroupExtras } from '../lib/groups'
 import { initialsDataUri, crestOnError } from '../lib/teamLogo'
 import { fetchLeagueMedals, recomputeLeagueBadges } from '../lib/medals'
 import { MedalStrip } from '../components/medals/BadgeShowcase'
@@ -362,6 +362,7 @@ function RulesPanel({ group, tournamentStarted, showToast, onDeleted }) {
         hasOpenProposal={!!openProposal} onSaved={afterChange} onProposed={afterChange} showToast={showToast} />
       <RulesTab group={group} isAdmin={isAdmin} tournamentStarted={tournamentStarted}
         hasOpenProposal={!!openProposal} onSaved={afterChange} onProposed={afterChange} showToast={showToast} />
+      <ExtrasConfig group={group} isAdmin={isAdmin} onSaved={afterChange} showToast={showToast} />
       {history.length > 0 && <ProposalHistory items={history} />}
       {isAdmin && <AdminTools group={group} showToast={showToast} onDone={() => qc.invalidateQueries({ queryKey: ['league_medals', group.id] })} />}
       {isAdmin && <DangerZone group={group} onDeleted={onDeleted} showToast={showToast} />}
@@ -677,6 +678,77 @@ function RulesTab({ group, isAdmin, tournamentStarted, hasOpenProposal, onSaved,
   )
 }
 
+/* ---- Premios y contacto (WhatsApp) ---- */
+// Cosmético, no afecta el puntaje: editable siempre, sin bloqueo por inicio
+// de torneo ni votación. Antes vivía en "Ajustes Globales de la App" (un
+// panel único para todo el sitio que ningún miembro llegaba a ver); ahora es
+// por quiniela y se muestra en el Resumen.
+function ExtrasConfig({ group, isAdmin, onSaved, showToast }) {
+  const [editing, setEditing] = useState(false)
+  const [prizesText, setPrizesText] = useState(group.prizes_text || '')
+  const [whatsappLink, setWhatsappLink] = useState(group.whatsapp_link || '')
+  const [busy, setBusy] = useState(false)
+
+  const save = async () => {
+    try {
+      setBusy(true)
+      await setGroupExtras(group.id, { prizesText, whatsappLink })
+      showToast('Premios y contacto actualizados.', 'success', 3500)
+      setEditing(false)
+      onSaved()
+    } catch (e) { showToast(e.message, 'error', 6000) } finally { setBusy(false) }
+  }
+
+  if (!isAdmin && !group.prizes_text && !group.whatsapp_link) return null
+
+  return (
+    <div className="rounded-2xl bg-white dark:bg-[#161616] border border-slate-200 dark:border-[#262626] p-5">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <Gift size={18} className="text-accent" />
+          <h3 className="font-bold font-['Unbounded'] text-slate-900 dark:text-[#F3F1EA] text-[15px]">Premios y contacto</h3>
+        </div>
+        {isAdmin && !editing && (
+          <button onClick={() => { setPrizesText(group.prizes_text || ''); setWhatsappLink(group.whatsapp_link || ''); setEditing(true) }}
+            className="flex items-center gap-1.5 text-[12px] font-bold text-accent bg-accent/10 border border-accent/25 rounded-lg px-2.5 py-1.5">
+            <Pencil size={13} /> Editar
+          </button>
+        )}
+      </div>
+
+      {editing ? (
+        <>
+          <label className="block text-[11px] font-bold text-[var(--text-muted,#8A8A8A)] uppercase tracking-wide mb-1.5">Premios</label>
+          <textarea value={prizesText} onChange={(e) => setPrizesText(e.target.value)} rows={3} placeholder="Ej. El primer lugar se lleva la olla"
+            className="w-full bg-slate-50 dark:bg-[#0C0C0C] border border-slate-200 dark:border-[#262626] rounded-xl p-3 text-[13px] text-slate-800 dark:text-[#F3F1EA] focus:outline-none focus:border-accent resize-none" />
+          <label className="block text-[11px] font-bold text-[var(--text-muted,#8A8A8A)] uppercase tracking-wide mb-1.5 mt-3">Link del grupo de WhatsApp</label>
+          <input value={whatsappLink} onChange={(e) => setWhatsappLink(e.target.value)} placeholder="https://chat.whatsapp.com/…"
+            className="w-full bg-slate-50 dark:bg-[#0C0C0C] border border-slate-200 dark:border-[#262626] rounded-xl p-3 text-[13px] text-slate-800 dark:text-[#F3F1EA] focus:outline-none focus:border-accent" />
+          <div className="flex gap-2 mt-3">
+            <button onClick={() => setEditing(false)} className="flex-1 py-2.5 rounded-xl font-bold text-sm text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-[#262626]">Cancelar</button>
+            <button onClick={save} disabled={busy}
+              className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl font-bold text-sm text-[#06231d] bg-gradient-to-r from-[#2ED3B7] to-[#26bfa5] disabled:opacity-60">
+              {busy ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />} Guardar
+            </button>
+          </div>
+        </>
+      ) : (
+        <div className="space-y-2">
+          {group.prizes_text
+            ? <p className="text-[13px] leading-relaxed text-slate-700 dark:text-[#e5e3dc] whitespace-pre-wrap">{group.prizes_text}</p>
+            : isAdmin && <p className="text-[12px] text-[var(--text-muted,#8A8A8A)] italic">Sin premios definidos.</p>}
+          {group.whatsapp_link && (
+            <a href={group.whatsapp_link} target="_blank" rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 text-[12.5px] font-bold text-accent">
+              <MessageCircle size={14} /> Grupo de WhatsApp
+            </a>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 /* ---- Herramientas de admin ---- */
 function AdminTools({ group, showToast, onDone }) {
   const [busy, setBusy] = useState(false)
@@ -968,6 +1040,19 @@ function SummaryTab({ group, matches, predictions, leagueId, profileId, loading,
         </div>
         <div className="font-['JetBrains_Mono'] text-[9px] text-[var(--text-muted,#8A8A8A)] mt-1">{played}/{totalM} partidos jugados</div>
       </Section>
+
+      {/* Premios y WhatsApp (si el admin los cargó) */}
+      {(group.prizes_text || group.whatsapp_link) && (
+        <Section title="Premios" icon={Gift}>
+          {group.prizes_text && <p className="text-[13px] leading-relaxed text-slate-700 dark:text-[#e5e3dc] whitespace-pre-wrap mb-2">{group.prizes_text}</p>}
+          {group.whatsapp_link && (
+            <a href={group.whatsapp_link} target="_blank" rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 text-[12.5px] font-bold text-accent">
+              <MessageCircle size={14} /> Grupo de WhatsApp
+            </a>
+          )}
+        </Section>
+      )}
 
       {/* Tu resumen */}
       <Section title="Tu resumen" icon={Target}>
