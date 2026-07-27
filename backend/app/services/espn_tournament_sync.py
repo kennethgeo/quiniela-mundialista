@@ -258,6 +258,12 @@ async def sync_espn_tournament(supabase, tournament, full=False) -> dict:
 
     if rows:
         supabase.table("matches").upsert(rows, on_conflict="tournament_id,external_id").execute()
+        # Fixtures nuevos pueden resolver créditos de arrastre que quedaron
+        # "pendientes" (se cancelaron antes de que existiera la próxima jornada).
+        try:
+            supabase.rpc("resolve_pending_powerup_credits", {"p_tournament_id": tid}).execute()
+        except Exception:  # noqa: BLE001
+            pass
 
     # id por external_id (para puntuar los finalizados que cambiaron).
     idmap = {m["external_id"]: m["id"] for m in (

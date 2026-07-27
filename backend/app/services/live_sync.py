@@ -335,6 +335,13 @@ async def sync_live_scores(supabase) -> dict:
             except Exception:  # noqa: BLE001
                 pass
 
+    # Fixtures/rondas nuevas del bracket pueden resolver créditos de arrastre
+    # que quedaron pendientes (se cancelaron antes de conocerse el rival siguiente).
+    try:
+        supabase.rpc("resolve_pending_powerup_credits", {"p_tournament_id": 1}).execute()
+    except Exception:  # noqa: BLE001
+        pass
+
     return {
         "status": "ok",
         "source": source,
