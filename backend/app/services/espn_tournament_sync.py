@@ -223,15 +223,24 @@ async def sync_espn_tournament(supabase, tournament, full=False) -> dict:
 
     _assign_stages(parsed)
 
-    # Snapshot de lo existente (para saber qué cambió y re-puntuar).
-    existing = (supabase.table("matches")
-                .select("id, external_id, status, home_goals_actual, away_goals_actual")
-                .eq("tournament_id", tid).execute().data or [])
+    # Snapshot de lo existente (para saber qué cambió y re-puntuar). score_locked
+    # es una columna nueva; si la migración que la crea todavía no corrió, cae a
+    # la versión anterior en vez de romper el sync de este torneo.
+    try:
+        existing = (supabase.table("matches")
+                    .select("id, external_id, status, home_goals_actual, away_goals_actual, score_locked")
+                    .eq("tournament_id", tid).execute().data or [])
+    except Exception:  # noqa: BLE001
+        existing = (supabase.table("matches")
+                    .select("id, external_id, status, home_goals_actual, away_goals_actual")
+                    .eq("tournament_id", tid).execute().data or [])
     snap = {m["external_id"]: m for m in existing if m.get("external_id")}
     # Partidos que un admin marcó a mano como no disputados (suspendido/pospuesto/
     # cancelado sin que ESPN lo refleje, p. ej. un walkover que ESPN sigue mostrando
-    # como jugado). El sync automático NO debe pisarlos: se excluyen del upsert.
-    frozen_ids = {eid for eid, m in snap.items() if m.get("status") in ("cancelled", "postponed")}
+    # como jugado), o cuyo marcador se corrigió a mano por un fallo oficial que la
+    # fuente no refleja (score_locked). El sync automático NO debe pisarlos.
+    frozen_ids = {eid for eid, m in snap.items()
+                  if m.get("status") in ("cancelled", "postponed") or m.get("score_locked")}
 
     rows = [{
         "tournament_id": tid,

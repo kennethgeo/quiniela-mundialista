@@ -220,11 +220,16 @@ async def sync_live_scores(supabase) -> dict:
         "status,home_goals_actual,away_goals_actual,"
         "goes_to_penalties,penalties_winner_real"
     )
+    # events_json y score_locked son columnas nuevas; si la migración que las
+    # crea todavía no corrió, cae a las versiones anteriores en vez de romper
+    # el sync entero.
     try:
-        matches = supabase.table("matches").select(base_cols + ",events_json").execute().data or []
+        matches = supabase.table("matches").select(base_cols + ",events_json,score_locked").execute().data or []
     except Exception:
-        # La columna events_json puede no existir aún
-        matches = supabase.table("matches").select(base_cols).execute().data or []
+        try:
+            matches = supabase.table("matches").select(base_cols + ",score_locked").execute().data or []
+        except Exception:
+            matches = supabase.table("matches").select(base_cols).execute().data or []
 
     summary = {"updated": 0, "finished_calculated": 0}
     errors = []
@@ -232,9 +237,10 @@ async def sync_live_scores(supabase) -> dict:
     flipped = []
 
     async def apply_update(db_match, status, home_goals, away_goals, minute, events, goes_pen=None, pen_winner=None):
-        # Partido marcado a mano como no disputado (suspendido/pospuesto), aunque
-        # la fuente lo siga reportando como jugado: no se pisa automáticamente.
-        if db_match.get("status") in ("cancelled", "postponed"):
+        # Partido marcado a mano como no disputado (suspendido/pospuesto), o con
+        # el marcador corregido a mano por un fallo oficial (score_locked): no
+        # se pisa automáticamente aunque la fuente lo siga reportando distinto.
+        if db_match.get("status") in ("cancelled", "postponed") or db_match.get("score_locked"):
             return
         pen_changed = (
             (goes_pen is not None and bool(db_match.get("goes_to_penalties")) != bool(goes_pen))
