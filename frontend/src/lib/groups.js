@@ -144,7 +144,8 @@ export async function fetchGroupStandings(leagueId) {
   return data || []
 }
 
-// Tabla real de posiciones de equipos (proxy backend a ESPN).
+// Tabla de posiciones de equipos, calculada por el backend desde los marcadores
+// propios (incluye partidos en vivo, no solo la tabla oficial post-partido).
 export async function fetchTeamStandings(tournamentId) {
   const { data: { session } } = await supabase.auth.getSession()
   const res = await fetch(`/_backend/api/matches/tournament-standings?tournament_id=${tournamentId}`, {
