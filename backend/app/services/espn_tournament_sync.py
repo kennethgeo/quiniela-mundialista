@@ -100,29 +100,62 @@ def _parse_event(ev):
     }
 
 
-def _assign_stages(parsed):
+def _assign_stages(parsed, history=None):
     """Calcula stage + matchday: por fase real, o 'Jornada N' en liga regular
-    (agrupando por fin de semana, ya que ESPN no expone el número de jornada)."""
-    # Liga regular (sin fase): ordenar por fecha y agrupar en rondas semanales.
-    regular = sorted((p for p in parsed if not p["stage_base"]), key=lambda p: p["kickoff_at"] or "")
+    (agrupando por fecha, ya que ESPN no expone el número de jornada).
+
+    `history` (opcional): partidos de liga regular YA guardados en la BD, fuera
+    de la ventana móvil de este sync (id externo + kickoff_at). El cron corre
+    con una ventana móvil (± unas semanas), así que si solo agrupáramos lo
+    recién traído, cada corrida numeraría desde 1 sobre un subconjunto distinto
+    y la jornada de un mismo partido podría cambiar de una corrida a otra. Al
+    incluir el historial como contexto de fechas (sin reescribirlo) la
+    numeración queda estable entre corridas."""
     from datetime import datetime as _dt
-    md = 0
-    cluster_start = None
-    for p in regular:
+
+    def _parse(dt_str):
         try:
-            d = _dt.fromisoformat((p["kickoff_at"] or "").replace("Z", "+00:00"))
+            return _dt.fromisoformat((dt_str or "").replace("Z", "+00:00"))
         except Exception:  # noqa: BLE001
-            d = None
-        if cluster_start is None or (d and (d - cluster_start).days > 4):
+            return None
+
+    new_regular = [p for p in parsed if not p["stage_base"]]
+    new_ids = {p["external_id"] for p in new_regular}
+    hist_entries = [
+        {"external_id": h["external_id"], "kickoff_at": h["kickoff_at"]}
+        for h in (history or [])
+        if h.get("kickoff_at") and h.get("external_id") not in new_ids
+    ]
+    combined = sorted(
+        [{"external_id": p["external_id"], "kickoff_at": p["kickoff_at"]} for p in new_regular] + hist_entries,
+        key=lambda x: x["kickoff_at"] or "",
+    )
+
+    # Umbral de separación entre jornadas: una jornada real puede repartirse
+    # entre viernes y lunes (hasta ~28h de hueco interno visto en producción,
+    # por husos horarios), mientras que el salto a la siguiente jornada es de
+    # varios días (mínimo ~72h visto en producción). 48h queda cómodo en el
+    # medio. Se compara SIEMPRE contra el partido anterior (no contra el
+    # primero de la jornada) para no perder el hueco si la jornada se estira.
+    GAP_THRESHOLD_HOURS = 48
+    md_by_id = {}
+    md = 0
+    prev_date = None
+    for e in combined:
+        d = _parse(e["kickoff_at"])
+        if prev_date is None or (d and (d - prev_date).total_seconds() > GAP_THRESHOLD_HOURS * 3600):
             md += 1
-            cluster_start = d
-        p["matchday"] = md
-        p["stage"] = f"Jornada {md}"
-    # Fases (copas): la etiqueta ya es la fase (+ leg).
+        if d:
+            prev_date = d
+        md_by_id[e["external_id"]] = md
+
     for p in parsed:
         if p["stage_base"]:
             p["stage"] = " · ".join(x for x in (p["stage_base"], p["leg"]) if x)
             p["matchday"] = None
+        else:
+            p["matchday"] = md_by_id.get(p["external_id"])
+            p["stage"] = f"Jornada {p['matchday']}"
     return parsed
 
 
@@ -221,20 +254,25 @@ async def sync_espn_tournament(supabase, tournament, full=False) -> dict:
     if not parsed:
         return {"tournament_id": tid, "matches": 0, "scored": 0}
 
-    _assign_stages(parsed)
-
-    # Snapshot de lo existente (para saber qué cambió y re-puntuar). score_locked
-    # es una columna nueva; si la migración que la crea todavía no corrió, cae a
-    # la versión anterior en vez de romper el sync de este torneo.
+    # Snapshot de lo existente (para saber qué cambió y re-puntuar, y como
+    # contexto de fechas para que la numeración de jornada no cambie entre
+    # corridas parciales — ver _assign_stages). score_locked es una columna
+    # nueva; si la migración que la crea todavía no corrió, cae a la versión
+    # anterior en vez de romper el sync de este torneo.
     try:
         existing = (supabase.table("matches")
-                    .select("id, external_id, status, home_goals_actual, away_goals_actual, score_locked")
+                    .select("id, external_id, status, home_goals_actual, away_goals_actual, "
+                            "score_locked, kickoff_at, phase")
                     .eq("tournament_id", tid).execute().data or [])
     except Exception:  # noqa: BLE001
         existing = (supabase.table("matches")
-                    .select("id, external_id, status, home_goals_actual, away_goals_actual")
+                    .select("id, external_id, status, home_goals_actual, away_goals_actual, "
+                            "kickoff_at, phase")
                     .eq("tournament_id", tid).execute().data or [])
     snap = {m["external_id"]: m for m in existing if m.get("external_id")}
+
+    history = [m for m in existing if m.get("phase") == "groups"]
+    _assign_stages(parsed, history)
     # Partidos que un admin marcó a mano como no disputados (suspendido/pospuesto/
     # cancelado sin que ESPN lo refleje, p. ej. un walkover que ESPN sigue mostrando
     # como jugado), o cuyo marcador se corrigió a mano por un fallo oficial que la
