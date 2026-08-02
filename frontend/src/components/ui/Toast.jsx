@@ -77,10 +77,10 @@ function ToastItem({ toast, onRemove }) {
         size={20}
         className={isSuccess ? 'text-success shrink-0' : 'text-error shrink-0'}
       />
-      <p className="text-sm text-white flex-1">{message}</p>
+      <p className="text-sm text-slate-900 dark:text-white flex-1">{message}</p>
       <button
         onClick={() => onRemove(id)}
-        className="text-slate-500 hover:text-white transition-colors shrink-0"
+        className="text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors shrink-0"
       >
         <X size={14} />
       </button>
