@@ -67,14 +67,20 @@ export default function GroupStage() {
   // Asegurar orden cronologico estricto en el cliente
   const chronologicallySortedMatches = [...matches].sort((a, b) => new Date(a.kickoff_at) - new Date(b.kickoff_at))
 
-  // Recalcular matchday basado en el orden cronológico por grupo (para evitar errores de la API)
+  // Recalcular matchday basado en el orden cronológico por grupo (para evitar
+  // errores de la API) — SOLO para grupos reales estilo Mundial (group_name
+  // presente, 4 equipos → 2 partidos por jornada). Ligas sin grupos
+  // (round-robin, p. ej. Costa Rica) no tienen group_name: su matchday ya
+  // viene correcto desde la BD y no debe tocarse, o todos sus partidos de
+  // toda la temporada caerían en un solo balde mal numerado.
   const matchesByGroup = {}
-  chronologicallySortedMatches.forEach(m => {
+  chronologicallySortedMatches.filter(m => m.group_name).forEach(m => {
     if (!matchesByGroup[m.group_name]) matchesByGroup[m.group_name] = []
     matchesByGroup[m.group_name].push(m)
   })
-  
+
   const fixedMatches = []
+  chronologicallySortedMatches.filter(m => !m.group_name).forEach(m => fixedMatches.push(m))
   Object.keys(matchesByGroup).forEach(group => {
     matchesByGroup[group].forEach((m, idx) => {
       // En un grupo de 4 equipos, hay 6 partidos. Los partidos 0,1 son J1; 2,3 son J2; 4,5 son J3.

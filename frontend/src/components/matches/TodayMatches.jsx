@@ -88,12 +88,16 @@ export default function TodayMatches() {
   const koById = new Map(resolvedKnockouts.map((m) => [m.id, m]))
   const resolved = allMatches.map((m) => koById.get(m.id) || m)
 
-  // Recalcular la jornada de cada partido de grupos (igual que GroupStage) para
-  // que la llave de límite de comodín (phase_matchday) sea correcta.
+  // Recalcular la jornada SOLO para grupos reales estilo Mundial (4 equipos,
+  // 2 partidos por jornada) — group_name identifica ese caso. Ligas sin
+  // grupos (p. ej. Costa Rica, round-robin) no tienen group_name: su
+  // matchday ya viene correcto desde la BD y no debe recalcularse acá, o
+  // todos sus partidos (de toda la temporada) caerían en un solo balde y
+  // saldrían mal numerados.
   const matchdayById = {}
   const byGroup = {}
   resolved
-    .filter((m) => m.phase === 'groups')
+    .filter((m) => m.phase === 'groups' && m.group_name)
     .forEach((m) => { (byGroup[m.group_name] ||= []).push(m) })
   Object.values(byGroup).forEach((arr) => {
     arr.sort((a, b) => new Date(a.kickoff_at) - new Date(b.kickoff_at))

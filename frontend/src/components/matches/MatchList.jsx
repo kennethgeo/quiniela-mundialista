@@ -11,7 +11,7 @@ const containerVariants = {
   }
 }
 
-export default function MatchList({ matches, predictions, onSavePrediction, isLoading, powerupLimit = 0, powerupUsage = {}, powerupCredits = {} }) {
+export default function MatchList({ matches, predictions, onSavePrediction, isLoading, powerupLimit = 0, powerupLimits = null, powerupUsage = {}, powerupCredits = {} }) {
   // Agrupar por jornada (matchday)
   const grouped = matches.reduce((acc, match) => {
     // Fase real de ESPN (Jornada N / Octavos / Liguilla…) si existe; si no, jornada o phase.
@@ -35,10 +35,14 @@ export default function MatchList({ matches, predictions, onSavePrediction, isLo
         const matchday = matchExample?.matchday
         const limitKey = powerupKey(phase, matchday)
 
-        // Límite efectivo = cupo base de la quiniela + créditos arrastrados de
-        // partidos cancelados (uso extra ganado por votación del grupo).
+        // Límite efectivo = cupo base + créditos arrastrados de partidos
+        // cancelados (uso extra ganado por votación del grupo). El cupo base
+        // puede venir como número flat por liga (powerupLimit, GroupPage) o
+        // como mapa por fase/jornada (powerupLimits, vistas multi-torneo
+        // como TodayMatches) — se usa el que corresponda.
         const credit = powerupCredits[limitKey] || 0
-        const limit = powerupLimit + credit;
+        const baseLimit = powerupLimits && powerupLimits[limitKey] != null ? powerupLimits[limitKey] : powerupLimit
+        const limit = baseLimit + credit;
 
         // Comodines usados en TODA la fase/jornada (no solo los partidos visibles
         // por el filtro de grupo). Si no llega el conteo global, se cae al local.

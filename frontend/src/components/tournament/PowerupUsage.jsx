@@ -55,11 +55,14 @@ export default function PowerupUsage() {
 
   if (loading) return <LoadingSpinner />
 
-  // Jornada de cada partido de grupos, recalculada como en el resto de la app
-  // (cronológico por grupo, 2 por jornada) para no depender del dato de la API.
+  // Jornada de cada partido de grupos, recalculada SOLO para grupos reales
+  // estilo Mundial (group_name presente, 2 partidos por jornada). Ligas sin
+  // grupos (round-robin, p. ej. Costa Rica) no tienen group_name: su
+  // matchday ya viene correcto desde la BD (ver fallback `?? m.matchday`
+  // abajo) — recalcularlo acá los mezclaría todos en un solo balde.
   const mdById = {}
   const byGroup = {}
-  matches.filter((m) => m.phase === 'groups').forEach((m) => { (byGroup[m.group_name] ||= []).push(m) })
+  matches.filter((m) => m.phase === 'groups' && m.group_name).forEach((m) => { (byGroup[m.group_name] ||= []).push(m) })
   Object.values(byGroup).forEach((arr) => {
     arr.sort((a, b) => new Date(a.kickoff_at) - new Date(b.kickoff_at))
     arr.forEach((m, idx) => { mdById[m.id] = Math.floor(idx / 2) + 1 })
