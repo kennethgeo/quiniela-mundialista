@@ -877,11 +877,12 @@ function TeamStandingsTab({ tournamentId }) {
   const { data, isLoading, isError } = useQuery({
     queryKey: ['team_standings', tournamentId],
     queryFn: () => fetchTeamStandings(tournamentId),
-    staleTime: 1000 * 60 * 10,
+    staleTime: 1000 * 30,
+    refetchInterval: 1000 * 60,
   })
   if (isLoading) return <LoadingSpinner />
   if (isError || !data?.groups?.length) {
-    return <p className="text-sm text-slate-400 italic text-center py-8">ESPN aún no tiene la tabla de este torneo.</p>
+    return <p className="text-sm text-slate-400 italic text-center py-8">Todavía no hay partidos jugados en este torneo.</p>
   }
   return (
     <div className="space-y-5">
@@ -927,7 +928,7 @@ function TeamStandingsTab({ tournamentId }) {
           </div>
         </div>
       ))}
-      <p className="text-[11px] text-slate-400 text-center">Tabla oficial vía ESPN{data.season ? ` · temporada ${data.season}` : ''}</p>
+      <p className="text-[11px] text-slate-400 text-center">Tabla en vivo, calculada de los marcadores de la app</p>
     </div>
   )
 }

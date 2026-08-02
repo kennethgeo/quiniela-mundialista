@@ -212,64 +212,63 @@ async def refresh_live():
 
 @router.get("/tournament-standings")
 async def tournament_standings(tournament_id: int, user: dict = Depends(get_current_user)):
-    """Tabla real de posiciones (equipos) de un torneo ESPN: puntos, PJ, G/E/P, DG.
-    Proxy a ESPN (prueba la temporada del torneo y las 2 recientes)."""
-    from datetime import datetime, timezone
+    """Tabla de posiciones (equipos) de un torneo: puntos, PJ, G/E/P, DG.
 
+    Se calcula desde NUESTRA tabla `matches` (no proxy a ESPN) para que se vea
+    en vivo: los partidos 'in_progress' ya tienen marcador actualizado por el
+    sync (cada ~5 min) y entran en la tabla con ese marcador parcial, en vez
+    de esperar a que ESPN publique la tabla oficial (que solo se actualiza
+    cuando el partido termina)."""
     supabase = get_supabase()
-    t = (supabase.table("tournaments").select("external_ref, season")
-         .eq("id", tournament_id).single().execute().data) or {}
-    league = (t.get("external_ref") or "").strip()
-    if not league:
-        raise HTTPException(status_code=400, detail="El torneo no es de fuente ESPN")
+    matches = (supabase.table("matches")
+               .select("group_name, home_team, away_team, home_flag_url, away_flag_url, "
+                       "home_goals_actual, away_goals_actual, status")
+               .eq("tournament_id", tournament_id).eq("phase", "groups")
+               .in_("status", ["finished", "in_progress"])
+               .execute().data or [])
 
-    def _i(v):
-        try:
-            return int(float(v))
-        except (TypeError, ValueError):
-            return 0
+    groups = {}
+    for m in matches:
+        hg, ag = m.get("home_goals_actual"), m.get("away_goals_actual")
+        if hg is None or ag is None:
+            continue
+        gname = m.get("group_name")
+        table = groups.setdefault(gname, {})
 
-    years, seen = [], set()
-    for y in ([t.get("season")] if (t.get("season") or "").isdigit() else []) + \
-             [str(datetime.now(timezone.utc).year), str(datetime.now(timezone.utc).year - 1)]:
-        if y and y not in seen:
-            seen.add(y); years.append(y)
+        def _team(name, flag):
+            if name not in table:
+                table[name] = {"team": name, "logo": flag, "played": 0, "wins": 0,
+                                "draws": 0, "losses": 0, "gf": 0, "ga": 0}
+            elif flag and not table[name]["logo"]:
+                table[name]["logo"] = flag
+            return table[name]
 
-    async with httpx.AsyncClient(timeout=20.0) as client:
-        for yr in years:
-            try:
-                r = await client.get(
-                    f"https://site.web.api.espn.com/apis/v2/sports/soccer/{league}/standings",
-                    params={"lang": "es", "region": "es", "season": yr})
-                data = r.json()
-            except Exception:  # noqa: BLE001
-                continue
-            children = data.get("children") or ([{"standings": data["standings"]}] if data.get("standings") else [])
-            groups = []
-            for ch in children:
-                entries = ((ch.get("standings") or {}).get("entries")) or []
-                rows = []
-                for e in entries:
-                    stats = {s.get("name"): s.get("value") for s in e.get("stats", [])}
-                    tm = e.get("team") or {}
-                    logo = (tm.get("logos") or [{}])[0].get("href") if tm.get("logos") else tm.get("logo")
-                    rows.append({
-                        "team": tm.get("displayName") or tm.get("name"),
-                        "logo": logo,
-                        "rank": _i(stats.get("rank")),
-                        "points": _i(stats.get("points")),
-                        "played": _i(stats.get("gamesPlayed")),
-                        "wins": _i(stats.get("wins")),
-                        "draws": _i(stats.get("ties")),
-                        "losses": _i(stats.get("losses")),
-                        "gd": _i(stats.get("pointDifferential")),
-                    })
-                if rows:
-                    rows.sort(key=lambda x: x["rank"] or 999)
-                    groups.append({"name": ch.get("name") or ch.get("displayName"), "rows": rows})
-            if groups:
-                return {"tournament_id": tournament_id, "season": yr, "groups": groups}
-    return {"tournament_id": tournament_id, "groups": []}
+        home = _team(m["home_team"], m.get("home_flag_url"))
+        away = _team(m["away_team"], m.get("away_flag_url"))
+        home["played"] += 1; away["played"] += 1
+        home["gf"] += hg; home["ga"] += ag
+        away["gf"] += ag; away["ga"] += hg
+        if hg > ag:
+            home["wins"] += 1; away["losses"] += 1
+        elif hg < ag:
+            away["wins"] += 1; home["losses"] += 1
+        else:
+            home["draws"] += 1; away["draws"] += 1
+
+    out_groups = []
+    # None (liga sin grupos) al final si conviviera con grupos reales, aunque
+    # en la práctica un torneo tiene uno u otro, no ambos.
+    for gname in sorted(groups.keys(), key=lambda k: (k is None, k or "")):
+        rows = list(groups[gname].values())
+        for r in rows:
+            r["points"] = r["wins"] * 3 + r["draws"]
+            r["gd"] = r["gf"] - r["ga"]
+        rows.sort(key=lambda r: (-r["points"], -r["gd"], -r["gf"], r["team"]))
+        for i, r in enumerate(rows, start=1):
+            r["rank"] = i
+        out_groups.append({"name": gname, "rows": rows})
+
+    return {"tournament_id": tournament_id, "groups": out_groups}
 
 
 @router.get("/external-games")
