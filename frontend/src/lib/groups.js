@@ -154,3 +154,14 @@ export async function fetchTeamStandings(tournamentId) {
   if (!res.ok) throw new Error(`Error ${res.status}`)
   return res.json()
 }
+
+// Top 5 goleadores y asistencias en vivo (vía UNAFUT cuando el torneo lo tiene
+// configurado — ESPN no expone asistencias para esa liga).
+export async function fetchPlayerStats(tournamentId) {
+  const { data: { session } } = await supabase.auth.getSession()
+  const res = await fetch(`/_backend/api/matches/player-stats?tournament_id=${tournamentId}`, {
+    headers: { Authorization: `Bearer ${session?.access_token}` },
+  })
+  if (!res.ok) throw new Error(`Error ${res.status}`)
+  return res.json()
+}
