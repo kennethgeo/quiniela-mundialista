@@ -17,6 +17,8 @@ import { resolveKnockoutTeams } from '../lib/bracketResolver'
 import MatchList from '../components/matches/MatchList'
 import BracketView from '../components/matches/BracketView'
 import TournamentGlobalCard from '../components/tournament/TournamentGlobalCard'
+import PlayerStatsBoard from '../components/tournament/PlayerStatsBoard'
+import AllGlobalPicks from '../components/tournament/AllGlobalPicks'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
 
 // Clave de jornada/fase de un partido (misma lógica de agrupación que MatchList).
@@ -257,7 +259,12 @@ export default function GroupPage() {
       {tab === 'table' && <StandingsTab leagueId={group.id} />}
       {tab === 'teams' && <TeamStandingsTab tournamentId={tid} />}
       {tab === 'bracket' && tid === 1 && <BracketView />}
-      {tab === 'global' && <TournamentGlobalCard tournamentId={tid} teams={teams} leagueId={group.id} championPoints={group.champion_points ?? 12} scorerPoints={group.scorer_points ?? 12} assistPoints={group.assist_points ?? 12} />}
+      {tab === 'global' && (
+        <>
+          <TournamentGlobalCard tournamentId={tid} teams={teams} leagueId={group.id} championPoints={group.champion_points ?? 12} scorerPoints={group.scorer_points ?? 12} assistPoints={group.assist_points ?? 12} />
+          <AllGlobalPicks tournamentId={tid} leagueId={group.id} />
+        </>
+      )}
       {tab === 'rules' && (
         <RulesPanel group={group} tournamentStarted={tournamentStarted} showToast={showToast}
           onDeleted={() => { queryClient.invalidateQueries({ queryKey: ['my_groups'] }); navigate('/') }} />
@@ -1041,6 +1048,9 @@ function SummaryTab({ group, matches, predictions, leagueId, profileId, loading,
         </div>
         <div className="font-['JetBrains_Mono'] text-[9px] text-[var(--text-muted,#8A8A8A)] mt-1">{played}/{totalM} partidos jugados</div>
       </Section>
+
+      {/* Goleadores y asistencias en vivo (si el torneo tiene la fuente configurada) */}
+      <PlayerStatsBoard tournamentId={group.tournament_id} />
 
       {/* Premios y WhatsApp (si el admin los cargó) */}
       {(group.prizes_text || group.whatsapp_link) && (

@@ -271,6 +271,53 @@ async def tournament_standings(tournament_id: int, user: dict = Depends(get_curr
     return {"tournament_id": tournament_id, "groups": out_groups}
 
 
+@router.get("/player-stats")
+async def player_stats(tournament_id: int, user: dict = Depends(get_current_user)):
+    """Top goleadores y asistencias del torneo, en vivo.
+
+    ESPN (nuestra fuente de partidos) no expone asistencias para ligas como
+    Costa Rica. Cuando el torneo tiene unafut_league_slug/unafut_competition_id
+    configurados, se usa en su lugar la API pública de UNAFUT (GeniusSports/
+    pixeles.club, sin auth) que sí trae ambas estadísticas reales."""
+    supabase = get_supabase()
+    t = (supabase.table("tournaments")
+         .select("unafut_league_slug, unafut_competition_id")
+         .eq("id", tournament_id).single().execute().data) or {}
+    slug, comp_id = t.get("unafut_league_slug"), t.get("unafut_competition_id")
+    if not slug or not comp_id:
+        return {"tournament_id": tournament_id, "scorers": [], "assists": [], "source": None}
+
+    def _rows(entries):
+        # No confiar en que UNAFUT ya venga ordenado: se ordena acá por las
+        # dudas antes de recortar el top 5.
+        ranked = sorted(entries or [], key=lambda e: e.get("value") or 0, reverse=True)
+        return [{
+            "player": e.get("personName"),
+            "team": e.get("teamName"),
+            "team_logo": e.get("teamLogo"),
+            "photo": e.get("image"),
+            "value": e.get("value"),
+        } for e in ranked[:5]]
+
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            r = await client.get(
+                f"https://gapi.pixeles.club/ligas/{slug}/api/stats",
+                params={"competitionId": comp_id})
+            r.raise_for_status()
+            data = r.json() or {}
+    except Exception:  # noqa: BLE001
+        return {"tournament_id": tournament_id, "scorers": [], "assists": [], "source": "unafut"}
+
+    players = data.get("players") or {}
+    return {
+        "tournament_id": tournament_id,
+        "scorers": _rows(players.get("goals")),
+        "assists": _rows(players.get("assists")),
+        "source": "unafut",
+    }
+
+
 @router.get("/external-games")
 async def get_external_games():
     """Proxy para obtener los juegos de la API externa (worldcup26.ir)."""
