@@ -19,7 +19,7 @@ import BracketView from '../components/matches/BracketView'
 import TournamentGlobalCard from '../components/tournament/TournamentGlobalCard'
 import PlayerStatsBoard from '../components/tournament/PlayerStatsBoard'
 import AllGlobalPicks from '../components/tournament/AllGlobalPicks'
-import BoletasTab from '../components/tournament/BoletasTab'
+import HistorialTab from '../components/tournament/HistorialTab'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
 
 // Clave de jornada/fase de un partido (misma lógica de agrupación que MatchList).
@@ -259,7 +259,7 @@ export default function GroupPage() {
       )}
 
       {tab === 'table' && <StandingsTab leagueId={group.id} />}
-      {tab === 'historico' && <BoletasTab leagueId={group.id} matches={resolved} />}
+      {tab === 'historico' && <HistorialTab leagueId={group.id} matches={resolved} />}
       {tab === 'teams' && <TeamStandingsTab tournamentId={tid} />}
       {tab === 'bracket' && tid === 1 && <BracketView />}
       {tab === 'global' && (
