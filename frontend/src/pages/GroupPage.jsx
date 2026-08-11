@@ -3,7 +3,7 @@ import { useState, useMemo, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion } from 'motion/react'
-import { ArrowLeft, CalendarDays, ListOrdered, Users, Copy, Check, Trophy, GitBranch, BarChart3, Shield, ScrollText, Loader2, Pencil, Lock, Trash2, AlertTriangle, Vote, ThumbsUp, ThumbsDown, X, Home, Clock, ChevronRight, Target, Gift, MessageCircle } from 'lucide-react'
+import { ArrowLeft, CalendarDays, ListOrdered, Users, Copy, Check, Trophy, GitBranch, BarChart3, Shield, ScrollText, Loader2, Pencil, Lock, Trash2, AlertTriangle, Vote, ThumbsUp, ThumbsDown, X, Home, Clock, ChevronRight, Target, Gift, MessageCircle, LayoutGrid } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import { useToast } from '../components/ui/Toast'
@@ -19,6 +19,7 @@ import BracketView from '../components/matches/BracketView'
 import TournamentGlobalCard from '../components/tournament/TournamentGlobalCard'
 import PlayerStatsBoard from '../components/tournament/PlayerStatsBoard'
 import AllGlobalPicks from '../components/tournament/AllGlobalPicks'
+import BoletasTab from '../components/tournament/BoletasTab'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
 
 // Clave de jornada/fase de un partido (misma lógica de agrupación que MatchList).
@@ -206,6 +207,7 @@ export default function GroupPage() {
         <TabBtn active={tab === 'home'} onClick={() => setTab('home')} icon={Home} label="Resumen" />
         <TabBtn active={tab === 'matches'} onClick={() => setTab('matches')} icon={CalendarDays} label="Partidos" />
         <TabBtn active={tab === 'table'} onClick={() => setTab('table')} icon={ListOrdered} label="Tabla" />
+        <TabBtn active={tab === 'historico'} onClick={() => setTab('historico')} icon={LayoutGrid} label="Histórico" />
         {!isCup && <TabBtn active={tab === 'teams'} onClick={() => setTab('teams')} icon={Shield} label="Posiciones" />}
         {/* Solo el Mundial tiene bracket dedicado; el resto ve sus fases en Partidos */}
         {tid === 1 && <TabBtn active={tab === 'bracket'} onClick={() => setTab('bracket')} icon={GitBranch} label="Bracket" />}
@@ -257,6 +259,7 @@ export default function GroupPage() {
       )}
 
       {tab === 'table' && <StandingsTab leagueId={group.id} />}
+      {tab === 'historico' && <BoletasTab leagueId={group.id} matches={resolved} />}
       {tab === 'teams' && <TeamStandingsTab tournamentId={tid} />}
       {tab === 'bracket' && tid === 1 && <BracketView />}
       {tab === 'global' && (
