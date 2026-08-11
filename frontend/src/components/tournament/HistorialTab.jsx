@@ -55,19 +55,27 @@ function veredictoDe(pred, match) {
   return signo(ph, pa) === signo(gh, ga) ? 'acierto' : 'fallo'
 }
 
-// Tinte de fondo de cada estado. El fallo NO se tinta: así los aciertos saltan.
-const TINTE = {
-  exacto: 'rgba(46,211,183,.18)',
-  acierto: 'rgba(232,183,90,.16)',
-  anulado: 'rgba(255,122,89,.12)',
-  fallo: 'transparent',
-  sin: 'transparent',
-  pendiente: 'transparent',
-}
-const TEXTO = {
-  exacto: '#2ED3B7',
-  acierto: '#E8B75A',
-  anulado: '#FF7A59',
+/* Estilo de una celda. Regla única para que el color no confunda:
+   EL COLOR SIEMPRE REPRESENTA EL RESULTADO, y la intensidad va con lo que
+   sumaste. Por eso el fallo va apagado (no compite con los aciertos) y el rayo
+   del comodín se pinta del color del resultado — un ×2 sobre un fallo es un
+   comodín QUEMADO y se ve en rojo, no en verde. */
+function estiloCelda(veredicto, x2) {
+  switch (veredicto) {
+    case 'exacto':
+      return { fondo: 'rgba(46,211,183,.22)', texto: '#2ED3B7', rayo: '#2ED3B7', fuerte: true }
+    case 'acierto':
+      return { fondo: 'rgba(232,183,90,.18)', texto: '#E8B75A', rayo: '#E8B75A', fuerte: true }
+    case 'fallo':
+      // Comodín quemado: falló Y encima gastó el ×2. Se marca en rojo apagado.
+      return x2
+        ? { fondo: 'rgba(255,90,90,.10)', texto: '#FF8A8A', rayo: '#FF5A5A', quemado: true }
+        : { fondo: 'transparent', texto: 'var(--text-muted,#8A8A8A)', rayo: null }
+    case 'anulado':
+      return { fondo: 'rgba(255,122,89,.12)', texto: '#FF7A59', rayo: '#FF7A59' }
+    default: // sin / pendiente
+      return { fondo: 'transparent', texto: 'var(--text-muted,#8A8A8A)', rayo: '#8A8A8A' }
+  }
 }
 
 export default function HistorialTab({ leagueId, matches = [] }) {
@@ -242,7 +250,7 @@ export default function HistorialTab({ leagueId, matches = [] }) {
 
                 {/* Celdas: el pick, tintado según le fue */}
                 {f.celdas.map((c) => (
-                  <Celda key={c.match.id} celda={c} reduce={reduce} />
+                  <Celda key={c.match.id} celda={c} reduce={reduce} orden={i} />
                 ))}
               </div>
               )
@@ -252,12 +260,15 @@ export default function HistorialTab({ leagueId, matches = [] }) {
       </div>
 
       {/* Leyenda */}
-      <div className="flex items-center justify-center flex-wrap gap-x-3 gap-y-1 mt-2.5">
-        <Ref color="rgba(46,211,183,.18)" texto="Exacto" />
-        <Ref color="rgba(232,183,90,.16)" texto="Acierto" />
+      <div className="flex items-center justify-center flex-wrap gap-x-3 gap-y-1.5 mt-2.5">
+        <Ref color="rgba(46,211,183,.22)" texto="Exacto" />
+        <Ref color="rgba(232,183,90,.18)" texto="Acierto" />
         <Ref color="transparent" texto="Fallo" borde />
         <span className="flex items-center gap-1 font-['JetBrains_Mono'] text-[8.5px] text-[var(--text-muted,#8A8A8A)]">
-          <Zap size={9} className="text-accent fill-current" /> Comodín ×2
+          <Zap size={9} className="fill-current" style={{ color: '#2ED3B7' }} /> ×2 que pegó
+        </span>
+        <span className="flex items-center gap-1 font-['JetBrains_Mono'] text-[8.5px] text-[var(--text-muted,#8A8A8A)]">
+          <Zap size={9} style={{ color: '#FF5A5A' }} /> ×2 quemado
         </span>
       </div>
 
@@ -272,32 +283,63 @@ export default function HistorialTab({ leagueId, matches = [] }) {
   )
 }
 
-function Celda({ celda, reduce }) {
+/* Cada combinación de resultado + comodín tiene su propia reacción:
+     · exacto + ×2  → el premio gordo: golpe de entrada y destello en loop
+     · exacto       → golpe de entrada, sin loop
+     · acierto + ×2 → un único destello dorado al aparecer
+     · acierto      → aparece y ya
+     · fallo + ×2   → comodín quemado: sacudida corta y celda en rojo apagado
+     · fallo / sin  → nada, apagado, no compite con lo demás
+   Solo el premio gordo anima en loop (son pocas celdas); el resto son
+   animaciones de una sola vez, que no cuestan nada aunque haya 85 celdas. */
+function Celda({ celda, reduce, orden }) {
   const { match, pred, veredicto, x2 } = celda
   const enVivo = match.status === 'in_progress'
-  // El destello se gana solo con el partido terminado: en vivo el marcador
-  // todavía puede cambiar y sería festejo prematuro.
-  const pegoConX2 = x2 && veredicto === 'exacto' && !enVivo
+  const st = estiloCelda(veredicto, x2)
+
+  // En vivo el marcador todavía puede cambiar: nada de festejar antes de tiempo.
+  const premioGordo = x2 && veredicto === 'exacto' && !enVivo
+  const destelloUnico = x2 && veredicto === 'acierto' && !enVivo
+  const quemado = !!st.quemado && !enVivo
+  const anima = !reduce
+  const retraso = Math.min(orden * 0.02, 0.5)
 
   return (
-    <div className="relative px-1 py-1.5 grid place-items-center min-w-0 overflow-hidden"
-      style={{ background: TINTE[veredicto] }}>
-      {/* Destello del ×2 que clavó el marcador. Solo en las que pegaron (son
-          pocas), nunca en toda la grilla. */}
-      {pegoConX2 && !reduce && (
+    <motion.div className="relative px-1 py-1.5 grid place-items-center min-w-0 overflow-hidden"
+      style={{ background: st.fondo }}
+      initial={anima && (premioGordo || veredicto === 'exacto') ? { scale: 0.8 } : false}
+      animate={anima && quemado
+        ? { scale: 1, x: [0, -2.5, 2.5, -1.5, 1.5, 0] }
+        : { scale: 1, x: 0 }}
+      transition={quemado
+        ? { x: { duration: 0.4, delay: retraso + 0.15 } }
+        : { type: 'spring', stiffness: 420, damping: 18, delay: retraso }}
+    >
+      {/* Premio gordo: destello en loop */}
+      {premioGordo && anima && (
         <motion.span aria-hidden className="absolute inset-0 pointer-events-none"
           style={{ background: 'linear-gradient(105deg,transparent 35%,rgba(46,211,183,.5) 50%,transparent 65%)' }}
           initial={{ x: '-120%' }} animate={{ x: '120%' }}
           transition={{ duration: 1.5, repeat: Infinity, repeatDelay: 2.6, ease: 'easeInOut' }} />
       )}
+      {/* Acierto con comodín: un solo destello dorado al aparecer */}
+      {destelloUnico && anima && (
+        <motion.span aria-hidden className="absolute inset-0 pointer-events-none"
+          style={{ background: 'linear-gradient(105deg,transparent 35%,rgba(232,183,90,.45) 50%,transparent 65%)' }}
+          initial={{ x: '-120%' }} animate={{ x: '120%' }}
+          transition={{ duration: 0.9, delay: retraso + 0.2, ease: 'easeOut' }} />
+      )}
+
       <span className="relative font-['JetBrains_Mono'] font-bold text-[11px] tabular-nums flex items-center gap-0.5"
-        style={{ color: TEXTO[veredicto] || (pred ? undefined : 'var(--text-muted,#8A8A8A)') }}>
-        {x2 && <Zap size={8} className={`shrink-0 ${pegoConX2 ? 'fill-current' : ''}`} style={{ color: '#2ED3B7' }} />}
-        <span className={pred ? 'text-inherit' : 'opacity-40'}>
+        style={{ color: st.texto }}>
+        {x2 && st.rayo && (
+          <Zap size={8} className={`shrink-0 ${st.fuerte ? 'fill-current' : ''}`} style={{ color: st.rayo }} />
+        )}
+        <span className={pred ? '' : 'opacity-40'}>
           {pred ? `${pred.home_goals_pred}-${pred.away_goals_pred}` : '·'}
         </span>
       </span>
-    </div>
+    </motion.div>
   )
 }
 
