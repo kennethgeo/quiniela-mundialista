@@ -3,7 +3,7 @@ import { useState, useMemo, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion } from 'motion/react'
-import { ArrowLeft, CalendarDays, ListOrdered, Users, Copy, Check, Trophy, GitBranch, BarChart3, Shield, ScrollText, Loader2, Pencil, Lock, Trash2, AlertTriangle, Vote, ThumbsUp, ThumbsDown, X, Home, Clock, ChevronRight, Target, Gift, MessageCircle, LayoutGrid } from 'lucide-react'
+import { ArrowLeft, CalendarDays, ListOrdered, Users, Copy, Check, Trophy, GitBranch, BarChart3, Shield, ScrollText, Loader2, Pencil, Lock, Trash2, AlertTriangle, Vote, ThumbsUp, ThumbsDown, X, Home, Clock, ChevronRight, Target, Gift, MessageCircle, LayoutGrid, Zap } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import { useToast } from '../components/ui/Toast'
@@ -1161,6 +1161,12 @@ function StandingsTab({ leagueId }) {
   if (isLoading) return <LoadingSpinner />
   if (!rows?.length) return <p className="text-sm text-slate-400 italic text-center py-8">Sin miembros todavía.</p>
   const rankColor = (i) => i === 0 ? '#E8B75A' : i === 1 ? '#C7CDD6' : i === 2 ? '#FF7A59' : 'var(--text-muted,#8A8A8A)'
+  // Puntajes que comparten dos o más jugadores: solo ahí tiene sentido mostrar
+  // el desempate, para no llenar la tabla de números que nadie necesita.
+  const empatados = new Set(
+    rows.map((r) => Number(r.points))
+      .filter((p, i, arr) => arr.indexOf(p) !== i),
+  )
   return (
     <div className="space-y-1.5">
       {rows.map((r, i) => (
@@ -1169,13 +1175,21 @@ function StandingsTab({ leagueId }) {
           style={r.is_me
             ? { background: 'rgba(46,211,183,.08)', borderColor: '#2ED3B7' }
             : { background: 'transparent', borderColor: 'transparent' }}>
-          <span className="w-[22px] text-center font-['JetBrains_Mono'] font-bold text-[12px]" style={{ color: rankColor(i) }}>{i + 1}</span>
+          <span className="w-[22px] text-center font-['JetBrains_Mono'] font-bold text-[12px]" style={{ color: rankColor(i) }}>{r.pos ?? i + 1}</span>
           <div className="w-8 h-8 rounded-full grid place-items-center text-[11px] font-bold font-['Archivo'] text-white overflow-hidden shrink-0"
             style={{ background: r.is_me ? 'linear-gradient(135deg,#2ED3B7,#1a8f7c)' : 'linear-gradient(135deg,#5a2d8a,#3a1c5c)' }}>
             {r.avatar_url ? <img src={r.avatar_url} alt="" className="w-full h-full object-cover" /> : (r.display_name?.[0] || '?').toUpperCase()}
           </div>
           <div className="flex-1 min-w-0">
             <span className="font-['Archivo'] font-semibold text-[13px] text-slate-800 dark:text-[#F3F1EA] truncate block">{r.display_name}{r.is_me && <span className="text-accent font-bold"> (vos)</span>}</span>
+            {empatados.has(Number(r.points)) && (
+              <span className="font-['JetBrains_Mono'] text-[9px] text-[var(--text-muted,#8A8A8A)] flex items-center gap-1 mt-0.5"
+                title="Desempate: exactos con ×2, luego exactos, aciertos, partidos jugados y menor error de gol">
+                <Zap size={8} className="text-accent fill-current shrink-0" />{r.exactos_x2 ?? 0}
+                <span className="opacity-50">·</span>{r.exactos ?? 0} exactos
+                <span className="opacity-50">·</span>{r.aciertos ?? 0} aciertos
+              </span>
+            )}
             {medalsByUser[r.user_id]?.length > 0 && (
               <div className="mt-0.5"><MedalStrip keys={medalsByUser[r.user_id]} max={5} /></div>
             )}
