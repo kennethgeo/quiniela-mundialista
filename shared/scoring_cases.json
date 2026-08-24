@@ -1,0 +1,168 @@
+{
+  "_comentario": [
+    "Corpus compartido de casos de puntaje. Lo corren LOS DOS motores:",
+    "  · frontend/src/lib/scoring.test.js   (vitest)",
+    "  · backend/tests/test_scoring.py      (pytest)",
+    "",
+    "Existe porque la lógica de puntaje está duplicada en JS y Python y el",
+    "CLAUDE.md exige que sean idénticas — pero nada lo verificaba. Este archivo",
+    "es el contrato: si los dos motores no dan lo mismo para un caso, el CI falla.",
+    "",
+    "Todos los casos usan el puntaje por defecto (3 exacto / 1 resultado) para",
+    "que sean comparables entre motores. La configuración por quiniela se prueba",
+    "aparte, porque hoy los motores NO coinciden ahí (ver los tests marcados).",
+    "",
+    "Las reglas de penales salen de CLAUDE.md, sección 'Eliminatoria — penales'."
+  ],
+  "casos": [
+    {
+      "nombre": "marcador exacto",
+      "pred": { "home_goals_pred": 2, "away_goals_pred": 1 },
+      "real": { "home": 2, "away": 1 },
+      "esperado": 3
+    },
+    {
+      "nombre": "marcador exacto con comodin x2",
+      "pred": { "home_goals_pred": 2, "away_goals_pred": 1, "use_powerup_x2": true },
+      "real": { "home": 2, "away": 1 },
+      "esperado": 6
+    },
+    {
+      "nombre": "acerto el ganador pero no el marcador",
+      "pred": { "home_goals_pred": 3, "away_goals_pred": 0 },
+      "real": { "home": 2, "away": 1 },
+      "esperado": 1
+    },
+    {
+      "nombre": "acerto el ganador con comodin x2",
+      "pred": { "home_goals_pred": 3, "away_goals_pred": 0, "use_powerup_x2": true },
+      "real": { "home": 2, "away": 1 },
+      "esperado": 2
+    },
+    {
+      "nombre": "fallo el resultado",
+      "pred": { "home_goals_pred": 0, "away_goals_pred": 2 },
+      "real": { "home": 2, "away": 1 },
+      "esperado": 0
+    },
+    {
+      "nombre": "fallo el resultado con comodin quemado",
+      "pred": { "home_goals_pred": 0, "away_goals_pred": 2, "use_powerup_x2": true },
+      "real": { "home": 2, "away": 1 },
+      "esperado": 0
+    },
+    {
+      "nombre": "empate exacto",
+      "pred": { "home_goals_pred": 1, "away_goals_pred": 1 },
+      "real": { "home": 1, "away": 1 },
+      "esperado": 3
+    },
+    {
+      "nombre": "empate acertado pero marcador distinto",
+      "pred": { "home_goals_pred": 1, "away_goals_pred": 1 },
+      "real": { "home": 2, "away": 2 },
+      "esperado": 1
+    },
+    {
+      "nombre": "predijo empate y gano el local",
+      "pred": { "home_goals_pred": 1, "away_goals_pred": 1 },
+      "real": { "home": 2, "away": 1 },
+      "esperado": 0
+    },
+    {
+      "nombre": "predijo ganador y termino en empate",
+      "pred": { "home_goals_pred": 2, "away_goals_pred": 0 },
+      "real": { "home": 1, "away": 1 },
+      "esperado": 0
+    },
+    {
+      "nombre": "sin prediccion (marcador nulo)",
+      "pred": { "home_goals_pred": null, "away_goals_pred": null },
+      "real": { "home": 2, "away": 1 },
+      "esperado": 0
+    },
+    {
+      "nombre": "goleada exacta",
+      "pred": { "home_goals_pred": 0, "away_goals_pred": 4 },
+      "real": { "home": 0, "away": 4 },
+      "esperado": 3
+    },
+
+    {
+      "nombre": "penales: empate exacto 0-0 y acerto quien pasa",
+      "pred": { "home_goals_pred": 0, "away_goals_pred": 0, "penalties_winner_pred": "Local" },
+      "real": { "home": 0, "away": 0 },
+      "penales": { "va": true, "ganador_real": "Local" },
+      "esperado": 4
+    },
+    {
+      "nombre": "penales: empate exacto 0-0, acerto la tanda, con comodin x2",
+      "pred": {
+        "home_goals_pred": 0, "away_goals_pred": 0,
+        "penalties_winner_pred": "Local", "use_powerup_x2": true
+      },
+      "real": { "home": 0, "away": 0 },
+      "penales": { "va": true, "ganador_real": "Local" },
+      "esperado": 8
+    },
+    {
+      "nombre": "penales: empate exacto 0-0 pero fallo la tanda",
+      "pred": { "home_goals_pred": 0, "away_goals_pred": 0, "penalties_winner_pred": "Visita" },
+      "real": { "home": 0, "away": 0 },
+      "penales": { "va": true, "ganador_real": "Local" },
+      "esperado": 3
+    },
+    {
+      "nombre": "penales: empate no exacto y acerto la tanda",
+      "pred": { "home_goals_pred": 1, "away_goals_pred": 1, "penalties_winner_pred": "Local" },
+      "real": { "home": 2, "away": 2 },
+      "penales": { "va": true, "ganador_real": "Local" },
+      "esperado": 2
+    },
+    {
+      "nombre": "penales: empate no exacto y acerto la tanda, con comodin x2",
+      "pred": {
+        "home_goals_pred": 1, "away_goals_pred": 1,
+        "penalties_winner_pred": "Local", "use_powerup_x2": true
+      },
+      "real": { "home": 2, "away": 2 },
+      "penales": { "va": true, "ganador_real": "Local" },
+      "esperado": 4
+    },
+    {
+      "nombre": "penales: empate no exacto y fallo la tanda",
+      "pred": { "home_goals_pred": 1, "away_goals_pred": 1, "penalties_winner_pred": "Visita" },
+      "real": { "home": 2, "away": 2 },
+      "penales": { "va": true, "ganador_real": "Local" },
+      "esperado": 1
+    },
+    {
+      "nombre": "penales: predijo ganador y su equipo avanza en la tanda",
+      "pred": { "home_goals_pred": 3, "away_goals_pred": 1 },
+      "real": { "home": 1, "away": 1 },
+      "penales": { "va": true, "ganador_real": "Local" },
+      "esperado": 1
+    },
+    {
+      "nombre": "penales: predijo ganador, su equipo avanza, con comodin x2",
+      "pred": { "home_goals_pred": 3, "away_goals_pred": 1, "use_powerup_x2": true },
+      "real": { "home": 1, "away": 1 },
+      "penales": { "va": true, "ganador_real": "Local" },
+      "esperado": 2
+    },
+    {
+      "nombre": "penales: predijo ganador y su equipo NO avanza",
+      "pred": { "home_goals_pred": 3, "away_goals_pred": 1 },
+      "real": { "home": 1, "away": 1 },
+      "penales": { "va": true, "ganador_real": "Visita" },
+      "esperado": 0
+    },
+    {
+      "nombre": "penales: empate acertado pero sin pick de tanda",
+      "pred": { "home_goals_pred": 0, "away_goals_pred": 0 },
+      "real": { "home": 0, "away": 0 },
+      "penales": { "va": true, "ganador_real": "Local" },
+      "esperado": 3
+    }
+  ]
+}
