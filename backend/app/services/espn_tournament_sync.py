@@ -388,17 +388,37 @@ async def sync_espn_tournament(supabase, tournament, full=False) -> dict:
 
 
 async def sync_all_espn_tournaments(supabase) -> dict:
-    """Sincroniza todos los torneos ESPN activos (menos el Mundial #1)."""
+    """Sincroniza los torneos ESPN que ALGUIEN ESTÁ JUGANDO (menos el Mundial #1).
+
+    Un torneo puede estar activo en la tabla pero no tener ninguna quiniela: así
+    quedaron LaLiga, Premier y Champions, que el cron sincronizaba cada ~5 min
+    contra ESPN para nada — gastando llamadas y llenando la tabla de partidos que
+    nadie mira. Como una quiniela no tiene estado propio (su vigencia sale del
+    estado del torneo, que ya se filtra arriba), alcanza con exigir que el torneo
+    tenga al menos una quiniela.
+
+    OJO: este filtro es SOLO del cron. El botón "Sincronizar" del panel de admin
+    (POST /admin/sync-espn) sigue funcionando para cualquier torneo, porque hace
+    falta poder cargar los partidos ANTES de crear la quiniela — si no, no habría
+    forma de arrancar un torneo nuevo.
+    """
     tours = (supabase.table("tournaments")
              .select("id, external_ref, source, status")
              .eq("source", "espn")
              .in_("status", ["upcoming", "active"]).execute().data or [])
-    results = []
+
+    ligas = supabase.table("leagues").select("tournament_id").execute().data or []
+    en_uso = {l["tournament_id"] for l in ligas if l.get("tournament_id") is not None}
+
+    results, omitidos = [], []
     for t in tours:
         if t["id"] == 1:
             continue  # el Mundial tiene su propio sync
+        if t["id"] not in en_uso:
+            omitidos.append(t["id"])
+            continue
         try:
             results.append(await sync_espn_tournament(supabase, t))
         except Exception as exc:  # noqa: BLE001
             results.append({"tournament_id": t["id"], "error": str(exc)})
-    return {"tournaments": len(results), "results": results}
+    return {"tournaments": len(results), "results": results, "sin_quiniela": omitidos}
