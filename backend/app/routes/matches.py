@@ -318,6 +318,25 @@ async def player_stats(tournament_id: int, user: dict = Depends(get_current_user
     }
 
 
+@router.get("/verify-scores")
+async def verify_scores(tournament_id: int, user: dict = Depends(get_current_user)):
+    """Compara nuestros marcadores contra los de UNAFUT y reporta las diferencias.
+
+    ESPN ya se contradijo consigo misma en este torneo (su scoreboard decía
+    SUSPENDED mientras su summary daba el partido por terminado). Con una sola
+    fuente, un dato malo se descubre cuando alguien reclama.
+
+    NO corrige nada: solo reporta, para que el admin decida. Corregir
+    automáticamente haría que dos fuentes en desacuerdo se pisen entre ellas en
+    cada pasada."""
+    from app.services.score_check import comparar_con_unafut
+
+    try:
+        return await comparar_con_unafut(get_supabase(), tournament_id)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=502, detail=f"Error comparando fuentes: {exc}")
+
+
 @router.get("/external-games")
 async def get_external_games():
     """Proxy para obtener los juegos de la API externa (worldcup26.ir)."""

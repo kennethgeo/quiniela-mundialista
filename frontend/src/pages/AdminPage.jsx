@@ -4,6 +4,7 @@ import { ShieldAlert, Trophy, CalendarDays, Calculator, Users, Settings2 } from 
 
 import TournamentsAdmin from '../components/admin/TournamentsAdmin'
 import TournamentMatchesAdmin from '../components/admin/TournamentMatchesAdmin'
+import VerificarMarcadores from '../components/admin/VerificarMarcadores'
 import TournamentGlobalsAdmin from '../components/admin/TournamentGlobalsAdmin'
 import BracketAdmin from '../components/admin/BracketAdmin'
 import MatchResultsAdmin from '../components/admin/MatchResultsAdmin'
@@ -111,6 +112,7 @@ export default function AdminPage() {
             <AdminSection icon={Calculator} title="Recalcular y reconciliar" desc="Herramientas de mantenimiento del puntaje.">
               <RecalcScoresAdmin />
               <ScoreReconcileAdmin />
+              <VerificarMarcadores />
             </AdminSection>
           </motion.div>
         )}
