@@ -60,8 +60,17 @@ def _parse_event(ev):
     stage_base, leg = _stage_from_event(ev)
     st = (ev.get("status") or {}).get("type") or {}
     _name = (st.get("name") or "").upper()
-    if any(k in _name for k in ("CANCEL", "POSTPON", "ABANDON", "SUSPEND", "FORFEIT")):
+    # Solo estos son finales: el partido NO se va a jugar.
+    if any(k in _name for k in ("CANCEL", "POSTPON", "FORFEIT")):
         status = "cancelled"
+    elif any(k in _name for k in ("SUSPEND", "ABANDON")):
+        # Una suspensión (lluvia, neblina) es TRANSITORIA: casi siempre se
+        # reanuda y termina. Marcarla como 'cancelled' disparaba
+        # void_cancelled_match, que anula puntos y comodines — y eso después no
+        # se deshace solo. Se deja 'in_progress' y no se destruye nada: cuando
+        # ESPN confirme el final, el partido se cierra y puntúa normalmente.
+        # Si de verdad quedó abandonado, lo marca el admin desde el panel.
+        status = "in_progress"
     else:
         status = {"in": "in_progress", "post": "finished"}.get(st.get("state"), "pending")
     minute = None
@@ -273,12 +282,18 @@ async def sync_espn_tournament(supabase, tournament, full=False) -> dict:
 
     history = [m for m in existing if m.get("phase") == "groups"]
     _assign_stages(parsed, history)
-    # Partidos que un admin marcó a mano como no disputados (suspendido/pospuesto/
-    # cancelado sin que ESPN lo refleje, p. ej. un walkover que ESPN sigue mostrando
-    # como jugado), o cuyo marcador se corrigió a mano por un fallo oficial que la
-    # fuente no refleja (score_locked). El sync automático NO debe pisarlos.
-    frozen_ids = {eid for eid, m in snap.items()
-                  if m.get("status") in ("cancelled", "postponed") or m.get("score_locked")}
+    # Lo que el admin fijó a mano manda sobre la fuente: un walkover que ESPN
+    # sigue mostrando como jugado, o un marcador cambiado por un fallo oficial
+    # (alineación indebida) que ESPN nunca va a reflejar.
+    #
+    # ANTES esto también congelaba por status ('cancelled'/'postponed'), y ahí
+    # estaba el bug: un partido suspendido por clima quedaba cancelado para
+    # siempre, porque el sync no lo volvía a mirar ni cuando ESPN reportaba que
+    # había terminado. Ahora el congelado depende SOLO de score_locked, o sea de
+    # una decisión explícita del admin; lo que el sync dedujo puede corregirse
+    # solo. Por eso el panel de admin activa score_locked al marcar un partido
+    # como no disputado (y la migración 56 blindó los que ya estaban cancelados).
+    frozen_ids = {eid for eid, m in snap.items() if m.get("score_locked")}
 
     rows = [{
         "tournament_id": tid,

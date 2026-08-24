@@ -27,12 +27,18 @@ WORLDCUP_API_URL = "https://worldcup26.ir/get/games"
 
 
 def _espn_status(status_obj):
-    """Mapea el estado de ESPN a nuestro status. Detecta partidos NO disputados
-    (cancelados / pospuestos / abandonados / suspendidos) → 'cancelled'."""
+    """Mapea el estado de ESPN a nuestro status.
+
+    Solo CANCEL/POSTPON/FORFEIT son 'cancelled' (el partido NO se juega).
+    SUSPEND/ABANDON son transitorios — una suspensión por clima casi siempre se
+    reanuda — así que van a 'in_progress' y no disparan void_cancelled_match,
+    que anularía puntos y comodines sin poder deshacerse después."""
     t = (status_obj or {}).get("type") or {}
     name = (t.get("name") or "").upper()
-    if any(k in name for k in ("CANCEL", "POSTPON", "ABANDON", "SUSPEND", "FORFEIT")):
+    if any(k in name for k in ("CANCEL", "POSTPON", "FORFEIT")):
         return "cancelled"
+    if any(k in name for k in ("SUSPEND", "ABANDON")):
+        return "in_progress"
     return {"in": "in_progress", "post": "finished"}.get(t.get("state"), "pending")
 
 # Alias de nombres de las fuentes -> nombres en la BD
@@ -237,10 +243,11 @@ async def sync_live_scores(supabase) -> dict:
     flipped = []
 
     async def apply_update(db_match, status, home_goals, away_goals, minute, events, goes_pen=None, pen_winner=None):
-        # Partido marcado a mano como no disputado (suspendido/pospuesto), o con
-        # el marcador corregido a mano por un fallo oficial (score_locked): no
-        # se pisa automáticamente aunque la fuente lo siga reportando distinto.
-        if db_match.get("status") in ("cancelled", "postponed") or db_match.get("score_locked"):
+        # Partido fijado a mano por el admin (walkover, marcador oficial tras una
+        # sanción): no se pisa aunque la fuente lo siga reportando distinto.
+        # Se mira SOLO score_locked, no el status: congelar por 'cancelled' hacía
+        # que un partido suspendido por clima quedara cancelado para siempre.
+        if db_match.get("score_locked"):
             return
         pen_changed = (
             (goes_pen is not None and bool(db_match.get("goes_to_penalties")) != bool(goes_pen))
