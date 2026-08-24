@@ -14,11 +14,12 @@
 import { useState, useMemo } from 'react'
 import { motion, useReducedMotion } from 'motion/react'
 import { useQuery } from '@tanstack/react-query'
-import { ChevronLeft, ChevronRight, Zap } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Zap, Share2, Loader2 } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { fetchGroupStandings } from '../../lib/groups'
 import { crestOnError } from '../../lib/teamLogo'
 import LoadingSpinner from '../ui/LoadingSpinner'
+import { renderJornadaCard, compartirImagen } from '../../lib/shareCard'
 
 // El sync a veces guarda kickoff_at sin sufijo de zona; normalizamos como MatchCard.
 const kickoffDate = (m) => {
@@ -78,9 +79,10 @@ function estiloCelda(veredicto, x2) {
   }
 }
 
-export default function HistorialTab({ leagueId, matches = [] }) {
+export default function HistorialTab({ leagueId, matches = [], nombreQuiniela = '' }) {
   const reduce = useReducedMotion()
   const [jornadaSel, setJornadaSel] = useState(null)
+  const [compartiendo, setCompartiendo] = useState(false)
   const ahora = Date.now()
 
   const { data: miembros = [], isLoading: cargandoMiembros } = useQuery({
@@ -163,6 +165,25 @@ export default function HistorialTab({ leagueId, matches = [] }) {
     return (matches || []).filter((m) => jornadaKeyOf(m) === jornada.label && !visibles.has(m.id)).length
   }, [jornada, matches])
 
+  const compartir = async () => {
+    if (!jornada || compartiendo) return
+    try {
+      setCompartiendo(true)
+      const blob = await renderJornadaCard({
+        nombreQuiniela,
+        jornadaLabel: jornada.label,
+        partidos: jornada.partidos,
+        filas,
+      })
+      const archivo = `${(jornada.label || 'jornada').toLowerCase().replace(/\s+/g, '-')}.png`
+      await compartirImagen(blob, archivo, `${nombreQuiniela} · ${jornada.label}`)
+    } catch (err) {
+      console.error('No se pudo compartir la jornada:', err)
+    } finally {
+      setCompartiendo(false)
+    }
+  }
+
   if (cargandoMiembros || cargandoPreds) return <LoadingSpinner />
 
   if (!jornadas.length) {
@@ -197,6 +218,11 @@ export default function HistorialTab({ leagueId, matches = [] }) {
         <NavBtn disabled={idxActiva >= jornadas.length - 1} onClick={() => setJornadaSel(jornadas[idxActiva + 1]?.label)}>
           <ChevronRight size={15} />
         </NavBtn>
+        <button onClick={compartir} disabled={compartiendo}
+          title="Compartir esta jornada como imagen"
+          className="w-[30px] h-[30px] shrink-0 rounded-[9px] bg-white dark:bg-[#161616] border border-slate-200 dark:border-[#262626] grid place-items-center text-accent disabled:opacity-50">
+          {compartiendo ? <Loader2 size={14} className="animate-spin" /> : <Share2 size={14} />}
+        </button>
       </div>
 
       {/* La matriz */}

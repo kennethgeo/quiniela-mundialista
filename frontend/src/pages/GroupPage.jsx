@@ -259,7 +259,7 @@ export default function GroupPage() {
       )}
 
       {tab === 'table' && <StandingsTab leagueId={group.id} />}
-      {tab === 'historico' && <HistorialTab leagueId={group.id} matches={resolved} />}
+      {tab === 'historico' && <HistorialTab leagueId={group.id} matches={resolved} nombreQuiniela={group.name} />}
       {tab === 'teams' && <TeamStandingsTab tournamentId={tid} />}
       {tab === 'bracket' && tid === 1 && <BracketView />}
       {tab === 'global' && (
