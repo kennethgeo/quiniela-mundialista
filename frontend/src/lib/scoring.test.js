@@ -53,20 +53,26 @@ describe('evaluatePrediction — casos borde', () => {
   })
 })
 
-/* DIVERGENCIA CONOCIDA entre los dos motores.
-   scoring.py respeta el puntaje configurado de cada quiniela (points_exact /
-   points_correct); scoring.js tiene 3 y 1 HARDCODEADOS y no recibe la config.
-   Hoy no se nota porque la quiniela en uso está configurada justo en 3/1.
-   Este test fija el comportamiento ACTUAL del JS a propósito: cuando se unifique
-   el motor va a fallar, y ahí hay que borrarlo — es el recordatorio de que la
-   unificación efectivamente cambió esto. */
-describe('divergencia conocida: puntaje por quiniela', () => {
-  it('el motor JS ignora la config de la quiniela y siempre da 3 al exacto', () => {
-    const puntos = evaluatePrediction(
-      { home_goals_pred: 1, away_goals_pred: 0 },
-      1, 0, false, null, 'Local', 'Visita',
-      // No hay forma de pasarle config: la firma no la acepta.
-    )
-    expect(puntos).toBe(3)
+/* La divergencia del puntaje por quiniela quedó cerrada: evaluatePrediction
+   ahora acepta config igual que scoring.py. Estos tests son el espejo exacto de
+   TestPuntajePorQuiniela en backend/tests/test_scoring.py — si un motor cambia
+   y el otro no, uno de los dos falla. */
+describe('puntaje configurable por quiniela', () => {
+  const cfg = { points_exact: 5, points_correct: 2 }
+
+  it('usa points_exact de la config', () => {
+    expect(evaluatePrediction({ home_goals_pred: 1, away_goals_pred: 0 }, 1, 0, false, null, 'Local', 'Visita', cfg)).toBe(5)
+  })
+
+  it('usa points_correct de la config', () => {
+    expect(evaluatePrediction({ home_goals_pred: 3, away_goals_pred: 0 }, 2, 1, false, null, 'Local', 'Visita', cfg)).toBe(2)
+  })
+
+  it('la config también se duplica con el comodín', () => {
+    expect(evaluatePrediction({ home_goals_pred: 1, away_goals_pred: 0, use_powerup_x2: true }, 1, 0, false, null, 'Local', 'Visita', cfg)).toBe(10)
+  })
+
+  it('sin config cae al default 3/1', () => {
+    expect(evaluatePrediction({ home_goals_pred: 1, away_goals_pred: 0 }, 1, 0, false, null, 'Local', 'Visita')).toBe(3)
   })
 })

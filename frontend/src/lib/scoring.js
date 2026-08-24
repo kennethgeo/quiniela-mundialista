@@ -35,92 +35,26 @@ const scorerMatches = (actual, pick) => {
   return false
 }
 
-export async function calculateAndUpdateScores(matchId) {
-  try {
-    // 1. Obtener resultado real del partido
-    const { data: match, error: matchError } = await supabase
-      .from('matches')
-      .select('id, home_team, away_team, home_goals_actual, away_goals_actual, status, goes_to_penalties, penalties_winner_real')
-      .eq('id', matchId)
-      .single()
+/* NOTA: acá vivía calculateAndUpdateScores(), que recalculaba y GUARDABA los
+   puntos desde el navegador. Se eliminó porque estaba roto: las políticas RLS
+   de 'predictions' solo dejan escribir al dueño de la predicción o a
+   service_role, y no hay política de admin. O sea que al corregir un resultado
+   desde el panel, el admin actualizaba solo SUS puntos y los de los demás
+   fallaban en silencio (0 filas, sin error). Por eso cada corrección terminaba
+   haciéndose por SQL a mano.
+   Ahora el recálculo lo hace el backend (POST /api/admin/recalc-match), que
+   corre con service_role y usa el mismo motor que el sync.
 
-    if (matchError || !match) {
-      return { status: 'error', message: 'Partido no encontrado' }
-    }
+   Lo que queda acá abajo es SOLO PARA MOSTRAR, nunca para guardar:
+   evaluatePrediction() la usa lib/provisional.js para los puntos en vivo. Debe
+   dar exactamente lo mismo que backend/app/services/scoring.py — eso lo
+   verifica el corpus compartido de shared/scoring_cases.json en cada CI. */
 
-    const isFinished = match.status === 'finished'
-    const isCancelled = ['cancelled', 'postponed'].includes(match.status)
-
-    // Partido no disputado: anular puntos, devolver el ×2 y otorgar el crédito
-    // de arrastre para la jornada siguiente. Centralizado en una función SQL
-    // (SECURITY DEFINER) para que funcione sin depender de las políticas RLS
-    // de "predictions" (que solo dejan escribir al propio usuario o a
-    // service_role — un admin editando las predicciones de OTROS no podría).
-    if (isCancelled) {
-      const { data, error } = await supabase.rpc('void_cancelled_match', { p_match_id: matchId })
-      if (error) return { status: 'error', message: error.message }
-      return {
-        status: data?.status || 'ok',
-        updatedPredictions: (data?.zeroed || 0) + (data?.refunded || 0),
-        powerupsRefunded: data?.refunded || 0,
-      }
-    }
-
-    const home_actual = match.home_goals_actual
-    const away_actual = match.away_goals_actual
-    const goes_to_penalties = match.goes_to_penalties || false
-    const penalties_winner_real = match.penalties_winner_real
-
-    // 2. Obtener predicciones
-    const { data: predictions, error: predsError } = await supabase
-      .from('predictions')
-      .select('*')
-      .eq('match_id', matchId)
-
-    if (predsError || !predictions || predictions.length === 0) {
-      return { status: 'ok', message: 'No hay predicciones' }
-    }
-
-    const updates = []
-    const userPointsDelta = {}
-
-    // 3. Evaluar
-    for (const pred of predictions) {
-      let pts = 0
-      if (isFinished && home_actual !== null && away_actual !== null) {
-        pts = evaluatePrediction(pred, home_actual, away_actual, goes_to_penalties, penalties_winner_real, match.home_team, match.away_team)
-      }
-      const oldPoints = pred.points_earned || 0
-      const delta = pts - oldPoints
-
-      if (delta !== 0) {
-        updates.push({ id: pred.id, points_earned: pts })
-        const uid = pred.user_id
-        userPointsDelta[uid] = (userPointsDelta[uid] || 0) + delta
-      }
-    }
-
-    // 4. Guardar nuevos puntos en predicciones.
-    //    users.total_points lo mantiene SOLO la base de datos (trigger
-    //    recompute_user_total). No lo tocamos aquí con deltas: ese patrón
-    //    (leer-sumar-escribir) causaba "lost updates" bajo concurrencia.
-    if (updates.length > 0) {
-      await Promise.all(
-        updates.map(({ id, ...patch }) =>
-          supabase.from('predictions').update(patch).eq('id', id)
-        )
-      )
-    }
-
-    const affectedUsers = Object.keys(userPointsDelta).length
-    return { status: 'ok', updatedPredictions: updates.length, updatedUsers: affectedUsers }
-  } catch (err) {
-    console.error('Scoring error', err)
-    return { status: 'error', message: err.message }
-  }
-}
-
-export function evaluatePrediction(pred, home_actual, away_actual, goes_to_penalties, penalties_winner_real, home_team, away_team) {
+export function evaluatePrediction(pred, home_actual, away_actual, goes_to_penalties, penalties_winner_real, home_team, away_team, config = null) {
+  // Puntaje configurable por quiniela, igual que scoring.py. Por defecto 3/1.
+  const cfg = config || {}
+  const P_EXACT = cfg.points_exact ?? 3
+  const P_CORRECT = cfg.points_correct ?? 1
   const pred_type = pred.prediction_type || 'Marcador'
   const home_pred = pred.home_goals_pred
   const away_pred = pred.away_goals_pred
@@ -145,11 +79,11 @@ export function evaluatePrediction(pred, home_actual, away_actual, goes_to_penal
       // Si el equipo que eligió ganador es el que avanzó en penales, 1 punto
       // (acertó quién pasa). Si no, 0.
       const predTeam = pred_winner === 'home' ? home_team : away_team
-      points = (penalties_winner_real && predTeam && predTeam === penalties_winner_real) ? 1 : 0
+      points = (penalties_winner_real && predTeam && predTeam === penalties_winner_real) ? P_CORRECT : 0
     } else {
       if (real_winner === 'tie') {
-        if (home_pred === home_actual && away_pred === away_actual) points = 3
-        else if (pred_winner === 'tie') points = 1
+        if (home_pred === home_actual && away_pred === away_actual) points = P_EXACT
+        else if (pred_winner === 'tie') points = P_CORRECT
         else points = 0
 
         // Penales: el marcador del empate vale igual (3 exacto / 1 empate),
@@ -160,8 +94,8 @@ export function evaluatePrediction(pred, home_actual, away_actual, goes_to_penal
           points += 1
         }
       } else {
-        if (home_pred === home_actual && away_pred === away_actual) points = 3
-        else if (pred_winner === real_winner) points = 1
+        if (home_pred === home_actual && away_pred === away_actual) points = P_EXACT
+        else if (pred_winner === real_winner) points = P_CORRECT
         else points = 0
       }
     }
@@ -174,13 +108,13 @@ export function evaluatePrediction(pred, home_actual, away_actual, goes_to_penal
 
     if (goes_to_penalties) {
       if (pred_winner === 'tie') {
-        if (penalties_winner_pred && penalties_winner_real && penalties_winner_pred === penalties_winner_real) points = 1
+        if (penalties_winner_pred && penalties_winner_real && penalties_winner_pred === penalties_winner_real) points = P_CORRECT
         else points = 0
       } else {
         points = 0
       }
     } else {
-      if (pred_winner === real_winner) points = 1
+      if (pred_winner === real_winner) points = P_CORRECT
       else points = 0
     }
   }

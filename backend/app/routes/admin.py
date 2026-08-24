@@ -675,6 +675,39 @@ async def broadcast(
     return {"status": "ok", "result": result}
 
 
+@router.post("/recalc-match")
+async def admin_recalc_match(
+    match_id: int = Body(..., embed=True),
+    admin: dict = Depends(require_admin),
+):
+    """Recalcula los puntos de UN partido, para el panel de admin.
+
+    Existe porque el panel lo hacía en el navegador y ahí está roto: las
+    políticas RLS de 'predictions' solo dejan escribir al dueño de la
+    predicción o a service_role — no hay política de admin. O sea que al
+    corregir un resultado, el admin actualizaba SOLO sus propios puntos y los
+    del resto fallaban en silencio (0 filas, sin error). Por eso cada
+    corrección terminaba haciéndose por SQL a mano.
+
+    El backend corre con service_role, así que sí actualiza a todos. Además es
+    el mismo motor que usa el sync (scoring.py), con lo que el puntaje
+    configurado por quiniela se respeta — el motor de JS lo ignoraba.
+    Idempotente: aplica solo la diferencia."""
+    supabase = get_supabase()
+    match = (
+        supabase.table("matches").select("id").eq("id", match_id).limit(1).execute().data or []
+    )
+    if not match:
+        raise HTTPException(status_code=404, detail="Partido no encontrado")
+
+    try:
+        result = await calculate_and_update_scores(supabase, match_id)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=f"Error recalculando: {exc}")
+
+    return {"status": "ok", "match_id": match_id, "result": result}
+
+
 @router.post("/recalc-scores")
 async def admin_recalc_scores(admin: dict = Depends(require_admin)):
     """Recalcula los puntos de los partidos de ELIMINATORIA finalizados con las
