@@ -1,6 +1,7 @@
 name: CI
 
-# Red de seguridad: compila el frontend y valida el backend en cada PR y push a main.
+# Red de seguridad: compila el frontend, valida el backend y corre los tests del
+# motor de puntaje en cada PR y push a main.
 on:
   pull_request:
   push:
@@ -21,6 +22,7 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
       - run: npm run build
+      - run: npm test
 
   backend-compile:
     runs-on: ubuntu-latest
@@ -30,3 +32,8 @@ jobs:
         with:
           python-version: '3.12'
       - run: python -m compileall backend/app
+      # Solo pytest: los tests del motor de puntaje stubean las dependencias
+      # pesadas (pywebpush y compañía), así que no hace falta instalar todo
+      # requirements.txt para verificar la lógica de puntos.
+      - run: pip install pytest
+      - run: python -m pytest backend/tests -q
