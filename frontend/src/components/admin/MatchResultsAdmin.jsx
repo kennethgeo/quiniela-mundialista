@@ -4,9 +4,29 @@
    la pestaña Torneos (TournamentMatchesAdmin). */
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
-import { calculateAndUpdateScores } from '../../lib/scoring'
+
 import { Save, Clock, Search, X, RefreshCw, Lock } from 'lucide-react'
 import MatchEventsEditor from './MatchEventsEditor'
+
+/* Recalcula los puntos de un partido EN EL BACKEND.
+   Antes esto se hacía en el navegador con lib/scoring.js, y estaba roto: las
+   políticas RLS de 'predictions' solo dejan escribir al dueño de la predicción
+   o a service_role, así que el admin actualizaba solo SUS puntos y los del
+   resto fallaban en silencio. El backend corre con service_role y usa el mismo
+   motor que el sync, que además respeta el puntaje configurado de la quiniela. */
+async function recalcMatch(matchId) {
+  const { data: { session } } = await supabase.auth.getSession()
+  const token = session?.access_token
+  if (!token) throw new Error('Sesión no válida')
+  const res = await fetch('/_backend/api/admin/recalc-match', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ match_id: matchId }),
+  })
+  const json = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(json.detail || `Error ${res.status}`)
+  return json
+}
 
 export default function MatchResultsAdmin() {
   const [tournaments, setTournaments] = useState([])
@@ -84,12 +104,7 @@ export default function MatchResultsAdmin() {
 
       const oldMatch = matches.find(m => m.id === id)
       if (oldMatch && (formState.status !== oldMatch.status || formState.home_goals_actual !== oldMatch.home_goals_actual || formState.away_goals_actual !== oldMatch.away_goals_actual || (formState.goes_to_penalties || false) !== (oldMatch.goes_to_penalties || false) || (formState.penalties_winner_real || '') !== (oldMatch.penalties_winner_real || ''))) {
-        const result = await calculateAndUpdateScores(id)
-        if (result.status === 'error') {
-          console.error("Error calculating scores:", result.message)
-        } else {
-          console.log("Scores calculated:", result)
-        }
+        await recalcMatch(id)
       }
 
       setMatches(prev => prev.map(m => m.id === id ? { ...m, ...updates } : m))
@@ -150,7 +165,7 @@ export default function MatchResultsAdmin() {
               away_goals_actual: newAwayGoals
             }).eq('id', dbMatch.id)
 
-            await calculateAndUpdateScores(dbMatch.id)
+            await recalcMatch(dbMatch.id)
             updatedCount++
           }
         }
@@ -177,7 +192,7 @@ export default function MatchResultsAdmin() {
               away_goals_actual: newAwayGoals
             }).eq('id', dbMatch.id)
 
-            await calculateAndUpdateScores(dbMatch.id)
+            await recalcMatch(dbMatch.id)
             updatedCount++
           }
         }
