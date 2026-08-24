@@ -2,7 +2,7 @@
 import { useState, useMemo, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { motion } from 'motion/react'
+import { motion, AnimatePresence } from 'motion/react'
 import { ArrowLeft, CalendarDays, ListOrdered, Users, Copy, Check, Trophy, GitBranch, BarChart3, Shield, ScrollText, Loader2, Pencil, Lock, Trash2, AlertTriangle, Vote, ThumbsUp, ThumbsDown, X, Home, Clock, ChevronRight, Target, Gift, MessageCircle, LayoutGrid, Zap } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
@@ -20,6 +20,7 @@ import TournamentGlobalCard from '../components/tournament/TournamentGlobalCard'
 import PlayerStatsBoard from '../components/tournament/PlayerStatsBoard'
 import AllGlobalPicks from '../components/tournament/AllGlobalPicks'
 import HistorialTab from '../components/tournament/HistorialTab'
+import CaraACara from '../components/tournament/CaraACara'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
 
 // Clave de jornada/fase de un partido (misma lógica de agrupación que MatchList).
@@ -258,7 +259,7 @@ export default function GroupPage() {
         )
       )}
 
-      {tab === 'table' && <StandingsTab leagueId={group.id} />}
+      {tab === 'table' && <StandingsTab leagueId={group.id} matches={resolved} />}
       {tab === 'historico' && <HistorialTab leagueId={group.id} matches={resolved} nombreQuiniela={group.name} />}
       {tab === 'teams' && <TeamStandingsTab tournamentId={tid} />}
       {tab === 'bracket' && tid === 1 && <BracketView />}
@@ -1140,7 +1141,9 @@ function kickoffLabel(iso) {
     + ' ' + d.toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit', hour12: false })
 }
 
-function StandingsTab({ leagueId }) {
+function StandingsTab({ leagueId, matches = [] }) {
+  // Jugador elegido para el cara a cara (se abre tocando su fila).
+  const [rival, setRival] = useState(null)
   const { data: rows, isLoading } = useQuery({
     queryKey: ['group_standings', leagueId],
     queryFn: () => fetchGroupStandings(leagueId),
@@ -1170,8 +1173,11 @@ function StandingsTab({ leagueId }) {
   return (
     <div className="space-y-1.5">
       {rows.map((r, i) => (
-        <div key={r.user_id}
-          className="flex items-center gap-3 px-3 py-2.5 rounded-xl border"
+        <button key={r.user_id}
+          onClick={() => { if (!r.is_me) setRival(r) }}
+          disabled={r.is_me}
+          title={r.is_me ? undefined : `Comparar tu historial contra ${r.display_name}`}
+          className="w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-xl border disabled:cursor-default"
           style={r.is_me
             ? { background: 'rgba(46,211,183,.08)', borderColor: '#2ED3B7' }
             : { background: 'transparent', borderColor: 'transparent' }}>
@@ -1195,8 +1201,20 @@ function StandingsTab({ leagueId }) {
             )}
           </div>
           <span className="font-['JetBrains_Mono'] font-bold text-[14px] text-slate-900 dark:text-[#F3F1EA]">{r.points}</span>
-        </div>
+          {!r.is_me && <ChevronRight size={13} className="shrink-0 text-[var(--text-muted,#8A8A8A)] opacity-50" />}
+        </button>
       ))}
+
+      <p className="text-center font-['JetBrains_Mono'] text-[9px] text-[var(--text-muted,#8A8A8A)] pt-1">
+        Tocá a alguien para verlo cara a cara contra vos
+      </p>
+
+      <AnimatePresence>
+        {rival && (
+          <CaraACara key="cara-a-cara" leagueId={leagueId} matches={matches}
+            yo={rows.find((x) => x.is_me)} rival={rival} onClose={() => setRival(null)} />
+        )}
+      </AnimatePresence>
     </div>
   )
 }
