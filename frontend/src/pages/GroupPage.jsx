@@ -25,6 +25,7 @@ import HistorialAjustes from '../components/tournament/HistorialAjustes'
 import PozoYPagos from '../components/tournament/PozoYPagos'
 import MiembrosYAdmins from '../components/tournament/MiembrosYAdmins'
 import JornadasYRachas from '../components/tournament/JornadasYRachas'
+import PredecirJornada from '../components/matches/PredecirJornada'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
 
 // Clave de jornada/fase de un partido (misma lógica de agrupación que MatchList).
@@ -82,6 +83,9 @@ export default function GroupPage() {
     enabled: !!id,
     staleTime: 1000 * 30,
   })
+
+  // Jornada abierta en el modo "llenar toda la jornada" (null = cerrado).
+  const [jornadaRapida, setJornadaRapida] = useState(null)
 
   const saveMutation = useMutation({
     mutationFn: async (prediction) => {
@@ -258,6 +262,7 @@ export default function GroupPage() {
               powerupLimit={powerupLimit}
               powerupUsage={powerupUsage}
               powerupCredits={powerupCredits}
+              onPredecirJornada={setJornadaRapida}
             />
           </>
         )
@@ -289,6 +294,23 @@ export default function GroupPage() {
           <MiembrosYAdmins leagueId={group.id} />
           <HistorialAjustes tournamentId={tid} />
         </>
+      )}
+
+      {jornadaRapida && (
+        <PredecirJornada
+          label={jornadaRapida.label}
+          matches={jornadaRapida.matches}
+          predictions={predictions}
+          leagueId={group.id}
+          profileId={profile?.id}
+          powerupLimit={jornadaRapida.limit}
+          powerupsUsedFuera={jornadaRapida.usadosFuera}
+          onClose={() => setJornadaRapida(null)}
+          onGuardado={() => {
+            queryClient.invalidateQueries({ queryKey: ['predictions', profile?.id, id] })
+            showToast(`${jornadaRapida.label} guardada.`, 'success', 3000)
+          }}
+        />
       )}
 
       {/* Puerta de reglas: hay que aceptarlas para poder usar la quiniela */}
