@@ -22,6 +22,7 @@ import AllGlobalPicks from '../components/tournament/AllGlobalPicks'
 import HistorialTab from '../components/tournament/HistorialTab'
 import CaraACara from '../components/tournament/CaraACara'
 import HistorialAjustes from '../components/tournament/HistorialAjustes'
+import PozoYPagos from '../components/tournament/PozoYPagos'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
 
 // Clave de jornada/fase de un partido (misma lógica de agrupación que MatchList).
@@ -274,7 +275,8 @@ export default function GroupPage() {
         <>
           <RulesPanel group={group} tournamentStarted={tournamentStarted} showToast={showToast}
             onDeleted={() => { queryClient.invalidateQueries({ queryKey: ['my_groups'] }); navigate('/') }} />
-          {/* Va en Reglas porque es material de confianza, como las votaciones. */}
+          {/* Van en Reglas porque es material de confianza, como las votaciones. */}
+          <PozoYPagos leagueId={group.id} />
           <HistorialAjustes tournamentId={tid} />
         </>
       )}
