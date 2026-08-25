@@ -13,7 +13,7 @@
 import { useState } from 'react'
 import { motion } from 'motion/react'
 import { useQuery } from '@tanstack/react-query'
-import { Globe, ChevronDown, Target, Zap } from 'lucide-react'
+import { Globe, ChevronDown, Target, Zap, AlertTriangle, RotateCw } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 
 const ORO = '#E8B75A'
@@ -21,7 +21,7 @@ const ORO = '#E8B75A'
 export default function RankingGlobal() {
   const [abierto, setAbierto] = useState(false)
 
-  const { data: resumen } = useQuery({
+  const { data: resumen, isError, error, isLoading, refetch } = useQuery({
     queryKey: ['mi_resumen_global'],
     queryFn: async () => {
       const { data, error } = await supabase.rpc('mi_resumen_global')
@@ -30,7 +30,7 @@ export default function RankingGlobal() {
     },
   })
 
-  const { data: ranking = [] } = useQuery({
+  const { data: ranking = [], isError: rankingFallo } = useQuery({
     queryKey: ['ranking_global'],
     enabled: abierto,
     queryFn: async () => {
@@ -40,8 +40,30 @@ export default function RankingGlobal() {
     },
   })
 
-  // Sin partidos jugados todavía no hay nada honesto que mostrar.
-  if (!resumen || (resumen.partidos ?? 0) === 0) return null
+  // Un fallo NO se puede confundir con "todavía no hay datos". Si la RPC se
+  // cae —por ejemplo porque perdió el permiso al re-correr la migración 61— la
+  // tarjeta tiene que DECIRLO. Desaparecer en silencio fue exactamente lo que
+  // hizo invisible ese problema en una auditoría.
+  if (isError) {
+    return (
+      <div className="rounded-[14px] border p-3 mb-4 flex items-center gap-2"
+        style={{ background: 'rgba(255,122,89,.08)', borderColor: 'rgba(255,122,89,.3)' }}>
+        <AlertTriangle size={14} className="text-[#FF7A59] shrink-0" />
+        <p className="flex-1 text-[11.5px] text-slate-700 dark:text-slate-200">
+          No se pudo cargar tu resumen global.
+          <span className="block font-['JetBrains_Mono'] text-[10px] text-[var(--text-muted,#8A8A8A)] mt-0.5">
+            {error?.message}
+          </span>
+        </p>
+        <button onClick={() => refetch()} className="shrink-0 p-1.5 text-accent" title="Reintentar">
+          <RotateCw size={14} />
+        </button>
+      </div>
+    )
+  }
+
+  // Cargando, o sin partidos jugados todavía: no hay nada honesto que mostrar.
+  if (isLoading || !resumen || (resumen.partidos ?? 0) === 0) return null
 
   const { puntos, posicion, jugadores, quinielas, partidos, exactos, aciertos, medallas } = resumen
   const punteria = partidos > 0 ? Math.round((aciertos / partidos) * 100) : 0
@@ -83,7 +105,9 @@ export default function RankingGlobal() {
       {abierto && (
         <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}
           className="mt-2 rounded-xl bg-slate-50 dark:bg-[#0C0C0C] border border-slate-200 dark:border-[#262626] p-2.5 space-y-0.5">
-          {ranking.length === 0 ? (
+          {rankingFallo ? (
+            <p className="text-[11px] text-rose-500">No se pudo cargar el ranking.</p>
+          ) : ranking.length === 0 ? (
             <p className="text-[11px] text-[var(--text-muted,#8A8A8A)]">Cargando…</p>
           ) : ranking.map((r, i) => (
             <div key={r.user_id}

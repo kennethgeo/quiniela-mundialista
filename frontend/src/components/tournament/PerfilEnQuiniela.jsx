@@ -10,14 +10,14 @@
    recalcula nada en el navegador. */
 import { motion } from 'motion/react'
 import { useQuery } from '@tanstack/react-query'
-import { X, Zap, Flame, Swords, Loader2, Trophy } from 'lucide-react'
+import { X, Zap, Flame, Swords, Loader2, Trophy, AlertTriangle } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { MedalStrip } from '../medals/BadgeShowcase'
 
 const ORO = '#E8B75A'
 
 export default function PerfilEnQuiniela({ leagueId, userId, nombreQuiniela, onClose, onCaraACara }) {
-  const { data: p, isLoading } = useQuery({
+  const { data: p, isLoading, isError, error } = useQuery({
     queryKey: ['perfil_en_quiniela', leagueId, userId],
     enabled: !!leagueId && !!userId,
     queryFn: async () => {
@@ -39,7 +39,21 @@ export default function PerfilEnQuiniela({ leagueId, userId, nombreQuiniela, onC
           transition={{ type: 'spring', stiffness: 320, damping: 28 }}
           className="pointer-events-auto w-full max-w-md rounded-[18px] bg-white dark:bg-[#161616] border border-slate-200 dark:border-[#262626] shadow-2xl max-h-[84vh] flex flex-col overflow-hidden">
 
-          {isLoading || !p ? (
+          {isError || (!isLoading && !p) ? (
+            /* Antes, un fallo dejaba el spinner girando para siempre y no había
+               forma de saber qué pasó ni de cerrar con un botón visible. */
+            <div className="p-6 text-center">
+              <AlertTriangle size={20} className="text-[#FF7A59] mx-auto mb-2" />
+              <p className="text-[12.5px] text-slate-700 dark:text-slate-200">No se pudo cargar este perfil.</p>
+              <p className="font-['JetBrains_Mono'] text-[10px] text-[var(--text-muted,#8A8A8A)] mt-1">
+                {error?.message || 'La consulta no devolvió datos.'}
+              </p>
+              <button onClick={onClose}
+                className="mt-4 w-full rounded-xl py-2.5 font-['Archivo'] font-bold text-[12.5px] bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300">
+                Cerrar
+              </button>
+            </div>
+          ) : isLoading ? (
             <div className="p-10 grid place-items-center">
               <Loader2 size={20} className="animate-spin text-accent" />
             </div>

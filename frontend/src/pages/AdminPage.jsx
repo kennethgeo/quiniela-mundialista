@@ -8,7 +8,6 @@ import VerificarMarcadores from '../components/admin/VerificarMarcadores'
 import TournamentGlobalsAdmin from '../components/admin/TournamentGlobalsAdmin'
 import BracketAdmin from '../components/admin/BracketAdmin'
 import MatchResultsAdmin from '../components/admin/MatchResultsAdmin'
-import PowerupsAdmin from '../components/admin/PowerupsAdmin'
 import RecalcScoresAdmin from '../components/admin/RecalcScoresAdmin'
 import ScoreReconcileAdmin from '../components/admin/ScoreReconcileAdmin'
 import UserManagementAdmin from '../components/admin/UserManagementAdmin'
@@ -106,9 +105,11 @@ export default function AdminPage() {
 
         {activeTab === 'scoring' && (
           <motion.div key="scoring" initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 12 }} className="relative z-10 pb-20">
-            <AdminSection icon={Calculator} title="Comodines ×2" desc="Cupos por fase/jornada del Mundial (las ligas configuran el suyo desde su propia quiniela).">
-              <PowerupsAdmin />
-            </AdminSection>
+            {/* PowerupsAdmin se quitó: editaba la tabla powerup_limits, que dejó
+                de controlar el puntaje en la migración 48. El cupo que de verdad
+                se aplica es leagues.powerup_limit y cada quiniela lo configura en
+                su propia pestaña Reglas. El panel guardaba, decía "listo" y no
+                cambiaba el límite real — peor que no tenerlo. */}
             <AdminSection icon={Calculator} title="Recalcular y reconciliar" desc="Herramientas de mantenimiento del puntaje.">
               <RecalcScoresAdmin />
               <ScoreReconcileAdmin />
