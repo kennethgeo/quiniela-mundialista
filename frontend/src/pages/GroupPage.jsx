@@ -23,6 +23,7 @@ import HistorialTab from '../components/tournament/HistorialTab'
 import CaraACara from '../components/tournament/CaraACara'
 import HistorialAjustes from '../components/tournament/HistorialAjustes'
 import PozoYPagos from '../components/tournament/PozoYPagos'
+import MiembrosYAdmins from '../components/tournament/MiembrosYAdmins'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
 
 // Clave de jornada/fase de un partido (misma lógica de agrupación que MatchList).
@@ -277,6 +278,8 @@ export default function GroupPage() {
             onDeleted={() => { queryClient.invalidateQueries({ queryKey: ['my_groups'] }); navigate('/') }} />
           {/* Van en Reglas porque es material de confianza, como las votaciones. */}
           <PozoYPagos leagueId={group.id} />
+          {/* Quién administra va junto al pozo: es quién puede confirmar pagos. */}
+          <MiembrosYAdmins leagueId={group.id} />
           <HistorialAjustes tournamentId={tid} />
         </>
       )}
@@ -348,6 +351,10 @@ const SCORING_LABELS = {
 // puntaje, reglas de texto, historial de propuestas y zona de peligro.
 function RulesPanel({ group, tournamentStarted, showToast, onDeleted }) {
   const isAdmin = !!group.is_admin
+  // Borrar la quiniela sigue siendo solo de quien la creó, no de los co-admins:
+  // delete_group lo rechaza igual, así que mostrarles el botón sería un engaño.
+  // (?? is_admin para no esconderlo antes de que corra la migración 59.)
+  const soyCreador = group.soy_creador ?? !!group.is_admin
   const qc = useQueryClient()
   const { data: proposals = [], refetch } = useQuery({
     queryKey: ['league_proposals', group.id],
@@ -383,7 +390,7 @@ function RulesPanel({ group, tournamentStarted, showToast, onDeleted }) {
       <ExtrasConfig group={group} isAdmin={isAdmin} onSaved={afterChange} showToast={showToast} />
       {history.length > 0 && <ProposalHistory items={history} />}
       {isAdmin && <AdminTools group={group} showToast={showToast} onDone={() => qc.invalidateQueries({ queryKey: ['league_medals', group.id] })} />}
-      {isAdmin && <DangerZone group={group} onDeleted={onDeleted} showToast={showToast} />}
+      {soyCreador && <DangerZone group={group} onDeleted={onDeleted} showToast={showToast} />}
     </div>
   )
 }
