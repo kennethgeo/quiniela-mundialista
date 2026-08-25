@@ -246,6 +246,13 @@ export default function ProfilePage() {
           </div>
           <h1 className="font-['Unbounded'] font-bold text-[18px] text-slate-900 dark:text-[#F3F1EA] text-center">{profile?.display_name || 'Jugador'}</h1>
           <p className="font-['JetBrains_Mono'] font-semibold text-[11px] text-[var(--text-muted,#8A8A8A)]">{profile?.total_points || 0} pts totales</p>
+          {/* Este perfil es el GLOBAL: junta todas las quinielas. El de cada
+              quiniela vive en su pestaña Tabla, tocando tu fila. Sin este
+              cartel los dos números se ven distintos y parecen un error. */}
+          <p className="text-[10px] text-[var(--text-muted,#8A8A8A)] text-center mt-1.5 max-w-[260px] leading-relaxed">
+            Tu perfil global: junta todas tus quinielas y cuenta cada partido una vez.
+            El de cada quiniela lo abrís tocando tu fila en su Tabla.
+          </p>
         </div>
 
         {/* Métricas / Dashboard */}

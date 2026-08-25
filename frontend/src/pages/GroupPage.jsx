@@ -21,6 +21,7 @@ import PlayerStatsBoard from '../components/tournament/PlayerStatsBoard'
 import AllGlobalPicks from '../components/tournament/AllGlobalPicks'
 import HistorialTab from '../components/tournament/HistorialTab'
 import CaraACara from '../components/tournament/CaraACara'
+import PerfilEnQuiniela from '../components/tournament/PerfilEnQuiniela'
 import HistorialAjustes from '../components/tournament/HistorialAjustes'
 import PozoYPagos from '../components/tournament/PozoYPagos'
 import MiembrosYAdmins from '../components/tournament/MiembrosYAdmins'
@@ -268,7 +269,7 @@ export default function GroupPage() {
         )
       )}
 
-      {tab === 'table' && <StandingsTab leagueId={group.id} matches={resolved} />}
+      {tab === 'table' && <StandingsTab leagueId={group.id} matches={resolved} nombreQuiniela={group.name} />}
       {tab === 'historico' && (
         <>
           {/* Arriba de la matriz: el resumen de quién se lleva las jornadas. */}
@@ -1184,8 +1185,10 @@ function kickoffLabel(iso) {
     + ' ' + d.toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit', hour12: false })
 }
 
-function StandingsTab({ leagueId, matches = [] }) {
-  // Jugador elegido para el cara a cara (se abre tocando su fila).
+function StandingsTab({ leagueId, matches = [], nombreQuiniela = '' }) {
+  // Tocar una fila abre el perfil de esa persona EN ESTA QUINIELA; desde ahí se
+  // puede pasar al cara a cara.
+  const [perfil, setPerfil] = useState(null)
   const [rival, setRival] = useState(null)
   const { data: rows, isLoading } = useQuery({
     queryKey: ['group_standings', leagueId],
@@ -1217,9 +1220,8 @@ function StandingsTab({ leagueId, matches = [] }) {
     <div className="space-y-1.5">
       {rows.map((r, i) => (
         <button key={r.user_id}
-          onClick={() => { if (!r.is_me) setRival(r) }}
-          disabled={r.is_me}
-          title={r.is_me ? undefined : `Comparar tu historial contra ${r.display_name}`}
+          onClick={() => setPerfil(r)}
+          title={`Ver a ${r.display_name} en esta quiniela`}
           className="w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-xl border disabled:cursor-default"
           style={r.is_me
             ? { background: 'rgba(46,211,183,.08)', borderColor: '#2ED3B7' }
@@ -1244,18 +1246,28 @@ function StandingsTab({ leagueId, matches = [] }) {
             )}
           </div>
           <span className="font-['JetBrains_Mono'] font-bold text-[14px] text-slate-900 dark:text-[#F3F1EA]">{r.points}</span>
-          {!r.is_me && <ChevronRight size={13} className="shrink-0 text-[var(--text-muted,#8A8A8A)] opacity-50" />}
+          <ChevronRight size={13} className="shrink-0 text-[var(--text-muted,#8A8A8A)] opacity-50" />
         </button>
       ))}
 
       <p className="text-center font-['JetBrains_Mono'] text-[9px] text-[var(--text-muted,#8A8A8A)] pt-1">
-        Tocá a alguien para verlo cara a cara contra vos
+        Tocá a cualquiera para ver cómo le va en esta quiniela
       </p>
 
       <AnimatePresence>
+        {/* El perfil es la puerta de entrada y el cara a cara sale de adentro:
+            antes la fila propia no se podía tocar y no había forma de ver los
+            números de alguien en ESTA quiniela, solo el global mezclado. */}
+        {perfil && !rival && (
+          <PerfilEnQuiniela key="perfil-quiniela" leagueId={leagueId} userId={perfil.user_id}
+            nombreQuiniela={nombreQuiniela}
+            onClose={() => setPerfil(null)}
+            onCaraACara={() => setRival(perfil)} />
+        )}
         {rival && (
           <CaraACara key="cara-a-cara" leagueId={leagueId} matches={matches}
-            yo={rows.find((x) => x.is_me)} rival={rival} onClose={() => setRival(null)} />
+            yo={rows.find((x) => x.is_me)} rival={rival}
+            onClose={() => { setRival(null); setPerfil(null) }} />
         )}
       </AnimatePresence>
     </div>
