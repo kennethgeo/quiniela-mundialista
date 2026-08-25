@@ -1,6 +1,6 @@
 """Rutas para el ranking de jugadores."""
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 
 from app.auth import get_current_user
 from app.services.supabase_client import get_supabase
@@ -58,8 +58,21 @@ async def league_leaderboard(
     league_id: str,
     user: dict = Depends(get_current_user),
 ):
-    """Ranking dentro de una liga privada, con desempate oficial."""
+    """Ranking dentro de una liga privada, con desempate oficial. Solo miembros."""
     supabase = get_supabase()
+
+    # Corre con service_role, o sea que salta la RLS: sin esto, cualquiera con
+    # sesión y un UUID veía la tabla de una quiniela ajena.
+    pertenece = (
+        supabase.table("league_members")
+        .select("user_id")
+        .eq("league_id", league_id)
+        .eq("user_id", user["sub"])
+        .limit(1)
+        .execute()
+    )
+    if not pertenece.data:
+        raise HTTPException(status_code=404, detail="Quiniela no encontrada")
 
     members_response = (
         supabase.table("league_members")

@@ -821,3 +821,82 @@ async def optimize_avatars(admin: dict = Depends(require_admin)):
         "kb_before": round(bytes_before / 1024),
         "kb_after": round(bytes_after / 1024),
     }
+
+
+@router.post("/reconcile-totals")
+async def reconcile_totals(
+    apply: bool = Body(False, embed=True),
+    admin: dict = Depends(require_admin),
+):
+    """Revisa (y opcionalmente corrige) users.total_points.
+
+    Existía una versión en el NAVEGADOR y estaba rota de tres formas a la vez:
+      · omitía los puntos de asistidor, así que "corregir" se los restaba a la
+        gente que los había acertado;
+      · las promesas de supabase-js resuelven con {error} en vez de rechazar, y
+        el código no las miraba: contaba como aplicadas escrituras que la RLS
+        había rechazado;
+      · esa misma RLS solo deja escribir la fila propia, así que en la práctica
+        únicamente podía tocar al admin — mientras informaba "Totales
+        sincronizados" para todo el grupo.
+
+    Acá corre con service_role y el total lo recalcula la BD con
+    recompute_user_total(), que es la única fuente de verdad y ya contempla
+    campeón, goleador, asistidor y el ajuste manual.
+    """
+    supabase = get_supabase()
+
+    usuarios = supabase.table("users").select("id, display_name, total_points").execute().data or []
+    predicciones = supabase.table("predictions").select("user_id, points_earned").execute().data or []
+    globales = (
+        supabase.table("tournament_predictions")
+        .select("user_id, champion_points, top_scorer_points, top_assist_points")
+        .execute()
+        .data
+        or []
+    )
+
+    suma: dict[str, int] = {}
+    for p in predicciones:
+        suma[p["user_id"]] = suma.get(p["user_id"], 0) + (p.get("points_earned") or 0)
+    for g in globales:
+        suma[g["user_id"]] = (
+            suma.get(g["user_id"], 0)
+            + (g.get("champion_points") or 0)
+            + (g.get("top_scorer_points") or 0)
+            + (g.get("top_assist_points") or 0)
+        )
+
+    descuadres = []
+    for u in usuarios:
+        guardado = u.get("total_points") or 0
+        calculado = suma.get(u["id"], 0)
+        if guardado != calculado:
+            descuadres.append(
+                {
+                    "user_id": u["id"],
+                    "display_name": u.get("display_name"),
+                    "stored": guardado,
+                    "computed": calculado,
+                    "diff": calculado - guardado,
+                }
+            )
+
+    aplicados, fallidos = 0, []
+    if apply:
+        for d in descuadres:
+            try:
+                supabase.rpc("recompute_user_total", {"p_user_id": d["user_id"]}).execute()
+                aplicados += 1
+            except Exception as exc:  # noqa: BLE001
+                # Se reporta en vez de contarlo como éxito, que es justo lo que
+                # hacía la versión del navegador.
+                fallidos.append({"user_id": d["user_id"], "error": str(exc)})
+
+    return {
+        "status": "ok",
+        "usersChecked": len(usuarios),
+        "discrepancies": descuadres,
+        "applied": aplicados,
+        "failed": fallidos,
+    }

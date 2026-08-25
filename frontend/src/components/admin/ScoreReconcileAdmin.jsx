@@ -1,7 +1,32 @@
 /* Admin: reconciliar el total de puntos con la suma real (sin tocar predicciones) */
 import { useState } from 'react'
 import { Scale, Search, Wrench, CheckCircle2, AlertTriangle, Loader2 } from 'lucide-react'
-import { reconcileTotals } from '../../lib/scoring'
+import { supabase } from '../../lib/supabase'
+
+/* La reconciliación la hace el BACKEND, con service_role.
+
+   La versión anterior corría en el navegador y no podía funcionar: la RLS de
+   'users' solo deja escribir la fila propia, así que solo se corregía a sí
+   mismo — y como no miraba el {error} de las promesas de supabase-js, contaba
+   como aplicadas las escrituras rechazadas y decía "Totales sincronizados". */
+async function reconcileTotals({ apply = false } = {}) {
+  try {
+    const { data: { session } } = await supabase.auth.getSession()
+    const r = await fetch('/_backend/api/admin/reconcile-totals', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${session?.access_token}`,
+      },
+      body: JSON.stringify({ apply }),
+    })
+    const json = await r.json().catch(() => ({}))
+    if (!r.ok) throw new Error(json.detail || `Error ${r.status}`)
+    return json
+  } catch (err) {
+    return { status: 'error', message: err.message }
+  }
+}
 
 export default function ScoreReconcileAdmin() {
   const [loading, setLoading] = useState(false)
@@ -36,7 +61,12 @@ export default function ScoreReconcileAdmin() {
       return
     }
     setReport({ ...res, discrepancies: [] })
-    setMessage({ type: 'ok', text: `Corregidos ${res.applied} usuario(s). Totales sincronizados.` })
+    // Los fallos se dicen. La versión vieja los contaba como éxitos.
+    if (res.failed?.length) {
+      setMessage({ type: 'warn', text: `Corregidos ${res.applied}, pero ${res.failed.length} fallaron. Revisá los logs.` })
+    } else {
+      setMessage({ type: 'ok', text: `Corregidos ${res.applied} usuario(s). Totales sincronizados.` })
+    }
   }
 
   const msgStyle = {
