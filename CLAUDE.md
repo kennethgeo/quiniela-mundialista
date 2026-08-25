@@ -75,6 +75,9 @@ Reglas que NO se pueden volver a romper al escribir SQL nuevo:
 - **No cambia nada dentro de cada quiniela**: `league_points`, la Tabla, las jornadas y el pozo siguen igual.
 - Si se toca la fórmula, recalcular: `SELECT public.recompute_user_total(id) FROM public.users;`
 
+- **`vercel.json` es JSON estricto y Vercel valida el esquema**: una clave desconocida (incluida una `"//comentario"`) hace **fallar el despliegue entero**, con un error genérico que apunta a la documentación de configuración. No meter comentarios ahí; documentar acá.
+- El CSP sale como `Content-Security-Policy-Report-Only` a propósito: se ajustó contra el build real (sin scripts ni estilos inline, sin `eval`) pero no se comprobó contra producción. En Report-Only el navegador avisa en consola y no bloquea. **Cuando se confirme que no reporta nada, renombrar la cabecera a `Content-Security-Policy`** para que proteja de verdad.
+
 ## Global vs por quiniela (migración `database/63_hub_global_y_perfiles.sql`)
 Son **dos números distintos a propósito** y confundirlos es el error fácil:
 - **Global** (`users.total_points`, `user_total_calculado`): junta todas las quinielas y cuenta cada partido UNA vez. Vive en el hub (`components/hub/RankingGlobal.jsx`) y en el perfil (`ProfilePage`). RPCs: `ranking_global(limite)`, `mi_resumen_global()`.

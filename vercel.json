@@ -51,6 +51,5 @@
         }
       ]
     }
-  ],
-  "//csp": "El CSP sale en modo Report-Only a proposito: ajusta contra el build actual (sin scripts ni estilos inline, sin eval) pero no se pudo comprobar la respuesta real de produccion. En Report-Only el navegador AVISA en consola y no bloquea. Cuando confirmes que no reporta nada, renombrar la cabecera a 'Content-Security-Policy' para que empiece a proteger de verdad."
+  ]
 }
