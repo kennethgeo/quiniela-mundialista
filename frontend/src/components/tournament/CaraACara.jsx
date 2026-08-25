@@ -95,17 +95,22 @@ export default function CaraACara({ leagueId, matches = [], yo, rival, onClose }
   const { a, b, duelos, jornadas } = datos
   const gano = a.pts > b.pts ? 'a' : b.pts > a.pts ? 'b' : null
 
+  /* Ventana centrada, no hoja desde abajo. Pegada al borde inferior chocaba
+     con la barra de navegación (z-50) y con el botón flotante del chat
+     (z-[60]), que le quedaban ENCIMA y tapaban las últimas filas. Centrada y
+     con margen no toca ninguna de las dos zonas, y el z-index queda por arriba
+     de ambas (pero debajo de los toasts, que son z-[100]). */
   return (
     <>
-      <motion.div className="fixed inset-0 bg-black/50 z-40" onClick={onClose}
+      <motion.div className="fixed inset-0 bg-black/60 z-[90]" onClick={onClose}
         initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} />
+      <div className="fixed inset-0 z-[95] grid place-items-center p-4 pointer-events-none">
       <motion.div
-        className="fixed left-0 right-0 bottom-0 z-50 rounded-t-[20px] bg-white dark:bg-[#161616] border-t border-slate-200 dark:border-[#262626] max-h-[85vh] flex flex-col"
-        initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
-        transition={{ type: 'spring', stiffness: 320, damping: 28 }}>
+        className="pointer-events-auto w-full max-w-md rounded-[18px] bg-white dark:bg-[#161616] border border-slate-200 dark:border-[#262626] shadow-2xl max-h-[82vh] flex flex-col overflow-hidden"
+        initial={{ opacity: 0, scale: 0.94 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.94 }}
+        transition={{ type: 'spring', stiffness: 340, damping: 26 }}>
 
-        <div className="px-4 pt-3 pb-3 shrink-0 border-b border-slate-200 dark:border-[#262626]">
-          <div className="w-9 h-1 rounded-full bg-slate-300 dark:bg-[#262626] mx-auto mb-3" />
+        <div className="px-4 pt-3.5 pb-3 shrink-0 border-b border-slate-200 dark:border-[#262626]">
           <div className="flex items-start gap-2">
             <h3 className="flex-1 font-['Archivo'] font-bold text-[13px] text-slate-900 dark:text-[#F3F1EA]">Cara a cara</h3>
             <button onClick={onClose} className="w-7 h-7 shrink-0 rounded-[9px] grid place-items-center text-[var(--text-muted,#8A8A8A)]">
@@ -168,6 +173,7 @@ export default function CaraACara({ leagueId, matches = [], yo, rival, onClose }
           )}
         </div>
       </motion.div>
+      </div>
     </>
   )
 }
