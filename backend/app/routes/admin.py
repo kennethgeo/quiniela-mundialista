@@ -830,57 +830,25 @@ async def reconcile_totals(
 ):
     """Revisa (y opcionalmente corrige) users.total_points.
 
-    Existía una versión en el NAVEGADOR y estaba rota de tres formas a la vez:
-      · omitía los puntos de asistidor, así que "corregir" se los restaba a la
-        gente que los había acertado;
-      · las promesas de supabase-js resuelven con {error} en vez de rechazar, y
-        el código no las miraba: contaba como aplicadas escrituras que la RLS
-        había rechazado;
-      · esa misma RLS solo deja escribir la fila propia, así que en la práctica
-        únicamente podía tocar al admin — mientras informaba "Totales
-        sincronizados" para todo el grupo.
+    LA CUENTA LA HACE LA BASE, no este endpoint. La fórmula del total global
+    vivía escrita dos veces —acá y en SQL— y por eso una de las dos se olvidó
+    de los puntos de asistidor durante meses sin que nadie lo notara. Ahora
+    hay una sola: user_total_calculado(), que además cuenta cada partido una
+    vez aunque lo hayas predicho en varias quinielas (migración 62).
 
-    Acá corre con service_role y el total lo recalcula la BD con
-    recompute_user_total(), que es la única fuente de verdad y ya contempla
-    campeón, goleador, asistidor y el ajuste manual.
+    Antes de eso existía una versión en el NAVEGADOR, rota de tres formas a la
+    vez: omitía el asistidor, contaba como aplicadas escrituras que la RLS
+    rechazaba en silencio (las promesas de supabase-js resuelven con {error}
+    en vez de rechazar), y esa RLS solo deja escribir la fila propia — así que
+    en la práctica solo corregía al admin mientras informaba "Totales
+    sincronizados" para todo el grupo.
     """
     supabase = get_supabase()
 
-    usuarios = supabase.table("users").select("id, display_name, total_points").execute().data or []
-    predicciones = supabase.table("predictions").select("user_id, points_earned").execute().data or []
-    globales = (
-        supabase.table("tournament_predictions")
-        .select("user_id, champion_points, top_scorer_points, top_assist_points")
-        .execute()
-        .data
-        or []
+    total_usuarios = (
+        supabase.table("users").select("id", count="exact").execute().count or 0
     )
-
-    suma: dict[str, int] = {}
-    for p in predicciones:
-        suma[p["user_id"]] = suma.get(p["user_id"], 0) + (p.get("points_earned") or 0)
-    for g in globales:
-        suma[g["user_id"]] = (
-            suma.get(g["user_id"], 0)
-            + (g.get("champion_points") or 0)
-            + (g.get("top_scorer_points") or 0)
-            + (g.get("top_assist_points") or 0)
-        )
-
-    descuadres = []
-    for u in usuarios:
-        guardado = u.get("total_points") or 0
-        calculado = suma.get(u["id"], 0)
-        if guardado != calculado:
-            descuadres.append(
-                {
-                    "user_id": u["id"],
-                    "display_name": u.get("display_name"),
-                    "stored": guardado,
-                    "computed": calculado,
-                    "diff": calculado - guardado,
-                }
-            )
+    descuadres = supabase.rpc("totales_desalineados").execute().data or []
 
     aplicados, fallidos = 0, []
     if apply:
@@ -895,8 +863,11 @@ async def reconcile_totals(
 
     return {
         "status": "ok",
-        "usersChecked": len(usuarios),
-        "discrepancies": descuadres,
+        "usersChecked": total_usuarios,
+        "discrepancies": [
+            {**d, "diff": (d.get("computed") or 0) - (d.get("stored") or 0)}
+            for d in descuadres
+        ],
         "applied": aplicados,
         "failed": fallidos,
     }
