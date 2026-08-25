@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react'
-import { motion } from 'motion/react'
 import { Bell, BellOff, Loader2 } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
@@ -13,7 +12,7 @@ const VAPID_PUBLIC_KEY = 'BEZacx8-hHDBW6kekpy-K-ZBU4LRHttGOK32Bm5IsAGCkt_lhSGKaX
 function urlBase64ToUint8Array(base64String) {
   const padding = '='.repeat((4 - base64String.length % 4) % 4)
   const base64 = (base64String + padding)
-    .replace(/\-/g, '+')
+    .replace(/-/g, '+')
     .replace(/_/g, '/')
 
   const rawData = window.atob(base64)

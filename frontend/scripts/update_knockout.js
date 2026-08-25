@@ -53,7 +53,7 @@ const knockoutMatches = [
 
 async function run() {
   console.log("Obteniendo partidos eliminatorios...");
-  const { data: dbMatches, error } = await supabase.from('matches').select('*').neq('phase', 'groups');
+  const { error } = await supabase.from('matches').select('*').neq('phase', 'groups');
   if (error) return console.error(error);
 
   let updated = 0;

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
-import { Trophy, Target, Check, AlertCircle, Lock } from 'lucide-react'
+import { Trophy, Target, Check, Lock } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { getTournamentLocked } from '../../lib/tournamentLock'
 import { useAuth } from '../../hooks/useAuth'

@@ -1,7 +1,7 @@
 /* Tarjeta de partido — rediseño minimalista */
 import { useState, useEffect } from 'react'
 import { motion } from 'motion/react'
-import { Lock, Check, X, Zap, Timer, Info } from 'lucide-react'
+import { Zap, Info } from 'lucide-react'
 import { differenceInMinutes, differenceInSeconds } from 'date-fns'
 import { useNavigate } from 'react-router-dom'
 import GoalCounter from './GoalCounter'

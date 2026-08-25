@@ -6,7 +6,6 @@ import { SettingsProvider } from './contexts/SettingsContext'
 import { AuthProvider } from './contexts/AuthContext'
 import { ToastProvider } from './components/ui/Toast'
 import { useAuth } from './hooks/useAuth'
-import Navbar from './components/ui/Navbar'
 import BottomNav from './components/ui/BottomNav'
 import QuickBar from './components/ui/QuickBar'
 import ProtectedRoute from './components/auth/ProtectedRoute'
@@ -17,11 +16,6 @@ import { useState, useEffect, lazy, Suspense } from 'react'
 
 const AuthPage = lazy(() => import('./pages/AuthPage'))
 const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage'))
-const DashboardPage = lazy(() => import('./pages/DashboardPage'))
-const MatchesPage = lazy(() => import('./pages/MatchesPage'))
-const BracketPage = lazy(() => import('./pages/BracketPage'))
-const LeaderboardPage = lazy(() => import('./pages/LeaderboardPage'))
-const TournamentPage = lazy(() => import('./pages/TournamentPage'))
 const ProfilePage = lazy(() => import('./pages/ProfilePage'))
 const AdminPage = lazy(() => import('./pages/AdminPage'))
 const MatchDetailPage = lazy(() => import('./pages/MatchDetailPage'))
@@ -71,7 +65,7 @@ import ErrorBoundary from './components/ui/ErrorBoundary'
 import { useGlobalRealtime } from './hooks/useRealtime'
 
 function AppRoutes() {
-  const { user, loading } = useAuth()
+  const { loading } = useAuth()
   const navigate = useNavigate()
   useGlobalRealtime()
 

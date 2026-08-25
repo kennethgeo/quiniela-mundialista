@@ -9,7 +9,6 @@
    para el chat. Por eso: cero imágenes externas, solo texto y color. */
 
 const FONDO = '#0C0C0C'
-const TARJETA = '#161616'
 const BORDE = '#262626'
 const TEXTO = '#F3F1EA'
 const MUTED = '#8A8A8A'

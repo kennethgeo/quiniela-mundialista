@@ -121,7 +121,7 @@ function UpcomingMatchCard({ match, index }) {
   const isLocked = (kickoff - now) <= 15 * 60 * 1000 // 15 minutos
 
   // Intentar obtener la cuenta regresiva legible
-  let countdown = ''
+  let countdown
   try {
     countdown = formatDistanceToNow(kickoff, { addSuffix: false, locale: es })
   } catch {
