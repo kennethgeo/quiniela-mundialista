@@ -1,6 +1,6 @@
 # Aplicar migraciones en Supabase — Quiniela Mundialista
 
-**Repo:** `kennethgeo/quiniela-mundialista`, rama `main`, commit `f01948e`.
+**Repo:** `kennethgeo/quiniela-mundialista`, rama `main`, commit `54fab9b`.
 **Para:** Codex u otro agente con acceso a la base.
 
 Los archivos están en el repo, en `database/`. **No los modifiques.** Todos son
@@ -15,7 +15,8 @@ idempotentes: si dudás de si algo ya se corrió, se puede volver a correr.
 | `61_endurecer_permisos.sql` | Sí, pero una **versión vieja** | Hay que volver a correrla: la nueva incluye tres RPC que faltaban |
 | `62_ranking_global_sin_duplicados.sql` | Sí | No hace falta repetirla |
 | `63_hub_global_y_perfiles.sql` | **No** | |
-| `64_cerrar_tablas_y_vistas_abiertas.sql` | **No** | Archivo nuevo |
+| `64_cerrar_tablas_y_vistas_abiertas.sql` | Sí | |
+| `65_predicciones_solo_de_tu_quiniela.sql` | **No** | Archivo nuevo |
 
 ---
 
@@ -24,54 +25,31 @@ idempotentes: si dudás de si algo ya se corrió, se puede volver a correr.
 ### Paso 0 — Antes de tocar nada
 
 ```sql
-select id, display_name, is_admin, total_points, updated_at
-from public.users where is_admin = true;
+select policyname, cmd, qual from pg_policies
+where schemaname='public' and tablename='predictions' order by cmd, policyname;
 ```
-**Reportá el resultado.** Si aparece alguien que no debería ser administrador,
-**pará** y avisá antes de seguir.
+**Reportá el resultado.** Sirve para comparar después.
 
-### Paso 1 — `database/61_endurecer_permisos.sql`
+### Paso 1 — `database/65_predicciones_solo_de_tu_quiniela.sql`
 
-Correrla **completa**. Ya estaba aplicada, pero esta versión agrega
-`ranking_global`, `mi_resumen_global` y `perfil_en_quiniela` al inventario de
-permisos. Sin eso, el paso 2 se rompe la próxima vez que alguien re-corra la 61.
+Es la única pendiente. Hace dos cosas:
+
+1. Las predicciones ajenas se destapan igual que antes (15 min antes del saque)
+   pero **solo entre quienes comparten la quiniela**. Antes la política no
+   filtraba por liga, así que cualquiera con una cuenta podía leer las
+   predicciones de todas las quinielas.
+2. `user_stats_view` pasa a `security_invoker`, cerrando el último aviso del
+   asesor de Supabase.
 
 **Debe terminar imprimiendo:**
 ```
-NOTICE:  Permisos correctos: ninguna política quedó huérfana y anon no ejecuta ninguna SECURITY DEFINER.
+NOTICE:  Políticas de SELECT reemplazadas: {...}
+NOTICE:  Correcto: una sola política de lectura sobre predictions, acotada a tu quiniela.
 ```
-Puede imprimir además un `WARNING` sobre "funciones del inventario que no existen
-en esta base" — eso es **normal** si alguna función del inventario todavía no fue
-creada; reportá la lista pero no es motivo para parar.
 
-Cualquier **otro** `WARNING` → **pará y reportalo**.
-
-### Paso 2 — `database/63_hub_global_y_perfiles.sql`
-
-Crea tres RPC nuevas: `ranking_global`, `mi_resumen_global`, `perfil_en_quiniela`.
-No debe imprimir warnings.
-
-Verificación:
-```sql
-select p.proname,
-       has_function_privilege('authenticated', p.oid, 'EXECUTE') as authenticated,
-       has_function_privilege('anon', p.oid, 'EXECUTE')          as anon
-from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-where n.nspname = 'public'
-  and p.proname in ('ranking_global','mi_resumen_global','perfil_en_quiniela');
-```
-Las tres: `authenticated = true`, `anon = false`.
-
-### Paso 3 — `database/64_cerrar_tablas_y_vistas_abiertas.sql`
-
-Cierra `powerup_limits` (era escribible por cualquiera con la anon key) y tres
-vistas que permitían enumerar el padrón sin iniciar sesión.
-
-**Debe terminar imprimiendo:**
-```
-NOTICE:  Correcto: anon ya no alcanza powerup_limits ni las tres vistas.
-```
-Si imprime `WARNING: REVISAR: anon todavía alcanza ...` → **pará y reportalo**.
+Si imprime `WARNING: REVISAR: hay políticas FOR ALL sobre predictions ...` →
+**pará y reportalo**: significa que hay otra política concediendo SELECT que
+anularía el filtro.
 
 ---
 
@@ -111,7 +89,12 @@ select 'user_stats_view',
        has_table_privilege('anon','public.user_stats_view','SELECT'), null,
        has_table_privilege('authenticated','public.user_stats_view','SELECT'), null;
 
--- 4) Totales globales cuadrados.  Debe salir VACÍO.
+-- 4) Una sola política de lectura sobre predictions, con filtro por quiniela.
+select policyname, cmd, qual from pg_policies
+where schemaname='public' and tablename='predictions' and cmd in ('SELECT','ALL');
+-- Esperado: UNA fila, y su 'qual' debe mencionar is_league_member.
+
+-- 5) Totales globales cuadrados.  Debe salir VACÍO.
 select u.display_name, u.total_points as guardado,
        public.user_total_calculado(u.id) as calculado
 from public.users u
@@ -125,7 +108,8 @@ where u.total_points is distinct from public.user_total_calculado(u.id);
 | 1 | vacío |
 | 2 | vacío |
 | 3 | `anon` en `false` en todo · `powerup_limits`: auth lee `true`, escribe `false` · `user_badges_view`: auth `false` · `user_stats_view`: auth `true` |
-| 4 | vacío |
+| 4 | una sola fila, mencionando `is_league_member` |
+| 5 | vacío |
 
 ---
 
@@ -143,6 +127,11 @@ Esto importa más que lo anterior. Con un usuario normal, en la app:
    Si no aparece nada, puede ser que todavía no haya partidos jugados (normal) o
    que la RPC falle (ahí sale un cartel naranja con el error).
 6. **Ver un partido en curso** — el marcador tiene que avanzar solo.
+7. **Abrir un partido ya jugado (`/match/<id>`)** — tienen que aparecer las
+   predicciones de tus compañeros de quiniela. Si aparece vacío, la política del
+   paso 1 quedó demasiado estricta; reportalo.
+8. **Pestaña Histórico de una quiniela** — la matriz tiene que mostrar las
+   predicciones destapadas de todo el grupo, como antes.
 
 ---
 
