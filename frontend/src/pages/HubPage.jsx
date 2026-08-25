@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'motion/react'
 import { Plus, KeyRound, Users, X, Loader2, ChevronRight, Vote, CheckCircle2 } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import { fetchMyGroups, fetchTournaments, createGroup, joinGroupByCode, DEFAULT_RULES } from '../lib/groups'
+import RankingGlobal from '../components/hub/RankingGlobal'
 
 // Paleta cíclica idéntica al mockup de Claude Design (teal, coral, gold, gris)
 const PALETTE = [
@@ -65,6 +66,11 @@ export default function HubPage() {
         <div className="w-[42px] h-[42px] rounded-full grid place-items-center font-['Unbounded'] font-bold text-[15px] text-[#06231d] shrink-0"
           style={{ background: 'linear-gradient(135deg,#2ED3B7,#1a8f7c)' }}>{initial}</div>
       </motion.div>
+
+      {/* Lo global va arriba de la lista: es el resumen de todo, y la lista de
+          abajo es el detalle por quiniela. Se esconde solo si todavía no jugaste
+          ningún partido. */}
+      <RankingGlobal />
 
       {/* CTAs */}
       <div className="flex gap-2.5 mb-6">
