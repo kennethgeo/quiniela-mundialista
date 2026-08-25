@@ -1,13 +1,21 @@
 // Edge Function: aviso push ~45 min antes del saque.
 //
-// BUG QUE ARREGLA ESTA VERSIÓN: antes buscaba los partidos SIN filtrar por
-// torneo y los mandaba a TODAS las suscripciones. Como el sync mantiene varios
-// torneos vivos (LaLiga, Premier, Champions…), a todo el mundo le llegaban
-// avisos de ligas en las que no juega. Ahora solo se notifica a quien es
-// miembro de una quiniela DE ESE torneo.
+// Solo se avisa a quien LE FALTA predecir. Antes le llegaba a todo el miembro
+// del torneo, hubiera predicho o no, y un recordatorio que suena aunque ya
+// hiciste la tarea se vuelve ruido: la gente lo silencia y después se pierde
+// el aviso que sí importaba.
+//
+// Y se manda UN push por persona, no uno por partido. En una jornada con
+// cinco partidos a la misma hora, cinco notificaciones seguidas son la manera
+// más rápida de que alguien apague las notificaciones para siempre.
+//
+// (Antes de esto ya se había arreglado otro bug: buscaba los partidos sin
+// filtrar por torneo y los mandaba a TODAS las suscripciones, así que llegaban
+// avisos de ligas en las que uno ni juega. El filtro por torneo sigue acá.)
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import webpush from 'https://esm.sh/web-push@3.6.7'
+import { faltantesPorUsuario, armarPayload } from './logica.js'
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -93,22 +101,43 @@ serve(async (req) => {
 
     const ligaIds = (ligas || []).map((l) => l.id)
     const { data: miembros } = ligaIds.length
-      ? await supabase.from('league_members').select('league_id, user_id').in('league_id', ligaIds)
+      ? await supabase.from('league_members').select('league_id, user_id').in('league_id', ligaIds).limit(20000)
       : { data: [] }
 
-    const torneoDeLiga = new Map((ligas || []).map((l) => [l.id, l.tournament_id]))
-    // tournament_id -> Set(user_id). Set para no mandar dos veces a quien está
-    // en más de una quiniela del mismo torneo.
-    const usuariosPorTorneo = new Map()
-    for (const m of miembros || []) {
-      const tid = torneoDeLiga.get(m.league_id)
-      if (tid == null) continue
-      if (!usuariosPorTorneo.has(tid)) usuariosPorTorneo.set(tid, new Set())
-      usuariosPorTorneo.get(tid).add(m.user_id)
+    // Quién YA predijo cada uno de estos partidos. Acotado a los partidos de la
+    // ventana, así que son pocas filas aunque la tabla sea grande.
+    // El límite explícito importa: si PostgREST truncara en su tope por defecto,
+    // faltarían filas en 'ya predijo' y le llegaría el recordatorio a gente que
+    // sí predijo. Molesto, no grave, pero silencioso.
+    const { data: predicciones } = ligaIds.length
+      ? await supabase.from('predictions')
+          .select('user_id, league_id, match_id')
+          .in('match_id', proximos.map((m) => m.id))
+          .limit(20000)
+      : { data: [] }
+
+    const faltantes = faltantesPorUsuario({
+      partidos: proximos,
+      ligas: ligas || [],
+      miembros: miembros || [],
+      predicciones: predicciones || [],
+    })
+
+    if (faltantes.size === 0) {
+      return new Response(
+        JSON.stringify({
+          success: true,
+          matches_en_ventana: proximos.length,
+          message: 'Todos predijeron: nadie necesita recordatorio',
+          sent: 0,
+        }),
+        { headers: { 'Content-Type': 'application/json' }, status: 200 },
+      )
     }
 
     // Las suscripciones se leen UNA vez, no una por partido como antes.
-    const { data: subs } = await supabase.from('push_subscriptions').select('*')
+    const { data: subs } = await supabase
+      .from('push_subscriptions').select('*').in('user_id', [...faltantes.keys()])
     const subsPorUsuario = new Map()
     for (const s of subs || []) {
       if (!subsPorUsuario.has(s.user_id)) subsPorUsuario.set(s.user_id, [])
@@ -116,24 +145,10 @@ serve(async (req) => {
     }
 
     let notificationsSent = 0
-    let matchesNotificados = 0
-
-    for (const match of proximos) {
-      const usuarios = usuariosPorTorneo.get(match.tournament_id)
-      // Nadie tiene quiniela de este torneo: no se avisa a nadie.
-      if (!usuarios || usuarios.size === 0) continue
-      matchesNotificados++
-
-      const payload = JSON.stringify({
-        title: '⚽ ¡Faltan ~45 minutos!',
-        body: `${match.home_team} vs ${match.away_team} está por comenzar. ¡Haz o revisa tu predicción antes de que se cierre!`,
-        url: `/match/${match.id}`,
-      })
-
-      for (const userId of usuarios) {
-        for (const sub of subsPorUsuario.get(userId) || []) {
-          if (await enviar(supabase, sub, payload)) notificationsSent++
-        }
+    for (const [userId, pendientes] of faltantes) {
+      const payload = JSON.stringify(armarPayload(pendientes))
+      for (const sub of subsPorUsuario.get(userId) || []) {
+        if (await enviar(supabase, sub, payload)) notificationsSent++
       }
     }
 
@@ -141,7 +156,7 @@ serve(async (req) => {
       JSON.stringify({
         success: true,
         matches_en_ventana: proximos.length,
-        matches_notificados: matchesNotificados,
+        personas_con_pendientes: faltantes.size,
         sent: notificationsSent,
       }),
       { headers: { 'Content-Type': 'application/json' }, status: 200 },
