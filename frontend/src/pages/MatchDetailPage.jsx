@@ -8,6 +8,7 @@ import { useAuth } from '../hooks/useAuth'
 import { crestOnError } from '../lib/teamLogo'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
+import { pedirRefrescoEnVivo } from '../lib/refrescoEnVivo'
 
 export default function MatchDetailPage() {
   const { id } = useParams()
@@ -140,7 +141,7 @@ export default function MatchDetailPage() {
     let cancelled = false
     const tick = async () => {
       try {
-        await fetch('/_backend/api/matches/refresh-live', { method: 'POST' })
+        await pedirRefrescoEnVivo()
       } catch {
         /* ignorar errores de red */
       }

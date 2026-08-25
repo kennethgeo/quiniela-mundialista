@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import { pedirRefrescoEnVivo } from '../lib/refrescoEnVivo'
 
 /**
  * Mientras la app esté abierta (en cualquier pantalla) y haya algún partido en
@@ -13,7 +14,7 @@ export function useLiveSync() {
     let interval = null
 
     const tick = () => {
-      fetch('/_backend/api/matches/refresh-live', { method: 'POST' }).catch(() => {})
+      pedirRefrescoEnVivo()
     }
 
     const update = async () => {
