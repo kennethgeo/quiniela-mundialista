@@ -4,6 +4,7 @@ import { motion } from 'motion/react'
 import { ChevronRight } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
+import { pedirRefrescoEnVivo } from '../../lib/refrescoEnVivo'
 
 function liveMinute(minute) {
   if (!minute) return null
@@ -47,7 +48,7 @@ export default function LiveNow() {
     let cancelled = false
     const tick = async () => {
       try {
-        await fetch('/_backend/api/matches/refresh-live', { method: 'POST' })
+        await pedirRefrescoEnVivo()
       } catch {
         /* ignorar */
       }

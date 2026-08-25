@@ -14,9 +14,14 @@ export function AuthProvider({ children }) {
    */
   const fetchProfile = useCallback(async (userId) => {
     try {
+      // Columnas explícitas, NO select('*'). 'email' dejó de ser legible desde
+      // el cliente (RLS filtra filas, no columnas, así que la única forma era
+      // quitar el permiso de esa columna) y un '*' se expande a TODAS —
+      // incluida esa — y devuelve "permission denied". Con el '*' puesto, esto
+      // rompía el arranque de sesión de todo el mundo.
       const { data, error } = await supabase
         .from('users')
-        .select('*')
+        .select('id, display_name, avatar_url, total_points, points_adjustment, is_admin, created_at, updated_at')
         .eq('id', userId)
         .single()
 
