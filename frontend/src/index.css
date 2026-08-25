@@ -96,7 +96,10 @@
 
 /* Nota: el reset universal (margin/padding/box-sizing) lo hace el preflight de
    Tailwind v4 en capa; un `* { padding:0; margin:0 }` sin capa aquí le ganaría a
-   las utilidades px-*/mx-auto y rompía el padding de todas las pantallas. */
+   las utilidades de padding y margen, y rompía el padding de todas las
+   pantallas. (Antes esta nota escribía esas utilidades con un asterisco y una
+   barra seguidos, lo que cerraba el comentario a media frase y dejaba el resto
+   como CSS suelto: el build avisaba "Expected identifier in class selector".) */
 html { font-family: var(--font-family-sans); -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
 body {
   background-color: var(--bg-body);

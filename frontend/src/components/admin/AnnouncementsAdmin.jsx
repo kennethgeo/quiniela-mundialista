@@ -1,6 +1,5 @@
 /* Admin: banner de anuncio (global_settings) + notificación push a todos. */
 import { useState, useEffect } from 'react'
-import { motion } from 'motion/react'
 import { Megaphone, Save, Bell, Loader2, CheckCircle2, AlertTriangle } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 

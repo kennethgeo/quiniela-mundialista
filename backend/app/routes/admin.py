@@ -821,3 +821,53 @@ async def optimize_avatars(admin: dict = Depends(require_admin)):
         "kb_before": round(bytes_before / 1024),
         "kb_after": round(bytes_after / 1024),
     }
+
+
+@router.post("/reconcile-totals")
+async def reconcile_totals(
+    apply: bool = Body(False, embed=True),
+    admin: dict = Depends(require_admin),
+):
+    """Revisa (y opcionalmente corrige) users.total_points.
+
+    LA CUENTA LA HACE LA BASE, no este endpoint. La fórmula del total global
+    vivía escrita dos veces —acá y en SQL— y por eso una de las dos se olvidó
+    de los puntos de asistidor durante meses sin que nadie lo notara. Ahora
+    hay una sola: user_total_calculado(), que además cuenta cada partido una
+    vez aunque lo hayas predicho en varias quinielas (migración 62).
+
+    Antes de eso existía una versión en el NAVEGADOR, rota de tres formas a la
+    vez: omitía el asistidor, contaba como aplicadas escrituras que la RLS
+    rechazaba en silencio (las promesas de supabase-js resuelven con {error}
+    en vez de rechazar), y esa RLS solo deja escribir la fila propia — así que
+    en la práctica solo corregía al admin mientras informaba "Totales
+    sincronizados" para todo el grupo.
+    """
+    supabase = get_supabase()
+
+    total_usuarios = (
+        supabase.table("users").select("id", count="exact").execute().count or 0
+    )
+    descuadres = supabase.rpc("totales_desalineados").execute().data or []
+
+    aplicados, fallidos = 0, []
+    if apply:
+        for d in descuadres:
+            try:
+                supabase.rpc("recompute_user_total", {"p_user_id": d["user_id"]}).execute()
+                aplicados += 1
+            except Exception as exc:  # noqa: BLE001
+                # Se reporta en vez de contarlo como éxito, que es justo lo que
+                # hacía la versión del navegador.
+                fallidos.append({"user_id": d["user_id"], "error": str(exc)})
+
+    return {
+        "status": "ok",
+        "usersChecked": total_usuarios,
+        "discrepancies": [
+            {**d, "diff": (d.get("computed") or 0) - (d.get("stored") or 0)}
+            for d in descuadres
+        ],
+        "applied": aplicados,
+        "failed": fallidos,
+    }

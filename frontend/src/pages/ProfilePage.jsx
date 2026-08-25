@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'motion/react'
-import { User, Activity, Trophy, Clock, Search, History, Target, Zap, CheckCircle2, XCircle, PieChart, Camera, Trash2, Loader2, Edit3, Moon, Sun, LogOut, ShieldAlert, Gamepad2, BookOpen } from 'lucide-react'
+import { Activity, Trophy, Clock, Target, Zap, CheckCircle2, XCircle, Camera, Trash2, Loader2, Moon, Sun, LogOut, ShieldAlert, BookOpen } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { resizeImage } from '../lib/image'
 import { getTournamentLocked } from '../lib/tournamentLock'
@@ -617,25 +617,3 @@ export default function ProfilePage() {
   )
 }
 
-// Helper para dibujar las medallas
-function Badge({ emoji, name, desc, color }) {
-  const colors = {
-    amber: 'bg-amber-500/10 border-amber-500/20 text-amber-700 dark:text-amber-400',
-    blue: 'bg-blue-500/10 border-blue-500/20 text-blue-700 dark:text-blue-400',
-    rose: 'bg-rose-500/10 border-rose-500/20 text-rose-700 dark:text-rose-400',
-    cyan: 'bg-cyan-500/10 border-cyan-500/20 text-cyan-700 dark:text-cyan-400',
-    purple: 'bg-purple-500/10 border-purple-500/20 text-purple-700 dark:text-purple-400',
-    emerald: 'bg-emerald-500/10 border-emerald-500/20 text-emerald-700 dark:text-emerald-400',
-    stone: 'bg-stone-500/10 border-stone-500/20 text-stone-700 dark:text-stone-400',
-  }
-  
-  return (
-    <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border flex-shrink-0 ${colors[color]}`}>
-      <span className="text-lg leading-none">{emoji}</span>
-      <div className="flex flex-col">
-        <span className="text-[10px] font-black uppercase tracking-wide leading-tight">{name}</span>
-        <span className="text-[9px] opacity-80 leading-tight">{desc}</span>
-      </div>
-    </div>
-  )
-}

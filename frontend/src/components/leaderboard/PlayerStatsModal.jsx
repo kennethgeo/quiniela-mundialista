@@ -1,7 +1,7 @@
 // Modal con las estadísticas de un jugador (se abre al tocarlo en el ranking).
 import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
-import { motion, AnimatePresence, useDragControls } from 'motion/react'
+import { motion, AnimatePresence } from 'motion/react'
 import { X, Target, Goal, Crown, Zap, XCircle, Percent, Trophy, Swords } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 
@@ -54,7 +54,6 @@ export default function PlayerStatsModal({ entry, isCurrentUser, onClose }) {
   const [stats, setStats] = useState(null)
   const [loading, setLoading] = useState(false)
   const overlayRef = useRef(null)
-  const dragControls = useDragControls()
 
   useEffect(() => {
     if (!entry?.id) return

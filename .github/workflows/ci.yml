@@ -1,7 +1,8 @@
 name: CI
 
-# Red de seguridad: compila el frontend, valida el backend y corre los tests del
-# motor de puntaje en cada PR y push a main.
+# Red de seguridad: compila el frontend, lo pasa por el linter, valida el
+# backend con sus dependencias reales, corre los tests del motor de puntaje y
+# revisa que no entren dependencias vulnerables.
 on:
   pull_request:
   push:
@@ -21,8 +22,15 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
+      # El linter no corría porque eslint ni siquiera estaba en devDependencies.
+      # Falla solo con errores: los avisos de las reglas nuevas de react-hooks
+      # se van bajando aparte, sin bloquear.
+      - run: npm run lint
       - run: npm run build
       - run: npm test
+      # La app se va a abrir al público: una dependencia de PRODUCCIÓN con CVE
+      # no debe poder entrar sin que nadie se entere.
+      - run: npm audit --omit=dev --audit-level=high
 
   backend-compile:
     runs-on: ubuntu-latest
@@ -31,9 +39,17 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: python -m compileall backend/app
-      # Solo pytest: los tests del motor de puntaje stubean las dependencias
-      # pesadas (pywebpush y compañía), así que no hace falta instalar todo
-      # requirements.txt para verificar la lógica de puntos.
+          cache: pip
+      # Antes solo se hacía compileall, que valida sintaxis y nada más: un
+      # import roto o una incompatibilidad de versiones pasaba el CI y reventaba
+      # en producción. Instalar las dependencias reales sí lo caza.
+      # setuptools viejo no puede construir http-ece (dependencia de pywebpush);
+      # comprobado en local. Se fija el toolchain antes de instalar.
+      - run: pip install --upgrade pip setuptools wheel
+      - run: pip install -r backend/requirements.txt
       - run: pip install pytest
+      - run: python -m compileall backend/app
+      # Importar la app entera es lo que prueba que los imports resuelven.
+      - run: python -c "from app.main import app; print('la API importa OK')"
+        working-directory: backend
       - run: python -m pytest backend/tests -q

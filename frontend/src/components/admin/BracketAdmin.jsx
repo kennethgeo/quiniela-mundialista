@@ -3,7 +3,7 @@ import { supabase } from '../../lib/supabase'
 import { Save, AlertCircle } from 'lucide-react'
 
 export default function BracketAdmin() {
-  const [matches, setMatches] = useState([])
+  const [setMatches] = useState([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [bracketMatches, setBracketMatches] = useState([])

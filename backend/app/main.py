@@ -1,10 +1,14 @@
 """Punto de entrada de la API Quiniela Mundialista."""
 
+import logging
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
-from app.routes import admin, leaderboard, leagues, matches, predictions
+from app.routes import admin, leaderboard, leagues, matches
+
+logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title="Quiniela Mundialista API",
@@ -27,7 +31,6 @@ app.add_middleware(
 
 # Registrar routers de cada módulo
 app.include_router(matches.router)
-app.include_router(predictions.router)
 app.include_router(admin.router)
 app.include_router(leaderboard.router)
 app.include_router(leagues.router)
@@ -41,25 +44,20 @@ async def root():
 
 @app.get("/api/health")
 async def health_check():
-    """Verificación de salud del servicio, configuración y conexión a la BD."""
-    db_status = "skipped"
+    """Estado del servicio. Público, así que NO dice qué secretos hay
+    configurados ni devuelve la excepción de la base: eso era un mapa de la
+    instalación para cualquiera que pasara por acá. El detalle va a los logs."""
+    ok = True
     try:
         from app.services.supabase_client import get_supabase
 
         if settings.SUPABASE_URL and settings.SUPABASE_SERVICE_ROLE_KEY:
             get_supabase().table("matches").select("id").limit(1).execute()
-            db_status = "ok"
-    except Exception as exc:  # noqa: BLE001 - reportar error de BD para diagnóstico
-        db_status = f"{type(exc).__name__}: {exc}"
+        else:
+            ok = False
+            logger.error("Health check: faltan SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY")
+    except Exception:  # noqa: BLE001
+        ok = False
+        logger.exception("Health check: la consulta a la base falló")
 
-    return {
-        "status": "ok",
-        "service": "Quiniela Mundialista",
-        "config": {
-            "supabase_url": bool(settings.SUPABASE_URL),
-            "supabase_service_role_key": bool(settings.SUPABASE_SERVICE_ROLE_KEY),
-            "supabase_jwt_secret": bool(settings.SUPABASE_JWT_SECRET),
-            "cron_secret": bool(settings.CRON_SECRET),
-        },
-        "db": db_status,
-    }
+    return {"status": "ok" if ok else "degraded"}

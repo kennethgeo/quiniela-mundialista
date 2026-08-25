@@ -1,7 +1,6 @@
 """Rutas para gestionar ligas privadas entre amigos."""
 
-import random
-import string
+import secrets
 
 from fastapi import APIRouter, Depends, HTTPException
 
@@ -9,13 +8,42 @@ from app.auth import get_current_user
 from app.models import JoinLeague, LeagueCreate
 from app.services.supabase_client import get_supabase
 
+def _exigir_membresia(supabase, league_id: str, user_id: str) -> None:
+    """Corta si quien pide no es miembro de la quiniela.
+
+    Estas rutas corren con service_role, o sea que SALTAN la RLS: sin esta
+    comprobación, cualquiera con sesión y un UUID de liga se llevaba los
+    detalles, la lista de miembros y el código de invitación de una quiniela
+    ajena. La RLS no cubre lo que el backend consulta con la llave de servicio.
+    """
+    pertenece = (
+        supabase.table("league_members")
+        .select("user_id")
+        .eq("league_id", league_id)
+        .eq("user_id", user_id)
+        .limit(1)
+        .execute()
+    )
+    if not pertenece.data:
+        # 404 y no 403: confirmar que la liga existe ya le sirve a quien esté
+        # probando UUIDs al azar.
+        raise HTTPException(status_code=404, detail="Quiniela no encontrada")
+
+
 router = APIRouter(prefix="/api/leagues", tags=["Ligas"])
 
 
-def generate_invitation_code(length: int = 6) -> str:
-    """Genera un código de invitación alfanumérico único."""
-    chars = string.ascii_uppercase + string.digits
-    return "".join(random.choices(chars, k=length))
+def generate_invitation_code(length: int = 8) -> str:
+    """Genera un código de invitación.
+
+    Con 'random' (Mersenne Twister) la secuencia es predecible si se observan
+    suficientes códigos, y con la app abierta al público eso deja adivinar
+    invitaciones a quinielas ajenas. 'secrets' usa el generador del sistema.
+    Se quitan las letras y dígitos que se confunden al dictarlos por WhatsApp
+    (O/0, I/1) y se sube a 8 caracteres: 32^8 en vez de 36^6.
+    """
+    chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+    return "".join(secrets.choice(chars) for _ in range(length))
 
 
 @router.post("")
@@ -135,8 +163,9 @@ async def get_league(
     league_id: str,
     user: dict = Depends(get_current_user),
 ):
-    """Obtiene los detalles de una liga con sus miembros."""
+    """Obtiene los detalles de una liga con sus miembros. Solo para miembros."""
     supabase = get_supabase()
+    _exigir_membresia(supabase, league_id, user["sub"])
 
     # Datos de la liga
     league_response = (

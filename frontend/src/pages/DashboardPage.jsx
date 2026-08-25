@@ -1,6 +1,6 @@
 /* Página principal - Dashboard */
 import { motion } from 'motion/react'
-import { Trophy, Sparkles } from 'lucide-react'
+import { Sparkles } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import Dashboard from '../components/dashboard/Dashboard'
 import OnboardingModal from '../components/ui/OnboardingModal'

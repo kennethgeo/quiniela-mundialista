@@ -1,5 +1,7 @@
 """Rutas para gestionar los partidos del mundial."""
 
+import logging
+
 import httpx
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from typing import Optional
@@ -9,6 +11,11 @@ from app.config import settings
 from app.services.live_sync import sync_live_scores
 from app.services.scoring import calculate_and_update_scores
 from app.services.supabase_client import get_supabase
+
+logger = logging.getLogger(__name__)
+
+# Un refresco en vivo como mucho cada 20s en toda la app.
+SEGUNDOS_ENTRE_REFRESCOS = 20
 
 router = APIRouter(prefix="/api/matches", tags=["Partidos"])
 
@@ -168,31 +175,52 @@ async def sync_live(authorization: Optional[str] = Header(default=None)):
 
 
 @router.post("/refresh-live")
-async def refresh_live():
-    """Refresco de marcadores en vivo, público pero con límite de frecuencia.
+async def refresh_live(user: dict = Depends(get_current_user)):
+    """Refresco de marcadores en vivo. Lo llama el frontend mientras alguien
+    mira un partido en curso, para no depender del cron.
 
-    Lo llama el frontend mientras un usuario mira un partido en curso, para
-    actualizar el marcador sin depender del cron. Se sincroniza como mucho una
-    vez cada 20s (throttle global en BD) para evitar abuso/carga.
+    ANTES ERA PÚBLICO y corría con service_role: cualquiera en internet podía
+    disparar sincronizaciones, llamadas a ESPN, escrituras y recálculos sin
+    límite. Ahora exige sesión y el throttle es una sola escritura atómica.
+
+    El throttle es un UPDATE condicional: 'poné last_sync = ahora, pero SOLO si
+    el último fue hace más de 20s'. Postgres serializa la fila, así que de dos
+    peticiones simultáneas exactamente una se lleva el turno. El patrón viejo
+    (leer, comparar, escribir) dejaba pasar a las dos.
     """
     from datetime import datetime, timezone, timedelta
 
     supabase = get_supabase()
     now = datetime.now(timezone.utc)
+    corte = (now - timedelta(seconds=SEGUNDOS_ENTRE_REFRESCOS)).isoformat()
 
-    # Throttle global vía BD (best-effort: si la tabla no existe, se ignora)
     try:
-        state = (
-            supabase.table("live_sync_state").select("last_sync").eq("id", 1).maybe_single().execute()
+        turno = (
+            supabase.table("live_sync_state")
+            .update({"last_sync": now.isoformat()})
+            .eq("id", 1)
+            .lt("last_sync", corte)
+            .execute()
         )
-        last = (state.data or {}).get("last_sync") if state else None
-        if last:
-            last_dt = datetime.fromisoformat(str(last).replace("Z", "+00:00"))
-            if (now - last_dt) < timedelta(seconds=20):
+        if not turno.data:
+            # O bien alguien sincronizó hace menos de 20s, o la fila todavía no
+            # existe (primera vez). Solo en el segundo caso se sigue.
+            existe = (
+                supabase.table("live_sync_state").select("id").eq("id", 1).execute()
+            )
+            if existe.data:
                 return {"throttled": True}
-        supabase.table("live_sync_state").upsert({"id": 1, "last_sync": now.isoformat()}).execute()
+            supabase.table("live_sync_state").insert(
+                {"id": 1, "last_sync": now.isoformat()}
+            ).execute()
     except Exception:  # noqa: BLE001
-        pass
+        # Falla cerrada a propósito: si el limitador no funciona, no se corre
+        # una operación privilegiada sin límite. Antes esto era 'except: pass',
+        # o sea que la protección desaparecía justo cuando hacía falta.
+        logger.exception("No se pudo aplicar el límite de refresco")
+        raise HTTPException(
+            status_code=503, detail="Servicio de sincronización no disponible"
+        )
 
     # Mundial + torneos ESPN (Liga CR, etc.), desacoplados: si uno falla, el otro
     # igual corre. Antes esto solo sincronizaba el Mundial, por eso el marcador en

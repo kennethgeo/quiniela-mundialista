@@ -56,7 +56,7 @@ const TEAMS_2026 = [
 ]
 
 export default function TournamentPredictionsAdmin() {
-  const [settings, setSettings] = useState(null)
+  const [, setSettings] = useState(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [calculating, setCalculating] = useState(false)
