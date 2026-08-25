@@ -74,6 +74,9 @@ Reglas que NO se pueden volver a romper al escribir SQL nuevo:
 - Las **vistas** (`user_badges_view`, `user_stats_view`, `user_tournament_points`) corren con los privilegios de quien las creó, así que **saltan la RLS**. Nacieron abiertas a `anon`. Al crear una vista nueva, revocar explícitamente.
 - Las pantallas que consumen RPC tienen que **mostrar el error**, no desaparecer ni dejar un spinner girando: si no, un permiso que falta se vuelve invisible.
 
+- **Las predicciones ajenas se destapan solo entre miembros de la misma quiniela** (migración 65). Antes la política solo miraba la hora del saque, sin filtrar por liga: con la app pública, cualquiera que se registrara podía leer las predicciones de todo el mundo. `MatchDetailPage` no filtra por liga y ahora depende de esa política para acotarlo.
+- **Las políticas permisivas se COMBINAN CON OR.** `predictions` tenía dos de SELECT apiladas (`predictions_select_own` y `..._others_strict`) y la más laxa mandaba. Antes de endurecer una política, mirar si hay otras sobre la misma tabla y comando — una `FOR ALL` también concede SELECT.
+
 ## Ranking global (migración `database/62_ranking_global_sin_duplicados.sql`)
 - `user_total_calculado(user_id)` es la **única** fórmula del total global. Antes estaba escrita dos veces (SQL y JS) y por eso una se olvidó de los puntos de asistidor durante meses.
 - Cada **partido** cuenta una vez (el mejor puntaje entre tus quinielas) y cada **torneo** una vez para campeón/goleador/asistidor. Sin esto, estar en más quinielas inflaba el ranking global.
