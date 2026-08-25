@@ -24,6 +24,7 @@ import CaraACara from '../components/tournament/CaraACara'
 import HistorialAjustes from '../components/tournament/HistorialAjustes'
 import PozoYPagos from '../components/tournament/PozoYPagos'
 import MiembrosYAdmins from '../components/tournament/MiembrosYAdmins'
+import JornadasYRachas from '../components/tournament/JornadasYRachas'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
 
 // Clave de jornada/fase de un partido (misma lógica de agrupación que MatchList).
@@ -263,7 +264,13 @@ export default function GroupPage() {
       )}
 
       {tab === 'table' && <StandingsTab leagueId={group.id} matches={resolved} />}
-      {tab === 'historico' && <HistorialTab leagueId={group.id} matches={resolved} nombreQuiniela={group.name} />}
+      {tab === 'historico' && (
+        <>
+          {/* Arriba de la matriz: el resumen de quién se lleva las jornadas. */}
+          <JornadasYRachas leagueId={group.id} />
+          <HistorialTab leagueId={group.id} matches={resolved} nombreQuiniela={group.name} />
+        </>
+      )}
       {tab === 'teams' && <TeamStandingsTab tournamentId={tid} />}
       {tab === 'bracket' && tid === 1 && <BracketView />}
       {tab === 'global' && (
