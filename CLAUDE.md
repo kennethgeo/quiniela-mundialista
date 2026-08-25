@@ -69,6 +69,11 @@ Reglas que NO se pueden volver a romper al escribir SQL nuevo:
 - `/refresh-live` dejó de ser público: toda llamada va por `lib/refrescoEnVivo.js`, que adjunta el token. Las tres pantallas que lo usan fallan en silencio, así que si se olvida el token el marcador deja de avanzar sin mostrar ningún error.
 - `check_powerup_limit` toma `pg_advisory_xact_lock` por (usuario, liga, fase, jornada) antes de contar. Sin eso, dos envíos simultáneos se pasan del cupo (comprobado: cupo 1 → 2 comodines guardados).
 
+- **Toda RPC nueva que llame el frontend hay que agregarla al inventario `v_frontend` de la migración 61.** Ese `REVOKE` es en bloque: una función que no esté en la lista se queda sin permiso la próxima vez que se corra la 61, y la pantalla deja de funcionar sin decir por qué. Pasó con las tres RPC de la 63 y lo cazó una auditoría, no nosotros.
+- **`powerup_limits` ya NO controla el puntaje** (desde la migración 48): el cupo real es `leagues.powerup_limit`, por quiniela. La tabla quedó de solo lectura (migración 64) y el panel de admin que la editaba se borró, porque guardaba, decía "listo" y no cambiaba el límite aplicado.
+- Las **vistas** (`user_badges_view`, `user_stats_view`, `user_tournament_points`) corren con los privilegios de quien las creó, así que **saltan la RLS**. Nacieron abiertas a `anon`. Al crear una vista nueva, revocar explícitamente.
+- Las pantallas que consumen RPC tienen que **mostrar el error**, no desaparecer ni dejar un spinner girando: si no, un permiso que falta se vuelve invisible.
+
 ## Ranking global (migración `database/62_ranking_global_sin_duplicados.sql`)
 - `user_total_calculado(user_id)` es la **única** fórmula del total global. Antes estaba escrita dos veces (SQL y JS) y por eso una se olvidó de los puntos de asistidor durante meses.
 - Cada **partido** cuenta una vez (el mejor puntaje entre tus quinielas) y cada **torneo** una vez para campeón/goleador/asistidor. Sin esto, estar en más quinielas inflaba el ranking global.

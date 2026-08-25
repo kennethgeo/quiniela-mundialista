@@ -48,7 +48,10 @@ BEGIN
   )
   SELECT o.p, o.id, o.display_name, o.avatar_url, o.puntos, o.quinielas, (o.id = v_uid)
   FROM ordenado o
-  WHERE o.p <= GREATEST(p_limite, 1) OR o.id = v_uid
+  -- Tope duro de 100. Con solo GREATEST, cualquiera podía pedir p_limite =
+  -- 2147483647 y llevarse el padrón entero, que es justo lo que este límite
+  -- viene a evitar.
+  WHERE o.p <= LEAST(GREATEST(COALESCE(p_limite, 20), 1), 100) OR o.id = v_uid
   ORDER BY o.p;
 END; $$;
 

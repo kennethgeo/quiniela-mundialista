@@ -535,6 +535,11 @@ DECLARE
     'my_groups', 'my_medals', 'my_powerup_credits', 'propose_rule_change',
     'recompute_league_badges', 'set_group_extras', 'set_group_rules',
     'set_group_scoring', 'set_league_admin', 'set_league_pozo',
+    -- Migración 63 (hub global y perfil por quiniela). Van acá porque este
+    -- REVOKE es en bloque: una RPC que el frontend llame y que NO esté en esta
+    -- lista se queda sin permiso la próxima vez que se corra esta migración, y
+    -- la pantalla deja de funcionar sin decir por qué.
+    'ranking_global', 'mi_resumen_global', 'perfil_en_quiniela',
     -- Estas cuatro NO las llama ningún cliente, pero viven DENTRO de políticas
     -- RLS, donde se evalúan como quien consulta. Sin EXECUTE se caen todas las
     -- lecturas que dependen de esas políticas.
