@@ -93,6 +93,15 @@ Son **dos números distintos a propósito** y confundirlos es el error fácil:
 - `perfil_en_quiniela()` **no recalcula nada**: reusa `league_table` (desempate oficial) y `league_jornadas` (rachas). No inventar criterios nuevos acá.
 - Ambas pantallas llevan un cartel que explica la diferencia: sin eso los dos números se ven distintos y parecen un error.
 
+## Deriva entre el repo y la base
+- Las migraciones se corren a mano, así que **`schema.sql` ya no describe la base**. Ya mordió dos veces: `predictions_update_admin`/`predictions_insert_admin` existen solo en producción, y la migración 61 dejó mudas tres RPC nuevas por no estar en su inventario.
+- **`database/verificar_estado.sql` es de SOLO LECTURA** y compara la base viva contra el repo: funciones que faltan o sobran, RPC sin permiso, `SECURITY DEFINER` alcanzables por `anon`, tablas escribibles por `anon`, vistas abiertas, las políticas de `predictions` y los totales descuadrados. Correrlo después de aplicar migraciones y antes de cualquier cambio grande.
+- Se genera desde el repo: si se agregan funciones, hay que **regenerarlo** para que la lista siga siendo cierta.
+
+## Verificación de correo
+- La fuente de verdad es `auth.users` (la sesión de Supabase), **no** una columna en `public.users`: `email_confirmed_at` nunca existió ahí y la consulta fallaba, caía al `catch` y dejaba pasar a todos.
+- `lib/verificacionCorreo.js` distingue **tres** estados: timestamp → entra · `null` explícito → bloqueado · claves ausentes → entra igual con aviso en consola. Ese tercer caso es a propósito: dejar afuera a alguien legítimo por un cambio de forma del SDK sería peor que el agujero que cierra.
+
 ## Despliegue
 - **Vercel** despliega frontend Y backend juntos en cada push a `main` (root `vercel.json` → `experimentalServices`, backend `@vercel/python` bajo `/_backend`).
 - Cron de marcadores: GitHub Actions `sync-live-scores.yml` (cada ~5 min) → `POST /_backend/api/matches/sync-live`.
