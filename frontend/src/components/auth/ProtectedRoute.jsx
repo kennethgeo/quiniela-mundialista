@@ -1,62 +1,41 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Navigate, Outlet } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
 import { supabase } from '../../lib/supabase'
 import LoadingSpinner from '../ui/LoadingSpinner'
 import { motion } from 'motion/react'
-import { Mail, RefreshCw } from 'lucide-react'
+import { Mail, RefreshCw, Send, Check } from 'lucide-react'
+import { puedeEntrar } from '../../lib/verificacionCorreo'
 
 export default function ProtectedRoute({ children }) {
   const { user, loading: authLoading } = useAuth()
-  const [isEmailVerified, setIsEmailVerified] = useState(false)
-  const [isLoading, setIsLoading] = useState(true)
+  const [reenviando, setReenviando] = useState(false)
+  const [reenviado, setReenviado] = useState(false)
 
-  useEffect(() => {
-    const checkEmailVerification = async () => {
-      if (!user) {
-        setIsLoading(false)
-        return
-      }
+  /* Antes esto consultaba public.users.email_confirmed_at, una columna que NO
+     EXISTE: la consulta fallaba siempre, caía al catch y ahí hacía
+     setIsEmailVerified(true). O sea que la puerta quedaba abierta para
+     cualquiera y encima con un efecto asíncrono y un timeout de 3s de por
+     medio. La sesión de Supabase ya trae el dato; no hace falta nada de eso.
+     La regla de qué cuenta como verificado vive en lib/verificacionCorreo.js,
+     con tests. */
+  const verificado = puedeEntrar(user)
 
-      // Check local user object first (fast path)
-      if (user.email_confirmed_at) {
-        setIsEmailVerified(true)
-        setIsLoading(false)
-        return
-      }
-
-      try {
-        // Wrap the fetch in a 3-second timeout to prevent PWA hang on slow networks
-        const fetchPromise = supabase
-          .from('users')
-          .select('email_confirmed_at')
-          .eq('id', user.id)
-          .single()
-
-        const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('timeout')), 3000)
-        )
-
-        const { data: userProfile } = await Promise.race([fetchPromise, timeoutPromise])
-
-        const verified = userProfile?.email_confirmed_at !== null
-        setIsEmailVerified(verified)
-      } catch (error) {
-        console.warn('Error or timeout checking email verification, allowing access fallback:', error)
-        // If it times out or fails, we assume verified to prevent blocking the user from the app 
-        // if they are already logged in and just have a slow connection.
-        setIsEmailVerified(true) 
-      } finally {
-        setIsLoading(false)
-      }
+  const reenviarCorreo = async () => {
+    if (!user?.email || reenviando) return
+    try {
+      setReenviando(true)
+      const { error } = await supabase.auth.resend({ type: 'signup', email: user.email })
+      if (error) throw error
+      setReenviado(true)
+    } catch {
+      /* Si falla, queda el botón de recargar. */
+    } finally {
+      setReenviando(false)
     }
+  }
 
-    if (!authLoading) {
-      checkEmailVerification()
-    }
-  }, [user, authLoading])
-
-  if (authLoading || isLoading) {
+  if (authLoading) {
     return <LoadingSpinner />
   }
 
@@ -64,7 +43,7 @@ export default function ProtectedRoute({ children }) {
     return <Navigate to="/auth" replace />
   }
 
-  if (!isEmailVerified) {
+  if (!verificado) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-primary bg-world-cup">
         <motion.div
@@ -94,14 +73,25 @@ export default function ProtectedRoute({ children }) {
               Revisa tu bandeja de entrada (o spam) para encontrar el link de verificación.
             </p>
 
-            <motion.button
-              whileTap={{ scale: 0.95 }}
-              onClick={() => window.location.reload()}
-              className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl gradient-gold text-slate-950 font-bold text-sm shadow-lg shadow-amber-500/20 transition-all"
-            >
-              <RefreshCw size={16} />
-              Recargar
-            </motion.button>
+            <div className="flex flex-col gap-2.5 items-center">
+              {/* "Recargar" no sirve de nada si el correo nunca llegó. */}
+              <motion.button
+                whileTap={{ scale: 0.95 }}
+                onClick={reenviarCorreo}
+                disabled={reenviando || reenviado}
+                className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl gradient-gold text-slate-950 font-bold text-sm shadow-lg shadow-amber-500/20 transition-all disabled:opacity-60"
+              >
+                {reenviado ? <Check size={16} /> : <Send size={16} />}
+                {reenviado ? 'Correo reenviado' : reenviando ? 'Enviando…' : 'Reenviar el correo'}
+              </motion.button>
+              <button
+                onClick={() => window.location.reload()}
+                className="inline-flex items-center gap-1.5 text-slate-400 text-xs font-semibold"
+              >
+                <RefreshCw size={13} />
+                Ya lo verifiqué, recargar
+              </button>
+            </div>
           </div>
         </motion.div>
       </div>
