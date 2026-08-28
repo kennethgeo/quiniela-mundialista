@@ -3,7 +3,7 @@ import { useState, useMemo, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'motion/react'
-import { ArrowLeft, CalendarDays, ListOrdered, Copy, Check, Trophy, GitBranch, BarChart3, Shield, ScrollText, Loader2, Pencil, Lock, Trash2, AlertTriangle, Vote, ThumbsUp, ThumbsDown, X, Home, ChevronRight, Target, Gift, MessageCircle, LayoutGrid, Zap, ShieldCheck} from 'lucide-react'
+import { ArrowLeft, CalendarDays, ListOrdered, Copy, Check, Trophy, GitBranch, BarChart3, Shield, ScrollText, Loader2, Pencil, Lock, Trash2, AlertTriangle, Vote, ThumbsUp, ThumbsDown, X, Home, ChevronRight, Target, Gift, MessageCircle, LayoutGrid, Zap, ShieldCheck, Eye} from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import { useToast } from '../components/ui/Toast'
@@ -50,12 +50,34 @@ export default function GroupPage() {
   const { data: groups = [], isLoading: lg, isFetching: fg } = useQuery({
     queryKey: ['my_groups'], queryFn: fetchMyGroups, refetchOnMount: 'always',
   })
-  const group = groups.find((g) => g.id === id)
+  const propia = groups.find((g) => g.id === id)
+
+  /* Si la quiniela NO está en tu lista, puede ser que no seas miembro. El admin
+     global sí puede abrirla (migración 66): quiniela_por_id devuelve UNA y corta
+     con "no tenés acceso" si no te corresponde. my_groups se dejó intacta a
+     propósito — si devolviera todas, el hub del admin se llenaría de grupos de
+     desconocidos. */
+  const { data: ajena } = useQuery({
+    queryKey: ['quiniela_por_id', id],
+    enabled: !!id && !lg && !propia,
+    retry: false,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('quiniela_por_id', { p_league_id: id })
+      if (error) throw error
+      return data?.[0] || null
+    },
+  })
+
+  const group = propia || ajena
+  // Está viendo una quiniela de la que no forma parte: hay que decírselo.
+  const comoAdminGlobal = !propia && !!ajena
   const tid = group?.tournament_id
   const isCup = group?.tournament_kind === 'cup'
   // Quién ve la pestaña Admin: el creador de la quiniela y los co-admins que
   // nombró (group.is_admin ya es es_admin_liga desde la migración 59), más el
-  // admin global de la app, que entra siempre aunque no juegue esta quiniela.
+  // admin global de la app. Desde la migración 66 el admin global además puede
+  // ABRIR una quiniela de la que no es miembro; antes esta bandera solo servía
+  // en las quinielas donde ya jugaba.
   const puedeAdministrar = !!group?.is_admin || !!profile?.is_admin
 
   const { data: matches = [], isLoading: lm } = useQuery({
@@ -236,6 +258,18 @@ export default function GroupPage() {
           <TabBtn active={tab === 'admin'} onClick={() => setTab('admin')} icon={ShieldCheck} label="Admin" />
         )}
       </div>
+      {/* Ver una quiniela de la que no formás parte es fácil de olvidar: el
+          cartel lo deja claro en todo momento, no solo al entrar. */}
+      {comoAdminGlobal && (
+        <div className="w-full mb-4 flex items-center gap-2.5 rounded-xl px-4 py-3 border"
+          style={{ background: 'rgba(232,183,90,.10)', borderColor: 'rgba(232,183,90,.35)' }}>
+          <Eye size={17} className="shrink-0" style={{ color: '#E8B75A' }} />
+          <span className="flex-1 text-[12px] font-semibold text-slate-700 dark:text-[#F3F1EA]">
+            No sos miembro de esta quiniela. La estás viendo como <strong>administrador de la app</strong>.
+          </span>
+        </div>
+      )}
+
 
       {/* Aviso de votación abierta (visible desde cualquier pestaña) */}
       {group.open_proposal && tab !== 'rules' && (

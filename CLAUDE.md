@@ -117,6 +117,14 @@ Son **dos números distintos a propósito** y confundirlos es el error fácil:
 - **No toca resultados de partidos**: son compartidos con las demás quinielas del torneo, eso sigue siendo del panel global.
 - El endpoint `POST /api/matches/notify-daily-league` comprueba el permiso **contra las tablas, no con `es_admin_liga()`**: esa función mira `auth.uid()`, y el backend corre con `service_role`, donde es NULL — la RPC diría que no es admin siempre.
 
+## Acceso del admin global (migración `database/66_acceso_del_admin_global.sql`)
+- El admin global (`users.is_admin`) **puede entrar a cualquier quiniela y ver lo mismo que un miembro**: tabla, histórico, predicciones destapadas, pozo, medallas. Decisión explícita del dueño.
+- Se hace con `puede_ver_quiniela(league_id)` = `is_league_member OR es_admin_global`. **No se ensanchó `is_league_member`** a propósito: esa función se llama así porque responde "¿es miembro?", y hacerla mentir abriría un agujero la próxima vez que alguien la use para un permiso de escritura.
+- **Ver no es actuar**: `accept_group_rules`, `avisar_pago`, `cast_rule_vote` y `set_league_admin` siguen exigiendo membresía real. Un admin global no vota ni paga por otros.
+- **El destape de 15 minutos se respeta igual**: nadie ve las predicciones ajenas antes del saque, tampoco el dueño de la app. Verificado con una prueba dedicada.
+- `my_groups()` se dejó intacta: si devolviera todas las quinielas, el hub del admin se llenaría de grupos de desconocidos. Para abrir una ajena está `quiniela_por_id(league_id)`, y `GroupPage` cae a esa cuando la quiniela no está en tu lista.
+- La pantalla muestra un cartel permanente cuando estás viendo una quiniela de la que no sos miembro.
+
 ## Despliegue
 - **Vercel** despliega frontend Y backend juntos en cada push a `main` (root `vercel.json` → `experimentalServices`, backend `@vercel/python` bajo `/_backend`).
 - Cron de marcadores: GitHub Actions `sync-live-scores.yml` (cada ~5 min) → `POST /_backend/api/matches/sync-live`.
