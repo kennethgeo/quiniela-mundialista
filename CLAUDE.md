@@ -124,6 +124,9 @@ Son **dos números distintos a propósito** y confundirlos es el error fácil:
 - **El destape de 15 minutos se respeta igual**: nadie ve las predicciones ajenas antes del saque, tampoco el dueño de la app. Verificado con una prueba dedicada.
 - `my_groups()` se dejó intacta: si devolviera todas las quinielas, el hub del admin se llenaría de grupos de desconocidos. Para abrir una ajena está `quiniela_por_id(league_id)`, y `GroupPage` cae a esa cuando la quiniela no está en tu lista.
 - La pantalla muestra un cartel permanente cuando estás viendo una quiniela de la que no sos miembro.
+- **`es_admin_global()` es un ayudante INTERNO**: no lo llama ningún cliente ni ninguna política, y NO tiene EXECUTE para `authenticated`. Lo invoca `puede_ver_quiniela()`, que al ser `SECURITY DEFINER` lo ejecuta como su dueño. Por eso **no va en el inventario de la 61**; `puede_ver_quiniela` sí, porque se evalúa dentro de las políticas RLS.
+- **`CREATE OR REPLACE` conserva el ACL de una función; `DROP` + `CREATE` lo reabre a `PUBLIC`** (comprobado). Al redefinir una función ya endurecida, usar siempre `CREATE OR REPLACE`.
+- Las verificaciones de la 66 usan `RAISE EXCEPTION`, no `WARNING`: una base a medio endurecer es peor que una sin endurecer, porque parece segura.
 
 ## Despliegue
 - **Vercel** despliega frontend Y backend juntos en cada push a `main` (root `vercel.json` → `experimentalServices`, backend `@vercel/python` bajo `/_backend`).

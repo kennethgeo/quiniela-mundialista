@@ -99,7 +99,7 @@ END; $$;
 
 -- ── Las funciones de lectura pasan a usar puede_ver_quiniela ─────────────────
 -- Cuerpos idénticos a los vigentes: lo único que cambia es la línea del guard.
-CREATE FUNCTION public.group_standings(p_league_id uuid)
+CREATE OR REPLACE FUNCTION public.group_standings(p_league_id uuid)
 RETURNS TABLE (
   user_id uuid, display_name text, avatar_url text, points numeric, is_me boolean,
   exactos_x2 int, exactos int, aciertos int, jugadas int, error_goles int, pos int
@@ -460,7 +460,7 @@ BEGIN
   LEFT JOIN public.users u ON u.id = a.changed_by
   WHERE m.tournament_id = p_tournament_id
   ORDER BY a.changed_at DESC
-  LIMIT GREATEST(p_limite, 1);
+  LIMIT LEAST(GREATEST(COALESCE(p_limite, 30), 1), 100);
 END; $$;
 
 CREATE OR REPLACE FUNCTION public.perfil_en_quiniela(p_league_id uuid, p_user_id uuid)
@@ -541,6 +541,10 @@ BEGIN
 END; $$;
 
 -- ── Las políticas RLS de lectura ─────────────────────────────────────────────
+-- Las permisivas se COMBINAN CON OR: si quedara viva una política vieja que
+-- deja leer a todos, el filtro por membresía de abajo no serviría de nada.
+DROP POLICY IF EXISTS "Permitir lectura de miembros a todos" ON public.league_members;
+DROP POLICY IF EXISTS "league_members_select_members" ON public.league_members;
 DROP POLICY IF EXISTS "league_members_select_same_league" ON public.league_members;
 CREATE POLICY "league_members_select_same_league" ON public.league_members
   FOR SELECT TO authenticated
@@ -560,6 +564,7 @@ CREATE POLICY "rule_votes_select_members" ON public.rule_votes
     EXISTS (SELECT 1 FROM public.rule_proposals p
             WHERE p.id = proposal_id AND public.puede_ver_quiniela(p.league_id)));
 
+DROP POLICY IF EXISTS "Permitir lectura de ligas a todos" ON public.leagues;
 DROP POLICY IF EXISTS "leagues_select_members" ON public.leagues;
 CREATE POLICY "leagues_select_members" ON public.leagues
   FOR SELECT TO authenticated USING (public.puede_ver_quiniela(id));
@@ -579,27 +584,103 @@ CREATE POLICY "predictions_select_propia_o_de_mi_quiniela"
   );
 
 -- ── Permisos ─────────────────────────────────────────────────────────────────
-REVOKE ALL ON FUNCTION public.es_admin_global()            FROM PUBLIC, anon;
-REVOKE ALL ON FUNCTION public.puede_ver_quiniela(uuid)     FROM PUBLIC, anon;
-REVOKE ALL ON FUNCTION public.quiniela_por_id(uuid)        FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.es_admin_global()          TO authenticated;
-GRANT EXECUTE ON FUNCTION public.puede_ver_quiniela(uuid)   TO authenticated;
-GRANT EXECUTE ON FUNCTION public.quiniela_por_id(uuid)      TO authenticated;
+-- anon no tiene nada que hacer en las tablas privadas. La RLS ya lo frenaría,
+-- pero un GRANT amplio copiado de un tutorial la deja sin efecto si alguien
+-- desactiva RLS por un rato.
+REVOKE SELECT ON
+  public.leagues,
+  public.league_members,
+  public.predictions,
+  public.user_badges,
+  public.rule_proposals,
+  public.rule_votes
+FROM anon;
+
+-- es_admin_global es un ayudante INTERNO: no lo llama ningún cliente ni ninguna
+-- política. Lo invoca puede_ver_quiniela, que es SECURITY DEFINER y por lo
+-- tanto lo ejecuta como su dueño. Dárselo a 'authenticated' solo agrandaría la
+-- superficie sin que nadie lo use.
+REVOKE ALL ON FUNCTION public.es_admin_global()        FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.puede_ver_quiniela(uuid) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.quiniela_por_id(uuid)    FROM PUBLIC, anon, authenticated;
+
+GRANT EXECUTE ON FUNCTION public.es_admin_global()        TO service_role;
+-- puede_ver_quiniela SÍ la necesita 'authenticated': se evalúa DENTRO de las
+-- políticas RLS, o sea con los privilegios de quien consulta.
+GRANT EXECUTE ON FUNCTION public.puede_ver_quiniela(uuid) TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.quiniela_por_id(uuid)    TO authenticated, service_role;
 
 -- ── Verificación ─────────────────────────────────────────────────────────────
+-- Con RAISE EXCEPTION y no WARNING a propósito: si algo de esto no se cumple, la
+-- migración entera se revierte. Un aviso en la consola se pasa por alto; una
+-- base a medio endurecer es peor que una sin endurecer, porque parece segura.
 DO $red$
-DECLARE v_n int;
+DECLARE
+  v_n int;
+  v_abiertas text[];
+  v_tablas text[];
 BEGIN
-  SELECT count(*) INTO v_n
-  FROM pg_policies
-  WHERE schemaname = 'public' AND tablename = 'predictions' AND cmd IN ('SELECT','ALL');
+  -- 1) Una sola política de lectura en predictions: las permisivas se combinan
+  --    con OR, así que dos apiladas anulan el filtro por quiniela.
+  SELECT count(*) INTO v_n FROM pg_policies
+  WHERE schemaname='public' AND tablename='predictions' AND cmd IN ('SELECT','ALL');
   IF v_n <> 1 THEN
-    RAISE WARNING 'REVISAR: quedaron % políticas de lectura sobre predictions; se combinan con OR.', v_n;
+    RAISE EXCEPTION 'Quedaron % políticas de lectura sobre predictions (debe haber 1): al combinarse con OR anulan el filtro por quiniela.', v_n;
   END IF;
 
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='predictions'
-                 AND with_check LIKE '%kickoff_at%' AND cmd = 'UPDATE') THEN
-    RAISE WARNING 'REVISAR: la política de UPDATE de predictions perdió el candado de 15 minutos.';
+  -- 2) Lo mismo para leagues y league_members.
+  SELECT count(*) INTO v_n FROM pg_policies
+  WHERE schemaname='public' AND tablename='leagues' AND cmd IN ('SELECT','ALL');
+  IF v_n <> 1 THEN
+    RAISE EXCEPTION 'Quedaron % políticas de lectura sobre leagues (debe haber 1).', v_n;
+  END IF;
+
+  SELECT count(*) INTO v_n FROM pg_policies
+  WHERE schemaname='public' AND tablename='league_members' AND cmd IN ('SELECT','ALL');
+  IF v_n <> 1 THEN
+    RAISE EXCEPTION 'Quedaron % políticas de lectura sobre league_members (debe haber 1).', v_n;
+  END IF;
+
+  -- 3) El candado de 15 minutos sigue en su lugar. Esto es lo que impide
+  --    cambiar una predicción después de ver el resultado.
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname='public' AND tablename='predictions' AND cmd='UPDATE'
+      AND with_check LIKE '%kickoff_at%'
+  ) THEN
+    RAISE EXCEPTION 'La política de UPDATE de predictions perdió el candado de 15 minutos en su WITH CHECK.';
+  END IF;
+
+  -- 4) anon no lee ninguna de las tablas privadas.
+  SELECT array_agg(t ORDER BY t) INTO v_tablas
+  FROM unnest(ARRAY['leagues','league_members','predictions',
+                    'user_badges','rule_proposals','rule_votes']) t
+  WHERE has_table_privilege('anon', format('public.%I', t), 'SELECT');
+  IF v_tablas IS NOT NULL THEN
+    RAISE EXCEPTION 'anon todavía puede leer: %', v_tablas;
+  END IF;
+
+  -- 5) Ninguna SECURITY DEFINER alcanzable por anon.
+  SELECT array_agg(p.proname ORDER BY p.proname) INTO v_abiertas
+  FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+  WHERE n.nspname='public' AND p.prosecdef
+    AND has_function_privilege('anon', p.oid, 'EXECUTE');
+  IF v_abiertas IS NOT NULL THEN
+    RAISE EXCEPTION 'anon todavía puede ejecutar SECURITY DEFINER: %', v_abiertas;
+  END IF;
+
+  -- 6) es_admin_global es interno: no debe alcanzarlo un cliente.
+  IF has_function_privilege('authenticated', 'public.es_admin_global()', 'EXECUTE') THEN
+    RAISE EXCEPTION 'es_admin_global no debería ser ejecutable por authenticated: es un ayudante interno de puede_ver_quiniela.';
+  END IF;
+
+  -- 7) …pero estas dos SÍ, o se caen las políticas RLS y la pantalla de una
+  --    quiniela ajena.
+  IF NOT has_function_privilege('authenticated', 'public.puede_ver_quiniela(uuid)', 'EXECUTE') THEN
+    RAISE EXCEPTION 'authenticated necesita EXECUTE en puede_ver_quiniela: se evalúa dentro de las políticas RLS.';
+  END IF;
+  IF NOT has_function_privilege('authenticated', 'public.quiniela_por_id(uuid)', 'EXECUTE') THEN
+    RAISE EXCEPTION 'authenticated necesita EXECUTE en quiniela_por_id para abrir una quiniela.';
   END IF;
 
   RAISE NOTICE 'Listo: el admin global puede leer cualquier quiniela; votar, pagar y aceptar reglas siguen exigiendo membresía.';
