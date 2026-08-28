@@ -213,9 +213,24 @@ async def notify_daily(authorization: Optional[str] = Header(default=None)):
         return {"status": "ok", "partidos": 0, "mensaje": "Hoy no se juega nada"}
 
     torneos = sorted({p["tournament_id"] for p in partidos})
+
+    # Solo torneos que siguen en juego. Una quiniela de un torneo TERMINADO no
+    # debe avisar nada: la liga tica corre temporada tras temporada sobre el
+    # mismo tournament_id, así que los miembros de una quiniela vieja recibirían
+    # avisos de partidos que no están jugando. Es el mismo corte que hace el hub
+    # para separar las quinielas terminadas.
+    activos = (
+        supabase.table("tournaments").select("id")
+        .in_("id", torneos).neq("status", "finished").execute().data or []
+    )
+    ids_activos = {t["id"] for t in activos}
+    partidos = [p for p in partidos if p["tournament_id"] in ids_activos]
+    if not partidos:
+        return {"status": "ok", "partidos": 0, "mensaje": "Hoy no se juega nada en un torneo activo"}
+
     ligas = (
         supabase.table("leagues").select("id, tournament_id")
-        .in_("tournament_id", torneos).execute().data or []
+        .in_("tournament_id", sorted(ids_activos)).execute().data or []
     )
     if not ligas:
         return {"status": "ok", "partidos": len(partidos), "mensaje": "Ningún torneo con quiniela"}
