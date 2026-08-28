@@ -540,6 +540,10 @@ DECLARE
     -- lista se queda sin permiso la próxima vez que se corra esta migración, y
     -- la pantalla deja de funcionar sin decir por qué.
     'ranking_global', 'mi_resumen_global', 'perfil_en_quiniela',
+    -- Migración 66 (acceso del admin global). puede_ver_quiniela y
+    -- es_admin_global se usan DENTRO de políticas RLS, así que necesitan
+    -- EXECUTE aunque ningún cliente las llame.
+    'quiniela_por_id', 'puede_ver_quiniela', 'es_admin_global',
     -- Estas cuatro NO las llama ningún cliente, pero viven DENTRO de políticas
     -- RLS, donde se evalúan como quien consulta. Sin EXECUTE se caen todas las
     -- lecturas que dependen de esas políticas.
