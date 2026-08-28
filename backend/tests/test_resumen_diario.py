@@ -3,9 +3,15 @@
 Lo que se cuida: a quién se le manda y qué dice. La cañería del push se prueba
 sola en producción; esto no.
 """
+import sys
 from datetime import datetime, timezone
+from pathlib import Path
 
-from app.services.resumen_diario import armar_mensajes, ventana_del_dia, UTC_CR
+# Igual que test_scoring.py: el CI corre pytest desde la raíz del repo, así que
+# 'app' no está en el path a menos que se agregue backend/ a mano.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from app.services.resumen_diario import armar_mensajes, ventana_del_dia  # noqa: E402
 
 
 def partido(id_, hora_utc, tid=1, local="Saprissa", visita="Herediano"):
