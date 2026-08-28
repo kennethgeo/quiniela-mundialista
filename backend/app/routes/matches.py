@@ -3,7 +3,7 @@
 import logging
 
 import httpx
-from fastapi import APIRouter, Depends, Header, HTTPException, Query
+from fastapi import APIRouter, Body, Depends, Header, HTTPException, Query
 from typing import Optional
 
 from app.auth import get_current_user
@@ -255,6 +255,92 @@ async def notify_daily(authorization: Optional[str] = Header(default=None)):
 
     return {
         "status": "ok",
+        "partidos": len(partidos),
+        "personas": len(mensajes),
+        **resultado,
+    }
+
+
+@router.post("/notify-daily-league")
+async def notify_daily_league(
+    league_id: str = Body(..., embed=True),
+    user: dict = Depends(get_current_user),
+):
+    """Avisa los partidos de hoy a los miembros de UNA quiniela, a pedido de su
+    administrador.
+
+    Es el mismo resumen que manda el cron a las 6am, pero disparado a mano y
+    acotado a una sola quiniela. El cron usa CRON_SECRET porque no hay usuario;
+    acá sí lo hay, así que se comprueba que sea administrador DE ESA quiniela.
+
+    La comprobación se hace contra las tablas y no con es_admin_liga(): esa
+    función mira auth.uid(), y el backend corre con service_role, donde
+    auth.uid() es NULL — la RPC diría que no es admin siempre.
+    """
+    from datetime import datetime, timezone
+    from app.services.notifications import enviar_push_personalizado
+    from app.services.resumen_diario import armar_mensajes, ventana_del_dia
+
+    supabase = get_supabase()
+    uid = user["sub"]
+
+    liga = (
+        supabase.table("leagues").select("id, name, admin_id, tournament_id")
+        .eq("id", league_id).limit(1).execute().data or []
+    )
+    if not liga:
+        raise HTTPException(status_code=404, detail="Quiniela no encontrada")
+    liga = liga[0]
+
+    # Creador, co-admin, o admin global de la app.
+    es_creador = liga.get("admin_id") == uid
+    fila = (
+        supabase.table("league_members").select("es_admin")
+        .eq("league_id", league_id).eq("user_id", uid).limit(1).execute().data or []
+    )
+    es_coadmin = bool(fila) and bool(fila[0].get("es_admin"))
+    perfil = (
+        supabase.table("users").select("is_admin").eq("id", uid).limit(1).execute().data or []
+    )
+    es_admin_global = bool(perfil) and bool(perfil[0].get("is_admin"))
+
+    if not (es_creador or es_coadmin or es_admin_global):
+        # 404 y no 403: confirmar que la quiniela existe ya le sirve a quien
+        # esté probando UUIDs.
+        raise HTTPException(status_code=404, detail="Quiniela no encontrada")
+
+    desde, hasta = ventana_del_dia(datetime.now(timezone.utc))
+    partidos = (
+        supabase.table("matches")
+        .select("id, tournament_id, home_team, away_team, kickoff_at, status")
+        .eq("tournament_id", liga["tournament_id"])
+        .gte("kickoff_at", desde.isoformat())
+        .lt("kickoff_at", hasta.isoformat())
+        .execute().data or []
+    )
+    partidos = [p for p in partidos if p.get("status") not in ("cancelled", "postponed")]
+    if not partidos:
+        return {"status": "ok", "partidos": 0, "enviados": 0,
+                "mensaje": "Hoy no hay partidos en esta quiniela"}
+
+    filas = (
+        supabase.table("league_members").select("league_id, user_id")
+        .eq("league_id", league_id).limit(20000).execute().data or []
+    )
+    membresias = [{**f, "tournament_id": liga["tournament_id"]} for f in filas]
+
+    predicciones = (
+        supabase.table("predictions").select("user_id, league_id, match_id")
+        .eq("league_id", league_id)
+        .in_("match_id", [p["id"] for p in partidos]).limit(20000).execute().data or []
+    )
+
+    mensajes = armar_mensajes(partidos, membresias, predicciones)
+    resultado = await enviar_push_personalizado(supabase, mensajes)
+
+    return {
+        "status": "ok",
+        "quiniela": liga.get("name"),
         "partidos": len(partidos),
         "personas": len(mensajes),
         **resultado,

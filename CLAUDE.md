@@ -110,6 +110,13 @@ Son **dos números distintos a propósito** y confundirlos es el error fácil:
 - El push de las 6 am es `POST /api/matches/notify-daily`, protegido con `CRON_SECRET`, disparado por `.github/workflows/resumen-diario.yml`. Va en el backend y **no** en una edge function: acá ya está la autenticación y el envío de push, y se despliega solo con cada push a `main`.
 - **Ojo**: la base **no tiene `pg_cron` ni `pg_net`**, y el repo no tiene ninguna acción que llame a `notify-upcoming`. Esa edge function está desplegada (v4) pero puede que **nadie la dispare**: hay que confirmar si algo externo la invoca.
 
+## Panel de admin por quiniela (pestaña Admin)
+- `components/tournament/PanelAdminQuiniela.jsx`, pestaña propia **aparte de Reglas**. Reglas la ve todo el grupo (reglas y pozo son material de confianza); esto son ACCIONES que solo un admin ejecuta, y mezclarlas haría que la mayoría vea botones que no puede usar.
+- La ve: el creador, los co-admins (`group.is_admin` ya es `es_admin_liga`) y el **admin global** (`users.is_admin`), que entra siempre aunque no juegue esa quiniela.
+- Acciones: mandar el push de los partidos de hoy a esa quiniela, y compartir la imagen PNG del día.
+- **No toca resultados de partidos**: son compartidos con las demás quinielas del torneo, eso sigue siendo del panel global.
+- El endpoint `POST /api/matches/notify-daily-league` comprueba el permiso **contra las tablas, no con `es_admin_liga()`**: esa función mira `auth.uid()`, y el backend corre con `service_role`, donde es NULL — la RPC diría que no es admin siempre.
+
 ## Despliegue
 - **Vercel** despliega frontend Y backend juntos en cada push a `main` (root `vercel.json` → `experimentalServices`, backend `@vercel/python` bajo `/_backend`).
 - Cron de marcadores: GitHub Actions `sync-live-scores.yml` (cada ~5 min) → `POST /_backend/api/matches/sync-live`.

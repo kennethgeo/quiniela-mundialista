@@ -195,6 +195,97 @@ export async function renderJornadaCard({ nombreQuiniela, jornadaLabel, partidos
 
 /* Comparte el blob: en celular usa la hoja nativa (WhatsApp aparece ahí);
    en escritorio, o si el navegador no soporta compartir archivos, lo descarga. */
+/* Tarjeta de los partidos de HOY, para mandar al grupo por la mañana.
+
+   Misma regla que la de jornada: cero imágenes externas. Y cero predicciones o
+   marcadores — esto circula por WhatsApp antes de que se juegue nada, así que
+   incluirlos filtraría justo lo que la app protege con RLS.
+
+   partidos: [{ home_team, away_team, kickoff_at }] ya filtrados y ordenados. */
+export async function renderPartidosDeHoyCard({ nombreQuiniela, partidos = [], horaDe }) {
+  await esperarFuentes()
+
+  const ALTO_ITEM = 78
+  const alto = ALTO_CABECERA + 30 + partidos.length * ALTO_ITEM + 96
+  const escala = 2
+  const canvas = document.createElement('canvas')
+  canvas.width = ANCHO * escala
+  canvas.height = alto * escala
+  const ctx = canvas.getContext('2d')
+  ctx.scale(escala, escala)
+
+  ctx.fillStyle = FONDO
+  ctx.fillRect(0, 0, ANCHO, alto)
+
+  // Cabecera
+  ctx.fillStyle = TEXTO
+  ctx.font = "bold 46px 'Unbounded', system-ui, sans-serif"
+  ctx.textBaseline = 'alphabetic'
+  ctx.fillText('Partidos de hoy', MARGEN, 66)
+
+  ctx.fillStyle = TEAL
+  ctx.font = "600 26px 'Archivo', system-ui, sans-serif"
+  ctx.fillText(recortar(ctx, nombreQuiniela || '', ANCHO - MARGEN * 2), MARGEN, 100)
+
+  const fecha = new Date().toLocaleDateString('es-CR', {
+    weekday: 'long', day: 'numeric', month: 'long',
+  })
+  ctx.fillStyle = MUTED
+  ctx.font = "500 22px 'Archivo', system-ui, sans-serif"
+  const anchoFecha = ctx.measureText(fecha).width
+  ctx.fillText(fecha, ANCHO - MARGEN - anchoFecha, 66)
+
+  let y = ALTO_CABECERA + 24
+
+  if (partidos.length === 0) {
+    ctx.fillStyle = MUTED
+    ctx.font = "600 30px 'Archivo', system-ui, sans-serif"
+    ctx.fillText('Hoy no se juega nada', MARGEN, y + 44)
+  }
+
+  for (const p of partidos) {
+    rect(ctx, MARGEN, y, ANCHO - MARGEN * 2, ALTO_ITEM - 12, 16, '#161616')
+    ctx.strokeStyle = BORDE
+    ctx.lineWidth = 1
+    ctx.beginPath()
+    ctx.roundRect(MARGEN, y, ANCHO - MARGEN * 2, ALTO_ITEM - 12, 16)
+    ctx.stroke()
+
+    // La hora, en su propia pastilla para que se lea de un vistazo.
+    const hora = horaDe ? horaDe(p.kickoff_at) : ''
+    ctx.font = "bold 24px 'JetBrains Mono', monospace"
+    const anchoHora = ctx.measureText(hora).width
+    rect(ctx, MARGEN + 20, y + 14, anchoHora + 28, 38, 12, 'rgba(46,211,183,.14)')
+    ctx.fillStyle = TEAL
+    ctx.fillText(hora, MARGEN + 34, y + 40)
+
+    const xEquipos = MARGEN + 20 + anchoHora + 28 + 24
+    const maxEquipos = ANCHO - MARGEN - xEquipos - 20
+    ctx.fillStyle = TEXTO
+    ctx.font = "600 30px 'Archivo', system-ui, sans-serif"
+    ctx.fillText(
+      recortar(ctx, `${p.home_team || '?'}  vs  ${p.away_team || '?'}`, maxEquipos),
+      xEquipos, y + 41,
+    )
+
+    y += ALTO_ITEM
+  }
+
+  // Pie
+  ctx.fillStyle = MUTED
+  ctx.font = "500 22px 'Archivo', system-ui, sans-serif"
+  ctx.fillText('Cada partido cierra 15 min antes del saque', MARGEN, alto - 40)
+
+  ctx.fillStyle = ORO
+  ctx.font = "bold 22px 'JetBrains Mono', monospace"
+  const marca = 'TICO GAMES'
+  ctx.fillText(marca, ANCHO - MARGEN - ctx.measureText(marca).width, alto - 40)
+
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('No se pudo generar la imagen'))), 'image/png')
+  })
+}
+
 export async function compartirImagen(blob, nombreArchivo, titulo) {
   const file = new File([blob], nombreArchivo, { type: 'image/png' })
 
