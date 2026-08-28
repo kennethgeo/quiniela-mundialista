@@ -27,6 +27,7 @@ import PozoYPagos from '../components/tournament/PozoYPagos'
 import MiembrosYAdmins from '../components/tournament/MiembrosYAdmins'
 import JornadasYRachas from '../components/tournament/JornadasYRachas'
 import PredecirJornada from '../components/matches/PredecirJornada'
+import PartidosDeHoy from '../components/tournament/PartidosDeHoy'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
 
 // Clave de jornada/fase de un partido (misma lógica de agrupación que MatchList).
@@ -247,6 +248,9 @@ export default function GroupPage() {
           <EmptyMatches kind={group.tournament_kind} />
         ) : (
           <>
+            {/* Arriba del listado: lo de hoy, con el botón para mandarlo al
+                grupo. Se esconde solo si hoy no se juega nada. */}
+            <PartidosDeHoy matches={resolved} nombreQuiniela={group.name} />
             {jornadas.length > 1 && (
               <div className="flex gap-1.5 mb-4 overflow-x-auto scrollbar-hide">
                 <JornadaChip active={jornadaSel === '__all__'} onClick={() => setJornadaSel('__all__')} label="Todas" />

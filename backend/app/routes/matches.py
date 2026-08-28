@@ -174,6 +174,78 @@ async def sync_live(authorization: Optional[str] = Header(default=None)):
     return result
 
 
+@router.post("/notify-daily")
+async def notify_daily(authorization: Optional[str] = Header(default=None)):
+    """Resumen de los partidos del día. Pensado para dispararse a las 6am de
+    Costa Rica (12:00 UTC) desde el cron de GitHub Actions.
+
+    Va en el backend y no en una edge function a propósito: acá ya existe la
+    autenticación por CRON_SECRET, ya está el envío de push, y se despliega
+    solo con cada push a main. Una edge function habría que desplegarla a mano
+    —un paso que ya se olvidó una vez— y hoy no hay pg_cron en la base que la
+    dispare.
+    """
+    expected = settings.CRON_SECRET
+    if not expected:
+        raise HTTPException(status_code=503, detail="CRON_SECRET no configurado")
+    if authorization != f"Bearer {expected}":
+        raise HTTPException(status_code=401, detail="No autorizado")
+
+    from datetime import datetime, timezone
+    from app.services.notifications import enviar_push_personalizado
+    from app.services.resumen_diario import armar_mensajes, ventana_del_dia
+
+    supabase = get_supabase()
+    desde, hasta = ventana_del_dia(datetime.now(timezone.utc))
+
+    partidos = (
+        supabase.table("matches")
+        .select("id, tournament_id, home_team, away_team, kickoff_at, status")
+        .gte("kickoff_at", desde.isoformat())
+        .lt("kickoff_at", hasta.isoformat())
+        .execute()
+        .data
+        or []
+    )
+    # Un partido cancelado o pospuesto no se anuncia.
+    partidos = [p for p in partidos if p.get("status") not in ("cancelled", "postponed")]
+    if not partidos:
+        return {"status": "ok", "partidos": 0, "mensaje": "Hoy no se juega nada"}
+
+    torneos = sorted({p["tournament_id"] for p in partidos})
+    ligas = (
+        supabase.table("leagues").select("id, tournament_id")
+        .in_("tournament_id", torneos).execute().data or []
+    )
+    if not ligas:
+        return {"status": "ok", "partidos": len(partidos), "mensaje": "Ningún torneo con quiniela"}
+
+    torneo_de_liga = {l["id"]: l["tournament_id"] for l in ligas}
+    filas = (
+        supabase.table("league_members").select("league_id, user_id")
+        .in_("league_id", list(torneo_de_liga)).limit(20000).execute().data or []
+    )
+    membresias = [
+        {**f, "tournament_id": torneo_de_liga[f["league_id"]]}
+        for f in filas if f["league_id"] in torneo_de_liga
+    ]
+
+    predicciones = (
+        supabase.table("predictions").select("user_id, league_id, match_id")
+        .in_("match_id", [p["id"] for p in partidos]).limit(20000).execute().data or []
+    )
+
+    mensajes = armar_mensajes(partidos, membresias, predicciones)
+    resultado = await enviar_push_personalizado(supabase, mensajes)
+
+    return {
+        "status": "ok",
+        "partidos": len(partidos),
+        "personas": len(mensajes),
+        **resultado,
+    }
+
+
 @router.post("/refresh-live")
 async def refresh_live(user: dict = Depends(get_current_user)):
     """Refresco de marcadores en vivo. Lo llama el frontend mientras alguien
