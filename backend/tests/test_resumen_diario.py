@@ -51,6 +51,20 @@ class TestArmarMensajes:
         m = armar_mensajes([partido(1, "2026-08-26T20:00:00Z", tid=9)], self.membresias, [])
         assert m == {}
 
+    def test_solo_cuentan_los_partidos_del_torneo_de_TU_quiniela(self):
+        # Hoy juegan dos torneos, pero Ana solo está en una quiniela del 1.
+        # No debe enterarse del otro ni contarlo en el total.
+        partidos = [partido(1, "2026-08-26T20:00:00Z", tid=1, local="Saprissa", visita="Herediano"),
+                    partido(2, "2026-08-26T21:00:00Z", tid=2, local="Barcelona", visita="Madrid")]
+        m = armar_mensajes(partidos, [{"league_id": "L1", "user_id": "ana", "tournament_id": 1}], [])
+        assert "Hoy hay 1 partido ·" in m["ana"]["title"]
+        assert "Saprissa" in m["ana"]["body"]
+        assert "Barcelona" not in m["ana"]["body"]
+
+    def test_sin_ninguna_quiniela_de_ese_torneo_no_se_avisa_a_nadie(self):
+        m = armar_mensajes([partido(1, "2026-08-26T20:00:00Z", tid=1)], [], [])
+        assert m == {}
+
     def test_cuenta_lo_que_falta_por_predecir(self):
         partidos = [partido(1, "2026-08-26T20:00:00Z"), partido(2, "2026-08-26T22:00:00Z")]
         preds = [{"league_id": "L1", "match_id": 1, "user_id": "ana"}]

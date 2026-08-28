@@ -106,6 +106,7 @@ Son **dos números distintos a propósito** y confundirlos es el error fácil:
 - **Costa Rica es UTC-6 todo el año** (sin horario de verano), así que 6 am local = 12:00 UTC fijas y el día natural va de 06:00Z a 06:00Z. Usar el día UTC haría que un partido de las 8 pm de ayer apareciera como de hoy.
 - Las horas del texto de WhatsApp se convierten con ese offset **fijo**, no con la zona del dispositivo: si no, alguien de viaje mandaría horas distintas al resto del grupo.
 - El texto **no lleva predicciones ni marcadores**: circula por WhatsApp y no debe filtrar lo que la app protege con RLS.
+- **Solo se avisa si TU quiniela tiene partidos hoy**: se filtra torneo → quiniela → miembro, y además se excluyen los torneos `finished`. La liga tica corre temporada tras temporada sobre el mismo `tournament_id`, así que sin ese segundo filtro los miembros de una quiniela vieja recibirían avisos de partidos que no están jugando.
 - El push de las 6 am es `POST /api/matches/notify-daily`, protegido con `CRON_SECRET`, disparado por `.github/workflows/resumen-diario.yml`. Va en el backend y **no** en una edge function: acá ya está la autenticación y el envío de push, y se despliega solo con cada push a `main`.
 - **Ojo**: la base **no tiene `pg_cron` ni `pg_net`**, y el repo no tiene ninguna acción que llame a `notify-upcoming`. Esa edge function está desplegada (v4) pero puede que **nadie la dispare**: hay que confirmar si algo externo la invoca.
 
