@@ -90,3 +90,49 @@ async def broadcast_push_to_users(supabase, user_ids: list, title: str, body: st
         supabase.table("push_subscriptions").delete().in_("endpoint", expired_endpoints).execute()
         
     return success_count
+
+
+async def enviar_push_personalizado(supabase, mensajes: dict):
+    """Manda un push DISTINTO a cada persona.
+
+    broadcast_push_to_users manda el mismo texto a todos, y para el resumen
+    diario eso no sirve: a quien le faltan tres predicciones hay que decirle
+    otra cosa que a quien ya las hizo todas. Las suscripciones se leen UNA vez
+    para todos, no una por persona.
+
+    mensajes: {user_id: {"title": str, "body": str, "url": str}}
+    """
+    if not mensajes:
+        return {"enviados": 0, "sin_dispositivo": 0}
+
+    ids = list(mensajes.keys())
+    subs = (
+        supabase.table("push_subscriptions").select("*").in_("user_id", ids).execute().data
+        or []
+    )
+
+    por_usuario = {}
+    for s in subs:
+        por_usuario.setdefault(s["user_id"], []).append(s)
+
+    enviados = 0
+    expirados = []
+    for user_id, payload in mensajes.items():
+        for sub in por_usuario.get(user_id, []):
+            info = {
+                "endpoint": sub["endpoint"],
+                "keys": {"p256dh": sub["p256dh"], "auth": sub["auth"]},
+            }
+            resultado = send_push_notification(info, payload)
+            if resultado == "expired":
+                expirados.append(sub["endpoint"])
+            elif resultado is True:
+                enviados += 1
+
+    if expirados:
+        supabase.table("push_subscriptions").delete().in_("endpoint", expirados).execute()
+
+    return {
+        "enviados": enviados,
+        "sin_dispositivo": len([u for u in ids if u not in por_usuario]),
+    }

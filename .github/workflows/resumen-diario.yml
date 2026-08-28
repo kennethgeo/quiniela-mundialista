@@ -1,0 +1,44 @@
+name: Resumen diario de partidos
+
+# Avisa por push qué partidos hay hoy, a las 6:00 de la mañana de Costa Rica.
+#
+# Costa Rica es UTC-6 todo el año (no hay horario de verano), así que 6am local
+# son las 12:00 UTC, fijas. No hace falta ajustar nada dos veces al año.
+#
+# Usa el mismo secreto que el sync de marcadores:
+#   - Variable  DAILY_NOTIFY_URL : opcional; por defecto apunta a producción
+#   - Secreto   CRON_SECRET      : el mismo que ya está en Vercel
+on:
+  schedule:
+    - cron: "0 12 * * *"
+  workflow_dispatch: {}
+
+concurrency:
+  group: resumen-diario
+  cancel-in-progress: false
+
+jobs:
+  avisar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Avisar los partidos del día
+        env:
+          DAILY_NOTIFY_URL: ${{ vars.DAILY_NOTIFY_URL || 'https://tico-games-one.vercel.app/_backend/api/matches/notify-daily' }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -z "$CRON_SECRET" ]; then
+            echo "::error::Falta el secreto CRON_SECRET (repo > Settings > Secrets and variables > Actions)."
+            exit 1
+          fi
+          # -L sigue redirecciones (307) preservando el POST.
+          code=$(curl -sSL -o /tmp/resp.json -w "%{http_code}" \
+            -X POST "$DAILY_NOTIFY_URL" \
+            -H "Authorization: Bearer $CRON_SECRET" || echo "000")
+          echo "HTTP $code"
+          cat /tmp/resp.json 2>/dev/null || true
+          echo ""
+          if [ "$code" != "200" ]; then
+            echo "::error::El resumen diario respondió $code (esperado 200)."
+            exit 1
+          fi
