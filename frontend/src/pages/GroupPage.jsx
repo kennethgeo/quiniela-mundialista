@@ -3,7 +3,7 @@ import { useState, useMemo, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'motion/react'
-import { ArrowLeft, CalendarDays, ListOrdered, Copy, Check, Trophy, GitBranch, BarChart3, Shield, ScrollText, Loader2, Pencil, Lock, Trash2, AlertTriangle, Vote, ThumbsUp, ThumbsDown, X, Home, ChevronRight, Target, Gift, MessageCircle, LayoutGrid, Zap } from 'lucide-react'
+import { ArrowLeft, CalendarDays, ListOrdered, Copy, Check, Trophy, GitBranch, BarChart3, Shield, ScrollText, Loader2, Pencil, Lock, Trash2, AlertTriangle, Vote, ThumbsUp, ThumbsDown, X, Home, ChevronRight, Target, Gift, MessageCircle, LayoutGrid, Zap, ShieldCheck} from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import { useToast } from '../components/ui/Toast'
@@ -28,6 +28,7 @@ import MiembrosYAdmins from '../components/tournament/MiembrosYAdmins'
 import JornadasYRachas from '../components/tournament/JornadasYRachas'
 import PredecirJornada from '../components/matches/PredecirJornada'
 import PartidosDeHoy from '../components/tournament/PartidosDeHoy'
+import PanelAdminQuiniela from '../components/tournament/PanelAdminQuiniela'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
 
 // Clave de jornada/fase de un partido (misma lógica de agrupación que MatchList).
@@ -52,6 +53,10 @@ export default function GroupPage() {
   const group = groups.find((g) => g.id === id)
   const tid = group?.tournament_id
   const isCup = group?.tournament_kind === 'cup'
+  // Quién ve la pestaña Admin: el creador de la quiniela y los co-admins que
+  // nombró (group.is_admin ya es es_admin_liga desde la migración 59), más el
+  // admin global de la app, que entra siempre aunque no juegue esta quiniela.
+  const puedeAdministrar = !!group?.is_admin || !!profile?.is_admin
 
   const { data: matches = [], isLoading: lm } = useQuery({
     queryKey: ['tournament_matches', tid],
@@ -224,6 +229,12 @@ export default function GroupPage() {
         {tid === 1 && <TabBtn active={tab === 'bracket'} onClick={() => setTab('bracket')} icon={GitBranch} label="Bracket" />}
         <TabBtn active={tab === 'global'} onClick={() => setTab('global')} icon={BarChart3} label="Campeón/Gol" />
         <TabBtn active={tab === 'rules'} onClick={() => setTab('rules')} icon={ScrollText} label="Reglas" dot={!!group.open_proposal} />
+        {/* Solo para admins. group.is_admin ya contempla creador y co-admins
+            (es_admin_liga, migración 59); el admin global de la app entra
+            siempre, aunque no sea admin de esta quiniela. */}
+        {puedeAdministrar && (
+          <TabBtn active={tab === 'admin'} onClick={() => setTab('admin')} icon={ShieldCheck} label="Admin" />
+        )}
       </div>
 
       {/* Aviso de votación abierta (visible desde cualquier pestaña) */}
@@ -289,6 +300,11 @@ export default function GroupPage() {
           <AllGlobalPicks tournamentId={tid} leagueId={group.id} />
         </>
       )}
+      {tab === 'admin' && puedeAdministrar && (
+        <PanelAdminQuiniela leagueId={group.id} nombreQuiniela={group.name}
+          matches={resolved} soyAdminGlobal={!!profile?.is_admin} />
+      )}
+
       {tab === 'rules' && (
         <>
           <RulesPanel group={group} tournamentStarted={tournamentStarted} showToast={showToast}
