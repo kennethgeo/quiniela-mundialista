@@ -55,13 +55,31 @@ export function AuthProvider({ children }) {
    * Inicia sesión con email y contraseña
    */
   const signIn = async (email, password) => {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password
+    /* CON TIEMPO LÍMITE. Sin esto, si la petición se atasca —la red del
+       celular, un proxy que se come el POST, la pestaña dormida— la promesa
+       nunca resuelve y el botón se queda en "Entrando…" indefinidamente, sin
+       error y sin forma de reintentar. Pasó de verdad: en los logs se veía el
+       preflight de CORS llegando y el POST nunca saliendo del navegador.
+       Mejor un mensaje claro a los 20 segundos que un botón congelado. */
+    const LIMITE_MS = 20000
+    let temporizador
+    const seAcaboElTiempo = new Promise((_, rechazar) => {
+      temporizador = setTimeout(
+        () => rechazar(new Error('La conexión está tardando demasiado. Revisá tu internet y probá de nuevo.')),
+        LIMITE_MS,
+      )
     })
 
-    if (error) throw error
-    return data
+    try {
+      const { data, error } = await Promise.race([
+        supabase.auth.signInWithPassword({ email, password }),
+        seAcaboElTiempo,
+      ])
+      if (error) throw error
+      return data
+    } finally {
+      clearTimeout(temporizador)
+    }
   }
 
   /**
