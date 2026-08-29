@@ -128,6 +128,14 @@ Son **dos números distintos a propósito** y confundirlos es el error fácil:
 - **`CREATE OR REPLACE` conserva el ACL de una función; `DROP` + `CREATE` lo reabre a `PUBLIC`** (comprobado). Al redefinir una función ya endurecida, usar siempre `CREATE OR REPLACE`.
 - Las verificaciones de la 66 usan `RAISE EXCEPTION`, no `WARNING`: una base a medio endurecer es peor que una sin endurecer, porque parece segura.
 
+## Login que se queda en "Entrando…"
+- `signInWithPassword` **no tiene tiempo límite propio**: si la petición no vuelve, la promesa no resuelve, el `finally { setLoading(false) }` nunca corre y el botón queda muerto, sin error y sin reintento. Pasó en producción (ago 2026). Todo lo que espere a la red en una pantalla bloqueante necesita `conLimite()` (`lib/loginResiliente.js`).
+- **Al vencer el plazo NO se da el intento por fallado**: la petición pudo haber entrado y habérsenos perdido la respuesta. Se comprueba `getSession()` con un límite corto; solo si no hay sesión se muestra el error.
+- El botón de rescate usa `signOut({ scope: 'local' })`. **Nunca el global**: cierra la sesión en todos los dispositivos de la persona y encima necesita la red que puede estar caída.
+- Los logs de login guardan **solo categoría y duración** (`describirFallo`), nunca el mensaje crudo del servidor: eso queda en la consola del dispositivo ajeno.
+- **No es el Web Lock**, aunque sea el primer sospechoso al buscar en internet: desde `auth-js` 2.x todos los `_acquireLock` están detrás de `if (this.lock != null)` y `lock` es `null` salvo que le pases uno propio — no lo hacemos, y el bundle no contiene `navigator.locks`. Comprobado leyendo el paquete instalado, no la documentación.
+- Para distinguir "no llegó" de "llegó y falló": en `edge_logs` contar `OPTIONS` contra `POST` sobre `/auth/v1/token`. Muchos preflights y casi ningún POST = el navegador no está mandando la petición, y no hay nada que arreglar en la base.
+
 ## Despliegue
 - **Vercel** despliega frontend Y backend juntos en cada push a `main` (root `vercel.json` → `experimentalServices`, backend `@vercel/python` bajo `/_backend`).
 - Cron de marcadores: GitHub Actions `sync-live-scores.yml` (cada ~5 min) → `POST /_backend/api/matches/sync-live`.
