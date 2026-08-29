@@ -26,7 +26,6 @@ FROM unnest(ARRAY[
   'cancel_rule_proposal',
   'cast_rule_vote',
   'check_powerup_limit',
-  'check_single_powerup_per_matchday',
   'confirmar_pago',
   'congelar_campos_sensibles_users',
   'consume_powerup_credit',
@@ -62,7 +61,6 @@ FROM unnest(ARRAY[
   'registrar_correccion_partido',
   'reject_banned_signup',
   'resolve_pending_powerup_credits',
-  'seed_default_predictions',
   'set_group_extras',
   'set_group_rules',
   'set_group_scoring',
@@ -71,10 +69,13 @@ FROM unnest(ARRAY[
   'totales_desalineados',
   'tournament_predictions_open',
   'trg_recompute_user_total',
-  'trg_seed_default_predictions',
   'update_updated_at',
   'user_total_calculado',
-  'void_cancelled_match'
+  'void_cancelled_match',
+  '_recompute_league_badges_inner',
+  'es_admin_global',
+  'puede_ver_quiniela',
+  'quiniela_por_id'
 ]::text[]) x
 WHERE NOT EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
                   WHERE n.nspname = 'public' AND p.proname = x);
@@ -83,6 +84,10 @@ WHERE NOT EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.prona
 SELECT p.proname AS sobra, p.prosecdef AS es_security_definer
 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
 WHERE n.nspname = 'public'
+  -- Las funciones que trae una extensión (unaccent, pgcrypto…) no las define el
+  -- repo y no son deriva: aparecerían siempre como falso positivo.
+  AND NOT EXISTS (SELECT 1 FROM pg_depend d
+                  WHERE d.objid = p.oid AND d.deptype = 'e')
   AND p.proname <> ALL (ARRAY[
     '_apply_rule_proposal',
   '_resolve_expired_proposals',
@@ -92,7 +97,6 @@ WHERE n.nspname = 'public'
   'cancel_rule_proposal',
   'cast_rule_vote',
   'check_powerup_limit',
-  'check_single_powerup_per_matchday',
   'confirmar_pago',
   'congelar_campos_sensibles_users',
   'consume_powerup_credit',
@@ -128,7 +132,6 @@ WHERE n.nspname = 'public'
   'registrar_correccion_partido',
   'reject_banned_signup',
   'resolve_pending_powerup_credits',
-  'seed_default_predictions',
   'set_group_extras',
   'set_group_rules',
   'set_group_scoring',
@@ -137,10 +140,13 @@ WHERE n.nspname = 'public'
   'totales_desalineados',
   'tournament_predictions_open',
   'trg_recompute_user_total',
-  'trg_seed_default_predictions',
   'update_updated_at',
   'user_total_calculado',
-  'void_cancelled_match'
+  'void_cancelled_match',
+  '_recompute_league_badges_inner',
+  'es_admin_global',
+  'puede_ver_quiniela',
+  'quiniela_por_id'
 ]::text[])
 ORDER BY p.proname;
 
@@ -179,7 +185,11 @@ FROM unnest(ARRAY[
   'set_group_scoring',
   'set_league_admin',
   'set_league_pozo',
-  'tournament_predictions_open'
+  'tournament_predictions_open',
+  '_recompute_league_badges_inner',
+  'es_admin_global',
+  'puede_ver_quiniela',
+  'quiniela_por_id'
 ]::text[]) x
 WHERE EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
               WHERE n.nspname = 'public' AND p.proname = x)
@@ -206,7 +216,7 @@ WHERE pol.schemaname = 'public'
                   WHERE n.nspname = 'public' AND p.proname = m[1]
                     AND has_function_privilege('authenticated', p.oid, 'EXECUTE'));
 
-\echo '=== 6. Tablas sin RLS que anon puede escribir (así estaba powerup_limits) ==='
+\echo '=== 6. Tablas que anon puede escribir, con o sin RLS (así estaba powerup_limits) ==='
 SELECT c.relname AS tabla, c.relrowsecurity AS tiene_rls,
        has_table_privilege('anon', c.oid, 'INSERT') AS anon_insert,
        has_table_privilege('anon', c.oid, 'UPDATE') AS anon_update,
@@ -227,7 +237,7 @@ ORDER BY c.relname;
 
 \echo '=== 8. Políticas de predictions (una sola de SELECT, con filtro por liga) ==='
 SELECT policyname, cmd,
-       qual LIKE '%is_league_member%' AS filtra_por_liga,
+       qual LIKE '%puede_ver_quiniela%' AS filtra_por_liga,
        with_check LIKE '%kickoff_at%' AS candado_de_15_min
 FROM pg_policies
 WHERE schemaname = 'public' AND tablename = 'predictions'
@@ -242,7 +252,36 @@ WHERE table_schema = 'public' AND table_name = 'users'
 ORDER BY grantee, privilege_type, column_name;
 
 \echo '=== 10. Totales globales descuadrados (debe salir vacío) ==='
-SELECT u.display_name, u.total_points AS guardado,
-       public.user_total_calculado(u.id) AS calculado
+-- La fórmula va expandida y NO llama a user_total_calculado(): esa función está
+-- restringida a service_role, así que un rol de auditoría de solo lectura no
+-- podría ejecutarla y esta sección fallaría con "permission denied" en vez de
+-- decir si los totales cuadran. Tiene que ser idéntica a la de la migración 62:
+-- cada partido cuenta UNA vez (el mejor puntaje entre tus quinielas) y cada
+-- torneo una vez para campeón/goleador/asistidor.
+SELECT u.display_name,
+       COALESCE(u.total_points, 0) AS guardado,
+       (
+           COALESCE((SELECT SUM(x.mejor) FROM (
+             SELECT MAX(COALESCE(p.points_earned, 0)) AS mejor
+             FROM public.predictions p WHERE p.user_id = u.id GROUP BY p.match_id) x), 0)
+         + COALESCE((SELECT SUM(y.c + y.g + y.a) FROM (
+             SELECT MAX(COALESCE(tp.champion_points, 0))   AS c,
+                    MAX(COALESCE(tp.top_scorer_points, 0)) AS g,
+                    MAX(COALESCE(tp.top_assist_points, 0)) AS a
+             FROM public.tournament_predictions tp
+             WHERE tp.user_id = u.id GROUP BY tp.tournament_id) y), 0)
+         + COALESCE(u.points_adjustment, 0)
+       )::integer AS calculado
 FROM public.users u
-WHERE u.total_points IS DISTINCT FROM public.user_total_calculado(u.id);
+WHERE COALESCE(u.total_points, 0) IS DISTINCT FROM (
+           COALESCE((SELECT SUM(x.mejor) FROM (
+             SELECT MAX(COALESCE(p.points_earned, 0)) AS mejor
+             FROM public.predictions p WHERE p.user_id = u.id GROUP BY p.match_id) x), 0)
+         + COALESCE((SELECT SUM(y.c + y.g + y.a) FROM (
+             SELECT MAX(COALESCE(tp.champion_points, 0))   AS c,
+                    MAX(COALESCE(tp.top_scorer_points, 0)) AS g,
+                    MAX(COALESCE(tp.top_assist_points, 0)) AS a
+             FROM public.tournament_predictions tp
+             WHERE tp.user_id = u.id GROUP BY tp.tournament_id) y), 0)
+         + COALESCE(u.points_adjustment, 0)
+       )::integer;

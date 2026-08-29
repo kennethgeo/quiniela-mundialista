@@ -1,6 +1,7 @@
 // Contexto de autenticación - gestiona el estado del usuario en toda la app
 import { createContext, useContext, useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
+import { conLimite, describirFallo, registrarIntento } from '../lib/loginResiliente'
 
 const AuthContext = createContext(null)
 
@@ -52,17 +53,83 @@ export function AuthProvider({ children }) {
   }
 
   /**
-   * Inicia sesión con email y contraseña
+   * Inicia sesión con email y contraseña, con tiempo límite.
+   *
+   * Sin límite, si la petición no vuelve nunca la promesa tampoco resuelve y el
+   * botón se queda en "Entrando…" para siempre. Pasó en producción.
+   *
+   * Al vencer el plazo NO damos por fallado el intento: la petición pudo haber
+   * entrado y habérsenos perdido la respuesta. Se comprueba mirando si quedó
+   * sesión; solo si no hay, se devuelve un error recuperable para que la
+   * pantalla vuelva a habilitar el botón.
    */
-  const signIn = async (email, password) => {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password
-    })
+  const LIMITE_LOGIN_MS = 15000
+  const LIMITE_SESION_MS = 4000
 
-    if (error) throw error
-    return data
+  const signIn = async (email, password) => {
+    const inicio = Date.now()
+
+    try {
+      const { data, error } = await conLimite(
+        supabase.auth.signInWithPassword({ email, password }),
+        LIMITE_LOGIN_MS,
+        'login',
+      )
+      if (error) throw error
+      registrarIntento('ok', Date.now() - inicio)
+      return data
+    } catch (err) {
+      if (err?.esTiempoAgotado) {
+        const sesion = await sesionActual()
+        if (sesion) {
+          registrarIntento('ok-tras-vencer-el-plazo', Date.now() - inicio)
+          return { session: sesion, user: sesion.user }
+        }
+        registrarIntento('tiempo-agotado', Date.now() - inicio)
+        const fallo = new Error(
+          'La conexión está tardando demasiado. Revisá tu internet y probá de nuevo.',
+        )
+        fallo.recuperable = true
+        throw fallo
+      }
+
+      registrarIntento(describirFallo(err), Date.now() - inicio)
+      throw err
+    }
   }
+
+  /**
+   * Lee la sesión guardada con tiempo límite. Devuelve null si no hay o si el
+   * almacenamiento tampoco responde (pasa en la PWA cuando el navegador le
+   * bloquea el storage al sitio instalado).
+   */
+  const sesionActual = async () => {
+    try {
+      const { data } = await conLimite(supabase.auth.getSession(), LIMITE_SESION_MS, 'sesión')
+      return data?.session ?? null
+    } catch {
+      return null
+    }
+  }
+
+  /**
+   * Borra la sesión de ESTE dispositivo y nada más.
+   *
+   * `scope: 'local'` a propósito: el signOut normal es global y cierra la
+   * sesión en todos los dispositivos de la persona. Esto es un botón de
+   * "destrabame el login", no un cierre de sesión — y además el global necesita
+   * red, que es justo lo que puede estar fallando.
+   */
+  const restablecerSesionLocal = useCallback(async () => {
+    try {
+      await conLimite(supabase.auth.signOut({ scope: 'local' }), LIMITE_SESION_MS, 'restablecer')
+    } catch (err) {
+      // Que no vuelva sirve igual: abajo se limpia el estado de todos modos.
+      console.info(`[login] restablecer local: ${describirFallo(err)}`)
+    }
+    setUser(null)
+    setProfile(null)
+  }, [])
 
   /**
    * Cierra la sesión actual
@@ -158,6 +225,7 @@ export function AuthProvider({ children }) {
     signUp,
     signIn,
     signOut,
+    restablecerSesionLocal,
     fetchProfile
   }
 

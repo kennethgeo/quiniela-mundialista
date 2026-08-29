@@ -22,7 +22,7 @@ function useScale() {
 }
 
 export default function AuthPage() {
-  const { user, loading, signOut, signIn, signUp } = useAuth()
+  const { user, loading, signOut, signIn, signUp, restablecerSesionLocal } = useAuth()
   const scale = useScale()
   const [mode, setMode] = useState('login') // 'login' | 'register' | 'forgot'
   const [confirmationMessage, setConfirmationMessage] = useState('')
@@ -54,7 +54,7 @@ export default function AuthPage() {
             </div>
           )}
 
-          {mode === 'login' && <LoginBody signIn={signIn} confirmationMessage={confirmationMessage} toRegister={() => setMode('register')} toForgot={() => setMode('forgot')} />}
+          {mode === 'login' && <LoginBody signIn={signIn} restablecerSesionLocal={restablecerSesionLocal} confirmationMessage={confirmationMessage} toRegister={() => setMode('register')} toForgot={() => setMode('forgot')} />}
           {mode === 'register' && <RegisterBody signUp={signUp} toLogin={() => setMode('login')} />}
           {mode === 'forgot' && <ForgotBody toLogin={() => setMode('login')} />}
         </div>
@@ -65,18 +65,29 @@ export default function AuthPage() {
   )
 }
 
-function LoginBody({ signIn, confirmationMessage, toRegister, toForgot }) {
+function LoginBody({ signIn, restablecerSesionLocal, confirmationMessage, toRegister, toForgot }) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
+  const [atascado, setAtascado] = useState(false)
   const [loading, setLoading] = useState(false)
 
   const submit = async (e) => {
     e.preventDefault()
-    setError(''); setLoading(true)
+    setError(''); setAtascado(false); setLoading(true)
     try { await signIn(email, password) }
-    catch (err) { setError(err.message === 'Invalid login credentials' ? 'Credenciales inválidas. Revisá tu correo y contraseña.' : err.message) }
+    catch (err) {
+      setError(err.message === 'Invalid login credentials' ? 'Credenciales inválidas. Revisá tu correo y contraseña.' : err.message)
+      // Solo cuando venció el plazo ofrecemos limpiar: si las credenciales
+      // están mal, borrar la sesión local no arregla nada y confunde.
+      if (err.recuperable) setAtascado(true)
+    }
     finally { setLoading(false) }
+  }
+
+  const limpiar = async () => {
+    await restablecerSesionLocal()
+    setError(''); setAtascado(false)
   }
 
   return (
@@ -87,6 +98,9 @@ function LoginBody({ signIn, confirmationMessage, toRegister, toForgot }) {
       <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Contraseña" required style={S.input} />
       <button type="button" onClick={toForgot} style={S.forgot}>¿Olvidaste tu contraseña?</button>
       <button type="submit" disabled={loading} style={{ ...S.button, opacity: loading ? 0.6 : 1 }}>{loading ? 'Entrando…' : 'Entrar'}</button>
+      {atascado && (
+        <div style={S.sub}>¿Sigue sin entrar? <button type="button" onClick={limpiar} style={S.link}>Restablecer sesión local</button></div>
+      )}
       <div style={S.sub}>¿Sin cuenta? <button type="button" onClick={toRegister} style={S.link}>Registrate</button></div>
     </form>
   )
