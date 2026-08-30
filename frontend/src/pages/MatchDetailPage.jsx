@@ -9,6 +9,7 @@ import { crestOnError } from '../lib/teamLogo'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { pedirRefrescoEnVivo } from '../lib/refrescoEnVivo'
+import { fotoDeEstadio } from '../lib/estadios'
 
 export default function MatchDetailPage() {
   const { id } = useParams()
@@ -37,7 +38,14 @@ export default function MatchDetailPage() {
       // todos los partidos para calcular las posiciones de grupo.
       let resolvedMatch = matchData
       if (matchData.phase !== 'groups') {
-        const { data: all } = await supabase.from('matches').select('*')
+        /* Acotado al torneo y a las columnas que el resolvedor usa de verdad.
+           Antes era `select('*')` sobre la tabla ENTERA: traía todos los
+           partidos de todos los torneos con su events_json incluido, para
+           resolver un solo cruce. Era la consulta más cara de la app. */
+        const { data: all } = await supabase
+          .from('matches')
+          .select('id, phase, stage, group_name, home_team, away_team, home_team_code, away_team_code, home_goals_actual, away_goals_actual, status, kickoff_at, tournament_id')
+          .eq('tournament_id', matchData.tournament_id)
         const r = all && resolveKnockoutTeams(all).find((m) => m.id === matchData.id)
         if (r) {
           resolvedMatch = {
@@ -69,6 +77,7 @@ export default function MatchDetailPage() {
             *,
             users!inner (
               display_name,
+              avatar_url,
               total_points
             )
           `)
@@ -181,6 +190,7 @@ export default function MatchDetailPage() {
     ? match.kickoff_at
     : `${match.kickoff_at}Z`
   const kickoff = new Date(dateString)
+  const fotoEstadio = fotoDeEstadio(match.venue)
   const isFinished = match.status === 'finished'
   const isCancelled = ['cancelled', 'canceled', 'postponed', 'suspended'].includes(match.status)
 
@@ -203,10 +213,23 @@ export default function MatchDetailPage() {
         animate={{ opacity: 1, y: 0 }}
         className="glass-card overflow-hidden relative"
       >
+        {/* La foto del estadio donde se juega, si la tenemos. Va debajo de un
+            velo bien oscuro: acá el texto es blanco sobre la imagen y una foto
+            diurna lo deja ilegible — el mismo problema que apareció en la
+            tarjeta que se manda por WhatsApp. Sin foto no se pinta nada y la
+            tarjeta queda como estaba. */}
+        {fotoEstadio && (
+          <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
+            <img src={fotoEstadio} alt="" loading="lazy"
+              className="w-full h-full object-cover" />
+            <div className="absolute inset-0 bg-gradient-to-b from-[#0C0C0C]/88 via-[#0C0C0C]/92 to-[#0C0C0C]/96" />
+          </div>
+        )}
+
         <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-accent via-purple-500 to-amber-500" />
         
         {/* Usar style para garantizar un buen padding top */}
-        <div className="p-6" style={{ paddingTop: '8px' }}>
+        <div className="p-6 relative" style={{ paddingTop: '8px' }}>
           <div className="flex flex-wrap justify-between items-center gap-2 mb-6">
             <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 bg-white/5 px-3 py-1.5 rounded-full shrink-0">
               <Calendar size={14} />
@@ -301,16 +324,24 @@ export default function MatchDetailPage() {
             </div>
           </div>
 
-          <div className="mt-8 pt-4 border-t border-white/5 flex flex-wrap items-center justify-center gap-6">
-            {match.stadium && (
+          <div className="mt-8 pt-4 border-t border-white/5 flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
+            {/* Ojo: la columna es `venue`. Acá decía `match.stadium`, que no
+                existe en la tabla, así que este bloque nunca se mostró. */}
+            {match.venue && (
               <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 text-sm">
                 <MapPin size={16} />
-                {match.stadium} {match.city ? `(${match.city})` : ''}
+                {match.venue}
               </div>
             )}
-            <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 text-sm font-semibold uppercase tracking-wider">
-              {match.stage === 'group' ? `Fase de Grupos - ${match.group_name || ''}` : match.stage}
+            <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 text-sm">
+              <Clock size={16} />
+              {format(kickoff, 'h:mm a')}
             </div>
+            {match.stage && (
+              <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 text-sm font-semibold uppercase tracking-wider">
+                {match.stage === 'group' ? `Fase de Grupos - ${match.group_name || ''}` : match.stage}
+              </div>
+            )}
           </div>
         </div>
       </motion.div>
@@ -396,8 +427,12 @@ export default function MatchDetailPage() {
                   }`}
                 >
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-white font-bold border border-white/10 shadow-inner">
-                      {pred.users?.display_name?.charAt(0).toUpperCase()}
+                    <div className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-white font-bold border border-white/10 shadow-inner overflow-hidden shrink-0">
+                      {pred.users?.avatar_url
+                        ? <img src={pred.users.avatar_url} alt="" loading="lazy"
+                            className="w-full h-full object-cover"
+                            onError={(e) => { e.currentTarget.style.display = 'none' }} />
+                        : (pred.users?.display_name?.charAt(0) || '?').toUpperCase()}
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
