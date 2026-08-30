@@ -315,11 +315,19 @@ export async function renderPartidosDeHoyCard({ nombreQuiniela, partidos = [], h
     ctx.fillRect(MARGEN, y, ANCHO_FILA, ALTO_FILA)
     if (estadio) {
       dibujarCubriendo(ctx, estadio, MARGEN, y, ANCHO_FILA, ALTO_FILA)
-      /* Velo oscuro, y bien oscuro. WhatsApp comprime la imagen y mucha gente
-         la ve primero como miniatura: sin esto el nombre de los equipos sobre
-         una foto de gradería se vuelve ilegible, que es justo lo único que la
-         tarjeta tiene que lograr. */
-      ctx.fillStyle = 'rgba(12,12,12,.78)'
+      /* Velo oscuro EN DEGRADADO, no plano. Un velo parejo obliga a elegir
+         entre que se lea el texto o que se vea la foto: al 78% las fotos
+         diurnas o con reflectores dejaban el nombre de los equipos en blanco
+         sobre verde claro, casi ilegible — comprobado dibujando la tarjeta.
+         Así va bien oscuro sobre la mitad izquierda, que es donde vive el
+         texto, y se abre hacia la derecha, donde la foto se ve sin estorbar.
+         Importa de verdad: WhatsApp comprime la imagen y mucha gente la ve
+         primero como miniatura. */
+      const velo = ctx.createLinearGradient(MARGEN, 0, MARGEN + ANCHO_FILA, 0)
+      velo.addColorStop(0, 'rgba(12,12,12,.93)')
+      velo.addColorStop(0.62, 'rgba(12,12,12,.86)')
+      velo.addColorStop(1, 'rgba(12,12,12,.60)')
+      ctx.fillStyle = velo
       ctx.fillRect(MARGEN, y, ANCHO_FILA, ALTO_FILA)
     }
     ctx.restore()
