@@ -28,3 +28,29 @@ describe('fotoDeEstadio', () => {
     expect(fotoDeEstadio(null)).toBeNull()
   })
 })
+
+describe('fotoDeEstadio empareja por trozo del nombre', () => {
+  // No sabemos todavía cómo escribe ESPN cada estadio: el campo `venue` nunca
+  // se había guardado. Por eso se empareja por trozo distintivo y no por
+  // nombre completo — una tilde de más no puede dejarnos sin foto.
+  it('reconoce el mismo estadio escrito de varias formas', () => {
+    const esperado = '/estadios/saprissa.jpg'
+    expect(fotoDeEstadio('Estadio Ricardo Saprissa Aymá')).toBe(esperado)
+    expect(fotoDeEstadio('Ricardo Saprissa')).toBe(esperado)
+    expect(fotoDeEstadio('ESTADIO RICARDO SAPRISSA AYMA')).toBe(esperado)
+  })
+
+  it('encuentra el Fello Meza con y sin comillas, y con el nombre largo', () => {
+    expect(fotoDeEstadio('Estadio "Fello" Meza')).toBe('/estadios/fello-meza.jpg')
+    expect(fotoDeEstadio('Estadio José Rafael Fello Meza Ivankovich')).toBe('/estadios/fello-meza.jpg')
+  })
+
+  it('cubre la cancha de Grecia, donde Sporting es local esta temporada', () => {
+    expect(fotoDeEstadio('Cancha de La Argentina, Grecia')).toBe('/estadios/grecia.jpg')
+    expect(fotoDeEstadio('Estadio Allen Riggioni')).toBe('/estadios/grecia.jpg')
+  })
+
+  it('no inventa una foto para un estadio que no conocemos', () => {
+    expect(fotoDeEstadio('Estadio Azteca')).toBeNull()
+  })
+})
