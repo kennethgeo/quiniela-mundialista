@@ -5,15 +5,24 @@
    Las horas van en hora de Costa Rica FIJA, no en la del dispositivo — si no,
    alguien de viaje mandaría horas distintas al resto del grupo.
 
-   No incluye predicciones ni marcadores a propósito: un texto que circula por
-   WhatsApp no debería filtrar justo lo que la app protege con RLS. */
+   Se comparte como IMAGEN, con el texto de pie de foto para que el enlace a
+   la app siga viajando: en un grupo de WhatsApp una tarjeta se ve de un
+   vistazo y un bloque de texto se pierde entre mensajes. Si el canvas falla
+   —fuentes, memoria en un celular viejo— se cae al texto de siempre: mejor
+   mandar algo que dejar el botón sin hacer nada.
+
+   No incluye predicciones ni marcadores a propósito: esto circula por WhatsApp
+   antes de que se juegue nada y no debería filtrar justo lo que la app protege
+   con RLS. */
 import { useState, useMemo } from 'react'
 import { motion } from 'motion/react'
-import { CalendarClock, Share2, Copy, Check } from 'lucide-react'
+import { CalendarClock, Share2, Copy, Check, Loader2 } from 'lucide-react'
 import { partidosDeHoy, horaCostaRica, textoParaWhatsApp } from '../../lib/partidosDelDia'
+import { renderPartidosDeHoyCard, compartirImagen } from '../../lib/shareCard'
 
 export default function PartidosDeHoy({ matches = [], nombreQuiniela = '' }) {
   const [copiado, setCopiado] = useState(false)
+  const [generando, setGenerando] = useState(false)
   const hoy = useMemo(() => partidosDeHoy(matches), [matches])
 
   // Sin partidos hoy no se ocupa la tarjeta: el hub ya está bastante cargado.
@@ -23,10 +32,10 @@ export default function PartidosDeHoy({ matches = [], nombreQuiniela = '' }) {
     matches, nombreQuiniela, url: window.location.origin,
   })
 
-  const compartir = async () => {
-    // navigator.share abre el selector del sistema, donde WhatsApp aparece
-    // primero en un móvil. En escritorio casi nunca existe, así que se cae al
-    // portapapeles en vez de no hacer nada.
+  // Respaldo de siempre: mandar el texto. navigator.share abre el selector del
+  // sistema, donde WhatsApp aparece primero en un móvil. En escritorio casi
+  // nunca existe, así que se cae al portapapeles en vez de no hacer nada.
+  const compartirTexto = async () => {
     try {
       if (navigator.share) {
         await navigator.share({ text: texto })
@@ -45,6 +54,31 @@ export default function PartidosDeHoy({ matches = [], nombreQuiniela = '' }) {
     }
   }
 
+  const compartir = async () => {
+    if (generando) return
+    setGenerando(true)
+    try {
+      const blob = await renderPartidosDeHoyCard({
+        nombreQuiniela, partidos: hoy, horaDe: horaCostaRica,
+      })
+      // El texto va de pie de foto: la imagen no puede llevar un enlace.
+      const como = await compartirImagen(
+        blob, 'partidos-de-hoy.png', `${nombreQuiniela} · Partidos de hoy`, texto,
+      )
+      // En escritorio no se puede compartir archivos: se descarga. Avisamos
+      // reusando el mismo cartelito, si no parece que el botón no hizo nada.
+      if (como === 'descargado') {
+        setCopiado(true)
+        setTimeout(() => setCopiado(false), 2500)
+      }
+    } catch {
+      /* Dibujar el canvas falló. Mejor el texto que un botón muerto. */
+      await compartirTexto()
+    } finally {
+      setGenerando(false)
+    }
+  }
+
   return (
     <div className="rounded-[14px] bg-white dark:bg-[#161616] border border-slate-200 dark:border-[#262626] p-4 mb-3">
       <div className="flex items-center gap-2 mb-2.5">
@@ -52,12 +86,14 @@ export default function PartidosDeHoy({ matches = [], nombreQuiniela = '' }) {
         <h3 className="font-bold font-['Archivo'] text-[13px] text-slate-900 dark:text-[#F3F1EA]">
           {hoy.length === 1 ? 'Hoy se juega' : `Hoy se juegan ${hoy.length}`}
         </h3>
-        <motion.button whileTap={{ scale: 0.94 }} onClick={compartir}
-          className="ml-auto flex items-center gap-1 font-['JetBrains_Mono'] font-bold text-[9px] px-2 py-1 rounded-[20px] text-accent"
+        <motion.button whileTap={{ scale: 0.94 }} onClick={compartir} disabled={generando}
+          className="ml-auto flex items-center gap-1 font-['JetBrains_Mono'] font-bold text-[9px] px-2 py-1 rounded-[20px] text-accent disabled:opacity-60"
           style={{ background: 'rgba(46,211,183,.12)' }}
-          title="Mandar los partidos de hoy al grupo">
-          {copiado ? <Check size={10} /> : navigator.share ? <Share2 size={10} /> : <Copy size={10} />}
-          {copiado ? 'COPIADO' : 'COMPARTIR'}
+          title="Mandar la imagen de los partidos de hoy al grupo">
+          {generando ? <Loader2 size={10} className="animate-spin" />
+            : copiado ? <Check size={10} />
+            : navigator.share ? <Share2 size={10} /> : <Copy size={10} />}
+          {generando ? 'ARMANDO' : copiado ? 'LISTO' : 'COMPARTIR'}
         </motion.button>
       </div>
 

@@ -286,16 +286,27 @@ export async function renderPartidosDeHoyCard({ nombreQuiniela, partidos = [], h
   })
 }
 
-export async function compartirImagen(blob, nombreArchivo, titulo) {
+export async function compartirImagen(blob, nombreArchivo, titulo, texto) {
   const file = new File([blob], nombreArchivo, { type: 'image/png' })
 
-  if (navigator.canShare?.({ files: [file] })) {
+  /* Se intenta primero con texto de acompañante: WhatsApp lo pone de pie de
+     foto, y ahí viaja el enlace a la app — que una imagen sola no puede
+     llevar, porque nadie va a teclear una URL que ve en una foto.
+     No todos los navegadores aceptan archivo + texto en la misma llamada, así
+     que si rechazan esa forma se manda solo la imagen antes de rendirse. */
+  const intentos = texto
+    ? [{ files: [file], title: titulo, text: texto }, { files: [file], title: titulo }]
+    : [{ files: [file], title: titulo }]
+
+  for (const carga of intentos) {
+    if (!navigator.canShare?.(carga)) continue
     try {
-      await navigator.share({ files: [file], title: titulo })
+      await navigator.share(carga)
       return 'compartido'
     } catch (err) {
       // El usuario canceló la hoja de compartir: no es un error que mostrar.
       if (err?.name === 'AbortError') return 'cancelado'
+      // Otro fallo: probar la forma siguiente y, si no queda, descargar.
     }
   }
 
