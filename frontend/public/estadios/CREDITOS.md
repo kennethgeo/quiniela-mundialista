@@ -13,8 +13,10 @@ exigen dar crédito al autor: sin esta lista estaríamos incumpliéndolas.
 | `carlos-ugalde.jpg` | Carlos Ugalde Álvarez (Ciudad Quesada) | Alofaga | Dominio público |
 | `fello-meza.jpg` | José Rafael "Fello" Meza (Cartago) | Cartago CR | CC BY-SA 4.0 |
 | `grecia.jpg` | Allen Riggioni (Grecia) | JuanJoséLP | CC BY-SA 2.0 |
+| `morera-soto.jpg` | Alejandro Morera Soto (Alajuela) | Moises Brenes | Dominio público |
 | `lito-perez.jpg` | Miguel Ángel "Lito" Pérez (Puntarenas) | 7C7 | CC BY-SA 4.0 |
 | `nacional.jpg` | Estadio Nacional (San José) | MadriCR | CC BY-SA 4.0 |
+| `perez-zeledon.jpg` | Municipal de Pérez Zeledón | Own Work | Dominio público |
 | `rosabal.jpg` | Eladio Rosabal Cordero (Heredia) | Victor Quirós A | CC BY-SA 3.0 |
 
 ## Nota sobre CC BY-SA
