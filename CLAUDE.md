@@ -136,6 +136,14 @@ Son **dos números distintos a propósito** y confundirlos es el error fácil:
 - **No es el Web Lock**, aunque sea el primer sospechoso al buscar en internet: desde `auth-js` 2.x todos los `_acquireLock` están detrás de `if (this.lock != null)` y `lock` es `null` salvo que le pases uno propio — no lo hacemos, y el bundle no contiene `navigator.locks`. Comprobado leyendo el paquete instalado, no la documentación.
 - Para distinguir "no llegó" de "llegó y falló": en `edge_logs` contar `OPTIONS` contra `POST` sobre `/auth/v1/token`. Muchos preflights y casi ningún POST = el navegador no está mandando la petición, y no hay nada que arreglar en la base.
 
+## Tarjeta compartible (escudos y fotos de estadio)
+- Los escudos SÍ se pueden dibujar en el canvas: `flagcdn` y `a.espncdn` responden `access-control-allow-origin: *`, así que con `crossOrigin='anonymous'` no dejan el canvas *tainted*. El comentario de `shareCard.js` que decía lo contrario estaba desactualizado y bloqueó la idea un buen rato.
+- **Nada de lo externo es obligatorio**: `cargarImagen()` nunca rechaza — devuelve `null` si falla o si tarda más de 4 s, y la tarjeta se dibuja sin esa imagen. Un escudo lento no puede dejar al grupo sin su tarjeta.
+- Las imágenes se cargan **en paralelo**. En serie, tres partidos con el CDN lento sumarían doce segundos antes de ver nada.
+- **ESPN da el NOMBRE del estadio, nunca una foto.** Las fotos van a mano en `frontend/public/estadios/` y se mapean en `lib/estadios.js` por nombre normalizado (sin tildes, minúsculas, espacios colapsados) porque la fuente escribe el mismo estadio de varias formas. Sin foto, la fila usa el fondo sólido.
+- El velo oscuro sobre la foto (`rgba(12,12,12,.78)`) no es decorativo: WhatsApp comprime la imagen y mucha gente la ve primero como miniatura. Sin velo, el nombre de los equipos sobre una gradería no se lee.
+- `matches.venue` existía en `schema.sql` desde el principio pero **ningún sync lo escribía**: estaba siempre en NULL. Lo llena `espn_tournament_sync` desde `competitions[0].venue.fullName`.
+
 ## Despliegue
 - **Vercel** despliega frontend Y backend juntos en cada push a `main` (root `vercel.json` → `experimentalServices`, backend `@vercel/python` bajo `/_backend`).
 - Cron de marcadores: GitHub Actions `sync-live-scores.yml` (cada ~5 min) → `POST /_backend/api/matches/sync-live`.
