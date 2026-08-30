@@ -15,7 +15,7 @@ import { useState, useMemo } from 'react'
 import { motion } from 'motion/react'
 import { Megaphone, ImageDown, Loader2, Check, AlertTriangle, ShieldCheck } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
-import { partidosDeHoy, horaCostaRica } from '../../lib/partidosDelDia'
+import { partidosDeHoy, horaCostaRica, textoParaWhatsApp } from '../../lib/partidosDelDia'
 import { renderPartidosDeHoyCard, compartirImagen } from '../../lib/shareCard'
 
 export default function PanelAdminQuiniela({ leagueId, nombreQuiniela, matches = [], soyAdminGlobal }) {
@@ -54,7 +54,13 @@ export default function PanelAdminQuiniela({ leagueId, nombreQuiniela, matches =
       const blob = await renderPartidosDeHoyCard({
         nombreQuiniela, partidos: hoy, horaDe: horaCostaRica,
       })
-      await compartirImagen(blob, 'partidos-de-hoy.png', `${nombreQuiniela} · Partidos de hoy`)
+      // El texto va de pie de foto para que el enlace a la app viaje con la
+      // imagen; sola no puede llevarlo. Mismo contenido que manda la tarjeta
+      // que ve todo el grupo, para no mandar dos cosas distintas.
+      await compartirImagen(
+        blob, 'partidos-de-hoy.png', `${nombreQuiniela} · Partidos de hoy`,
+        textoParaWhatsApp({ matches, nombreQuiniela, url: window.location.origin }),
+      )
     } catch (e) {
       setError(e.message)
     } finally {

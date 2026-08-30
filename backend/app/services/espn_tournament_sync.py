@@ -98,6 +98,11 @@ def _parse_event(ev):
         "away_team": a["team"].get("displayName") or a["team"].get("name") or "?",
         "home_flag_url": h["team"].get("logo"),
         "away_flag_url": a["team"].get("logo"),
+        # Nombre del estadio. Se guarda para poder ponerle la foto de fondo a la
+        # tarjeta que se manda al grupo (frontend/src/lib/estadios.js). ESPN da
+        # el nombre, nunca una foto, y a veces no lo trae: entonces queda None y
+        # la tarjeta se dibuja con el fondo de siempre.
+        "venue": ((comp.get("venue") or {}).get("fullName")) or None,
         "kickoff_at": ev.get("date"),
         "status": status,
         "home_goals": _to_int(h.get("score")),
@@ -304,6 +309,7 @@ async def sync_espn_tournament(supabase, tournament, full=False) -> dict:
         "away_team_code": "xx",
         "home_flag_url": p["home_flag_url"],
         "away_flag_url": p["away_flag_url"],
+        "venue": p.get("venue"),
         "kickoff_at": p["kickoff_at"],
         "status": p["status"],
         "home_goals_actual": p["home_goals"] if p["status"] != "pending" else None,

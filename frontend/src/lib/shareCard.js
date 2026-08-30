@@ -2,11 +2,17 @@
    El grupo vive en WhatsApp, así que la idea es que se pueda mandar la jornada
    sin recurrir a un screenshot recortado.
 
-   POR QUÉ SE DIBUJA Y NO SE CAPTURA EL DOM: los escudos salen de dominios
-   externos (flagcdn, ESPN) que no mandan cabeceras CORS. Dibujarlos en un
-   canvas lo deja "tainted" y toBlob() falla con SecurityError. Además una
-   captura de la interfaz se ve como una captura; esto es una pieza pensada
-   para el chat. Por eso: cero imágenes externas, solo texto y color. */
+   POR QUÉ SE DIBUJA Y NO SE CAPTURA EL DOM: una captura de la interfaz se ve
+   como una captura; esto es una pieza pensada para el chat.
+
+   SOBRE LOS ESCUDOS: acá decía que no se podían dibujar porque flagcdn y ESPN
+   no mandaban cabeceras CORS y el canvas quedaba "tainted". Se comprobó y hoy
+   ambos responden `access-control-allow-origin: *`, así que con
+   crossOrigin='anonymous' se pueden dibujar sin contaminar el canvas. Aun así
+   NADA es obligatorio: si una imagen no llega a tiempo, la tarjeta se dibuja
+   sin ella. Un escudo que tarda no puede dejar al grupo sin su tarjeta. */
+
+import { fotoDeEstadio } from './estadios'
 
 const FONDO = '#0C0C0C'
 const BORDE = '#262626'
@@ -57,6 +63,43 @@ async function esperarFuentes() {
   } catch {
     // Si falla, se dibuja igual con las de sistema.
   }
+}
+
+const PLAZO_IMAGEN_MS = 4000
+
+/* Carga una imagen para el canvas. NUNCA rechaza: devuelve null si no llega,
+   si falla o si tarda demasiado, y quien dibuja sigue sin ella. */
+function cargarImagen(url, plazoMs = PLAZO_IMAGEN_MS) {
+  if (!url) return Promise.resolve(null)
+  return new Promise((resolve) => {
+    const img = new Image()
+    // Sin esto el canvas queda "tainted" y toBlob() revienta con SecurityError.
+    img.crossOrigin = 'anonymous'
+    const plazo = setTimeout(() => resolve(null), plazoMs)
+    img.onload = () => { clearTimeout(plazo); resolve(img) }
+    img.onerror = () => { clearTimeout(plazo); resolve(null) }
+    img.src = url
+  })
+}
+
+/* Dibuja la imagen cubriendo el rectángulo, recortando lo que sobre y sin
+   deformarla (como background-size: cover). Una foto de estadio estirada se
+   nota enseguida. */
+function dibujarCubriendo(ctx, img, x, y, ancho, alto) {
+  const escala = Math.max(ancho / img.width, alto / img.height)
+  const a = img.width * escala
+  const b = img.height * escala
+  ctx.drawImage(img, x + (ancho - a) / 2, y + (alto - b) / 2, a, b)
+}
+
+/* Dibuja el escudo dentro de un cuadrado, entero y sin deformar (como
+   object-fit: contain): los escudos no son cuadrados y recortarlos les corta
+   la punta. */
+function dibujarEscudo(ctx, img, x, y, lado) {
+  const escala = Math.min(lado / img.width, lado / img.height)
+  const a = img.width * escala
+  const b = img.height * escala
+  ctx.drawImage(img, x + (lado - a) / 2, y + (lado - b) / 2, a, b)
 }
 
 /* Dibuja la jornada y devuelve un Blob PNG.
@@ -197,15 +240,28 @@ export async function renderJornadaCard({ nombreQuiniela, jornadaLabel, partidos
    en escritorio, o si el navegador no soporta compartir archivos, lo descarga. */
 /* Tarjeta de los partidos de HOY, para mandar al grupo por la mañana.
 
-   Misma regla que la de jornada: cero imágenes externas. Y cero predicciones o
-   marcadores — esto circula por WhatsApp antes de que se juegue nada, así que
-   incluirlos filtraría justo lo que la app protege con RLS.
+   Cada fila lleva los escudos de los dos equipos y, si tenemos foto de ese
+   estadio (lib/estadios.js), la foto de fondo bajo un velo oscuro. Todo eso es
+   OPCIONAL: si no hay foto, o un escudo no llega, la fila se dibuja igual.
 
-   partidos: [{ home_team, away_team, kickoff_at }] ya filtrados y ordenados. */
+   Cero predicciones y cero marcadores — esto circula por WhatsApp antes de que
+   se juegue nada, así que incluirlos filtraría justo lo que la app protege
+   con RLS.
+
+   partidos: [{ home_team, away_team, kickoff_at, home_flag_url, away_flag_url,
+   venue }] ya filtrados y ordenados. */
 export async function renderPartidosDeHoyCard({ nombreQuiniela, partidos = [], horaDe }) {
   await esperarFuentes()
 
-  const ALTO_ITEM = 78
+  /* Todas las imágenes en paralelo y con plazo: en serie, tres partidos con el
+     CDN lento sumarían doce segundos antes de ver nada. */
+  const recursos = await Promise.all(partidos.map(async (p) => ({
+    local: await cargarImagen(p.home_flag_url),
+    visita: await cargarImagen(p.away_flag_url),
+    estadio: await cargarImagen(fotoDeEstadio(p.venue)),
+  })))
+
+  const ALTO_ITEM = 96
   const alto = ALTO_CABECERA + 30 + partidos.length * ALTO_ITEM + 96
   const escala = 2
   const canvas = document.createElement('canvas')
@@ -243,33 +299,87 @@ export async function renderPartidosDeHoyCard({ nombreQuiniela, partidos = [], h
     ctx.fillText('Hoy no se juega nada', MARGEN, y + 44)
   }
 
-  for (const p of partidos) {
-    rect(ctx, MARGEN, y, ANCHO - MARGEN * 2, ALTO_ITEM - 12, 16, '#161616')
+  const ALTO_FILA = ALTO_ITEM - 12
+  const ANCHO_FILA = ANCHO - MARGEN * 2
+  const LADO_ESCUDO = 38
+
+  partidos.forEach((p, i) => {
+    const { local, visita, estadio } = recursos[i]
+
+    // Fondo de la fila, recortado a las esquinas redondeadas.
+    ctx.save()
+    ctx.beginPath()
+    ctx.roundRect(MARGEN, y, ANCHO_FILA, ALTO_FILA, 16)
+    ctx.clip()
+    ctx.fillStyle = '#161616'
+    ctx.fillRect(MARGEN, y, ANCHO_FILA, ALTO_FILA)
+    if (estadio) {
+      dibujarCubriendo(ctx, estadio, MARGEN, y, ANCHO_FILA, ALTO_FILA)
+      /* Velo oscuro EN DEGRADADO, no plano. Un velo parejo obliga a elegir
+         entre que se lea el texto o que se vea la foto: al 78% las fotos
+         diurnas o con reflectores dejaban el nombre de los equipos en blanco
+         sobre verde claro, casi ilegible — comprobado dibujando la tarjeta.
+         Así va bien oscuro sobre la mitad izquierda, que es donde vive el
+         texto, y se abre hacia la derecha, donde la foto se ve sin estorbar.
+         Importa de verdad: WhatsApp comprime la imagen y mucha gente la ve
+         primero como miniatura. */
+      const velo = ctx.createLinearGradient(MARGEN, 0, MARGEN + ANCHO_FILA, 0)
+      velo.addColorStop(0, 'rgba(12,12,12,.93)')
+      velo.addColorStop(0.62, 'rgba(12,12,12,.86)')
+      velo.addColorStop(1, 'rgba(12,12,12,.60)')
+      ctx.fillStyle = velo
+      ctx.fillRect(MARGEN, y, ANCHO_FILA, ALTO_FILA)
+    }
+    ctx.restore()
+
     ctx.strokeStyle = BORDE
     ctx.lineWidth = 1
     ctx.beginPath()
-    ctx.roundRect(MARGEN, y, ANCHO - MARGEN * 2, ALTO_ITEM - 12, 16)
+    ctx.roundRect(MARGEN, y, ANCHO_FILA, ALTO_FILA, 16)
     ctx.stroke()
+
+    const medio = y + ALTO_FILA / 2
 
     // La hora, en su propia pastilla para que se lea de un vistazo.
     const hora = horaDe ? horaDe(p.kickoff_at) : ''
     ctx.font = "bold 24px 'JetBrains Mono', monospace"
     const anchoHora = ctx.measureText(hora).width
-    rect(ctx, MARGEN + 20, y + 14, anchoHora + 28, 38, 12, 'rgba(46,211,183,.14)')
+    rect(ctx, MARGEN + 20, medio - 19, anchoHora + 28, 38, 12, 'rgba(46,211,183,.14)')
     ctx.fillStyle = TEAL
-    ctx.fillText(hora, MARGEN + 34, y + 40)
+    ctx.fillText(hora, MARGEN + 34, medio + 8)
 
-    const xEquipos = MARGEN + 20 + anchoHora + 28 + 24
-    const maxEquipos = ANCHO - MARGEN - xEquipos - 20
-    ctx.fillStyle = TEXTO
-    ctx.font = "600 30px 'Archivo', system-ui, sans-serif"
-    ctx.fillText(
-      recortar(ctx, `${p.home_team || '?'}  vs  ${p.away_team || '?'}`, maxEquipos),
-      xEquipos, y + 41,
-    )
+    // Equipos: [escudo] Local  vs  [escudo] Visita
+    let x = MARGEN + 20 + anchoHora + 28 + 24
+    const finEquipos = ANCHO - MARGEN - 20
+
+    ctx.font = "600 28px 'Archivo', system-ui, sans-serif"
+    const anchoVs = ctx.measureText('vs').width
+    /* El espacio sobrante se reparte entre los dos nombres. Los escudos ocupan
+       lugar aunque falten, para que las filas queden alineadas entre sí
+       tenga foto o no. */
+    const fijo = (LADO_ESCUDO + 10) * 2 + anchoVs + 36
+    const porNombre = Math.max(60, (finEquipos - x - fijo) / 2)
+
+    const equipo = (nombre, escudo) => {
+      if (escudo) dibujarEscudo(ctx, escudo, x, medio - LADO_ESCUDO / 2, LADO_ESCUDO)
+      x += LADO_ESCUDO + 10
+      ctx.fillStyle = TEXTO
+      ctx.font = "600 28px 'Archivo', system-ui, sans-serif"
+      const texto = recortar(ctx, nombre || '?', porNombre)
+      ctx.fillText(texto, x, medio + 9)
+      x += ctx.measureText(texto).width
+    }
+
+    equipo(p.home_team, local)
+    x += 18
+    ctx.fillStyle = MUTED
+    ctx.font = "600 28px 'Archivo', system-ui, sans-serif"
+    ctx.fillText('vs', x, medio + 9)
+    x += anchoVs + 18
+    equipo(p.away_team, visita)
 
     y += ALTO_ITEM
-  }
+  })
 
   // Pie
   ctx.fillStyle = MUTED
@@ -286,16 +396,27 @@ export async function renderPartidosDeHoyCard({ nombreQuiniela, partidos = [], h
   })
 }
 
-export async function compartirImagen(blob, nombreArchivo, titulo) {
+export async function compartirImagen(blob, nombreArchivo, titulo, texto) {
   const file = new File([blob], nombreArchivo, { type: 'image/png' })
 
-  if (navigator.canShare?.({ files: [file] })) {
+  /* Se intenta primero con texto de acompañante: WhatsApp lo pone de pie de
+     foto, y ahí viaja el enlace a la app — que una imagen sola no puede
+     llevar, porque nadie va a teclear una URL que ve en una foto.
+     No todos los navegadores aceptan archivo + texto en la misma llamada, así
+     que si rechazan esa forma se manda solo la imagen antes de rendirse. */
+  const intentos = texto
+    ? [{ files: [file], title: titulo, text: texto }, { files: [file], title: titulo }]
+    : [{ files: [file], title: titulo }]
+
+  for (const carga of intentos) {
+    if (!navigator.canShare?.(carga)) continue
     try {
-      await navigator.share({ files: [file], title: titulo })
+      await navigator.share(carga)
       return 'compartido'
     } catch (err) {
       // El usuario canceló la hoja de compartir: no es un error que mostrar.
       if (err?.name === 'AbortError') return 'cancelado'
+      // Otro fallo: probar la forma siguiente y, si no queda, descargar.
     }
   }
 
