@@ -93,21 +93,30 @@ const CHAMPIONS_CON_FOTO = {
   'Spotify Camp Nou': '/estadios/camp-nou.jpg',
   'Viking Stadion': '/estadios/viking-stadion.jpg',
   'Villa Park': '/estadios/villa-park.jpg',
+  'Anfield': '/estadios/anfield.jpg',
+  'Emirates Stadium': '/estadios/emirates.jpg',
+  'Parc des Princes': '/estadios/parc-des-princes.jpg',
+  'Stamford Bridge': '/estadios/stamford-bridge.jpg',
+  'Stade Bollaert-Delelis': '/estadios/bollaert.jpg',
+  'Stadio Diego Armando Maradona': '/estadios/maradona.jpg',
+  'MHPArena': '/estadios/mhparena.jpg',
+  'Ulker Stadyumu': '/estadios/ulker.jpg',
+  'Estádio José Alvalade': '/estadios/alvalade.jpg',
+  'Bank Respublika Stadium': '/estadios/bank-respublika.jpg',
 }
-
-const CHAMPIONS_SIN_FOTO = [
-  'Anfield', 'Emirates Stadium', 'Parc des Princes', 'Stamford Bridge',
-  'Stade Bollaert-Delelis', 'Stadio Diego Armando Maradona', 'MHPArena',
-  'Ulker Stadyumu', 'Estádio José Alvalade', 'Bank Respublika Stadium',
-]
 
 describe('sedes de la Champions', () => {
   for (const [venue, esperado] of Object.entries(CHAMPIONS_CON_FOTO)) {
     it(`encuentra ${venue}`, () => expect(fotoDeEstadio(venue)).toBe(esperado))
   }
 
-  it('las que no tienen foto devuelven null, sin colarse por otra clave', () => {
-    for (const v of CHAMPIONS_SIN_FOTO) expect(fotoDeEstadio(v), v).toBeNull()
+  it('cubre las 36 sedes de la fase de liga', () => {
+    expect(Object.keys(CHAMPIONS_CON_FOTO)).toHaveLength(36)
+  })
+
+  it('un estadio que no es sede sigue dando null', () => {
+    expect(fotoDeEstadio('Wembley Stadium')).toBeNull()
+    expect(fotoDeEstadio('Estadio Azteca')).toBeNull()
   })
 
   it('ninguna sede europea pisa a una tica', () => {

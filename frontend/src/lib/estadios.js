@@ -82,6 +82,16 @@ const ESTADIOS = [
   { claves: ['camp nou'],          foto: '/estadios/camp-nou.jpg' },          // Barcelona
   { claves: ['viking stadion'],    foto: '/estadios/viking-stadion.jpg' },    // Viking
   { claves: ['villa park'],        foto: '/estadios/villa-park.jpg' },        // Aston Villa
+  { claves: ['anfield'],           foto: '/estadios/anfield.jpg' },           // Liverpool
+  { claves: ['emirates'],          foto: '/estadios/emirates.jpg' },          // Arsenal
+  { claves: ['parc des princes'],  foto: '/estadios/parc-des-princes.jpg' },  // PSG
+  { claves: ['stamford bridge'],   foto: '/estadios/stamford-bridge.jpg' },   // Shakhtar (de local en Londres)
+  { claves: ['bollaert'],          foto: '/estadios/bollaert.jpg' },          // Lens
+  { claves: ['maradona'],          foto: '/estadios/maradona.jpg' },          // Napoli
+  { claves: ['mhparena', 'mhp'],   foto: '/estadios/mhparena.jpg' },          // Stuttgart
+  { claves: ['ulker'],             foto: '/estadios/ulker.jpg' },             // Fenerbahçe
+  { claves: ['alvalade'],          foto: '/estadios/alvalade.jpg' },          // Sporting CP
+  { claves: ['respublika'],        foto: '/estadios/bank-respublika.jpg' },   // Sabah FK
 ]
 
 /* Normaliza para poder comparar: quita tildes, baja a minúsculas, cambia la
