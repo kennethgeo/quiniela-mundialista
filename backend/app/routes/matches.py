@@ -261,6 +261,85 @@ async def notify_daily(authorization: Optional[str] = Header(default=None)):
     }
 
 
+@router.post("/notify-kickoff")
+async def notify_kickoff(authorization: Optional[str] = Header(default=None)):
+    """Recordatorio 45 minutos antes del saque, SOLO a quien le falta predecir.
+
+    El resumen de las 6am ya dice cuántas te faltan, pero es una vez al día: si
+    el partido es a las 8pm y lo viste temprano, nada te vuelve a tocar.
+
+    OJO CON EL CRON: el ancho de la ventana tiene que coincidir con el
+    intervalo del disparador (15 min). Si el cron se hace más lento o más
+    rápido sin tocar ANCHO_VENTANA_MIN, la gente recibe el aviso dos veces o no
+    lo recibe. Está probado en test_recordatorio_saque.py.
+    """
+    expected = settings.CRON_SECRET
+    if not expected:
+        raise HTTPException(status_code=503, detail="CRON_SECRET no configurado")
+    if authorization != f"Bearer {expected}":
+        raise HTTPException(status_code=401, detail="No autorizado")
+
+    from datetime import datetime, timezone
+    from app.services.notifications import enviar_push_personalizado
+    from app.services.resumen_diario import armar_recordatorios, ventana_recordatorio
+
+    supabase = get_supabase()
+    desde, hasta = ventana_recordatorio(datetime.now(timezone.utc))
+
+    partidos = (
+        supabase.table("matches")
+        .select("id, tournament_id, home_team, away_team, kickoff_at, status")
+        .gte("kickoff_at", desde.isoformat())
+        .lt("kickoff_at", hasta.isoformat())
+        .execute()
+        .data
+        or []
+    )
+    partidos = [p for p in partidos if p.get("status") not in ("cancelled", "postponed")]
+    if not partidos:
+        return {"status": "ok", "partidos": 0}
+
+    torneos = sorted({p["tournament_id"] for p in partidos})
+    # Mismo corte que el resumen diario: una quiniela de un torneo terminado no
+    # debe avisar nada (la liga tica reusa el mismo tournament_id temporada
+    # tras temporada).
+    activos = (
+        supabase.table("tournaments").select("id")
+        .in_("id", torneos).neq("status", "finished").execute().data or []
+    )
+    ids_activos = {t["id"] for t in activos}
+    partidos = [p for p in partidos if p["tournament_id"] in ids_activos]
+    if not partidos:
+        return {"status": "ok", "partidos": 0}
+
+    ligas = (
+        supabase.table("leagues").select("id, tournament_id")
+        .in_("tournament_id", sorted(ids_activos)).execute().data or []
+    )
+    if not ligas:
+        return {"status": "ok", "partidos": len(partidos), "personas": 0}
+
+    torneo_de_liga = {l["id"]: l["tournament_id"] for l in ligas}
+    filas = (
+        supabase.table("league_members").select("league_id, user_id")
+        .in_("league_id", list(torneo_de_liga)).limit(20000).execute().data or []
+    )
+    membresias = [
+        {**f, "tournament_id": torneo_de_liga[f["league_id"]]}
+        for f in filas if f["league_id"] in torneo_de_liga
+    ]
+
+    predicciones = (
+        supabase.table("predictions").select("user_id, league_id, match_id")
+        .in_("match_id", [p["id"] for p in partidos]).limit(20000).execute().data or []
+    )
+
+    mensajes = armar_recordatorios(partidos, membresias, predicciones)
+    resultado = await enviar_push_personalizado(supabase, mensajes)
+
+    return {"status": "ok", "partidos": len(partidos), "personas": len(mensajes), **resultado}
+
+
 @router.post("/notify-daily-league")
 async def notify_daily_league(
     league_id: str = Body(..., embed=True),
