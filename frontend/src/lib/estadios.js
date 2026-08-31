@@ -50,6 +50,38 @@ const ESTADIOS = [
   // El Nacional no es sede de nadie, pero se usa cuando a un club le sancionan
   // el estadio. Se deja puesto a propósito para ese caso.
   { claves: ['nacional'],          foto: '/estadios/nacional.jpg' },
+
+  // ── Champions ──────────────────────────────────────────────────────────
+  // Mismas reglas: las claves salen de `venue.fullName` tal cual lo manda
+  // ESPN en los 144 partidos de la fase de liga, no de cómo se llama el
+  // estadio "de verdad". Por eso 'metropolitano' y no 'riyadh air', y
+  // 'camp nou' aunque ESPN escriba "Spotify Camp Nou".
+  { claves: ['allianz arena'],     foto: '/estadios/allianz-arena.jpg' },     // Bayern
+  { claves: ['aspmyra'],           foto: '/estadios/aspmyra.jpg' },           // Bodø/Glimt
+  { claves: ['de kuip'],           foto: '/estadios/de-kuip.jpg' },           // Feyenoord
+  { claves: ['pierre mauroy'],     foto: '/estadios/pierre-mauroy.jpg' },     // Lille
+  { claves: ['cartuja'],           foto: '/estadios/cartuja.jpg' },           // Betis
+  { claves: ['ceramica'],          foto: '/estadios/ceramica.jpg' },          // Villarreal
+  { claves: ['dragao'],            foto: '/estadios/dragao.jpg' },            // Porto
+  { claves: ['etihad'],            foto: '/estadios/etihad.jpg' },            // Man City
+  { claves: ['fortuna arena'],     foto: '/estadios/fortuna-arena.jpg' },     // Slavia
+  { claves: ['sinigaglia'],        foto: '/estadios/sinigaglia.jpg' },        // Como
+  { claves: ['jan breydel'],       foto: '/estadios/jan-breydel.jpg' },       // Brujas
+  { claves: ['futbalovy'],         foto: '/estadios/tehelne-pole.jpg' },      // Slovan
+  { claves: ['opap'],              foto: '/estadios/opap-arena.jpg' },        // AEK
+  { claves: ['old trafford'],      foto: '/estadios/old-trafford.jpg' },      // Man United
+  { claves: ['olimpico'],          foto: '/estadios/olimpico-roma.jpg' },     // Roma
+  { claves: ['philips'],           foto: '/estadios/philips.jpg' },           // PSV
+  { claves: ['rams park'],         foto: '/estadios/rams-park.jpg' },         // Galatasaray
+  { claves: ['raiffeisen'],        foto: '/estadios/raiffeisen-linz.jpg' },   // LASK
+  { claves: ['red bull arena'],    foto: '/estadios/red-bull-leipzig.jpg' },  // Leipzig
+  { claves: ['metropolitano'],     foto: '/estadios/metropolitano.jpg' },     // Atlético
+  { claves: ['san siro'],          foto: '/estadios/san-siro.jpg' },          // Inter
+  { claves: ['bernabeu'],          foto: '/estadios/bernabeu.jpg' },          // Real Madrid
+  { claves: ['signal iduna'],      foto: '/estadios/signal-iduna.jpg' },      // Dortmund
+  { claves: ['camp nou'],          foto: '/estadios/camp-nou.jpg' },          // Barcelona
+  { claves: ['viking stadion'],    foto: '/estadios/viking-stadion.jpg' },    // Viking
+  { claves: ['villa park'],        foto: '/estadios/villa-park.jpg' },        // Aston Villa
 ]
 
 /* Normaliza para poder comparar: quita tildes, baja a minúsculas, cambia la

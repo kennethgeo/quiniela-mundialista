@@ -37,6 +37,63 @@ exigen dar crédito al autor: sin esta lista estaríamos incumpliéndolas.
 El Nacional no es sede de nadie, pero se usa cuando a un club le sancionan el
 estadio. Se deja puesto para ese caso.
 
+## Champions League
+
+Las 36 sedes de la fase de liga. **26 tienen foto**; las otras 10 usan el fondo
+sólido, que es lo normal cuando falta una.
+
+### Dominio público / CC0 — sin obligaciones
+
+| Archivo | Local | Autor | Licencia |
+|---|---|---|---|
+| `dragao.jpg` | FC Porto | JonnyJonny | Public domain |
+| `fortuna-arena.jpg` | Slavia Praga | Tomas62 | CC0 |
+| `metropolitano.jpg` | Atlético de Madrid | Zarateman | CC0 |
+| `old-trafford.jpg` | Manchester United | Ank Kumar | CC0 |
+| `olimpico-roma.jpg` | AS Roma | ? | Public domain |
+| `philips.jpg` | PSV | Dmitriy Zhukov | Public domain |
+| `rams-park.jpg` | Galatasaray | Qwl | Public domain |
+| `signal-iduna.jpg` | Borussia Dortmund | Marvin Ronsdorf marvin_ronsdor | CC0 |
+| `sinigaglia.jpg` | Como | Fra Casa | CC0 |
+| `villa-park.jpg` | Aston Villa | en:User:Miniluver04 | Public domain |
+
+### CC BY — crédito, sin *share-alike*
+
+| Archivo | Local | Autor | Licencia |
+|---|---|---|---|
+| `bernabeu.jpg` | Real Madrid | Hector Blanco de Frutos | CC BY 2.5 |
+| `camp-nou.jpg` | Barcelona | Markus Unger from Vienna, Aust | CC BY 2.0 |
+| `cartuja.jpg` | Real Betis | Валерий Дед | CC BY 3.0 |
+| `ceramica.jpg` | Villarreal | Emilio Leiras | CC BY 2.0 |
+| `jan-breydel.jpg` | Club Brujas | Валерий Дед | CC BY 3.0 |
+| `red-bull-leipzig.jpg` | RB Leipzig | Joeb07 | CC BY 3.0 |
+| `tehelne-pole.jpg` | Slovan Bratislava | Mister No | CC BY 3.0 |
+| `viking-stadion.jpg` | Viking FK | Pål Berge from Bryne, Norway | CC BY 2.0 |
+
+### CC BY-SA — crédito y *share-alike*
+
+| Archivo | Local | Autor | Licencia |
+|---|---|---|---|
+| `allianz-arena.jpg` | Bayern München | Diego Delso | CC BY-SA 3.0 |
+| `aspmyra.jpg` | Bodø/Glimt | Røed | CC BY-SA 2.5 |
+| `de-kuip.jpg` | Feyenoord | Vincenzo.togni | CC BY-SA 4.0 |
+| `etihad.jpg` | Manchester City | Ank kumar | CC BY-SA 4.0 |
+| `opap-arena.jpg` | AEK Atenas | Demian vi | CC BY-SA 4.0 |
+| `pierre-mauroy.jpg` | Lille | Liondartois | CC BY-SA 4.0 |
+| `raiffeisen-linz.jpg` | LASK | Matti Blume | CC BY-SA 4.0 |
+| `san-siro.jpg` | Inter | Ank Kumar | CC BY-SA 4.0 |
+
+### Sin foto
+
+`Anfield`, `Emirates Stadium`, `Parc des Princes`, `Stamford Bridge`,
+`Stade Bollaert-Delelis`, `Stadio Diego Armando Maradona`, `MHPArena`,
+`Ülker Stadyumu`, `Estádio José Alvalade` y `Bank Respublika Stadium`.
+
+No es que no existan fotos: es que las que hay en Commons con licencia libre
+son de la calle de al lado, la boletería o una placa en la pared. Se probó
+tres veces filtrando por el título del archivo y las tres falló — hay que
+abrir la imagen para saberlo.
+
 ## Nota sobre CC BY-SA
 
 La cláusula *share-alike* pide que una obra derivada se publique con la misma

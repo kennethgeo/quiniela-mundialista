@@ -61,3 +61,58 @@ describe('normalizarEstadio', () => {
     expect(normalizarEstadio('')).toBe('')
   })
 })
+
+/* Las 36 sedes de la fase de liga de la Champions, con los nombres LITERALES
+   que devuelve ESPN. Se comprueban las que tienen foto y también las que no:
+   una sede sin foto tiene que dar null, no colarse por una clave demasiado
+   suelta de otro estadio. */
+const CHAMPIONS_CON_FOTO = {
+  'Allianz Arena': '/estadios/allianz-arena.jpg',
+  'Aspmyra Stadion': '/estadios/aspmyra.jpg',
+  'De Kuip': '/estadios/de-kuip.jpg',
+  'Decathlon Arena - Stade Pierre-Mauroy': '/estadios/pierre-mauroy.jpg',
+  'Estadio La Cartuja': '/estadios/cartuja.jpg',
+  'Estadio de la Cerámica': '/estadios/ceramica.jpg',
+  'Estádio do Dragão': '/estadios/dragao.jpg',
+  'Etihad Stadium': '/estadios/etihad.jpg',
+  'Fortuna Arena': '/estadios/fortuna-arena.jpg',
+  'Giuseppe Sinigaglia': '/estadios/sinigaglia.jpg',
+  'Jan Breydel Stadium': '/estadios/jan-breydel.jpg',
+  'Národny Futbalovy Stadión': '/estadios/tehelne-pole.jpg',
+  'OPAP Arena': '/estadios/opap-arena.jpg',
+  'Old Trafford': '/estadios/old-trafford.jpg',
+  'Olimpico': '/estadios/olimpico-roma.jpg',
+  'Philips Stadion': '/estadios/philips.jpg',
+  'RAMS Park': '/estadios/rams-park.jpg',
+  'Raiffeisen Arena (Linz)': '/estadios/raiffeisen-linz.jpg',
+  'Red Bull Arena': '/estadios/red-bull-leipzig.jpg',
+  'Riyadh Air Metropolitano': '/estadios/metropolitano.jpg',
+  'San Siro': '/estadios/san-siro.jpg',
+  'Santiago Bernabéu': '/estadios/bernabeu.jpg',
+  'Signal Iduna Park': '/estadios/signal-iduna.jpg',
+  'Spotify Camp Nou': '/estadios/camp-nou.jpg',
+  'Viking Stadion': '/estadios/viking-stadion.jpg',
+  'Villa Park': '/estadios/villa-park.jpg',
+}
+
+const CHAMPIONS_SIN_FOTO = [
+  'Anfield', 'Emirates Stadium', 'Parc des Princes', 'Stamford Bridge',
+  'Stade Bollaert-Delelis', 'Stadio Diego Armando Maradona', 'MHPArena',
+  'Ulker Stadyumu', 'Estádio José Alvalade', 'Bank Respublika Stadium',
+]
+
+describe('sedes de la Champions', () => {
+  for (const [venue, esperado] of Object.entries(CHAMPIONS_CON_FOTO)) {
+    it(`encuentra ${venue}`, () => expect(fotoDeEstadio(venue)).toBe(esperado))
+  }
+
+  it('las que no tienen foto devuelven null, sin colarse por otra clave', () => {
+    for (const v of CHAMPIONS_SIN_FOTO) expect(fotoDeEstadio(v), v).toBeNull()
+  })
+
+  it('ninguna sede europea pisa a una tica', () => {
+    // 'nacional' es una clave muy suelta y el Národny eslovaco se le parece.
+    expect(fotoDeEstadio('Národny Futbalovy Stadión')).toBe('/estadios/tehelne-pole.jpg')
+    expect(fotoDeEstadio('Estadio Nacional de Costa Rica')).toBe('/estadios/nacional.jpg')
+  })
+})
