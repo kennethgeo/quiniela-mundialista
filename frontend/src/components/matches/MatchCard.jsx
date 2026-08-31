@@ -7,6 +7,8 @@ import { useNavigate } from 'react-router-dom'
 import GoalCounter from './GoalCounter'
 import NeonElectricBorder from '../ui/NeonElectricBorder'
 import { crestOnError } from '../../lib/teamLogo'
+import { fotoDeEstadio } from '../../lib/estadios'
+import GolAnimado from './GolAnimado'
 
 const flagSrc = (url, code) => url || `https://flagcdn.com/w80/${(code || 'xx').toLowerCase()}.png`
 
@@ -48,6 +50,7 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
   const isLocked = minutesUntil <= 15
   const isFinished = match.status === 'finished'
   const isInProgress = match.status === 'in_progress'
+  const fotoEstadio = fotoDeEstadio(match.venue)
   const isCancelled = ['cancelled', 'canceled', 'postponed', 'suspended'].includes(match.status)
   // El partido ya arrancó (pasó el saque) pero la BD aún lo tiene 'pending' porque
   // el sync todavía no lo actualizó. Evita el "Cierra en En curso" / "Cierra pronto".
@@ -123,10 +126,22 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
       className={`relative rounded-[14px] bg-white dark:bg-[#161616] border border-slate-200 dark:border-[#262626] px-3.5 pt-3.5 pb-3 ${powerupOn ? '' : 'overflow-hidden'}`}
     >
       {powerupOn && <NeonElectricBorder radius={14} />}
-      {isInProgress && <div className="absolute top-0 left-0 right-0 h-0.5" style={{ background: 'linear-gradient(90deg,#FF4D6D,transparent)' }} />}
+
+      {/* La foto del estadio, muy tenue. Acá va MUCHO más apagada que en
+          Detalles del Partido: son tarjetas chicas y en una lista de diez, un
+          fondo con presencia las vuelve ruido y tapa lo único que importa, que
+          es el marcador. Es textura, no protagonismo. Sin foto no se pinta. */}
+      {fotoEstadio && (
+        <div className="absolute inset-0 rounded-[14px] overflow-hidden pointer-events-none" aria-hidden="true">
+          <img src={fotoEstadio} alt="" loading="lazy" className="w-full h-full object-cover opacity-[0.13]" />
+          <div className="absolute inset-0 bg-white/70 dark:bg-[#161616]/80" />
+        </div>
+      )}
+
+      {isInProgress && <div className="absolute top-0 left-0 right-0 h-0.5 z-10" style={{ background: 'linear-gradient(90deg,#FF4D6D,transparent)' }} />}
 
       {/* Cabecera: estado / contexto + badge */}
-      <div className="flex items-center justify-between gap-2 mb-3">
+      <div className="relative flex items-center justify-between gap-2 mb-3">
         {isInProgress ? (
           <span className="flex items-center gap-1.5">
             <span className="w-1.5 h-1.5 rounded-full bg-[#FF4D6D] animate-pulse" />
@@ -170,9 +185,11 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
         <div className="shrink-0 flex items-center justify-center">
           {isFinished || isInProgress ? (
             <div className="flex items-center gap-1.5">
-              <div className={`w-8 h-9 rounded-lg grid place-items-center font-['JetBrains_Mono'] font-bold text-[17px] tabular-nums bg-slate-100 dark:bg-[#0C0C0C] border border-slate-200 dark:border-[#262626] ${isInProgress ? 'text-[#FF4D6D]' : 'text-slate-900 dark:text-[#F3F1EA]'}`}>{match.home_goals_actual ?? 0}</div>
+              <GolAnimado valor={match.home_goals_actual ?? 0} enVivo={isInProgress}
+                className={`w-8 h-9 rounded-lg grid place-items-center font-['JetBrains_Mono'] font-bold text-[17px] tabular-nums bg-slate-100 dark:bg-[#0C0C0C] border border-slate-200 dark:border-[#262626] ${isInProgress ? 'text-[#FF4D6D]' : 'text-slate-900 dark:text-[#F3F1EA]'}`} />
               <span className="text-[var(--text-muted,#8A8A8A)] font-bold">-</span>
-              <div className={`w-8 h-9 rounded-lg grid place-items-center font-['JetBrains_Mono'] font-bold text-[17px] tabular-nums bg-slate-100 dark:bg-[#0C0C0C] border border-slate-200 dark:border-[#262626] ${isInProgress ? 'text-[#FF4D6D]' : 'text-slate-900 dark:text-[#F3F1EA]'}`}>{match.away_goals_actual ?? 0}</div>
+              <GolAnimado valor={match.away_goals_actual ?? 0} enVivo={isInProgress}
+                className={`w-8 h-9 rounded-lg grid place-items-center font-['JetBrains_Mono'] font-bold text-[17px] tabular-nums bg-slate-100 dark:bg-[#0C0C0C] border border-slate-200 dark:border-[#262626] ${isInProgress ? 'text-[#FF4D6D]' : 'text-slate-900 dark:text-[#F3F1EA]'}`} />
             </div>
           ) : (isLocked || isCancelled) ? (
             <span className="font-['JetBrains_Mono'] font-bold text-[13px] text-[var(--text-muted,#8A8A8A)]">vs</span>
