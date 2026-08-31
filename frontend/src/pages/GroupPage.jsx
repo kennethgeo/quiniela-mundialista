@@ -337,7 +337,7 @@ export default function GroupPage() {
       )}
       {tab === 'admin' && puedeAdministrar && (
         <PanelAdminQuiniela leagueId={group.id} nombreQuiniela={group.name}
-          matches={resolved} soyAdminGlobal={!!profile?.is_admin} />
+          tournamentId={tid} matches={resolved} soyAdminGlobal={!!profile?.is_admin} />
       )}
 
       {tab === 'rules' && (

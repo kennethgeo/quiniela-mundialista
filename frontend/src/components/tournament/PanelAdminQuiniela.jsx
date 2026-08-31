@@ -17,8 +17,9 @@ import { Megaphone, ImageDown, Loader2, Check, AlertTriangle, ShieldCheck } from
 import { supabase } from '../../lib/supabase'
 import { partidosDeHoy, horaCostaRica, textoParaWhatsApp } from '../../lib/partidosDelDia'
 import { renderPartidosDeHoyCard, compartirImagen } from '../../lib/shareCard'
+import AfichesPromo from './AfichesPromo'
 
-export default function PanelAdminQuiniela({ leagueId, nombreQuiniela, matches = [], soyAdminGlobal }) {
+export default function PanelAdminQuiniela({ leagueId, nombreQuiniela, tournamentId, matches = [], soyAdminGlobal }) {
   const hoy = useMemo(() => partidosDeHoy(matches), [matches])
   const [avisando, setAvisando] = useState(false)
   const [resultado, setResultado] = useState(null)
@@ -126,6 +127,8 @@ export default function PanelAdminQuiniela({ leagueId, nombreQuiniela, matches =
           {generando ? 'Generando…' : 'Compartir la imagen del día'}
         </motion.button>
       </div>
+
+      <AfichesPromo tournamentId={tournamentId} />
 
       {/* El push ya sale solo a las 6am: esto es para reforzarlo, no para
           reemplazarlo. Decirlo evita que alguien lo mande tres veces. */}
