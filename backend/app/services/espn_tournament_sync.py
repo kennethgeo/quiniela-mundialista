@@ -35,6 +35,22 @@ _STAGE_KEYS = [
 ]
 
 
+# Fases que NO son eliminatoria: se juegan como una liga, con jornadas y sin
+# penales. Acá cae la FASE DE LIGA de la Champions — ESPN manda
+# season.slug = 'league-phase' en sus 100 partidos — y cualquier fase de grupos.
+#
+# Distinguirlas importa por tres cosas: sin esto quedan con matchday NULL (o
+# sea, sin jornada, y el cupo de comodines ×2 es por fase+jornada, así que
+# darían UN comodín para toda la fase), y además live_sync marca como
+# "definido por penales" cualquier empate cuyo phase != 'groups'.
+_FASES_REGULARES = {"Fase de grupos", "Fase de liga"}
+
+
+def _es_eliminatoria(stage_base):
+    """True solo para fases a partido único/eliminación (octavos, semis, final…)."""
+    return bool(stage_base) and stage_base not in _FASES_REGULARES
+
+
 def _stage_from_event(ev):
     """(stage_base, leg). stage_base es la fase (o None si es liga regular)."""
     slug = ((ev.get("season") or {}).get("slug") or "").lower()
@@ -133,7 +149,7 @@ def _assign_stages(parsed, history=None):
         except Exception:  # noqa: BLE001
             return None
 
-    new_regular = [p for p in parsed if not p["stage_base"]]
+    new_regular = [p for p in parsed if not _es_eliminatoria(p["stage_base"])]
     new_ids = {p["external_id"] for p in new_regular}
     hist_entries = [
         {"external_id": h["external_id"], "kickoff_at": h["kickoff_at"]}
@@ -164,10 +180,13 @@ def _assign_stages(parsed, history=None):
         md_by_id[e["external_id"]] = md
 
     for p in parsed:
-        if p["stage_base"]:
+        if _es_eliminatoria(p["stage_base"]):
             p["stage"] = " · ".join(x for x in (p["stage_base"], p["leg"]) if x)
             p["matchday"] = None
         else:
+            # Fase regular, de grupos o de liga: lleva jornada. La numeración
+            # sale del hueco entre fechas, que en la fase de liga de la
+            # Champions es de semanas entre jornadas y de un día dentro de una.
             p["matchday"] = md_by_id.get(p["external_id"])
             p["stage"] = f"Jornada {p['matchday']}"
     return parsed
@@ -319,7 +338,7 @@ async def sync_espn_tournament(supabase, tournament, full=False) -> dict:
         # La postemporada de una liga (semis/final/liguilla) puntúa como
         # ELIMINATORIA (reglas de penales), igual que la fase final de una copa.
         # La fase regular queda como 'groups' (marcador exacto / resultado).
-        "phase": "knockout" if p.get("stage_base") else "groups",
+        "phase": "knockout" if _es_eliminatoria(p.get("stage_base")) else "groups",
         "stage": p.get("stage"),
         "events_json": p["events"],
     } for p in parsed if p["external_id"] not in frozen_ids]
