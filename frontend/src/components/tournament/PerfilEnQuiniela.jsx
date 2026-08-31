@@ -8,15 +8,31 @@
    Todo sale de perfil_en_quiniela() (migración 63), que a su vez reusa
    league_table (el desempate oficial) y league_jornadas (las rachas). No se
    recalcula nada en el navegador. */
+import { useState } from 'react'
 import { motion } from 'motion/react'
 import { useQuery } from '@tanstack/react-query'
-import { X, Zap, Flame, Swords, Loader2, Trophy, AlertTriangle } from 'lucide-react'
+import { X, Zap, Flame, Swords, Loader2, Trophy, AlertTriangle, Share2 } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { MedalStrip } from '../medals/BadgeShowcase'
+import { renderMiTemporadaCard, compartirImagen } from '../../lib/shareCard'
 
 const ORO = '#E8B75A'
 
 export default function PerfilEnQuiniela({ leagueId, userId, nombreQuiniela, onClose, onCaraACara }) {
+  const [generando, setGenerando] = useState(false)
+
+  const compartir = async (p) => {
+    if (generando) return
+    setGenerando(true)
+    try {
+      const blob = await renderMiTemporadaCard({ nombreQuiniela: nombreQuiniela || '', p })
+      await compartirImagen(blob, 'mi-temporada.png', `${p.display_name} · ${nombreQuiniela}`)
+    } catch {
+      /* Sin canvas no hay tarjeta; el perfil se sigue viendo igual. */
+    } finally {
+      setGenerando(false)
+    }
+  }
   const { data: p, isLoading, isError, error } = useQuery({
     queryKey: ['perfil_en_quiniela', leagueId, userId],
     enabled: !!leagueId && !!userId,
@@ -76,6 +92,11 @@ export default function PerfilEnQuiniela({ leagueId, userId, nombreQuiniela, onC
                     en {nombreQuiniela || 'esta quiniela'}
                   </p>
                 </div>
+                <button onClick={() => compartir(p)} disabled={generando}
+                  title="Compartir esta temporada"
+                  className="p-1 text-accent disabled:opacity-50">
+                  {generando ? <Loader2 size={16} className="animate-spin" /> : <Share2 size={16} />}
+                </button>
                 <button onClick={onClose} className="p-1 text-[var(--text-muted,#8A8A8A)]"><X size={16} /></button>
               </div>
 

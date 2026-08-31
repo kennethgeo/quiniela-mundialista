@@ -3,7 +3,7 @@ import { useState, useMemo, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'motion/react'
-import { ArrowLeft, CalendarDays, ListOrdered, Copy, Check, Trophy, GitBranch, BarChart3, Shield, ScrollText, Loader2, Pencil, Lock, Trash2, AlertTriangle, Vote, ThumbsUp, ThumbsDown, X, Home, ChevronRight, Target, Gift, MessageCircle, LayoutGrid, Zap, ShieldCheck, Eye} from 'lucide-react'
+import { ArrowLeft, CalendarDays, ListOrdered, Copy, Check, Trophy, GitBranch, BarChart3, Shield, ScrollText, Loader2, Pencil, Lock, Trash2, AlertTriangle, Vote, ThumbsUp, ThumbsDown, X, Home, ChevronRight, Target, Gift, MessageCircle, LayoutGrid, Zap, ShieldCheck, Eye, Share2} from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import { useToast } from '../components/ui/Toast'
@@ -11,6 +11,7 @@ import { friendlySaveError } from '../lib/saveError'
 import { powerupKey } from '../lib/powerups'
 import { fetchMyGroups, fetchGroupStandings, fetchTeamStandings, acceptGroupRules, setGroupRules, setGroupScoring, deleteGroup, proposeRuleChange, castRuleVote, cancelRuleProposal, fetchLeagueProposals, fetchMyPowerupCredits, setGroupExtras } from '../lib/groups'
 import { initialsDataUri, crestOnError } from '../lib/teamLogo'
+import { renderTablaCard, compartirImagen } from '../lib/shareCard'
 import { fetchLeagueMedals, recomputeLeagueBadges } from '../lib/medals'
 import { MedalStrip } from '../components/medals/BadgeShowcase'
 import { resolveKnockoutTeams } from '../lib/bracketResolver'
@@ -1244,6 +1245,7 @@ function StandingsTab({ leagueId, matches = [], nombreQuiniela = '' }) {
   // puede pasar al cara a cara.
   const [perfil, setPerfil] = useState(null)
   const [rival, setRival] = useState(null)
+  const [generando, setGenerando] = useState(false)
   const { data: rows, isLoading } = useQuery({
     queryKey: ['group_standings', leagueId],
     queryFn: () => fetchGroupStandings(leagueId),
@@ -1270,8 +1272,37 @@ function StandingsTab({ leagueId, matches = [], nombreQuiniela = '' }) {
     rows.map((r) => Number(r.points))
       .filter((p, i, arr) => arr.indexOf(p) !== i),
   )
+  // Cuántos partidos van jugados, para poner la tabla en contexto: una tabla
+  // sin fecha no dice si es de hoy o de hace tres semanas.
+  const jugados = matches.filter((m) => m.status === 'finished').length
+  const compartirTabla = async () => {
+    if (generando) return
+    setGenerando(true)
+    try {
+      const blob = await renderTablaCard({
+        nombreQuiniela: nombreQuiniela || '',
+        filas: rows,
+        subtitulo: jugados ? `${jugados} partido${jugados === 1 ? '' : 's'} jugados` : '',
+      })
+      await compartirImagen(blob, 'tabla.png', `${nombreQuiniela} · Tabla`)
+    } catch {
+      /* Sin canvas no hay tarjeta; no se rompe la pantalla por esto. */
+    } finally {
+      setGenerando(false)
+    }
+  }
+
   return (
     <div className="space-y-1.5">
+      <div className="flex justify-end pb-1">
+        <motion.button whileTap={{ scale: 0.94 }} onClick={compartirTabla} disabled={generando}
+          className="flex items-center gap-1 font-['JetBrains_Mono'] font-bold text-[9px] px-2.5 py-1.5 rounded-[20px] text-accent disabled:opacity-60"
+          style={{ background: 'rgba(46,211,183,.12)' }}
+          title="Mandar la tabla al grupo">
+          {generando ? <Loader2 size={10} className="animate-spin" /> : <Share2 size={10} />}
+          {generando ? 'ARMANDO' : 'COMPARTIR TABLA'}
+        </motion.button>
+      </div>
       {rows.map((r, i) => (
         <button key={r.user_id}
           onClick={() => setPerfil(r)}

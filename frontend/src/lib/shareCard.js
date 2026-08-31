@@ -396,6 +396,297 @@ export async function renderPartidosDeHoyCard({ nombreQuiniela, partidos = [], h
   })
 }
 
+/* Tarjeta de la TABLA de la quiniela, para mandar al grupo.
+
+   Es la que más se pantallea: en una quiniela por plata, la tabla es el
+   marcador. Por eso el top 3 va en podio —con la foto de cada quien— y el
+   resto en filas compactas: quien la abre en el chat quiere ver primero quién
+   va ganando, no leer una lista de 17.
+
+   filas: las mismas que pinta StandingsTab, tal cual salen de league_table
+   ({ pos, display_name, avatar_url, points, exactos, aciertos }). */
+export async function renderTablaCard({ nombreQuiniela, filas = [], subtitulo }) {
+  await esperarFuentes()
+
+  const podio = filas.slice(0, 3)
+  const resto = filas.slice(3)
+  /* Dónde empieza el podio. Tiene que dejar sitio para la foto del primero,
+     que sobresale por encima de su pilar: con menos, se montaba encima del
+     subtítulo. */
+  const Y_PODIO = 236
+  const ALTO_PODIO = 296
+  const ALTO_R = 56
+  const alto = Y_PODIO + ALTO_PODIO + resto.length * ALTO_R + 96
+
+  const escala = 2
+  const canvas = document.createElement('canvas')
+  canvas.width = ANCHO * escala
+  canvas.height = alto * escala
+  const ctx = canvas.getContext('2d')
+  ctx.scale(escala, escala)
+  ctx.fillStyle = FONDO
+  ctx.fillRect(0, 0, ANCHO, alto)
+
+  // Las fotos de perfil, todas a la vez y sin que ninguna sea obligatoria.
+  const caras = await Promise.all(filas.slice(0, 3).map((f) => cargarImagen(f.avatar_url)))
+
+  ctx.textBaseline = 'alphabetic'
+  ctx.textAlign = 'left'
+  ctx.fillStyle = MUTED
+  ctx.font = "bold 24px 'JetBrains Mono', monospace"
+  ctx.letterSpacing = '4px'
+  ctx.fillText((nombreQuiniela || '').toUpperCase(), MARGEN, 74)
+  ctx.letterSpacing = '0px'
+
+  ctx.fillStyle = TEXTO
+  ctx.font = "bold 56px 'Unbounded', sans-serif"
+  ctx.fillText('Tabla', MARGEN, 140)
+
+  if (subtitulo) {
+    ctx.fillStyle = MUTED
+    ctx.font = "22px 'Archivo', sans-serif"
+    ctx.fillText(subtitulo, MARGEN, 176)
+  }
+
+  // ── Podio ──
+  const COLORES = [ORO, '#C7CDD6', CORAL]
+  // Alturas distintas para que el primero se lea de un vistazo: el orden se
+  // entiende por la forma antes que por el número.
+  const ALTURAS = [150, 118, 96]
+  const ORDEN = [1, 0, 2]           // plata, oro, bronce: el oro al centro
+  const anchoP = (ANCHO - MARGEN * 2 - 24) / 3
+  const yBase = Y_PODIO + ALTO_PODIO - 44
+
+  ORDEN.forEach((idx, col) => {
+    const f = podio[idx]
+    if (!f) return
+    const x = MARGEN + col * (anchoP + 12)
+    const h = ALTURAS[idx]
+    const color = COLORES[idx]
+
+    // Foto (o inicial) sobre el pilar.
+    const lado = 76
+    const cx = x + anchoP / 2
+    const cy = yBase - h - lado / 2 - 46
+    ctx.save()
+    ctx.beginPath()
+    ctx.arc(cx, cy, lado / 2, 0, Math.PI * 2)
+    ctx.clip()
+    if (caras[idx]) {
+      dibujarCubriendo(ctx, caras[idx], cx - lado / 2, cy - lado / 2, lado, lado)
+    } else {
+      ctx.fillStyle = '#2a2a2a'
+      ctx.fillRect(cx - lado / 2, cy - lado / 2, lado, lado)
+      ctx.fillStyle = TEXTO
+      ctx.font = "bold 32px 'Archivo', sans-serif"
+      ctx.textAlign = 'center'
+      ctx.fillText((f.display_name?.[0] || '?').toUpperCase(), cx, cy + 11)
+    }
+    ctx.restore()
+    ctx.strokeStyle = color
+    ctx.lineWidth = 3
+    ctx.beginPath()
+    ctx.arc(cx, cy, lado / 2, 0, Math.PI * 2)
+    ctx.stroke()
+
+    ctx.textAlign = 'center'
+    ctx.fillStyle = TEXTO
+    ctx.font = "700 24px 'Archivo', sans-serif"
+    ctx.fillText(recortar(ctx, f.display_name || '', anchoP - 8), cx, yBase - h - 16)
+
+    rect(ctx, x, yBase - h, anchoP, h, 12, 'rgba(255,255,255,.05)')
+    ctx.fillStyle = color
+    ctx.font = "bold 44px 'JetBrains Mono', monospace"
+    ctx.fillText(String(f.points ?? 0), cx, yBase - h + 54)
+    ctx.fillStyle = MUTED
+    ctx.font = "bold 20px 'JetBrains Mono', monospace"
+    ctx.fillText(`${idx + 1}°`, cx, yBase - 18)
+  })
+
+  // ── Resto ──
+  let y = Y_PODIO + ALTO_PODIO + 8
+  resto.forEach((f, i) => {
+    if (i % 2 === 0) rect(ctx, MARGEN, y, ANCHO - MARGEN * 2, ALTO_R - 6, 10, 'rgba(255,255,255,.03)')
+    ctx.textAlign = 'left'
+    ctx.fillStyle = MUTED
+    ctx.font = "bold 22px 'JetBrains Mono', monospace"
+    ctx.fillText(String(f.pos ?? i + 4), MARGEN + 14, y + 34)
+
+    ctx.fillStyle = TEXTO
+    ctx.font = "600 25px 'Archivo', sans-serif"
+    ctx.fillText(recortar(ctx, f.display_name || '', 520), MARGEN + 70, y + 34)
+
+    // Exactos y aciertos: es el desempate oficial, y explica por qué alguien
+    // con los mismos puntos está más arriba.
+    ctx.textAlign = 'right'
+    ctx.fillStyle = MUTED
+    ctx.font = "20px 'JetBrains Mono', monospace"
+    ctx.fillText(`${f.exactos ?? 0} ex · ${f.aciertos ?? 0} ac`, ANCHO - MARGEN - 110, y + 34)
+
+    ctx.fillStyle = TEAL
+    ctx.font = "bold 28px 'JetBrains Mono', monospace"
+    ctx.fillText(String(f.points ?? 0), ANCHO - MARGEN - 16, y + 34)
+    y += ALTO_R
+  })
+
+  ctx.textAlign = 'left'
+  ctx.fillStyle = MUTED
+  ctx.font = "500 22px 'Archivo', sans-serif"
+  ctx.fillText(`${filas.length} jugador${filas.length === 1 ? '' : 'es'}`, MARGEN, alto - 40)
+
+  ctx.textAlign = 'right'
+  ctx.fillStyle = ORO
+  ctx.font = "bold 22px 'JetBrains Mono', monospace"
+  ctx.fillText('TICO GAMES', ANCHO - MARGEN, alto - 40)
+
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('No se pudo generar la imagen'))), 'image/png')
+  })
+}
+
+/* Tarjeta personal: "mi temporada" en esta quiniela.
+
+   Pensada para que cada quien la mande al grupo. Por eso muestra los números
+   de los que uno presume —puesto, exactos, jornadas ganadas, el mejor
+   partido— y no un volcado de todo lo que sabemos de la persona.
+
+   p: lo que devuelve perfil_en_quiniela(), tal cual. */
+export async function renderMiTemporadaCard({ nombreQuiniela, p }) {
+  await esperarFuentes()
+
+  const conMejor = Boolean(p?.mejor_partido)
+  const conRacha = (p?.racha_actual ?? 0) >= 2 || (p?.mejor_racha ?? 0) >= 2
+  /* El alto sale del contenido, no de un número fijo: a quien no tiene racha
+     ni mejor partido —alguien que acaba de entrar— le quedaba media tarjeta
+     en negro. */
+  const alto = 418 + (conRacha ? 86 : 0) + (conMejor ? 128 : 0) + 72
+  const escala = 2
+  const canvas = document.createElement('canvas')
+  canvas.width = ANCHO * escala
+  canvas.height = alto * escala
+  const ctx = canvas.getContext('2d')
+  ctx.scale(escala, escala)
+  ctx.fillStyle = FONDO
+  ctx.fillRect(0, 0, ANCHO, alto)
+
+  const cara = await cargarImagen(p?.avatar_url)
+
+  // ── Cabecera: foto, nombre y puesto ──
+  const lado = 120
+  const cx = MARGEN + lado / 2
+  const cy = 116
+  ctx.save()
+  ctx.beginPath()
+  ctx.arc(cx, cy, lado / 2, 0, Math.PI * 2)
+  ctx.clip()
+  if (cara) {
+    dibujarCubriendo(ctx, cara, cx - lado / 2, cy - lado / 2, lado, lado)
+  } else {
+    ctx.fillStyle = '#2a2a2a'
+    ctx.fillRect(cx - lado / 2, cy - lado / 2, lado, lado)
+    ctx.fillStyle = TEXTO
+    ctx.font = "bold 52px 'Archivo', sans-serif"
+    ctx.textAlign = 'center'
+    ctx.fillText((p?.display_name?.[0] || '?').toUpperCase(), cx, cy + 18)
+  }
+  ctx.restore()
+  ctx.strokeStyle = TEAL
+  ctx.lineWidth = 3
+  ctx.beginPath()
+  ctx.arc(cx, cy, lado / 2, 0, Math.PI * 2)
+  ctx.stroke()
+
+  const xTexto = MARGEN + lado + 28
+  ctx.textAlign = 'left'
+  ctx.textBaseline = 'alphabetic'
+  ctx.fillStyle = MUTED
+  ctx.font = "bold 20px 'JetBrains Mono', monospace"
+  ctx.letterSpacing = '3px'
+  ctx.fillText((nombreQuiniela || '').toUpperCase(), xTexto, 78)
+  ctx.letterSpacing = '0px'
+
+  ctx.fillStyle = TEXTO
+  ctx.font = "bold 46px 'Unbounded', sans-serif"
+  ctx.fillText(recortar(ctx, p?.display_name || '', ANCHO - xTexto - MARGEN), xTexto, 132)
+
+  ctx.fillStyle = MUTED
+  ctx.font = "24px 'Archivo', sans-serif"
+  ctx.fillText(`${p?.pos ?? '?'}º de ${p?.miembros ?? '?'}`, xTexto, 168)
+
+  // ── Los cuatro números ──
+  const datos = [
+    ['PUNTOS', String(p?.puntos ?? 0), TEAL],
+    ['EXACTOS', String(p?.exactos ?? 0), TEXTO],
+    ['ACIERTOS', String(p?.aciertos ?? 0), TEXTO],
+    ['JORNADAS', String(p?.jornadas_ganadas ?? 0), ORO],
+  ]
+  const anchoD = (ANCHO - MARGEN * 2 - 36) / 4
+  const yD = 228
+  datos.forEach(([etiqueta, valor, color], i) => {
+    const x = MARGEN + i * (anchoD + 12)
+    rect(ctx, x, yD, anchoD, 148, 14, 'rgba(255,255,255,.04)')
+    ctx.textAlign = 'center'
+    ctx.fillStyle = color
+    ctx.font = "bold 58px 'JetBrains Mono', monospace"
+    ctx.fillText(valor, x + anchoD / 2, yD + 88)
+    ctx.fillStyle = MUTED
+    ctx.font = "bold 17px 'JetBrains Mono', monospace"
+    ctx.letterSpacing = '2px'
+    ctx.fillText(etiqueta, x + anchoD / 2, yD + 122)
+    ctx.letterSpacing = '0px'
+  })
+
+  // ── Racha, solo si hay algo que contar ──
+  let y = yD + 190
+  ctx.textAlign = 'left'
+  if (p?.racha_actual >= 2) {
+    rect(ctx, MARGEN, y, ANCHO - MARGEN * 2, 66, 14, 'rgba(46,211,183,.10)')
+    ctx.fillStyle = TEAL
+    ctx.font = "600 28px 'Archivo', sans-serif"
+    ctx.fillText(`En racha: ${p.racha_actual} jornadas seguidas puntuando`, MARGEN + 24, y + 42)
+    y += 86
+  } else if (p?.mejor_racha >= 2) {
+    rect(ctx, MARGEN, y, ANCHO - MARGEN * 2, 66, 14, 'rgba(255,255,255,.04)')
+    ctx.fillStyle = MUTED
+    ctx.font = "600 28px 'Archivo', sans-serif"
+    ctx.fillText(`Mejor racha: ${p.mejor_racha} jornadas`, MARGEN + 24, y + 42)
+    y += 86
+  }
+
+  // ── El mejor partido ──
+  if (conMejor) {
+    const m = p.mejor_partido
+    rect(ctx, MARGEN, y, ANCHO - MARGEN * 2, 128, 14, 'rgba(232,183,90,.09)')
+    ctx.fillStyle = ORO
+    ctx.font = "bold 18px 'JetBrains Mono', monospace"
+    ctx.letterSpacing = '2px'
+    ctx.fillText('SU MEJOR PARTIDO', MARGEN + 24, y + 34)
+    ctx.letterSpacing = '0px'
+
+    ctx.fillStyle = TEXTO
+    ctx.font = "600 30px 'Archivo', sans-serif"
+    ctx.fillText(recortar(ctx, `${m.local} vs ${m.visita}`, ANCHO - MARGEN * 2 - 200), MARGEN + 24, y + 76)
+
+    ctx.fillStyle = MUTED
+    ctx.font = "24px 'Archivo', sans-serif"
+    ctx.fillText(`predijo ${m.prediccion} · quedó ${m.marcador}`, MARGEN + 24, y + 110)
+
+    ctx.textAlign = 'right'
+    ctx.fillStyle = ORO
+    ctx.font = "bold 52px 'JetBrains Mono', monospace"
+    ctx.fillText(`+${m.puntos}`, ANCHO - MARGEN - 24, y + 88)
+  }
+
+  ctx.textAlign = 'right'
+  ctx.fillStyle = ORO
+  ctx.font = "bold 22px 'JetBrains Mono', monospace"
+  ctx.fillText('TICO GAMES', ANCHO - MARGEN, alto - 36)
+
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('No se pudo generar la imagen'))), 'image/png')
+  })
+}
+
 export async function compartirImagen(blob, nombreArchivo, titulo, texto) {
   const file = new File([blob], nombreArchivo, { type: 'image/png' })
 
