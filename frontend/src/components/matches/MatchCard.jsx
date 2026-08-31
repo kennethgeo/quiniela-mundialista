@@ -132,7 +132,10 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
           fondo con presencia las vuelve ruido y tapa lo único que importa, que
           es el marcador. Es textura, no protagonismo. Sin foto no se pinta. */}
       {fotoEstadio && (
-        <div className="absolute inset-0 rounded-[14px] overflow-hidden pointer-events-none" aria-hidden="true">
+        /* z-0 y el contenido en z-10. Sin eso, esta capa se dibuja ENCIMA de
+           todo lo que no tenga `position` propio —marcador, nombres, el botón
+           de guardar— y la tarjeta entera se ve apagada. Pasó en producción. */
+        <div className="absolute inset-0 z-0 rounded-[14px] overflow-hidden pointer-events-none" aria-hidden="true">
           <img src={fotoEstadio} alt="" loading="lazy" className="w-full h-full object-cover opacity-[0.13]" />
           <div className="absolute inset-0 bg-white/70 dark:bg-[#161616]/80" />
         </div>
@@ -141,7 +144,7 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
       {isInProgress && <div className="absolute top-0 left-0 right-0 h-0.5 z-10" style={{ background: 'linear-gradient(90deg,#FF4D6D,transparent)' }} />}
 
       {/* Cabecera: estado / contexto + badge */}
-      <div className="relative flex items-center justify-between gap-2 mb-3">
+      <div className="relative z-10 flex items-center justify-between gap-2 mb-3">
         {isInProgress ? (
           <span className="flex items-center gap-1.5">
             <span className="w-1.5 h-1.5 rounded-full bg-[#FF4D6D] animate-pulse" />
@@ -179,7 +182,7 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
       </div>
 
       {/* Equipos + marcador/predicción */}
-      <div className="flex items-center gap-2.5">
+      <div className="relative z-10 flex items-center gap-2.5">
         <Team name={match.home_team} flag={match.home_flag_url} code={match.home_team_code} align="left" />
 
         <div className="shrink-0 flex items-center justify-center">
@@ -207,7 +210,7 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
 
       {/* Goleadores (resumen) */}
       {(isFinished || isInProgress) && Array.isArray(match.events_json) && match.events_json.some((e) => (e.type || 'goal') === 'goal') && (
-        <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 mt-3 text-[11px] text-slate-500 dark:text-slate-400">
+        <div className="relative z-10 grid grid-cols-2 gap-x-3 gap-y-0.5 mt-3 text-[11px] text-slate-500 dark:text-slate-400">
           {['home', 'away'].map((side) => (
             <div key={side} className={`space-y-0.5 ${side === 'away' ? 'text-right' : ''}`}>
               {match.events_json
@@ -226,14 +229,14 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
 
       {/* Penales — texto de resultado */}
       {(isFinished || isInProgress) && match.goes_to_penalties && (
-        <p className="text-center font-['JetBrains_Mono'] font-bold text-[9px] text-[#E8B75A] mt-2">
+        <p className="relative z-10 text-center font-['JetBrains_Mono'] font-bold text-[9px] text-[#E8B75A] mt-2">
           {match.penalties_winner_real} avanza por penales
         </p>
       )}
 
       {/* Selector de penales (por jugar) */}
       {editable && isKnockout && isTiePredicted && (
-        <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="mt-3 p-3 bg-slate-50 dark:bg-[#0C0C0C] rounded-xl">
+        <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="relative z-10 mt-3 p-3 bg-slate-50 dark:bg-[#0C0C0C] rounded-xl">
           <p className="text-[11px] text-center text-[var(--text-muted,#8A8A8A)] mb-2 font-medium">¿Quién gana en penales?</p>
           <div className="flex gap-2">
             {[match.home_team, match.away_team].map((team) => (
