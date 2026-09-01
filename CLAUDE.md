@@ -144,6 +144,14 @@ Son **dos números distintos a propósito** y confundirlos es el error fácil:
 - El velo oscuro sobre la foto (`rgba(12,12,12,.78)`) no es decorativo: WhatsApp comprime la imagen y mucha gente la ve primero como miniatura. Sin velo, el nombre de los equipos sobre una gradería no se lee.
 - `matches.venue` existía en `schema.sql` desde el principio pero **ningún sync lo escribía**: estaba siempre en NULL. Lo llena `espn_tournament_sync` desde `competitions[0].venue.fullName`.
 
+## Recordatorio 45 min antes del saque
+- El resumen de las 6 am ya dice cuántas te faltan, pero es **una vez al día**: si el partido es a las 8 pm y lo viste temprano, nada te vuelve a tocar. Perder una jornada por olvido es la peor experiencia en una quiniela por plata.
+- `POST /api/matches/notify-kickoff` (mismo `CRON_SECRET`), disparado por `.github/workflows/recordatorio-saque.yml` **cada 15 minutos**.
+- **Solo se avisa a quien tiene predicciones pendientes.** A quien ya predijo no se le manda nada: un aviso que no pide nada es el que hace que la gente apague las notificaciones, y entonces tampoco le llegan los que sí importan.
+- **El ancho de la ventana ES el intervalo del cron** (`ANCHO_VENTANA_MIN = 15`). Así cada partido cae en una sola corrida y no hace falta una tabla de "a quién ya le avisé". Si se cambia el cron sin tocar la constante, la gente recibe el aviso **dos veces** o no lo recibe. Probado en `test_recordatorio_saque.py` barriendo los 60 minutos posibles de saque.
+- La ventana es `[45, 60)` minutos: cerrada abajo y **abierta arriba**, para que un saque justo en el borde no entre en dos corridas.
+- Un atraso del cron de GitHub corre la ventana con el reloj: el aviso sale más tarde, nunca duplicado.
+
 ## Despliegue
 - **Vercel** despliega frontend Y backend juntos en cada push a `main` (root `vercel.json` → `experimentalServices`, backend `@vercel/python` bajo `/_backend`).
 - Cron de marcadores: GitHub Actions `sync-live-scores.yml` (cada ~5 min) → `POST /_backend/api/matches/sync-live`.

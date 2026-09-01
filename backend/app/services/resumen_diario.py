@@ -1,4 +1,4 @@
-"""Resumen de los partidos del día: el texto y a quién le toca.
+"""Avisos de partidos: el resumen diario y el recordatorio antes del saque.
 
 Se separa del endpoint para poder probarlo sin base de datos ni push de por
 medio. Lo que se puede equivocar en silencio acá es a quién se le manda y qué
@@ -101,5 +101,79 @@ def armar_mensajes(partidos, membresias, predicciones):
             "body": detalle,
             "url": "/",
         }
+
+    return mensajes
+
+
+# ── Recordatorio antes del saque ───────────────────────────────────────────
+#
+# El resumen diario sale a las 6am y ya distingue a quién le falta predecir.
+# Pero es UNA vez al día: si el partido es a las 8pm y viste el aviso a las 6am,
+# nada te vuelve a tocar. Perder una jornada por olvido es la peor experiencia
+# posible en una quiniela por plata, y la queja más común.
+
+MINUTOS_AVISO = 45          # el partido cierra 15 min antes: quedan 30 para reaccionar
+ANCHO_VENTANA_MIN = 15      # tiene que coincidir con el intervalo del cron
+
+
+def ventana_recordatorio(ahora_utc: datetime) -> tuple[datetime, datetime]:
+    """Rango de saques a los que les toca aviso en esta corrida.
+
+    El ancho de la ventana es EXACTAMENTE el período del cron. Así cada partido
+    cae dentro una sola vez y no hace falta guardar en ninguna tabla a quién ya
+    se le avisó: con una ventana más ancha que el cron, el mismo partido
+    entraría en dos corridas seguidas y la gente recibiría el aviso dos veces.
+
+    Con cron cada 15 min y aviso a los 45: la ventana es [45, 60) minutos hacia
+    adelante, cerrada abajo y ABIERTA arriba para que un saque que cae justo en
+    el borde no entre en las dos corridas.
+    """
+    desde = ahora_utc + timedelta(minutes=MINUTOS_AVISO)
+    hasta = desde + timedelta(minutes=ANCHO_VENTANA_MIN)
+    return desde, hasta
+
+
+def armar_recordatorios(partidos, membresias, predicciones):
+    """Qué recordatorio le toca a cada persona.
+
+    Mismos argumentos que armar_mensajes(), pero acá SOLO se avisa a quien
+    tiene predicciones pendientes. A quien ya predijo no se le manda nada: un
+    aviso que no pide nada es el que hace que la gente apague las
+    notificaciones, y entonces tampoco le llegan los que sí importan.
+
+    Devuelve {user_id: {"title", "body", "url"}}.
+    """
+    if not partidos:
+        return {}
+
+    por_torneo = {}
+    for p in partidos:
+        por_torneo.setdefault(p["tournament_id"], []).append(p)
+
+    ya_predijo = {(x["league_id"], x["match_id"], x["user_id"]) for x in predicciones}
+
+    # Igual que en el resumen: se cuenta por PAR (quiniela, partido), porque
+    # estar en dos quinielas del mismo torneo y haber predicho en una sola deja
+    # el partido pendiente de verdad.
+    pendientes = {}
+    for m in membresias:
+        for p in por_torneo.get(m["tournament_id"], ()):
+            if (m["league_id"], p["id"], m["user_id"]) not in ya_predijo:
+                pendientes.setdefault(m["user_id"], {})[p["id"]] = p
+
+    mensajes = {}
+    for user_id, suyos in pendientes.items():
+        lista = sorted(suyos.values(), key=lambda p: p["kickoff_at"])
+        n = len(lista)
+        primero = lista[0]
+
+        titulo = f"⏰ Faltan {MINUTOS_AVISO} min"
+        detalle = f"{_hora_cr(primero['kickoff_at'])} {primero['home_team']} vs {primero['away_team']}"
+        if n == 1:
+            cuerpo = f"No has predicho {detalle}. Cierra 15 min antes del saque."
+        else:
+            cuerpo = f"Te faltan {n} por predecir: {detalle} y {n - 1} más. Cierran 15 min antes."
+
+        mensajes[user_id] = {"title": titulo, "body": cuerpo, "url": "/"}
 
     return mensajes

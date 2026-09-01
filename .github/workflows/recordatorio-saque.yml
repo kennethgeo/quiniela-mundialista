@@ -1,0 +1,49 @@
+name: Recordatorio antes del saque
+
+# Avisa por push a quien AÚN NO PREDIJO, 45 minutos antes de cada partido.
+# Los partidos cierran 15 min antes del saque, así que quedan 30 para reaccionar.
+#
+# EL INTERVALO NO ES ARBITRARIO: la ventana que consulta el backend tiene
+# exactamente el ancho de este cron (ANCHO_VENTANA_MIN = 15 en
+# resumen_diario.py). Si acá se cambia a otro intervalo sin tocar esa
+# constante, cada partido cae en dos corridas y la gente recibe el aviso
+# duplicado — o cae en ninguna y no lo recibe. Está probado en
+# backend/tests/test_recordatorio_saque.py.
+#
+# GitHub no garantiza la puntualidad de los cron: cuando la cola está cargada
+# puede atrasarse varios minutos. Un atraso corre la ventana con el reloj, así
+# que el aviso sale algo más tarde, pero nunca duplicado.
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch: {}
+
+concurrency:
+  group: recordatorio-saque
+  cancel-in-progress: false
+
+jobs:
+  avisar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Recordar a quien le falta predecir
+        env:
+          KICKOFF_NOTIFY_URL: ${{ vars.KICKOFF_NOTIFY_URL || 'https://tico-games-one.vercel.app/_backend/api/matches/notify-kickoff' }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -z "$CRON_SECRET" ]; then
+            echo "::error::Falta el secreto CRON_SECRET (repo > Settings > Secrets and variables > Actions)."
+            exit 1
+          fi
+          # -L sigue redirecciones (307) preservando el POST.
+          code=$(curl -sSL -o /tmp/resp.json -w "%{http_code}" \
+            -X POST "$KICKOFF_NOTIFY_URL" \
+            -H "Authorization: Bearer $CRON_SECRET" || echo "000")
+          echo "HTTP $code"
+          cat /tmp/resp.json 2>/dev/null || true
+          echo ""
+          if [ "$code" != "200" ]; then
+            echo "::error::El recordatorio respondió $code (esperado 200)."
+            exit 1
+          fi
