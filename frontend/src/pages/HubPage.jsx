@@ -1,11 +1,12 @@
 // Hub de quinielas (grupos) — rediseño Tico Games. Datos reales vía RPCs.
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'motion/react'
 import { Plus, KeyRound, Users, X, Loader2, ChevronRight, Vote, CheckCircle2 } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import { fetchMyGroups, fetchTournaments, createGroup, joinGroupByCode, DEFAULT_RULES } from '../lib/groups'
+import { tomarInvitacion } from '../lib/invitacion'
 import RankingGlobal from '../components/hub/RankingGlobal'
 
 // Paleta cíclica idéntica al mockup de Claude Design (teal, coral, gold, gris)
@@ -24,6 +25,29 @@ export default function HubPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [modal, setModal] = useState(null) // 'create' | 'join' | null
+  const invitacionUsada = useRef(false)
+
+  /* Alguien que abrió un enlace /unirse/XXXX sin cuenta se registró, confirmó
+     el correo y llegó acá: el código quedó guardado y este es el momento de
+     usarlo. Sin esto, el enlace solo serviría para quien ya tenía sesión.
+     Si falla —código vencido, ya sos miembro— no se muestra nada: el hub ya
+     es el destino correcto y el código se consumió, así que no reintenta. */
+  useEffect(() => {
+    if (invitacionUsada.current || !profile?.id) return
+    const codigo = tomarInvitacion()
+    if (!codigo) return
+    invitacionUsada.current = true
+    ;(async () => {
+      try {
+        const res = await joinGroupByCode(codigo)
+        const id = res?.id ?? res?.league_id ?? (Array.isArray(res) ? res[0]?.id : null)
+        if (id) navigate(`/q/${id}`, { replace: true })
+      } catch {
+        /* Silencio a propósito: ver el hub es mejor que un error que no se
+           puede accionar. */
+      }
+    })()
+  }, [profile?.id, navigate])
 
   const load = useCallback(async () => {
     try {

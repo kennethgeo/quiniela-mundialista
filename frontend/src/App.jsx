@@ -63,6 +63,7 @@ function MainLayout({ children }) {
 import ErrorBoundary from './components/ui/ErrorBoundary'
 
 import { useGlobalRealtime } from './hooks/useRealtime'
+import UnirsePage from './pages/UnirsePage'
 
 function AppRoutes() {
   const { loading } = useAuth()
@@ -100,6 +101,9 @@ function AppRoutes() {
         {/* Rutas públicas */}
         <Route path="/auth" element={<AuthPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
+        {/* Pública a propósito: tiene que poder guardar el código antes de
+            mandar a /auth a quien todavía no tiene cuenta. */}
+        <Route path="/unirse/:codigo" element={<UnirsePage />} />
 
         {/* Rutas protegidas */}
       <Route

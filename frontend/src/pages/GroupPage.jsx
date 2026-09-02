@@ -11,6 +11,7 @@ import { friendlySaveError } from '../lib/saveError'
 import { powerupKey } from '../lib/powerups'
 import { fetchMyGroups, fetchGroupStandings, fetchTeamStandings, acceptGroupRules, setGroupRules, setGroupScoring, deleteGroup, proposeRuleChange, castRuleVote, cancelRuleProposal, fetchLeagueProposals, fetchMyPowerupCredits, setGroupExtras } from '../lib/groups'
 import { initialsDataUri, crestOnError } from '../lib/teamLogo'
+import { enlaceDeInvitacion } from '../lib/invitacion'
 import { renderTablaCard, compartirImagen } from '../lib/shareCard'
 import { fetchLeagueMedals, recomputeLeagueBadges } from '../lib/medals'
 import { MedalStrip } from '../components/medals/BadgeShowcase'
@@ -45,6 +46,7 @@ export default function GroupPage() {
   const queryClient = useQueryClient()
   const [tab, setTab] = useState('home') // 'home' | 'matches' | 'table' | ...
   const [copied, setCopied] = useState(false)
+  const [enlaceListo, setEnlaceListo] = useState(false)
 
   // Grupo (de mis grupos). refetchOnMount 'always' para que una quiniela recién
   // creada/unida aparezca aunque la caché tenga una lista vieja.
@@ -213,6 +215,31 @@ export default function GroupPage() {
     )
   }
 
+  const compartirEnlace = async () => {
+
+    const url = enlaceDeInvitacion(group.invitation_code)
+
+    const texto = `Te invito a la quiniela "${group.name}" en Tico Games:`
+
+    try {
+
+      // La hoja del sistema pone WhatsApp de primero en un móvil.
+
+      if (navigator.share) { await navigator.share({ text: `${texto} ${url}` }); return }
+
+    } catch { return /* canceló: no es un error */ }
+
+    try {
+
+      await navigator.clipboard.writeText(url)
+
+      setEnlaceListo(true); setTimeout(() => setEnlaceListo(false), 2500)
+
+    } catch { /* sin portapapeles no queda nada por hacer */ }
+
+  }
+
+
   const copyCode = () => { navigator.clipboard?.writeText(group.invitation_code); setCopied(true); setTimeout(() => setCopied(false), 1500) }
 
   return (
@@ -234,6 +261,16 @@ export default function GroupPage() {
               <span className="font-['Archivo'] font-semibold text-[10px] text-[var(--text-muted,#8A8A8A)] truncate">{group.tournament_name} · {group.members} miembros</span>
             </div>
           </div>
+          {/* El código sigue estando —hay quien prefiere dictarlo— pero el
+              enlace es lo que de verdad se comparte: quien lo abre entra sin
+              teclear nada, y si no tiene cuenta el código lo espera del otro
+              lado del registro. */}
+          <button onClick={compartirEnlace}
+            className="shrink-0 flex items-center gap-1.5 font-['JetBrains_Mono'] font-bold text-[10px] rounded-[9px] px-2.5 py-2"
+            style={{ background: 'rgba(46,211,183,.12)', color: '#2ED3B7' }}
+            title="Compartir el enlace para entrar">
+            {enlaceListo ? <><Check size={12} /> LISTO</> : <><Share2 size={12} /> INVITAR</>}
+          </button>
           <button onClick={copyCode}
             className="shrink-0 flex items-center gap-1.5 font-['JetBrains_Mono'] font-bold text-[10px] text-slate-600 dark:text-[#F3F1EA] bg-white dark:bg-[#161616] border border-slate-200 dark:border-[#262626] rounded-[9px] px-2.5 py-2">
             {copied ? <><Check size={12} className="text-accent" /> COPIADO</> : <>{group.invitation_code} <Copy size={12} /></>}
