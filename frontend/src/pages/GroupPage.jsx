@@ -1,6 +1,6 @@
 // Página de una quiniela (grupo): sus partidos (predecir, scoped al torneo) + tabla.
-import { useState, useMemo, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useState, useMemo, useEffect, useRef } from 'react'
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'motion/react'
 import { ArrowLeft, CalendarDays, ListOrdered, Copy, Check, Trophy, GitBranch, BarChart3, Shield, ScrollText, Loader2, Pencil, Lock, Trash2, AlertTriangle, Vote, ThumbsUp, ThumbsDown, X, Home, ChevronRight, Target, Gift, MessageCircle, LayoutGrid, Zap, ShieldCheck, Eye, Share2} from 'lucide-react'
@@ -9,7 +9,7 @@ import { useAuth } from '../hooks/useAuth'
 import { useToast } from '../components/ui/Toast'
 import { friendlySaveError } from '../lib/saveError'
 import { powerupKey } from '../lib/powerups'
-import { fetchMyGroups, fetchGroupStandings, fetchTeamStandings, acceptGroupRules, setGroupRules, setGroupScoring, deleteGroup, proposeRuleChange, castRuleVote, cancelRuleProposal, fetchLeagueProposals, fetchMyPowerupCredits, setGroupExtras } from '../lib/groups'
+import { fetchCuposPorJornada, fetchMyGroups, fetchGroupStandings, fetchTeamStandings, acceptGroupRules, setGroupRules, setGroupScoring, deleteGroup, proposeRuleChange, castRuleVote, cancelRuleProposal, fetchLeagueProposals, fetchMyPowerupCredits, setGroupExtras } from '../lib/groups'
 import { initialsDataUri, crestOnError } from '../lib/teamLogo'
 import { enlaceDeInvitacion } from '../lib/invitacion'
 import { renderTablaCard, compartirImagen } from '../lib/shareCard'
@@ -44,7 +44,23 @@ export default function GroupPage() {
   const { profile } = useAuth()
   const { showToast } = useToast()
   const queryClient = useQueryClient()
-  const [tab, setTab] = useState('home') // 'home' | 'matches' | 'table' | ...
+  /* La pestaña y la jornada viven en la URL, no en useState.
+
+     POR QUÉ: al entrar a Detalles del Partido, GroupPage se DESMONTA. Al
+     volver atrás se vuelve a montar y cualquier estado local arranca de cero,
+     así que la app te dejaba en «Resumen» aunque estuvieras en «Partidos».
+
+     Se usa replace: true al cambiar de pestaña para no llenar el historial
+     —si no, el botón de atrás recorrería las pestañas una por una en vez de
+     salir de la quiniela—. Pero la URL con la pestaña SÍ queda en el
+     historial, así que al volver de un partido se restaura sola. */
+  const [searchParams, setSearchParams] = useSearchParams()
+  const tab = searchParams.get('tab') || 'home'
+  const setTab = (nuevo) => {
+    const p = new URLSearchParams(searchParams)
+    p.set('tab', nuevo)
+    setSearchParams(p, { replace: true })
+  }
   const [copied, setCopied] = useState(false)
   const [enlaceListo, setEnlaceListo] = useState(false)
 
@@ -104,8 +120,20 @@ export default function GroupPage() {
     },
   })
 
-  // Límite de comodines ×2 por jornada/fase: viene de la config de la quiniela.
-  const powerupLimit = group?.powerup_limit ?? 2
+  /* Cupo de comodines ×2. Puede ser fijo (powerup_limit) o escalar con el
+     tamaño de la jornada (powerup_por_partidos); la fórmula vive en la base
+     para que el trigger que valida y lo que se muestra acá no se separen.
+     Si la consulta falla se usa el número fijo: perder el cupo escalado es
+     menos malo que dejar la pantalla sin comodines. */
+  const { data: cupos = {} } = useQuery({
+    queryKey: ['cupos_jornada', group?.id],
+    queryFn: () => fetchCuposPorJornada(group.id),
+    enabled: !!group?.id,
+    staleTime: 1000 * 60 * 5,
+  })
+  const limiteFijo = group?.powerup_limit ?? 2
+  const cupoDe = (m) => cupos[`${m?.phase ?? ''}|${m?.matchday ?? 0}`] ?? limiteFijo
+  const powerupLimit = limiteFijo
 
   // Créditos de ×2 arrastrados de partidos cancelados (uso extra en la próxima
   // jornada/fase), otorgados por void_cancelled_match. { [powerupKey]: cantidad }
@@ -187,15 +215,32 @@ export default function GroupPage() {
     })
     return [...first.entries()].sort((a, b) => a[1] - b[1]).map(([k]) => k)
   }, [resolved])
-  const [jornadaSel, setJornadaSel] = useState(null) // null hasta elegir default; '__all__' = todas
+  // Misma razón que la pestaña: sobrevive al ir y volver de un partido.
+  const jornadaSel = searchParams.get('j')
+  const setJornadaSel = (nueva) => {
+    const p = new URLSearchParams(searchParams)
+    if (nueva) p.set('j', nueva); else p.delete('j')
+    setSearchParams(p, { replace: true })
+  }
 
   // Default: la primera jornada con partidos por jugar (si no, la última).
   useEffect(() => {
-    if (jornadaSel !== null || jornadas.length <= 1) return
+    if (jornadaSel || jornadas.length <= 1) return
     const upcoming = jornadas.find((k) =>
       resolved.some((m) => jornadaKeyOf(m) === k && m.status !== 'finished' && m.status !== 'cancelled'))
     setJornadaSel(upcoming || jornadas[jornadas.length - 1])
   }, [jornadas, resolved, jornadaSel])
+
+  /* Trae el chip de la jornada activa al centro de la fila.
+
+     `block: 'nearest'` es importante: sin eso, scrollIntoView también mueve la
+     PÁGINA verticalmente y al abrir Partidos te deja a media pantalla. */
+  const filaJornadas = useRef(null)
+  const chipActivo = useRef(null)
+  useEffect(() => {
+    if (!chipActivo.current || !filaJornadas.current) return
+    chipActivo.current.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' })
+  }, [jornadaSel, tab])
 
   const shownMatches = useMemo(
     () => (jornadaSel && jornadaSel !== '__all__' ? resolved.filter((m) => jornadaKeyOf(m) === jornadaSel) : resolved),
@@ -335,10 +380,15 @@ export default function GroupPage() {
                 grupo. Se esconde solo si hoy no se juega nada. */}
             <PartidosDeHoy matches={resolved} nombreQuiniela={group.name} />
             {jornadas.length > 1 && (
-              <div className="flex gap-1.5 mb-4 overflow-x-auto scrollbar-hide">
+              /* La fila arranca desplazada al principio, así que en un torneo
+                 largo la jornada activa —la 7 de 8, por ejemplo— queda fuera
+                 de pantalla y hay que buscarla a mano. El ref la trae al
+                 centro sola. */
+              <div ref={filaJornadas} className="flex gap-1.5 mb-4 overflow-x-auto scrollbar-hide">
                 <JornadaChip active={jornadaSel === '__all__'} onClick={() => setJornadaSel('__all__')} label="Todas" />
                 {jornadas.map((j) => (
-                  <JornadaChip key={j} active={jornadaSel === j} onClick={() => setJornadaSel(j)} label={j} />
+                  <JornadaChip key={j} active={jornadaSel === j} onClick={() => setJornadaSel(j)} label={j}
+                    innerRef={jornadaSel === j ? chipActivo : null} />
                 ))}
               </div>
             )}
@@ -348,6 +398,7 @@ export default function GroupPage() {
               onSavePrediction={(p) => saveMutation.mutate(p)}
               isLoading={saveMutation.isPending}
               powerupLimit={powerupLimit}
+              cupoDe={cupoDe}
               powerupUsage={powerupUsage}
               powerupCredits={powerupCredits}
               onPredecirJornada={setJornadaRapida}
@@ -465,6 +516,7 @@ const SCORING_LABELS = {
   points_exact: 'Marcador exacto',
   points_correct: 'Resultado correcto',
   powerup_limit: 'Comodines ×2 por jornada',
+  powerup_por_partidos: 'Un ×2 cada N partidos',
   champion_points: 'Acertar campeón',
   scorer_points: 'Acertar goleador',
 }
@@ -643,6 +695,7 @@ function ScoringConfig({ group, isAdmin, tournamentStarted, hasOpenProposal, onS
     points_exact: group.points_exact ?? 3,
     points_correct: group.points_correct ?? 1,
     powerup_limit: group.powerup_limit ?? 2,
+    powerup_por_partidos: group.powerup_por_partidos ?? '',
     champion_points: group.champion_points ?? 12,
     scorer_points: group.scorer_points ?? 12,
     assist_points: group.assist_points ?? 12,
@@ -652,7 +705,8 @@ function ScoringConfig({ group, isAdmin, tournamentStarted, hasOpenProposal, onS
   const rows = [
     ['points_exact', 'Marcador exacto', 'pts'],
     ['points_correct', 'Resultado correcto', 'pts'],
-    ['powerup_limit', 'Comodines ×2 por jornada', ''],
+    ['powerup_limit', 'Comodines ×2 por jornada', 'mínimo'],
+    ['powerup_por_partidos', 'Un ×2 cada N partidos', 'vacío = fijo'],
     ['champion_points', 'Acertar campeón', 'pts'],
     ['scorer_points', 'Acertar goleador', 'pts'],
     ['assist_points', 'Acertar asistidor', 'pts'],
@@ -662,6 +716,9 @@ function ScoringConfig({ group, isAdmin, tournamentStarted, hasOpenProposal, onS
       points_exact: parseInt(cfg.points_exact) || 0,
       points_correct: parseInt(cfg.points_correct) || 0,
       powerup_limit: parseInt(cfg.powerup_limit) || 0,
+      // Vacío = cupo fijo, que es el comportamiento de siempre. Un 0 o un
+      // negativo los rechaza la propia base (restricción de la migración 67).
+      powerup_por_partidos: cfg.powerup_por_partidos === '' ? null : (parseInt(cfg.powerup_por_partidos) || null),
       champion_points: parseInt(cfg.champion_points) || 0,
       scorer_points: parseInt(cfg.scorer_points) || 0,
       assist_points: parseInt(cfg.assist_points) || 0,
@@ -983,9 +1040,9 @@ function DangerZone({ group, onDeleted, showToast }) {
   )
 }
 
-function JornadaChip({ active, onClick, label }) {
+function JornadaChip({ active, onClick, label, innerRef = null }) {
   return (
-    <button onClick={onClick}
+    <button ref={innerRef} onClick={onClick}
       className={`shrink-0 px-3 py-1.5 rounded-[10px] font-['JetBrains_Mono'] font-bold text-[10px] uppercase tracking-[0.08em] whitespace-nowrap transition-all ${
         active
           ? 'bg-accent text-[#06231d]'

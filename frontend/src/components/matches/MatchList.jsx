@@ -16,7 +16,7 @@ const containerVariants = {
    usan MatchList (TodayMatches, etc.) no tienen el contexto de quiniela que
    hace falta para guardar un lote, así que ahí el botón sencillamente no
    aparece en vez de aparecer roto. */
-export default function MatchList({ matches, predictions, onSavePrediction, isLoading, powerupLimit = 0, powerupLimits = null, powerupUsage = {}, powerupCredits = {}, onPredecirJornada = null }) {
+export default function MatchList({ matches, predictions, onSavePrediction, isLoading, powerupLimit = 0, powerupLimits = null, cupoDe = null, powerupUsage = {}, powerupCredits = {}, onPredecirJornada = null }) {
   // Agrupar por jornada (matchday)
   const grouped = matches.reduce((acc, match) => {
     // Fase real de ESPN (Jornada N / Octavos / Liguilla…) si existe; si no, jornada o phase.
@@ -46,7 +46,11 @@ export default function MatchList({ matches, predictions, onSavePrediction, isLo
         // como mapa por fase/jornada (powerupLimits, vistas multi-torneo
         // como TodayMatches) — se usa el que corresponda.
         const credit = powerupCredits[limitKey] || 0
-        const baseLimit = powerupLimits && powerupLimits[limitKey] != null ? powerupLimits[limitKey] : powerupLimit
+        // Orden de preferencia: el cupo que calculó la base para ESA jornada
+        // (cupoDe, que puede escalar con la cantidad de partidos), luego el
+        // mapa por fase de las vistas multi-torneo, y al final el número fijo.
+        const baseLimit = cupoDe ? cupoDe(matches.find((m) => powerupKey(m.phase, m.matchday) === limitKey) || {})
+          : powerupLimits && powerupLimits[limitKey] != null ? powerupLimits[limitKey] : powerupLimit
         const limit = baseLimit + credit;
 
         // Comodines usados en TODA la fase/jornada (no solo los partidos visibles

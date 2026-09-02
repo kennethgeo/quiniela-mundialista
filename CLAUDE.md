@@ -152,6 +152,21 @@ Son **dos números distintos a propósito** y confundirlos es el error fácil:
 - La ventana es `[45, 60)` minutos: cerrada abajo y **abierta arriba**, para que un saque justo en el borde no entre en dos corridas.
 - Un atraso del cron de GitHub corre la ventana con el reloj: el aviso sale más tarde, nunca duplicado.
 
+## Cupo de comodines ×2 que escala con la jornada (migración `database/67_cupo_comodines_por_tamano.sql`)
+- `leagues.powerup_limit` es **un** número por quiniela y se aplica por `(fase, jornada)`. Con la liga tica (~5 partidos) un cupo de 2 es razonable; en la fase de liga de la Champions son **18 partidos por jornada** y ese mismo 2 casi no se nota, mientras que en una final de 1 partido es no tener límite.
+- Ahora hay una razón opcional, `leagues.powerup_por_partidos` = "1 comodín cada N partidos". La fórmula es `cupo = GREATEST(powerup_limit, CEIL(partidos / powerup_por_partidos))`, o sea que **`powerup_limit` pasa a ser el mínimo**.
+- **Nace en NULL y con NULL nada cambia**: el cupo es exactamente `powerup_limit`, igual que antes. Ninguna quiniela se ve afectada hasta que su admin ponga la razón.
+- **`cupo_powerups()` es la ÚNICA fórmula.** La usa el trigger que valida Y la consulta el frontend (vía `cupos_por_jornada`) para pintar "quedan N". No calcular el cupo en JS: este repo ya vivió la fórmula escrita dos veces —los puntos de asistidor se olvidaron en una copia durante meses— y acá el síntoma sería peor: la app mostraría un cupo que la base no respeta.
+- **El trigger agrupa por `(phase, matchday)`, pero `powerupKey()` de `lib/powerups.js` colapsa tercer puesto y final en un solo grupo.** Esa discrepancia ya existía; `cupos_por_jornada` sigue al trigger, que es quien manda.
+- `set_group_scoring` necesitó **`DROP` + `CREATE`** para aceptar el parámetro nuevo (no se puede cambiar la firma con `CREATE OR REPLACE`). Eso **reabre el ACL a `PUBLIC`**, así que la migración revoca y re-otorga a mano, y lo comprueba al final.
+- `powerup_por_partidos` se guarda **sin `COALESCE`** con el valor viejo: NULL significa "cupo fijo", y un `COALESCE` impediría desactivarlo.
+
+## La pestaña y la jornada viven en la URL
+- Al entrar a **Detalles del Partido**, `GroupPage` se **desmonta**. Con la pestaña en `useState`, al volver atrás arrancaba de cero y te dejaba en «Resumen» aunque estuvieras en «Partidos». Ahora van en la query (`?tab=matches&j=Jornada 7`), que el historial restaura sola.
+- Se usa **`replace: true`** al cambiar de pestaña: si se empujara al historial, el botón de atrás recorrería las pestañas una por una en vez de salir de la quiniela. La URL igual queda en el historial, así que volver de un partido restaura el estado.
+- La jornada por defecto **ya elegía bien** la primera con partidos por jugar. Lo que faltaba era que la fila de chips se **desplazara** hasta ella: en un torneo de 8 jornadas, la activa quedaba fuera de pantalla. Lo hace `scrollIntoView` con **`block: 'nearest'`** — sin eso también mueve la página verticalmente y te deja a media pantalla.
+- **Una prueba de navegación que solo mira los query params NO sirve**: la URL conserva los parámetros aunque la app los ignore, así que pasa igual con el bug puesto. Comprobado. Hay que afirmar sobre lo que se ve (que existan los chips de jornada, que solo están en «Partidos»).
+
 ## Despliegue
 - **Vercel** despliega frontend Y backend juntos en cada push a `main` (root `vercel.json` → `experimentalServices`, backend `@vercel/python` bajo `/_backend`).
 - Cron de marcadores: GitHub Actions `sync-live-scores.yml` (cada ~5 min) → `POST /_backend/api/matches/sync-live`.

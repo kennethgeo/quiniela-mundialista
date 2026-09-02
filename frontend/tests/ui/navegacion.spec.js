@@ -102,3 +102,62 @@ test.describe('con sesión', () => {
     }
   })
 })
+
+test.describe('la pestaña sobrevive al ir y volver', () => {
+  const LIGA = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+
+  test.beforeEach(async ({ page }) => {
+    await conSesion(page)
+    const grupo = {
+      id: LIGA, name: 'Bundestica', tournament_id: 6, invitation_code: 'ABC123',
+      powerup_limit: 2, points_exact: 3, points_correct: 1,
+      champion_points: 12, scorer_points: 12, assist_points: 12,
+      is_admin: true, rules_accepted: true, rules: null, members_count: 1,
+      tournament_kind: 'league', tournament_status: 'active',
+    }
+    // Dos jornadas, para que la fila de chips exista (solo aparece con >1).
+    const partidos = [1, 2].flatMap((jor) => [1, 2].map((n) => ({
+      id: `${jor}${n}`.padStart(8, '0') + '-0000-4000-8000-000000000000',
+      tournament_id: 6, phase: 'groups', matchday: jor, stage: `Jornada ${jor}`,
+      home_team: `Local ${jor}${n}`, away_team: `Visita ${jor}${n}`,
+      home_team_code: 'xx', away_team_code: 'xx', status: 'pending',
+      kickoff_at: `2026-1${jor}-0${n}T20:00:00Z`,
+      home_goals_actual: null, away_goals_actual: null, events_json: [],
+    })))
+    await interceptarSupabase(page, {
+      '/rest/v1/users': [{
+        id: USUARIO.id, display_name: 'Prueba', avatar_url: null,
+        total_points: 0, points_adjustment: 0, is_admin: false,
+        created_at: '2026-01-01', updated_at: '2026-01-01',
+      }],
+      'rpc/my_groups': [grupo],
+      'rpc/quiniela_por_id': grupo,
+      '/rest/v1/matches': partidos,
+      '/rest/v1/predictions': [],
+      'rpc/cupos_por_jornada': [],
+    })
+  })
+
+  /* Se afirma sobre LO QUE SE VE, no sobre la URL: la URL conserva los
+     parámetros aunque la app los ignore, así que una prueba que solo mire
+     query params pasa igual con el bug puesto. Comprobado. */
+  test('entrar con ?tab=matches abre Partidos, no Resumen', async ({ page }) => {
+    await page.goto(`/q/${LIGA}?tab=matches`)
+    // Los chips de jornada solo existen en la pestaña Partidos.
+    await expect(page.getByRole('button', { name: 'Todas' })).toBeVisible({ timeout: 10000 })
+  })
+
+  test('volver atrás desde un partido devuelve a Partidos, no a Resumen', async ({ page }) => {
+    await page.goto(`/q/${LIGA}?tab=matches&j=Jornada+2`)
+    await expect(page.getByRole('button', { name: 'Todas' })).toBeVisible({ timeout: 10000 })
+
+    await page.goto('/match/00000011-0000-4000-8000-000000000000')
+    await page.waitForTimeout(500)
+    await page.goBack()
+
+    // Si la pestaña viviera en useState, acá se vería «Resumen» y los chips
+    // no existirían.
+    await expect(page.getByRole('button', { name: 'Todas' })).toBeVisible({ timeout: 10000 })
+    expect(new URL(page.url()).searchParams.get('j')).toBe('Jornada 2')
+  })
+})
