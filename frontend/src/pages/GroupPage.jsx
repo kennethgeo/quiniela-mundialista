@@ -1,6 +1,6 @@
 // Página de una quiniela (grupo): sus partidos (predecir, scoped al torneo) + tabla.
-import { useState, useMemo, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useState, useMemo, useEffect, useRef } from 'react'
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'motion/react'
 import { ArrowLeft, CalendarDays, ListOrdered, Copy, Check, Trophy, GitBranch, BarChart3, Shield, ScrollText, Loader2, Pencil, Lock, Trash2, AlertTriangle, Vote, ThumbsUp, ThumbsDown, X, Home, ChevronRight, Target, Gift, MessageCircle, LayoutGrid, Zap, ShieldCheck, Eye, Share2} from 'lucide-react'
@@ -44,7 +44,23 @@ export default function GroupPage() {
   const { profile } = useAuth()
   const { showToast } = useToast()
   const queryClient = useQueryClient()
-  const [tab, setTab] = useState('home') // 'home' | 'matches' | 'table' | ...
+  /* La pestaña y la jornada viven en la URL, no en useState.
+
+     POR QUÉ: al entrar a Detalles del Partido, GroupPage se DESMONTA. Al
+     volver atrás se vuelve a montar y cualquier estado local arranca de cero,
+     así que la app te dejaba en «Resumen» aunque estuvieras en «Partidos».
+
+     Se usa replace: true al cambiar de pestaña para no llenar el historial
+     —si no, el botón de atrás recorrería las pestañas una por una en vez de
+     salir de la quiniela—. Pero la URL con la pestaña SÍ queda en el
+     historial, así que al volver de un partido se restaura sola. */
+  const [searchParams, setSearchParams] = useSearchParams()
+  const tab = searchParams.get('tab') || 'home'
+  const setTab = (nuevo) => {
+    const p = new URLSearchParams(searchParams)
+    p.set('tab', nuevo)
+    setSearchParams(p, { replace: true })
+  }
   const [copied, setCopied] = useState(false)
   const [enlaceListo, setEnlaceListo] = useState(false)
 
@@ -199,15 +215,32 @@ export default function GroupPage() {
     })
     return [...first.entries()].sort((a, b) => a[1] - b[1]).map(([k]) => k)
   }, [resolved])
-  const [jornadaSel, setJornadaSel] = useState(null) // null hasta elegir default; '__all__' = todas
+  // Misma razón que la pestaña: sobrevive al ir y volver de un partido.
+  const jornadaSel = searchParams.get('j')
+  const setJornadaSel = (nueva) => {
+    const p = new URLSearchParams(searchParams)
+    if (nueva) p.set('j', nueva); else p.delete('j')
+    setSearchParams(p, { replace: true })
+  }
 
   // Default: la primera jornada con partidos por jugar (si no, la última).
   useEffect(() => {
-    if (jornadaSel !== null || jornadas.length <= 1) return
+    if (jornadaSel || jornadas.length <= 1) return
     const upcoming = jornadas.find((k) =>
       resolved.some((m) => jornadaKeyOf(m) === k && m.status !== 'finished' && m.status !== 'cancelled'))
     setJornadaSel(upcoming || jornadas[jornadas.length - 1])
   }, [jornadas, resolved, jornadaSel])
+
+  /* Trae el chip de la jornada activa al centro de la fila.
+
+     `block: 'nearest'` es importante: sin eso, scrollIntoView también mueve la
+     PÁGINA verticalmente y al abrir Partidos te deja a media pantalla. */
+  const filaJornadas = useRef(null)
+  const chipActivo = useRef(null)
+  useEffect(() => {
+    if (!chipActivo.current || !filaJornadas.current) return
+    chipActivo.current.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' })
+  }, [jornadaSel, tab])
 
   const shownMatches = useMemo(
     () => (jornadaSel && jornadaSel !== '__all__' ? resolved.filter((m) => jornadaKeyOf(m) === jornadaSel) : resolved),
@@ -347,10 +380,15 @@ export default function GroupPage() {
                 grupo. Se esconde solo si hoy no se juega nada. */}
             <PartidosDeHoy matches={resolved} nombreQuiniela={group.name} />
             {jornadas.length > 1 && (
-              <div className="flex gap-1.5 mb-4 overflow-x-auto scrollbar-hide">
+              /* La fila arranca desplazada al principio, así que en un torneo
+                 largo la jornada activa —la 7 de 8, por ejemplo— queda fuera
+                 de pantalla y hay que buscarla a mano. El ref la trae al
+                 centro sola. */
+              <div ref={filaJornadas} className="flex gap-1.5 mb-4 overflow-x-auto scrollbar-hide">
                 <JornadaChip active={jornadaSel === '__all__'} onClick={() => setJornadaSel('__all__')} label="Todas" />
                 {jornadas.map((j) => (
-                  <JornadaChip key={j} active={jornadaSel === j} onClick={() => setJornadaSel(j)} label={j} />
+                  <JornadaChip key={j} active={jornadaSel === j} onClick={() => setJornadaSel(j)} label={j}
+                    innerRef={jornadaSel === j ? chipActivo : null} />
                 ))}
               </div>
             )}
@@ -1002,9 +1040,9 @@ function DangerZone({ group, onDeleted, showToast }) {
   )
 }
 
-function JornadaChip({ active, onClick, label }) {
+function JornadaChip({ active, onClick, label, innerRef = null }) {
   return (
-    <button onClick={onClick}
+    <button ref={innerRef} onClick={onClick}
       className={`shrink-0 px-3 py-1.5 rounded-[10px] font-['JetBrains_Mono'] font-bold text-[10px] uppercase tracking-[0.08em] whitespace-nowrap transition-all ${
         active
           ? 'bg-accent text-[#06231d]'

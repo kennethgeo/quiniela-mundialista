@@ -161,6 +161,12 @@ Son **dos números distintos a propósito** y confundirlos es el error fácil:
 - `set_group_scoring` necesitó **`DROP` + `CREATE`** para aceptar el parámetro nuevo (no se puede cambiar la firma con `CREATE OR REPLACE`). Eso **reabre el ACL a `PUBLIC`**, así que la migración revoca y re-otorga a mano, y lo comprueba al final.
 - `powerup_por_partidos` se guarda **sin `COALESCE`** con el valor viejo: NULL significa "cupo fijo", y un `COALESCE` impediría desactivarlo.
 
+## La pestaña y la jornada viven en la URL
+- Al entrar a **Detalles del Partido**, `GroupPage` se **desmonta**. Con la pestaña en `useState`, al volver atrás arrancaba de cero y te dejaba en «Resumen» aunque estuvieras en «Partidos». Ahora van en la query (`?tab=matches&j=Jornada 7`), que el historial restaura sola.
+- Se usa **`replace: true`** al cambiar de pestaña: si se empujara al historial, el botón de atrás recorrería las pestañas una por una en vez de salir de la quiniela. La URL igual queda en el historial, así que volver de un partido restaura el estado.
+- La jornada por defecto **ya elegía bien** la primera con partidos por jugar. Lo que faltaba era que la fila de chips se **desplazara** hasta ella: en un torneo de 8 jornadas, la activa quedaba fuera de pantalla. Lo hace `scrollIntoView` con **`block: 'nearest'`** — sin eso también mueve la página verticalmente y te deja a media pantalla.
+- **Una prueba de navegación que solo mira los query params NO sirve**: la URL conserva los parámetros aunque la app los ignore, así que pasa igual con el bug puesto. Comprobado. Hay que afirmar sobre lo que se ve (que existan los chips de jornada, que solo están en «Partidos»).
+
 ## Despliegue
 - **Vercel** despliega frontend Y backend juntos en cada push a `main` (root `vercel.json` → `experimentalServices`, backend `@vercel/python` bajo `/_backend`).
 - Cron de marcadores: GitHub Actions `sync-live-scores.yml` (cada ~5 min) → `POST /_backend/api/matches/sync-live`.
