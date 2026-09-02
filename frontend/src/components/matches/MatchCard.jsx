@@ -256,7 +256,7 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
 
       {/* Footer editable: comodín + guardar + cuenta regresiva */}
       {editable && (
-        <div className="mt-3 flex items-center gap-2">
+        <div className="relative z-10 mt-3 flex items-center gap-2">
           <motion.button
             type="button"
             whileTap={{ scale: 0.92 }}
@@ -297,7 +297,7 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
 
       {/* Footer: partido no disputado (suspendido / cancelado) */}
       {isCancelled && (
-        <div className="mt-3 pt-2.5 border-t border-slate-200 dark:border-[#262626] flex items-center justify-between gap-2">
+        <div className="relative z-10 mt-3 pt-2.5 border-t border-slate-200 dark:border-[#262626] flex items-center justify-between gap-2">
           <span className="font-['Archivo'] font-semibold text-[9.5px] text-[#FF7A59]">Partido no disputado · no cuenta para el puntaje</span>
           {prediction && (
             <span className="font-['Archivo'] font-semibold text-[9.5px] text-[var(--text-muted,#8A8A8A)] line-through shrink-0">
@@ -309,7 +309,7 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
 
       {/* Footer bloqueado */}
       {isLocked && !isFinished && !isInProgress && !isCancelled && (
-        <div className="mt-3 pt-2.5 border-t border-slate-200 dark:border-[#262626] flex items-center justify-between">
+        <div className="relative z-10 mt-3 pt-2.5 border-t border-slate-200 dark:border-[#262626] flex items-center justify-between">
           <span className="font-['Archivo'] font-semibold text-[9.5px] text-[var(--text-muted,#8A8A8A)]">
             {awaitingData ? '🔒 En juego · el marcador se actualiza solo' : `🔒 Cierra en ${countdown}`}
           </span>
@@ -324,7 +324,7 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
 
       {/* Footer finalizado / en vivo: predicción + puntos */}
       {(isFinished || isInProgress) && (
-        <div className="mt-3 pt-2.5 border-t border-slate-200 dark:border-[#262626] flex items-center justify-between gap-2">
+        <div className="relative z-10 mt-3 pt-2.5 border-t border-slate-200 dark:border-[#262626] flex items-center justify-between gap-2">
           <span className="font-['Archivo'] font-semibold text-[9.5px] text-[var(--text-muted,#8A8A8A)] flex items-center gap-1 min-w-0">
             {prediction?.use_powerup_x2 && <Zap size={10} className="text-accent fill-current shrink-0" />}
             {prediction
