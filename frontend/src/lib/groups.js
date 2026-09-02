@@ -73,6 +73,7 @@ export async function setGroupScoring(leagueId, cfg) {
     p_scorer_points: cfg.scorer_points,
     p_powerup_limit: cfg.powerup_limit,
     p_assist_points: cfg.assist_points,
+    p_powerup_por_partidos: cfg.powerup_por_partidos ?? null,
   })
   if (error) throw error
 }
@@ -164,4 +165,23 @@ export async function fetchPlayerStats(tournamentId) {
   })
   if (!res.ok) throw new Error(`Error ${res.status}`)
   return res.json()
+}
+
+/* Cupo de comodines ×2 por jornada, calculado en la base.
+
+   NO se calcula acá: la fórmula vive en cupo_powerups() y la usa el trigger
+   que valida. Si se duplicara en JS, tarde o temprano una de las dos copias se
+   quedaría vieja y la app mostraría un cupo que la base no respeta — que es
+   exactamente lo que pasó con los puntos de asistidor.
+
+   Devuelve { "fase|jornada": cupo }, con la MISMA clave que usa el trigger:
+   (phase, matchday). Ojo: powerupKey() de lib/powerups.js colapsa tercer
+   puesto y final en un solo grupo, y el trigger no. Acá se sigue al trigger,
+   porque es quien manda. */
+export async function fetchCuposPorJornada(leagueId) {
+  const { data, error } = await supabase.rpc('cupos_por_jornada', { p_league_id: leagueId })
+  if (error) throw error
+  const mapa = {}
+  for (const f of data || []) mapa[`${f.phase ?? ''}|${f.matchday ?? 0}`] = f.cupo
+  return mapa
 }

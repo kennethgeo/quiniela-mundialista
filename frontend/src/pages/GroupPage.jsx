@@ -9,7 +9,7 @@ import { useAuth } from '../hooks/useAuth'
 import { useToast } from '../components/ui/Toast'
 import { friendlySaveError } from '../lib/saveError'
 import { powerupKey } from '../lib/powerups'
-import { fetchMyGroups, fetchGroupStandings, fetchTeamStandings, acceptGroupRules, setGroupRules, setGroupScoring, deleteGroup, proposeRuleChange, castRuleVote, cancelRuleProposal, fetchLeagueProposals, fetchMyPowerupCredits, setGroupExtras } from '../lib/groups'
+import { fetchCuposPorJornada, fetchMyGroups, fetchGroupStandings, fetchTeamStandings, acceptGroupRules, setGroupRules, setGroupScoring, deleteGroup, proposeRuleChange, castRuleVote, cancelRuleProposal, fetchLeagueProposals, fetchMyPowerupCredits, setGroupExtras } from '../lib/groups'
 import { initialsDataUri, crestOnError } from '../lib/teamLogo'
 import { enlaceDeInvitacion } from '../lib/invitacion'
 import { renderTablaCard, compartirImagen } from '../lib/shareCard'
@@ -104,8 +104,20 @@ export default function GroupPage() {
     },
   })
 
-  // Límite de comodines ×2 por jornada/fase: viene de la config de la quiniela.
-  const powerupLimit = group?.powerup_limit ?? 2
+  /* Cupo de comodines ×2. Puede ser fijo (powerup_limit) o escalar con el
+     tamaño de la jornada (powerup_por_partidos); la fórmula vive en la base
+     para que el trigger que valida y lo que se muestra acá no se separen.
+     Si la consulta falla se usa el número fijo: perder el cupo escalado es
+     menos malo que dejar la pantalla sin comodines. */
+  const { data: cupos = {} } = useQuery({
+    queryKey: ['cupos_jornada', group?.id],
+    queryFn: () => fetchCuposPorJornada(group.id),
+    enabled: !!group?.id,
+    staleTime: 1000 * 60 * 5,
+  })
+  const limiteFijo = group?.powerup_limit ?? 2
+  const cupoDe = (m) => cupos[`${m?.phase ?? ''}|${m?.matchday ?? 0}`] ?? limiteFijo
+  const powerupLimit = limiteFijo
 
   // Créditos de ×2 arrastrados de partidos cancelados (uso extra en la próxima
   // jornada/fase), otorgados por void_cancelled_match. { [powerupKey]: cantidad }
@@ -348,6 +360,7 @@ export default function GroupPage() {
               onSavePrediction={(p) => saveMutation.mutate(p)}
               isLoading={saveMutation.isPending}
               powerupLimit={powerupLimit}
+              cupoDe={cupoDe}
               powerupUsage={powerupUsage}
               powerupCredits={powerupCredits}
               onPredecirJornada={setJornadaRapida}
@@ -465,6 +478,7 @@ const SCORING_LABELS = {
   points_exact: 'Marcador exacto',
   points_correct: 'Resultado correcto',
   powerup_limit: 'Comodines ×2 por jornada',
+  powerup_por_partidos: 'Un ×2 cada N partidos',
   champion_points: 'Acertar campeón',
   scorer_points: 'Acertar goleador',
 }
@@ -643,6 +657,7 @@ function ScoringConfig({ group, isAdmin, tournamentStarted, hasOpenProposal, onS
     points_exact: group.points_exact ?? 3,
     points_correct: group.points_correct ?? 1,
     powerup_limit: group.powerup_limit ?? 2,
+    powerup_por_partidos: group.powerup_por_partidos ?? '',
     champion_points: group.champion_points ?? 12,
     scorer_points: group.scorer_points ?? 12,
     assist_points: group.assist_points ?? 12,
@@ -652,7 +667,8 @@ function ScoringConfig({ group, isAdmin, tournamentStarted, hasOpenProposal, onS
   const rows = [
     ['points_exact', 'Marcador exacto', 'pts'],
     ['points_correct', 'Resultado correcto', 'pts'],
-    ['powerup_limit', 'Comodines ×2 por jornada', ''],
+    ['powerup_limit', 'Comodines ×2 por jornada', 'mínimo'],
+    ['powerup_por_partidos', 'Un ×2 cada N partidos', 'vacío = fijo'],
     ['champion_points', 'Acertar campeón', 'pts'],
     ['scorer_points', 'Acertar goleador', 'pts'],
     ['assist_points', 'Acertar asistidor', 'pts'],
@@ -662,6 +678,9 @@ function ScoringConfig({ group, isAdmin, tournamentStarted, hasOpenProposal, onS
       points_exact: parseInt(cfg.points_exact) || 0,
       points_correct: parseInt(cfg.points_correct) || 0,
       powerup_limit: parseInt(cfg.powerup_limit) || 0,
+      // Vacío = cupo fijo, que es el comportamiento de siempre. Un 0 o un
+      // negativo los rechaza la propia base (restricción de la migración 67).
+      powerup_por_partidos: cfg.powerup_por_partidos === '' ? null : (parseInt(cfg.powerup_por_partidos) || null),
       champion_points: parseInt(cfg.champion_points) || 0,
       scorer_points: parseInt(cfg.scorer_points) || 0,
       assist_points: parseInt(cfg.assist_points) || 0,
