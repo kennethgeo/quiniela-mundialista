@@ -21,3 +21,7 @@ backend/.env
 # Archivos del sistema operativo
 .DS_Store
 Thumbs.db
+# Playwright: informes y rastros de las pruebas de interfaz
+frontend/test-results/
+frontend/playwright-report/
+frontend/blob-report/

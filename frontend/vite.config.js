@@ -72,6 +72,15 @@ export default defineConfig({
       }
     }
   },
+  test: {
+    // Vitest barre por defecto todo lo que termine en .test o .spec, y así se
+    // llevaba puestas las pruebas de Playwright de tests/ui, que usan otro
+    // runner: fallaba con "Playwright Test did not expect test.beforeEach()".
+    // Cada una corre con lo suyo: `npm test` las de lógica, `npm run test:ui`
+    // las que abren la app.
+    exclude: ['**/node_modules/**', '**/dist/**', 'tests/ui/**'],
+  },
+
   server: {
     proxy: {
       '/_backend/api/matches/external-games': {
