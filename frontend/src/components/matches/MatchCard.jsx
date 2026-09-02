@@ -136,8 +136,13 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
            todo lo que no tenga `position` propio —marcador, nombres, el botón
            de guardar— y la tarjeta entera se ve apagada. Pasó en producción. */
         <div className="absolute inset-0 z-0 rounded-[14px] overflow-hidden pointer-events-none" aria-hidden="true">
-          <img src={fotoEstadio} alt="" loading="lazy" className="w-full h-full object-cover opacity-[0.13]" />
-          <div className="absolute inset-0 bg-white/70 dark:bg-[#161616]/80" />
+          {/* La opacidad es DISTINTA por tema, no por capricho: un velo blanco
+              sobre una foto de tono medio la aplana más que uno oscuro, así
+              que con el mismo número el modo claro se ve deslavado y el
+              oscuro bien. Se ajustó comparando ambos lado a lado. */}
+          <img src={fotoEstadio} alt="" loading="lazy"
+            className="w-full h-full object-cover opacity-[0.38] dark:opacity-[0.30]" />
+          <div className="absolute inset-0 bg-white/[0.66] dark:bg-[#161616]/70" />
         </div>
       )}
 

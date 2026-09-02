@@ -220,9 +220,14 @@ export default function MatchDetailPage() {
             tarjeta queda como estaba. */}
         {fotoEstadio && (
           <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
+            {/* Acá el velo era SOLO oscuro (#0C0C0C), así que en modo claro
+                quedaba una tarjeta negra dentro de una página blanca. Ahora
+                cada tema tiene el suyo, con la misma proporción que usa la
+                tarjeta de la lista. */}
             <img src={fotoEstadio} alt="" loading="lazy"
-              className="w-full h-full object-cover" />
-            <div className="absolute inset-0 bg-gradient-to-b from-[#0C0C0C]/88 via-[#0C0C0C]/92 to-[#0C0C0C]/96" />
+              className="w-full h-full object-cover opacity-[0.55] dark:opacity-100" />
+            <div className="absolute inset-0 bg-gradient-to-b from-white/[0.80] via-white/[0.86] to-white/[0.92]
+              dark:from-[#0C0C0C]/88 dark:via-[#0C0C0C]/92 dark:to-[#0C0C0C]/96" />
           </div>
         )}
 
