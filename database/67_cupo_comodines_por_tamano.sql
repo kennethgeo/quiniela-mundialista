@@ -45,7 +45,7 @@ ALTER TABLE public.leagues ADD CONSTRAINT leagues_powerup_por_partidos_ck
   CHECK (powerup_por_partidos IS NULL OR powerup_por_partidos BETWEEN 1 AND 50);
 
 -- ── La única fórmula del cupo ───────────────────────────────────────────────
-CREATE OR REPLACE FUNCTION public.cupo_powerups(p_league_id uuid, p_match_id uuid)
+CREATE OR REPLACE FUNCTION public.cupo_powerups(p_league_id uuid, p_match_id integer)
 RETURNS integer
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
   WITH liga AS (
@@ -73,7 +73,7 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
   FROM liga l, cuantos c;
 $$;
 
-COMMENT ON FUNCTION public.cupo_powerups(uuid, uuid) IS
+COMMENT ON FUNCTION public.cupo_powerups(uuid, integer) IS
   'Cupo de comodines ×2 de una persona en la jornada de ese partido. Única fórmula: la usa el trigger y la consulta el frontend.';
 
 -- ── El trigger pasa a usarla ────────────────────────────────────────────────
@@ -200,7 +200,7 @@ END; $$;
 REVOKE ALL ON FUNCTION public.set_group_scoring(uuid, int, int, int, int, int, int, int) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.set_group_scoring(uuid, int, int, int, int, int, int, int) TO authenticated;
 
-REVOKE ALL ON FUNCTION public.cupo_powerups(uuid, uuid) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.cupo_powerups(uuid, integer) FROM PUBLIC, anon;
 REVOKE ALL ON FUNCTION public.cupos_por_jornada(uuid) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.cupos_por_jornada(uuid) TO authenticated;
 -- cupo_powerups NO se otorga: es interna, la llama el trigger (SECURITY
