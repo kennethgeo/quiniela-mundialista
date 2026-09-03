@@ -75,7 +75,14 @@ FROM unnest(ARRAY[
   '_recompute_league_badges_inner',
   'es_admin_global',
   'puede_ver_quiniela',
-  'quiniela_por_id'
+  'quiniela_por_id',
+  -- Migraciones 67 y 68 (cupo de comodines ×2)
+  'cupo_powerups',
+  'cupos_por_jornada',
+  'set_powerup_limits',
+  'fases_del_torneo',
+  'clave_fase',
+  'powerup_limits_valido'
 ]::text[]) x
 WHERE NOT EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
                   WHERE n.nspname = 'public' AND p.proname = x);
@@ -146,11 +153,18 @@ WHERE n.nspname = 'public'
   '_recompute_league_badges_inner',
   'es_admin_global',
   'puede_ver_quiniela',
-  'quiniela_por_id'
+  'quiniela_por_id',
+  -- Migraciones 67 y 68 (cupo de comodines ×2)
+  'cupo_powerups',
+  'cupos_por_jornada',
+  'set_powerup_limits',
+  'fases_del_torneo',
+  'clave_fase',
+  'powerup_limits_valido'
 ]::text[])
 ORDER BY p.proname;
 
-\echo '=== 3. RPC que el frontend llama y NO puede ejecutar (pantalla muerta) ==='
+\echo '=== 3. RPC/helpers que authenticated necesita y NO puede ejecutar (pantalla muerta) ==='
 SELECT x AS sin_permiso
 FROM unnest(ARRAY[
     'accept_group_rules',
@@ -186,10 +200,12 @@ FROM unnest(ARRAY[
   'set_league_admin',
   'set_league_pozo',
   'tournament_predictions_open',
-  '_recompute_league_badges_inner',
-  'es_admin_global',
   'puede_ver_quiniela',
-  'quiniela_por_id'
+  'quiniela_por_id',
+  -- Migraciones 67 y 68 (cupo de comodines ×2)
+  'cupos_por_jornada',
+  'set_powerup_limits',
+  'fases_del_torneo'
 ]::text[]) x
 WHERE EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
               WHERE n.nspname = 'public' AND p.proname = x)

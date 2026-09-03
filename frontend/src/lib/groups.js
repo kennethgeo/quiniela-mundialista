@@ -175,13 +175,29 @@ export async function fetchPlayerStats(tournamentId) {
    exactamente lo que pasó con los puntos de asistidor.
 
    Devuelve { "fase|jornada": cupo }, con la MISMA clave que usa el trigger:
-   (phase, matchday). Ojo: powerupKey() de lib/powerups.js colapsa tercer
-   puesto y final en un solo grupo, y el trigger no. Acá se sigue al trigger,
-   porque es quien manda. */
+   (phase, matchday). */
 export async function fetchCuposPorJornada(leagueId) {
   const { data, error } = await supabase.rpc('cupos_por_jornada', { p_league_id: leagueId })
   if (error) throw error
   const mapa = {}
   for (const f of data || []) mapa[`${f.phase ?? ''}|${f.matchday ?? 0}`] = f.cupo
   return mapa
+}
+
+/* Fases que existen en el torneo de esta quiniela, para no ofrecer una lista
+   inventada: la Champions no tiene «Tercer puesto» y la liga tica no tiene
+   «Octavos». Sale de los partidos que hay cargados. */
+export async function fetchFasesDelTorneo(leagueId) {
+  const { data, error } = await supabase.rpc('fases_del_torneo', { p_league_id: leagueId })
+  if (error) throw error
+  return data || []
+}
+
+/* Guarda el cupo de ×2 por fase. Un objeto { clave: número }; una clave que no
+   esté usa el número fijo de la quiniela, no cero. */
+export async function setPowerupLimits(leagueId, limites) {
+  const { error } = await supabase.rpc('set_powerup_limits', {
+    p_league_id: leagueId, p_limits: limites,
+  })
+  if (error) throw error
 }

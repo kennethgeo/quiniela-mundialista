@@ -319,8 +319,8 @@ export default function ProfilePage() {
                     <Activity size={16} />
                   </div>
                   <div>
-                    <p className="text-sm font-bold text-slate-900 dark:text-[#F3F1EA]">{stats.predictedCount} <span className="text-slate-400 font-normal">/ 104</span></p>
-                    <p className="text-[10px] text-slate-500 uppercase font-bold">Partidos Pronosticados</p>
+                    <p className="text-sm font-bold text-slate-900 dark:text-[#F3F1EA]">{stats.predictedCount}</p>
+                    <p className="text-[10px] text-slate-500 uppercase font-bold">Predicciones Guardadas</p>
                   </div>
                 </div>
               </div>
@@ -623,4 +623,3 @@ export default function ProfilePage() {
     </div>
   )
 }
-

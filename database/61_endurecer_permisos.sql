@@ -547,6 +547,13 @@ DECLARE
     -- puede_ver_quiniela, y como esa es SECURITY DEFINER lo ejecuta como su
     -- dueño. Dárselo a 'authenticated' solo agrandaría la superficie.
     'quiniela_por_id', 'puede_ver_quiniela',
+    -- Migraciones 67 y 68 (cupo de comodines ×2). Las TRES las llama el
+    -- frontend: cupos_por_jornada para pintar "quedan N", y las otras dos
+    -- desde el editor de Reglas.
+    -- NO van acá cupo_powerups, clave_fase ni powerup_limits_valido: son
+    -- ayudantes internos que invocan funciones SECURITY DEFINER, así que
+    -- corren como el dueño. Darles EXECUTE solo agrandaría la superficie.
+    'cupos_por_jornada', 'set_powerup_limits', 'fases_del_torneo',
     -- Estas cuatro NO las llama ningún cliente, pero viven DENTRO de políticas
     -- RLS, donde se evalúan como quien consulta. Sin EXECUTE se caen todas las
     -- lecturas que dependen de esas políticas.

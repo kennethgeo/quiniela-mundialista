@@ -20,7 +20,7 @@ export default function Sidebar({ isOpen, onClose }) {
   const handleSignOut = async () => {
     try {
       await signOut()
-      navigate('/login')
+      navigate('/auth')
     } catch (err) {
       console.error('Error al cerrar sesión:', err.message)
     }

@@ -6,18 +6,18 @@ import { motion } from 'motion/react'
 import { Zap, Lock } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
-import { powerupKey, buildPowerupLimits, POWERUP_FINAL_GROUP } from '../../lib/powerups'
+import { powerupKey, buildPowerupLimits } from '../../lib/powerups'
 import LoadingSpinner from '../ui/LoadingSpinner'
 
-// 3er puesto y final comparten un solo cupo → se muestran como un segmento único.
 const KNOCKOUT_LABELS = {
   round_of_32: 'Ronda de 32',
   round_of_16: 'Octavos',
   quarter_finals: 'Cuartos',
   semi_finals: 'Semis',
-  [POWERUP_FINAL_GROUP]: 'Final + 3er',
+  third_place: '3er puesto',
+  final: 'Final',
 }
-const SEGMENT_ORDER = ['groups_1', 'groups_2', 'groups_3', 'round_of_32', 'round_of_16', 'quarter_finals', 'semi_finals', POWERUP_FINAL_GROUP]
+const SEGMENT_ORDER = ['groups_1', 'groups_2', 'groups_3', 'round_of_32', 'round_of_16', 'quarter_finals', 'semi_finals', 'third_place', 'final']
 
 export default function PowerupUsage() {
   const { profile } = useAuth()
