@@ -2,13 +2,15 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'motion/react'
 import { Zap, Info } from 'lucide-react'
-import { differenceInMinutes, differenceInSeconds } from 'date-fns'
+import { differenceInSeconds } from 'date-fns'
 import { useNavigate } from 'react-router-dom'
 import GoalCounter from './GoalCounter'
 import NeonElectricBorder from '../ui/NeonElectricBorder'
 import { crestOnError } from '../../lib/teamLogo'
 import { fotoDeEstadio } from '../../lib/estadios'
 import GolAnimado from './GolAnimado'
+import MatchStatusBadge from '../ui/MatchStatusBadge'
+import { matchStatus, predictionDeadline } from '../../lib/matchStatus'
 
 const flagSrc = (url, code) => url || `https://flagcdn.com/w80/${(code || 'xx').toLowerCase()}.png`
 
@@ -46,19 +48,19 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
     ? match.kickoff_at
     : `${match.kickoff_at}Z`
   const kickoff = new Date(dateString)
-  const minutesUntil = differenceInMinutes(kickoff, new Date())
-  const isLocked = minutesUntil <= 15
+  const state = matchStatus(match)
+  const isLocked = state.key === 'locked' || state.key === 'started'
   const isFinished = match.status === 'finished'
-  const isInProgress = match.status === 'in_progress'
+  const isInProgress = match.status === 'in_progress' || match.status === 'live'
   const fotoEstadio = fotoDeEstadio(match.venue)
   const isCancelled = ['cancelled', 'canceled', 'postponed', 'suspended'].includes(match.status)
   // El partido ya arrancó (pasó el saque) pero la BD aún lo tiene 'pending' porque
   // el sync todavía no lo actualizó. Evita el "Cierra en En curso" / "Cierra pronto".
-  const started = minutesUntil <= 0
+  const started = kickoff.getTime() <= Date.now()
   const awaitingData = started && !isFinished && !isInProgress && !isCancelled
   const isKnockout = match.phase !== 'groups'
   const isTiePredicted = homeGoals === awayGoals && homeGoals !== null
-  const editable = !isLocked && !isFinished && !isInProgress && !isCancelled
+  const editable = state.canPredict
 
   // Comodines ×2 restantes en la jornada (en vivo: cuenta el toggle local aún sin guardar).
   const savedThis = prediction?.use_powerup_x2 ? 1 : 0
@@ -71,8 +73,9 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
   useEffect(() => {
     if (isFinished || isInProgress) return
     const tick = () => {
-      const diff = differenceInSeconds(kickoff, new Date())
-      if (diff <= 0) { setCountdown('En curso'); return }
+      const deadline = predictionDeadline(match.kickoff_at)
+      const diff = deadline ? differenceInSeconds(deadline, new Date()) : 0
+      if (diff <= 0) { setCountdown('Cerrado'); return }
       const totalMin = Math.floor(diff / 60)
       const d = Math.floor(totalMin / 1440)
       const h = Math.floor((totalMin % 1440) / 60)
@@ -84,7 +87,7 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
     tick()
     const timer = setInterval(tick, 30000)
     return () => clearInterval(timer)
-  }, [kickoff, isFinished, isInProgress])
+  }, [match.kickoff_at, isFinished, isInProgress])
 
   const handleSave = () => {
     if (isLocked || isFinished) return
@@ -162,17 +165,7 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
         )}
 
         <div className="shrink-0 flex items-center gap-1.5">
-          {isCancelled && (
-            <span className="font-['Archivo'] font-bold text-[8.5px] px-2 py-[3px] rounded-[20px]" style={{ color: '#FF7A59', background: 'rgba(255,122,89,.14)' }}>NO SE JUGÓ</span>
-          )}
-          {isLocked && !started && !isFinished && !isInProgress && !isCancelled && (
-            <span className="font-['Archivo'] font-bold text-[8.5px] px-2 py-[3px] rounded-[20px]" style={{ color: '#E8B75A', background: 'rgba(232,183,90,.14)' }}>⏳ Cierra pronto</span>
-          )}
-          {awaitingData && (
-            <span className="flex items-center gap-1 font-['Archivo'] font-bold text-[8.5px] px-2 py-[3px] rounded-[20px]" style={{ color: '#FF4D6D', background: 'rgba(255,77,109,.14)' }}>
-              <span className="w-1.5 h-1.5 rounded-full bg-[#FF4D6D] animate-pulse" /> EN JUEGO
-            </span>
-          )}
+          {!isInProgress && <MatchStatusBadge match={match} />}
           {(isFinished || isInProgress) && match.goes_to_penalties && (
             <span className="font-['Archivo'] font-bold text-[8.5px] px-2 py-[3px] rounded-[20px]" style={{ color: '#E8B75A', background: 'rgba(232,183,90,.14)' }}>PENALES</span>
           )}
@@ -296,7 +289,7 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
             {isLoading ? '…' : prediction ? 'Actualizar predicción' : 'Guardar predicción'}
           </button>
 
-          {countdown && <span className="shrink-0 font-['JetBrains_Mono'] font-bold text-[8px] text-[var(--text-muted,#8A8A8A)]">{countdown}</span>}
+          {countdown && <span className="shrink-0 font-['JetBrains_Mono'] font-bold text-[8px] text-[var(--text-muted,#8A8A8A)]">cierra en {countdown}</span>}
         </div>
       )}
 
@@ -316,7 +309,7 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
       {isLocked && !isFinished && !isInProgress && !isCancelled && (
         <div className="relative z-10 mt-3 pt-2.5 border-t border-slate-200 dark:border-[#262626] flex items-center justify-between">
           <span className="font-['Archivo'] font-semibold text-[9.5px] text-[var(--text-muted,#8A8A8A)]">
-            {awaitingData ? '🔒 En juego · el marcador se actualiza solo' : `🔒 Cierra en ${countdown}`}
+            {awaitingData ? '🔒 En juego · el marcador se actualiza solo' : '🔒 Predicciones cerradas'}
           </span>
           {prediction && (
             <span className="font-['Archivo'] font-semibold text-[9.5px] text-slate-700 dark:text-[#F3F1EA] flex items-center gap-1">

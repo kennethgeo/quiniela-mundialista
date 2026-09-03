@@ -8,6 +8,8 @@ import { useAuth } from '../hooks/useAuth'
 import { fetchMyGroups, fetchTournaments, createGroup, joinGroupByCode, DEFAULT_RULES } from '../lib/groups'
 import { tomarInvitacion } from '../lib/invitacion'
 import RankingGlobal from '../components/hub/RankingGlobal'
+import PendingPredictions from '../components/hub/PendingPredictions'
+import { EmptyState, ErrorState } from '../components/ui/StatePanel'
 
 // Paleta cíclica idéntica al mockup de Claude Design (teal, coral, gold, gris)
 const PALETTE = [
@@ -96,6 +98,8 @@ export default function HubPage() {
           ningún partido. */}
       <RankingGlobal />
 
+      {!loading && !error && <PendingPredictions groups={groups} userId={profile?.id} />}
+
       {/* CTAs */}
       <div className="flex gap-2.5 mb-6">
         <button onClick={() => setModal('create')}
@@ -109,9 +113,8 @@ export default function HubPage() {
       </div>
 
       {error && (
-        <div className="mb-4 text-sm text-[#FF7A59] bg-[#FF7A59]/10 border border-[#FF7A59]/25 rounded-xl p-3">
-          {error.includes('function') || error.includes('does not exist')
-            ? 'Falta correr la migración 26 en la base de datos.' : error}
+        <div className="mb-4">
+          <ErrorState description="No pudimos traer tus quinielas. Tu sesión sigue activa." onRetry={load} compact />
         </div>
       )}
 
@@ -121,13 +124,7 @@ export default function HubPage() {
           {[0, 1].map(i => <div key={i} className="h-36 rounded-2xl bg-slate-100 dark:bg-white/[0.04] animate-pulse" />)}
         </div>
       ) : groups.length === 0 ? (
-        <div className="border-[1.5px] border-dashed border-slate-200 dark:border-[#262626] rounded-2xl px-5 py-9 text-center">
-          <div className="text-3xl mb-2.5">⚽</div>
-          <div className="font-['Unbounded'] font-bold text-base text-slate-900 dark:text-[#F3F1EA]">Todavía no estás en ninguna</div>
-          <div className="font-['Archivo'] font-medium text-xs text-[var(--text-muted,#8A8A8A)] mt-1.5 max-w-[280px] mx-auto">
-            Creá tu propia quiniela o unite con el código de tus amigos
-          </div>
-        </div>
+        <EmptyState title="Todavía no estás en ninguna" description="Creá tu propia quiniela o unite con el código de tus amigos." />
       ) : (
         <>
           {activeGroups.length === 0 ? (
@@ -161,8 +158,6 @@ export default function HubPage() {
         {modal === 'create' && <CreateModal onClose={() => setModal(null)} onDone={() => { setModal(null); load() }} />}
         {modal === 'join' && <JoinModal onClose={() => setModal(null)} onDone={() => { setModal(null); load() }} />}
       </AnimatePresence>
-
-      <div className="text-center font-['JetBrains_Mono'] text-[8px] tracking-[0.12em] text-[#3a3a3a] mt-8">HUB-UI · 21jul · r2</div>
     </div>
   )
 }

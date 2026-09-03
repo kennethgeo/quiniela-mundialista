@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'motion/react'
-import { Activity, Trophy, Clock, Target, Zap, CheckCircle2, XCircle, Camera, Trash2, Loader2, Moon, Sun, LogOut, ShieldAlert, BookOpen } from 'lucide-react'
+import { Activity, Trophy, Clock, Target, Zap, CheckCircle2, XCircle, Camera, Trash2, Loader2, Moon, Sun, LogOut, ShieldAlert, BookOpen, RefreshCw, Wrench } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { resizeImage } from '../lib/image'
 import { getTournamentLocked } from '../lib/tournamentLock'
@@ -11,8 +11,12 @@ import PushNotificationToggle from '../components/ui/PushNotificationToggle'
 import GlobalPredictionsModal from '../components/profile/GlobalPredictionsModal'
 import BadgeShowcase, { MedalStrip } from '../components/medals/BadgeShowcase'
 import { fetchMyMedals, aggregateMedals } from '../lib/medals'
+import { refreshApplication } from '../lib/appUpdate'
+import { EmptyState } from '../components/ui/StatePanel'
 
-
+const AVATAR_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp'])
+const MAX_AVATAR_SOURCE_BYTES = 12 * 1024 * 1024
+const MAX_AVATAR_UPLOAD_BYTES = 1024 * 1024
 
 export default function ProfilePage() {
   const { profile, signOut } = useAuth()
@@ -40,26 +44,30 @@ export default function ProfilePage() {
   const [advancedStats, setAdvancedStats] = useState(null)
   
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
+  const [refreshingApp, setRefreshingApp] = useState(false)
   const fileInputRef = useRef(null)
 
   const handleAvatarUpload = async (event) => {
+    let uploadedPath = null
     try {
       setUploadingAvatar(true)
       const file = event.target.files[0]
       if (!file) return
+      if (!AVATAR_TYPES.has(file.type)) throw new Error('Usá una imagen JPG, PNG o WebP.')
+      if (file.size > MAX_AVATAR_SOURCE_BYTES) throw new Error('La imagen original no puede superar 12 MB.')
 
       // Redimensionar/comprimir antes de subir: una foto de teléfono de varios
       // MB se descargaba completa en ranking/podio/perfil (Cached Egress alto).
       const blob = await resizeImage(file, 256, 0.82)
+      if (blob.size > MAX_AVATAR_UPLOAD_BYTES) {
+        throw new Error('No pudimos optimizar la imagen por debajo de 1 MB. Probá con otra foto.')
+      }
       const filePath = `${profile.id}-${Date.now()}.webp`
 
-      // Borrar el avatar anterior (si era del bucket) para no acumular basura.
+      // La anterior se conserva hasta que la nueva esté subida y enlazada. Así
+      // una falla de red nunca deja al usuario sin la foto que ya tenía.
       const prevUrl = profile.avatar_url || ''
       const marker = '/avatars/'
-      if (prevUrl.includes(marker)) {
-        const oldPath = prevUrl.split(marker)[1]?.split('?')[0]
-        if (oldPath) await supabase.storage.from('avatars').remove([oldPath]).catch(() => {})
-      }
 
       // Upload to storage (webp pequeño + cache de 1 año para no re-descargar)
       const { error: uploadError } = await supabase.storage
@@ -67,6 +75,7 @@ export default function ProfilePage() {
         .upload(filePath, blob, { contentType: 'image/webp', cacheControl: '31536000', upsert: true })
 
       if (uploadError) throw uploadError
+      uploadedPath = filePath
 
       // Get public URL
       const { data: { publicUrl } } = supabase.storage
@@ -80,14 +89,22 @@ export default function ProfilePage() {
         .eq('id', profile.id)
 
       if (updateError) throw updateError
+      uploadedPath = null
+
+      if (prevUrl.includes(marker)) {
+        const oldPath = decodeURIComponent(prevUrl.split(marker)[1]?.split('?')[0] || '')
+        if (oldPath && oldPath !== filePath) await supabase.storage.from('avatars').remove([oldPath]).catch(() => {})
+      }
 
       // Reload window to reflect changes globally
       window.location.reload()
     } catch (error) {
+      if (uploadedPath) await supabase.storage.from('avatars').remove([uploadedPath]).catch(() => {})
       console.error('Error uploading avatar:', error)
       alert('Error subiendo la foto: ' + error.message)
     } finally {
       setUploadingAvatar(false)
+      event.target.value = ''
     }
   }
 
@@ -100,6 +117,13 @@ export default function ProfilePage() {
         .eq('id', profile.id)
 
       if (updateError) throw updateError
+
+      const prevUrl = profile.avatar_url || ''
+      const marker = '/avatars/'
+      if (prevUrl.includes(marker)) {
+        const oldPath = decodeURIComponent(prevUrl.split(marker)[1]?.split('?')[0] || '')
+        if (oldPath) await supabase.storage.from('avatars').remove([oldPath]).catch(() => {})
+      }
       
       window.location.reload()
     } catch (error) {
@@ -119,11 +143,34 @@ export default function ProfilePage() {
   const fetchData = async () => {
     try {
       setLoading(true)
+
+      // Son fuentes independientes: arrancarlas juntas evita una cascada de
+      // esperas perceptible en redes móviles lentas.
+      const [matchesResult, predictionsResult, logsResult, statsResult, globalResult, medalRows, locked] = await Promise.all([
+        supabase.from('matches')
+          .select('id,kickoff_at,status,phase,group_name,home_team,away_team,home_goals_actual,away_goals_actual'),
+        supabase.from('predictions')
+          .select('id,match_id,home_goals_pred,away_goals_pred,use_powerup_x2,points_earned')
+          .eq('user_id', profile.id),
+        supabase.from('prediction_logs')
+          .select('id,match_id,changed_at,action,old_data,new_data')
+          .eq('user_id', profile.id)
+          .order('changed_at', { ascending: false })
+          .limit(50),
+        supabase.from('user_stats_view')
+          .select('talisman_team,maldito_team').eq('user_id', profile.id).maybeSingle(),
+        supabase.from('tournament_predictions')
+          .select('champion_team,top_scorer_name').eq('user_id', profile.id).maybeSingle(),
+        fetchMyMedals().catch(() => []),
+        getTournamentLocked(),
+      ])
+
+      if (matchesResult.error) throw matchesResult.error
+      if (predictionsResult.error) throw predictionsResult.error
+      const matchesData = matchesResult.data || []
+      const predsData = predictionsResult.data || []
       
-      const { data: matchesData } = await supabase.from('matches').select('*')
-      const { data: predsData } = await supabase.from('predictions').select('*').eq('user_id', profile.id)
-      
-      if (matchesData && predsData) {
+      if (matchesData.length || predsData.length) {
         const enrichedPreds = predsData.map(p => ({
           ...p,
           match: matchesData.find(m => m.id === p.match_id)
@@ -156,13 +203,7 @@ export default function ProfilePage() {
         })
       }
 
-      const { data: logsData } = await supabase
-        .from('prediction_logs')
-        .select('*')
-        .eq('user_id', profile.id)
-        .order('changed_at', { ascending: false })
-        .limit(50)
-
+      const logsData = logsResult.data || []
       if (logsData && matchesData) {
         const enrichedLogs = logsData.map(l => ({
           ...l,
@@ -171,20 +212,12 @@ export default function ProfilePage() {
         setLogs(enrichedLogs)
       }
 
-      fetchMyMedals().then((rows) => setMedalsAgg(aggregateMedals(rows))).catch(() => {})
-      const { data: sData } = await supabase.from('user_stats_view').select('*').eq('user_id', profile.id).maybeSingle()
-
-      if (sData) setAdvancedStats(sData)
-
-      const { data: globalData } = await supabase
-        .from('tournament_predictions')
-        .select('*')
-        .eq('user_id', profile.id)
-        .maybeSingle()
-      setGlobalPrediction(globalData || null)
+      setMedalsAgg(aggregateMedals(medalRows))
+      setAdvancedStats(statsResult.data || null)
+      setGlobalPrediction(globalResult.data || null)
         
       // Bloqueo: manual (admin) o automático al iniciar el primer partido del torneo
-      setIsPredictionsLocked(await getTournamentLocked())
+      setIsPredictionsLocked(locked)
 
     } catch (err) {
       console.error('Error fetching profile data', err)
@@ -240,7 +273,7 @@ export default function ProfilePage() {
               type="file"
               ref={fileInputRef}
               onChange={handleAvatarUpload}
-              accept="image/*"
+              accept="image/jpeg,image/png,image/webp"
               className="hidden"
             />
           </div>
@@ -394,6 +427,30 @@ export default function ProfilePage() {
             </button>
           )}
 
+          <details className="rounded-xl border border-slate-200 bg-white dark:border-[#262626] dark:bg-[#161616]">
+            <summary className="flex cursor-pointer list-none items-center gap-3 px-4 py-3 font-['Archivo'] text-sm font-semibold text-slate-700 dark:text-[#F3F1EA]">
+              <Wrench size={18} className="text-slate-400" />
+              Solución de problemas
+              <span className="ml-auto text-[10px] font-normal text-[var(--text-muted,#8A8A8A)]">Opcional</span>
+            </summary>
+            <div className="border-t border-slate-100 px-4 pb-4 pt-3 dark:border-white/5">
+              <p className="mb-3 text-[11px] leading-relaxed text-[var(--text-muted,#8A8A8A)]">
+                Usalo solo si la app parece mostrar una versión anterior. No borra tu cuenta ni tus predicciones.
+              </p>
+              <button
+                onClick={async () => {
+                  if (refreshingApp) return
+                  setRefreshingApp(true)
+                  try { await refreshApplication() } catch { window.location.reload() }
+                }}
+                disabled={refreshingApp}
+                className="flex w-full items-center justify-center gap-2 rounded-lg bg-slate-100 px-3 py-2.5 text-xs font-bold text-slate-700 disabled:opacity-60 dark:bg-white/[0.06] dark:text-slate-200">
+                <RefreshCw size={14} className={refreshingApp ? 'animate-spin' : ''} />
+                {refreshingApp ? 'Actualizando…' : 'Buscar actualización y limpiar caché'}
+              </button>
+            </div>
+          </details>
+
           <button onClick={async () => { try { await signOut(); navigate('/auth') } catch (e) { console.error(e) } }}
             className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-[#FF5A5A]/10 border border-[#FF5A5A]/25 text-[#FF5A5A] font-['Archivo'] font-semibold text-sm">
             <LogOut size={18} /> Cerrar sesión
@@ -436,7 +493,7 @@ export default function ProfilePage() {
             {activeTab === 'predictions' && (
               <motion.div key="preds" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }} className="space-y-4">
                 {predictions.length === 0 ? (
-                   <div className="glass-card p-8 text-center text-slate-500 text-sm">No has hecho predicciones aún.</div>
+                   <EmptyState title="Todavía no hiciste predicciones" description="Entrá a una quiniela y elegí un marcador antes del cierre." />
                 ) : (
                   predictions.map(pred => {
                     const match = pred.match
@@ -563,7 +620,7 @@ export default function ProfilePage() {
             {activeTab === 'history' && (
               <motion.div key="logs" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }}>
                 {logs.length === 0 ? (
-                  <div className="glass-card p-8 text-center text-slate-500 text-sm">No hay registro de actividad aún.</div>
+                  <EmptyState title="Sin actividad todavía" description="Tus cambios de predicción aparecerán acá." />
                 ) : (
                   <div className="relative border-l border-accent/20 ml-3 md:ml-4 space-y-6">
                     {logs.map(log => {

@@ -1,150 +1,88 @@
 # Aplicar migraciones en Supabase — Quiniela Mundialista
 
-**Repo:** `kennethgeo/quiniela-mundialista`, rama `main`, commit `54fab9b`.
-**Para:** Codex u otro agente con acceso a la base.
+**Proyecto:** `wifjwtbzstbuiistcxkf` — Quiniela Mundialista 2026.
 
-Los archivos están en el repo, en `database/`. **No los modifiques.** Todos son
-idempotentes: si dudás de si algo ya se corrió, se puede volver a correr.
+Las migraciones 61–69 ya forman parte del estado esperado. No se inventan ni
+reparan filas en `supabase_migrations`: si el historial difiere de los objetos
+reales, se reporta. El inventario canónico de solo lectura es
+`database/verificar_estado.sql`.
 
----
+## Migración pendiente de este cambio
 
-## Estado de partida (verificado en la auditoría del 25 ago)
+`database/70_endurecer_avatares_y_search_path.sql`
 
-| Migración | ¿Aplicada? | Nota |
-|---|---|---|
-| `61_endurecer_permisos.sql` | Sí, pero una **versión vieja** | Hay que volver a correrla: la nueva incluye tres RPC que faltaban |
-| `62_ranking_global_sin_duplicados.sql` | Sí | No hace falta repetirla |
-| `63_hub_global_y_perfiles.sql` | **No** | |
-| `64_cerrar_tablas_y_vistas_abiertas.sql` | Sí | |
-| `65_predicciones_solo_de_tu_quiniela.sql` | **No** | Archivo nuevo |
+Aplicarla completa, sin modificarla y únicamente después de que el frontend que
+comprime avatares a WebP esté desplegado. Es idempotente y no altera perfiles,
+predicciones, puntos ni archivos existentes.
 
----
+Hace cuatro cosas:
 
-## Secuencia
+1. Limita nuevas subidas a `avatars` a 1 MB y a JPEG, PNG o WebP.
+2. Agrega `WITH CHECK` a la política de actualización de avatares.
+3. Fija `search_path` en los cinco helpers señalados por el asesor.
+4. Revoca escritura directa de `anon` sobre tablas de `public`; el alta de
+   usuarios sigue ocurriendo mediante Supabase Auth y su trigger.
 
-### Paso 0 — Antes de tocar nada
+Debe terminar con estos avisos, sin excepciones:
+
+```text
+NOTICE: Avatares: máximo 1 MB, solo JPEG/PNG/WebP y UPDATE con WITH CHECK.
+NOTICE: Search path fijo en los cinco helpers auditados.
+NOTICE: anon no conserva escritura directa sobre tablas del esquema public.
+```
+
+## Antes de aplicar
+
+Guardar y reportar los conteos, sin exponer datos personales:
 
 ```sql
-select policyname, cmd, qual from pg_policies
-where schemaname='public' and tablename='predictions' order by cmd, policyname;
-```
-**Reportá el resultado.** Sirve para comparar después.
-
-### Paso 1 — `database/65_predicciones_solo_de_tu_quiniela.sql`
-
-Es la única pendiente. Hace dos cosas:
-
-1. Las predicciones ajenas se destapan igual que antes (15 min antes del saque)
-   pero **solo entre quienes comparten la quiniela**. Antes la política no
-   filtraba por liga, así que cualquiera con una cuenta podía leer las
-   predicciones de todas las quinielas.
-2. `user_stats_view` pasa a `security_invoker`, cerrando el último aviso del
-   asesor de Supabase.
-
-**Debe terminar imprimiendo:**
-```
-NOTICE:  Políticas de SELECT reemplazadas: {...}
-NOTICE:  Correcto: una sola política de lectura sobre predictions, acotada a tu quiniela.
+select 'users' objeto, count(*) cantidad from public.users
+union all select 'leagues', count(*) from public.leagues
+union all select 'league_members', count(*) from public.league_members
+union all select 'predictions', count(*) from public.predictions
+union all select 'tournament_predictions', count(*) from public.tournament_predictions
+union all select 'matches', count(*) from public.matches
+union all select 'storage.objects/avatars', count(*) from storage.objects where bucket_id='avatars';
 ```
 
-Si imprime `WARNING: REVISAR: hay políticas FOR ALL sobre predictions ...` →
-**pará y reportalo**: significa que hay otra política concediendo SELECT que
-anularía el filtro.
-
----
-
-## Verificación final (correr las cuatro y reportar)
+## Verificación final
 
 ```sql
--- 1) Ninguna SECURITY DEFINER alcanzable por anon.  Debe salir VACÍO.
-select p.proname
-from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-where n.nspname = 'public' and p.prosecdef
-  and has_function_privilege('anon', p.oid, 'EXECUTE');
+-- 1. Debe ser público, 1048576 y tres MIME types.
+select id, public, file_size_limit, allowed_mime_types
+from storage.buckets where id='avatars';
 
--- 2) Ninguna función usada dentro de una política RLS sin permiso.  VACÍO.
-select distinct m[1] as funcion
-from pg_policies pol,
-     lateral regexp_matches(coalesce(pol.qual,'') || ' ' || coalesce(pol.with_check,''),
-                            '(?:public\.)?([a-z_][a-z0-9_]*)\s*\(', 'g') as m
-where pol.schemaname = 'public'
-  and exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-              where n.nspname='public' and p.proname = m[1])
-  and not exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-                  where n.nspname='public' and p.proname = m[1]
-                    and has_function_privilege('authenticated', p.oid, 'EXECUTE'));
+-- 2. UPDATE debe tener USING y WITH CHECK con bucket_id + auth.uid/owner.
+select policyname, cmd, qual, with_check
+from pg_policies
+where schemaname='storage' and tablename='objects'
+  and policyname='Users can update their own avatar.';
 
--- 3) Tablas y vistas que estaban abiertas.  anon debe dar false en todo.
-select 'powerup_limits' as objeto,
-       has_table_privilege('anon','public.powerup_limits','SELECT')          as anon_lee,
-       has_table_privilege('anon','public.powerup_limits','UPDATE')          as anon_escribe,
-       has_table_privilege('authenticated','public.powerup_limits','SELECT') as auth_lee,
-       has_table_privilege('authenticated','public.powerup_limits','UPDATE') as auth_escribe
-union all
-select 'user_badges_view',
-       has_table_privilege('anon','public.user_badges_view','SELECT'), null,
-       has_table_privilege('authenticated','public.user_badges_view','SELECT'), null
-union all
-select 'user_stats_view',
-       has_table_privilege('anon','public.user_stats_view','SELECT'), null,
-       has_table_privilege('authenticated','public.user_stats_view','SELECT'), null;
+-- 3. Cinco filas con search_path=pg_catalog, public.
+select p.oid::regprocedure as funcion, p.proconfig
+from pg_proc p join pg_namespace n on n.oid=p.pronamespace
+where n.nspname='public'
+  and p.proname in ('update_updated_at','log_prediction_changes',
+                    'congelar_campos_sensibles_users','clave_fase',
+                    'powerup_limits_valido')
+order by 1;
 
--- 4) Una sola política de lectura sobre predictions, con filtro por quiniela.
-select policyname, cmd, qual from pg_policies
-where schemaname='public' and tablename='predictions' and cmd in ('SELECT','ALL');
--- Esperado: UNA fila, y su 'qual' debe mencionar is_league_member.
+-- 4. Debe salir vacío.
+select c.relname
+from pg_class c join pg_namespace n on n.oid=c.relnamespace
+where n.nspname='public' and c.relkind='r'
+  and (has_table_privilege('anon',c.oid,'INSERT')
+    or has_table_privilege('anon',c.oid,'UPDATE')
+    or has_table_privilege('anon',c.oid,'DELETE'));
 
--- 5) Totales globales cuadrados.  Debe salir VACÍO.
-select u.display_name, u.total_points as guardado,
-       public.user_total_calculado(u.id) as calculado
-from public.users u
-where u.total_points is distinct from public.user_total_calculado(u.id);
+-- 5. Inventario completo.
+\i database/verificar_estado.sql
 ```
 
-**Resultados esperados:**
+Repetir los conteos previos: deben ser idénticos. Luego ejecutar los asesores de
+seguridad y rendimiento y probar login, Hub, guardado de predicción, Tabla,
+Histórico, Jornadas, Pozo, Medallas, perfil por quiniela, detalle de partido y
+marcador en vivo.
 
-| Consulta | Esperado |
-|---|---|
-| 1 | vacío |
-| 2 | vacío |
-| 3 | `anon` en `false` en todo · `powerup_limits`: auth lee `true`, escribe `false` · `user_badges_view`: auth `false` · `user_stats_view`: auth `true` |
-| 4 | una sola fila, mencionando `is_league_member` |
-| 5 | vacío |
-
----
-
-## Después: comprobar que la app sigue funcionando
-
-Esto importa más que lo anterior. Con un usuario normal, en la app:
-
-1. **Entrar** — el perfil tiene que cargar (si falla, se rompe el arranque de sesión).
-2. **Guardar una predicción** — tiene que guardar sin error.
-3. **Abrir una quiniela → pestaña Tabla** — los puntos y posiciones tienen que ser
-   los mismos de antes; **nada del puntaje por quiniela debía cambiar**.
-4. **Tocar una fila de la Tabla** — abre el perfil de esa persona en esa quiniela.
-   Si sale "No se pudo cargar este perfil", el paso 2 falló.
-5. **Ir a "Mis quinielas"** — arriba tiene que aparecer la tarjeta "Tu global".
-   Si no aparece nada, puede ser que todavía no haya partidos jugados (normal) o
-   que la RPC falle (ahí sale un cartel naranja con el error).
-6. **Ver un partido en curso** — el marcador tiene que avanzar solo.
-7. **Abrir un partido ya jugado (`/match/<id>`)** — tienen que aparecer las
-   predicciones de tus compañeros de quiniela. Si aparece vacío, la política del
-   paso 1 quedó demasiado estricta; reportalo.
-8. **Pestaña Histórico de una quiniela** — la matriz tiene que mostrar las
-   predicciones destapadas de todo el grupo, como antes.
-
----
-
-## Si algo falla
-
-- **No revertir por tu cuenta.** Reportá el error exacto y en qué paso ocurrió.
-- El error más probable es `permission denied for function <nombre>`: significa
-  que a esa función le falta el `GRANT`. Reportá el nombre — la corrección es
-  agregarla al inventario `v_frontend` de la migración 61, no otorgarle permisos
-  sueltos por fuera.
-
-## Qué NO hacer
-
-- No modificar los archivos SQL.
-- No otorgar permisos a `anon` "para que funcione".
-- No cambiar nada más en la base.
+Si cualquier comprobación no coincide, detenerse y reportar el texto exacto. No
+otorgar permisos sueltos ni compensar una falla con cambios manuales.
