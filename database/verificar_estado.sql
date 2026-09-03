@@ -75,7 +75,14 @@ FROM unnest(ARRAY[
   '_recompute_league_badges_inner',
   'es_admin_global',
   'puede_ver_quiniela',
-  'quiniela_por_id'
+  'quiniela_por_id',
+  -- Migraciones 67 y 68 (cupo de comodines ×2)
+  'cupo_powerups',
+  'cupos_por_jornada',
+  'set_powerup_limits',
+  'fases_del_torneo',
+  'clave_fase',
+  'powerup_limits_valido'
 ]::text[]) x
 WHERE NOT EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
                   WHERE n.nspname = 'public' AND p.proname = x);
@@ -146,7 +153,14 @@ WHERE n.nspname = 'public'
   '_recompute_league_badges_inner',
   'es_admin_global',
   'puede_ver_quiniela',
-  'quiniela_por_id'
+  'quiniela_por_id',
+  -- Migraciones 67 y 68 (cupo de comodines ×2)
+  'cupo_powerups',
+  'cupos_por_jornada',
+  'set_powerup_limits',
+  'fases_del_torneo',
+  'clave_fase',
+  'powerup_limits_valido'
 ]::text[])
 ORDER BY p.proname;
 
@@ -189,7 +203,14 @@ FROM unnest(ARRAY[
   '_recompute_league_badges_inner',
   'es_admin_global',
   'puede_ver_quiniela',
-  'quiniela_por_id'
+  'quiniela_por_id',
+  -- Migraciones 67 y 68 (cupo de comodines ×2)
+  'cupo_powerups',
+  'cupos_por_jornada',
+  'set_powerup_limits',
+  'fases_del_torneo',
+  'clave_fase',
+  'powerup_limits_valido'
 ]::text[]) x
 WHERE EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
               WHERE n.nspname = 'public' AND p.proname = x)

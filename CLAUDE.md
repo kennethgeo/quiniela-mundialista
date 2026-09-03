@@ -167,6 +167,15 @@ Son **dos números distintos a propósito** y confundirlos es el error fácil:
 - La jornada por defecto **ya elegía bien** la primera con partidos por jugar. Lo que faltaba era que la fila de chips se **desplazara** hasta ella: en un torneo de 8 jornadas, la activa quedaba fuera de pantalla. Lo hace `scrollIntoView` con **`block: 'nearest'`** — sin eso también mueve la página verticalmente y te deja a media pantalla.
 - **Una prueba de navegación que solo mira los query params NO sirve**: la URL conserva los parámetros aunque la app los ignore, así que pasa igual con el bug puesto. Comprobado. Hay que afirmar sobre lo que se ve (que existan los chips de jornada, que solo están en «Partidos»).
 
+## Cupo de ×2 por fase (migración `database/68_cupo_por_fase.sql`)
+- La 67 dejó dos formas de fijar el cupo —número fijo y razón "1 cada N partidos"— y **ninguna deja decir "en la fase de liga tres, pero en la final uno"**. Los formatos son muy distintos: 18 partidos por jornada en la Champions, 8 en los octavos, 1 en la final.
+- `leagues.powerup_limits` es un jsonb `{"groups":3,"Octavos":2,"Final":1}`.
+- **La clave es la ETIQUETA, no `matches.phase`**: `phase` solo tiene dos valores (`groups`/`knockout`) y con eso no se distingue octavos de la final. `clave_fase()` saca la etiqueta de `matches.stage` cortando en `' · '` (`'Octavos · Ida'` → `'Octavos'`), porque el cupo es de la ronda, no de cada partido.
+- **Orden de resolución**: cupo de la fase → razón → número fijo. Una fase **sin entrada usa el número fijo, NO cero** — cuando ESPN publique los octavos en enero, nadie se queda sin comodines por no haberlos configurado.
+- El editor solo muestra **las fases que existen** en ese torneo (`fases_del_torneo`), no una lista inventada: la liga tica no tiene octavos.
+- **Antecedente que no hay que repetir**: ya existió una tabla `powerup_limits` por fase y se quitó en la migración 48 porque el panel guardaba, decía "listo" y **no cambiaba el límite aplicado**. Acá el valor entra en `cupo_powerups()`, que es la que usa el trigger.
+- Dos cosas de Postgres que aparecieron al escribirla: **un `CHECK` no admite subconsultas** (recorrer las claves del jsonb necesita una, así que va en una función `IMMUTABLE`), y **`CREATE OR REPLACE` no puede cambiar el tipo de retorno** de una función que devuelve `TABLE` — hay que soltarla, lo que reabre su ACL.
+
 ## Despliegue
 - **Vercel** despliega frontend Y backend juntos en cada push a `main` (root `vercel.json` → `experimentalServices`, backend `@vercel/python` bajo `/_backend`).
 - Cron de marcadores: GitHub Actions `sync-live-scores.yml` (cada ~5 min) → `POST /_backend/api/matches/sync-live`.

@@ -32,6 +32,7 @@ import PredecirJornada from '../components/matches/PredecirJornada'
 import PartidosDeHoy from '../components/tournament/PartidosDeHoy'
 import PanelAdminQuiniela from '../components/tournament/PanelAdminQuiniela'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
+import CuposPorFase from '../components/tournament/CuposPorFase'
 
 // Clave de jornada/fase de un partido (misma lógica de agrupación que MatchList).
 function jornadaKeyOf(m) {
@@ -559,6 +560,13 @@ function RulesPanel({ group, tournamentStarted, showToast, onDeleted }) {
       )}
       <ScoringConfig group={group} isAdmin={isAdmin} tournamentStarted={tournamentStarted}
         hasOpenProposal={!!openProposal} onSaved={afterChange} onProposed={afterChange} showToast={showToast} />
+      {/* Solo lo ve un admin: el resto del grupo ve las reglas en la tarjeta
+          de puntaje, y un editor que no pueden usar sería ruido. */}
+      {isAdmin && (
+        <CuposPorFase leagueId={group.id} limiteFijo={group.powerup_limit ?? 2}
+          valores={group.powerup_limits || {}} bloqueado={tournamentStarted}
+          onGuardado={afterChange} />
+      )}
       <RulesTab group={group} isAdmin={isAdmin} tournamentStarted={tournamentStarted}
         hasOpenProposal={!!openProposal} onSaved={afterChange} onProposed={afterChange} showToast={showToast} />
       <ExtrasConfig group={group} isAdmin={isAdmin} onSaved={afterChange} showToast={showToast} />
