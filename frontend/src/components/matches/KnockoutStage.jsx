@@ -97,7 +97,7 @@ export default function KnockoutStage() {
   const resolved = resolveKnockoutTeams(allMatches)
   const findPred = (id) => predictions.find((p) => p.match_id === id)
 
-  // Comodines usados por cupo de eliminatoria (3er puesto + final comparten cupo)
+  // Comodines usados por cupo de eliminatoria.
   const powerupUsage = {}
   resolved.forEach((m) => {
     if (findPred(m.id)?.use_powerup_x2) {
@@ -140,7 +140,6 @@ export default function KnockoutStage() {
         const limit = powerupLimits[key] ?? 0
         const used = powerupUsage[key] ?? 0
         const reached = used >= limit
-        const isFinalGroup = phase.key === 'third_place' || phase.key === 'final'
         return (
           <div key={phase.key}>
             <div className="flex items-center gap-3 mb-4 px-1">
@@ -148,7 +147,6 @@ export default function KnockoutStage() {
               <h3 className="text-sm font-bold uppercase tracking-widest text-slate-700 dark:text-slate-300">{phase.label}</h3>
               <span className="text-[11px] text-slate-400">
                 comodines {used}/{limit}
-                {isFinalGroup && <span className="ml-1 text-slate-500">· compartido 3er/final</span>}
               </span>
               <div className="flex-1 h-px bg-gradient-to-r from-slate-300 dark:from-white/10 to-transparent" />
             </div>

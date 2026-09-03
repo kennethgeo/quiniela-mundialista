@@ -1,13 +1,9 @@
-/* Autenticación — copia VERBATIM del diseño "Tico Games - Auth y Bracket.dc.html".
-   El marco es de 320px (como en Claude Design) y se escala al ancho del teléfono
-   con transform:scale, así queda idéntico al mockup en cualquier pantalla. */
+/* Autenticación. El marco es de 320px y se escala al ancho del teléfono. */
 import { useState, useEffect } from 'react'
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../lib/supabase'
 import { TicoLogo, TicoWordmark, authStyles as S } from '../components/auth/TicoBrand'
-
-const BUILD = 'TICO-UI · 21jul · r3'   // sello de versión (para verificar caché)
 
 // Escala el marco de 320px al ancho del viewport (tope 1.5×).
 function useScale() {
@@ -59,8 +55,6 @@ export default function AuthPage() {
           {mode === 'forgot' && <ForgotBody toLogin={() => setMode('login')} />}
         </div>
       </div>
-
-      <div style={{ position: 'fixed', bottom: 5, left: 0, right: 0, textAlign: 'center', font: "600 8px 'JetBrains Mono',monospace", letterSpacing: '.12em', color: '#3a3a3a' }}>{BUILD}</div>
     </div>
   )
 }
@@ -92,10 +86,12 @@ function LoginBody({ signIn, restablecerSesionLocal, confirmationMessage, toRegi
 
   return (
     <form onSubmit={submit} style={S.form}>
-      {confirmationMessage && <div style={S.okBox}>{confirmationMessage}</div>}
-      {error && <div style={S.errorBox}>{error}</div>}
-      <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Correo o usuario" required style={S.input} />
-      <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Contraseña" required style={S.input} />
+      {confirmationMessage && <div role="status" style={S.okBox}>{confirmationMessage}</div>}
+      {error && <div role="alert" style={S.errorBox}>{error}</div>}
+      <label htmlFor="login-email" style={S.srOnly}>Correo o usuario</label>
+      <input id="login-email" name="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Correo o usuario" autoComplete="username" required style={S.input} />
+      <label htmlFor="login-password" style={S.srOnly}>Contraseña</label>
+      <input id="login-password" name="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Contraseña" autoComplete="current-password" required style={S.input} />
       <button type="button" onClick={toForgot} style={S.forgot}>¿Olvidaste tu contraseña?</button>
       <button type="submit" disabled={loading} style={{ ...S.button, opacity: loading ? 0.6 : 1 }}>{loading ? 'Entrando…' : 'Entrar'}</button>
       {atascado && (
@@ -128,11 +124,14 @@ function RegisterBody({ signUp, toLogin }) {
 
   return (
     <form onSubmit={submit} style={S.form}>
-      {ok && <div style={S.okBox}>{ok}</div>}
-      {error && <div style={S.errorBox}>{error}</div>}
-      <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} placeholder="Nombre / usuario" required style={S.input} />
-      <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Correo" required style={S.input} />
-      <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Contraseña" required style={S.input} />
+      {ok && <div role="status" style={S.okBox}>{ok}</div>}
+      {error && <div role="alert" style={S.errorBox}>{error}</div>}
+      <label htmlFor="register-username" style={S.srOnly}>Nombre o usuario</label>
+      <input id="register-username" name="username" type="text" value={username} onChange={(e) => setUsername(e.target.value)} placeholder="Nombre / usuario" autoComplete="username" required style={S.input} />
+      <label htmlFor="register-email" style={S.srOnly}>Correo</label>
+      <input id="register-email" name="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Correo" autoComplete="email" required style={S.input} />
+      <label htmlFor="register-password" style={S.srOnly}>Contraseña</label>
+      <input id="register-password" name="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Contraseña" autoComplete="new-password" required style={S.input} />
       <button type="submit" disabled={loading} style={{ ...S.button, opacity: loading ? 0.6 : 1 }}>{loading ? 'Creando…' : 'Crear cuenta'}</button>
       <div style={S.sub}>¿Ya tenés cuenta? <button type="button" onClick={toLogin} style={S.link}>Entrar</button></div>
     </form>
@@ -161,10 +160,11 @@ function ForgotBody({ toLogin }) {
       <div style={S.title}>Recuperar contraseña</div>
       <div style={S.subtitle}>Ingresá tu correo y te enviamos un link para restablecerla.</div>
       {sent
-        ? <div style={S.okBox}>Listo. Revisá tu correo para el enlace de recuperación.</div>
+        ? <div role="status" style={S.okBox}>Listo. Revisá tu correo para el enlace de recuperación.</div>
         : <>
-            {error && <div style={S.errorBox}>{error}</div>}
-            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Correo" required style={S.input} />
+            {error && <div role="alert" style={S.errorBox}>{error}</div>}
+            <label htmlFor="forgot-email" style={S.srOnly}>Correo</label>
+            <input id="forgot-email" name="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Correo" autoComplete="email" required style={S.input} />
             <button type="submit" disabled={loading} style={{ ...S.button, opacity: loading ? 0.6 : 1 }}>{loading ? 'Enviando…' : 'Enviar enlace'}</button>
           </>}
       <div style={S.sub}><button type="button" onClick={toLogin} style={S.link}>← Volver a entrar</button></div>

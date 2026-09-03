@@ -1,6 +1,4 @@
-// Identidad Tico Games — copia VERBATIM de "Tico Games - Auth y Bracket.dc.html".
-// Todos los valores son los exactos del diseño (marco de 320px). AuthPage escala
-// el bloque completo al ancho del teléfono con transform:scale, así queda idéntico.
+// Identidad Tico Games.
 
 // Logo: emblema Tico Games (imagen con fondo transparente).
 export function TicoLogo({ size = 60, style = {} }) {
@@ -29,7 +27,8 @@ export function TicoWordmark() {
 export const authStyles = {
   header: { position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 34 },
   form: { position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', gap: 12 },
-  input: { background: '#161616', border: '1.5px solid #262626', color: '#F3F1EA', font: "600 14px 'Archivo',sans-serif", padding: '13px 14px', borderRadius: 11, outline: 'none', width: '100%' },
+  srOnly: { position: 'absolute', width: 1, height: 1, padding: 0, margin: -1, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap', border: 0 },
+  input: { background: '#161616', border: '1.5px solid #262626', color: '#F3F1EA', font: "600 14px 'Archivo',sans-serif", padding: '13px 14px', borderRadius: 11, outline: 'none', width: '100%', boxSizing: 'border-box' },
   forgot: { textAlign: 'right', font: "600 11px 'Archivo',sans-serif", color: '#8A8A8A', cursor: 'pointer', background: 'none', border: 'none', padding: 0 },
   button: { background: 'linear-gradient(90deg,#2ED3B7,#26bfa5)', borderRadius: 12, padding: 13, textAlign: 'center', fontWeight: 700, fontSize: 13.5, color: '#06231d', cursor: 'pointer', marginTop: 4, border: 'none', width: '100%', fontFamily: "'Archivo',sans-serif" },
   sub: { textAlign: 'center', font: "600 12px 'Archivo',sans-serif", color: '#8A8A8A', marginTop: 6 },

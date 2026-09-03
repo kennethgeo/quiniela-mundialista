@@ -200,7 +200,7 @@ END; $$;
 REVOKE ALL ON FUNCTION public.set_group_scoring(uuid, int, int, int, int, int, int, int) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.set_group_scoring(uuid, int, int, int, int, int, int, int) TO authenticated;
 
-REVOKE ALL ON FUNCTION public.cupo_powerups(uuid, integer) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.cupo_powerups(uuid, integer) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.cupos_por_jornada(uuid) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.cupos_por_jornada(uuid) TO authenticated;
 -- cupo_powerups NO se otorga: es interna, la llama el trigger (SECURITY
@@ -222,6 +222,9 @@ BEGIN
 
   SELECT has_function_privilege('anon', 'public.cupos_por_jornada(uuid)', 'EXECUTE') INTO v_ok;
   IF v_ok THEN RAISE EXCEPTION 'anon NO debería poder ejecutar cupos_por_jornada'; END IF;
+
+  SELECT has_function_privilege('authenticated', 'public.cupo_powerups(uuid,integer)', 'EXECUTE') INTO v_ok;
+  IF v_ok THEN RAISE EXCEPTION 'authenticated NO debería poder ejecutar cupo_powerups'; END IF;
 
   SELECT has_function_privilege('anon',
     'public.set_group_scoring(uuid,int,int,int,int,int,int,int)', 'EXECUTE') INTO v_ok;
