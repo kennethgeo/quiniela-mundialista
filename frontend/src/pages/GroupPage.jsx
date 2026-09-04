@@ -161,6 +161,7 @@ export default function GroupPage() {
         if (i >= 0) { const u = [...old]; u[i] = { ...u[i], ...newPred }; return u }
         return [...old, newPred]
       })
+      queryClient.invalidateQueries({ queryKey: ['pending-predictions'] })
     },
     onError: (err) => showToast(friendlySaveError(err), 'error', 6000),
   })

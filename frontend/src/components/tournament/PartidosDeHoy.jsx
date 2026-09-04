@@ -19,6 +19,7 @@ import { motion } from 'motion/react'
 import { CalendarClock, Share2, Copy, Check, Loader2 } from 'lucide-react'
 import { partidosDeHoy, horaCostaRica, textoParaWhatsApp } from '../../lib/partidosDelDia'
 import { renderPartidosDeHoyCard, compartirImagen } from '../../lib/shareCard'
+import MatchStatusBadge from '../ui/MatchStatusBadge'
 
 export default function PartidosDeHoy({ matches = [], nombreQuiniela = '' }) {
   const [copiado, setCopiado] = useState(false)
@@ -106,6 +107,7 @@ export default function PartidosDeHoy({ matches = [], nombreQuiniela = '' }) {
             <span className="flex-1 min-w-0 font-['Archivo'] text-[12px] text-slate-800 dark:text-[#F3F1EA] truncate">
               {m.home_team} <span className="text-[var(--text-muted,#8A8A8A)]">vs</span> {m.away_team}
             </span>
+            <MatchStatusBadge match={m} className="shrink-0" />
           </div>
         ))}
       </div>
