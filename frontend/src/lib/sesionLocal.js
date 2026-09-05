@@ -22,7 +22,10 @@ export const CLAVES_DEL_DISPOSITIVO = [
 ]
 
 export function limpiarDatosDeSesion(almacen) {
-  const store = almacen || (typeof localStorage !== 'undefined' ? localStorage : null)
+  let store = almacen
+  try {
+    store ||= typeof localStorage !== 'undefined' ? localStorage : null
+  } catch { return [] } // El getter de localStorage también puede lanzar.
   if (!store) return []
   const borradas = []
   for (const clave of CLAVES_DE_LA_PERSONA) {

@@ -154,3 +154,41 @@ test('los datos de la persona se borran al cambiar de cuenta, los del aparato no
   expect(guardado.tema).toBe('dark')       // del aparato
   expect(guardado.pwa).toBe('true')        // del aparato
 })
+
+test('la invitación abierta sin sesión sobrevive al login y une a la cuenta que entra', async ({ page }) => {
+  const liga = '33333333-3333-4333-8333-333333333333'
+  const uniones = []
+  await sinRedExterna(page)
+  await page.addInitScript(() => {
+    localStorage.setItem('pwaPromptDismissed', 'true')
+    window.__marca = Math.random().toString(36).slice(2)
+  })
+  await page.route('**://pruebas.supabase.co/**', async route => {
+    const req = route.request()
+    const url = req.url()
+    const dar = body => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) })
+    if (url.includes('/auth/v1/token')) return dar(sesionDe(KGCNA))
+    if (url.includes('/rpc/join_group_by_code')) {
+      uniones.push({ cuerpo: req.postDataJSON(), authorization: req.headers().authorization })
+      return dar({ id: liga })
+    }
+    if (url.includes('/rpc/my_groups')) return dar([{ id: liga, name: 'Invitación de prueba', tournament_id: 1, tournament_name: 'Torneo', tournament_kind: 'league', rules_accepted: true }])
+    if (url.includes('/rpc/mi_resumen_global')) return dar({ partidos: 0, puntos: 0 })
+    if (url.includes('/rest/v1/users')) {
+      const perfil = { id: KGCNA.id, display_name: KGCNA.nombre, total_points: 0, is_admin: false, avatar_url: null }
+      return dar((req.headers().accept || '').includes('vnd.pgrst.object') ? perfil : [perfil])
+    }
+    return dar([])
+  })
+  await page.goto('/unirse/nueva123')
+  await expect(page).toHaveURL(/\/auth$/)
+  expect(await page.evaluate(() => localStorage.getItem('tico:invitacion'))).toBe('NUEVA123')
+  const marca = await page.evaluate(() => window.__marca)
+  await page.fill('#login-email', 'kgcna@prueba.test')
+  await page.fill('#login-password', 'clave-de-prueba')
+  await page.getByRole('button', { name: 'Entrar', exact: true }).click()
+  await expect(page).toHaveURL(new RegExp(`/q/${liga}$`))
+  expect(uniones).toEqual([{ cuerpo: { p_code: 'NUEVA123' }, authorization: `Bearer token-${KGCNA.id}` }])
+  expect(await page.evaluate(() => localStorage.getItem('tico:invitacion'))).toBeNull()
+  expect(await page.evaluate(() => window.__marca)).toBe(marca)
+})

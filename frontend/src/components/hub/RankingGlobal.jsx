@@ -12,7 +12,7 @@
    la tarjeta lo dice para que nadie los confunda. */
 import { useState } from 'react'
 import { motion } from 'motion/react'
-import { useQuery } from '@tanstack/react-query'
+import { useConsultaDelUsuario } from '../../hooks/useConsultaDelUsuario'
 import { Globe, ChevronDown, Target, Zap, AlertTriangle, RotateCw } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
@@ -28,8 +28,8 @@ export default function RankingGlobal() {
      equivocada y dejaba colgada la fila de quien se acababa de ir. */
   const { user } = useAuth()
 
-  const { data: resumen, isError, error, isLoading, refetch } = useQuery({
-    queryKey: ['mi_resumen_global', user?.id],
+  const { data: resumen, isError, error, isLoading, refetch } = useConsultaDelUsuario({
+    queryKey: ['mi_resumen_global'],
     queryFn: async () => {
       const { data, error } = await supabase.rpc('mi_resumen_global')
       if (error) throw error
@@ -37,8 +37,8 @@ export default function RankingGlobal() {
     },
   })
 
-  const { data: ranking = [], isError: rankingFallo } = useQuery({
-    queryKey: ['ranking_global', user?.id],
+  const { data: ranking = [], isError: rankingFallo } = useConsultaDelUsuario({
+    queryKey: ['ranking_global'],
     enabled: abierto && !!user?.id,
     queryFn: async () => {
       const { data, error } = await supabase.rpc('ranking_global', { p_limite: 20 })

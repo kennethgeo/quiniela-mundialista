@@ -50,3 +50,13 @@ describe('limpiar los datos de sesión', () => {
     expect(a.datos['tico:invitacion']).toBeUndefined()
   })
 })
+
+it('tolera que el propio getter de localStorage lance', () => {
+  const original = Object.getOwnPropertyDescriptor(globalThis, 'localStorage')
+  Object.defineProperty(globalThis, 'localStorage', { configurable: true, get() { throw new Error('SecurityError') } })
+  try { expect(limpiarDatosDeSesion()).toEqual([]) }
+  finally {
+    if (original) Object.defineProperty(globalThis, 'localStorage', original)
+    else delete globalThis.localStorage
+  }
+})

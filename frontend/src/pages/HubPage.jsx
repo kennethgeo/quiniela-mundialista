@@ -21,7 +21,8 @@ const PALETTE = [
 ]
 
 export default function HubPage() {
-  const { profile } = useAuth()
+  const { profile, user } = useAuth()
+  const userId = user?.id
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [groups, setGroups] = useState([])
@@ -53,18 +54,19 @@ export default function HubPage() {
   }, [profile?.id, navigate])
 
   const load = useCallback(async () => {
+    if (!userId) return
     try {
       setLoading(true); setError(null)
       const data = await fetchMyGroups()
       setGroups(data)
       // Mantener sincronizada la caché de React Query que usa la página de quiniela.
-      queryClient.setQueryData(['my_groups'], data)
+      queryClient.setQueryData(['my_groups', userId], data)
     } catch (err) {
       setError(err.message)
     } finally {
       setLoading(false)
     }
-  }, [queryClient])
+  }, [queryClient, userId])
 
   useEffect(() => { load() }, [load])
 

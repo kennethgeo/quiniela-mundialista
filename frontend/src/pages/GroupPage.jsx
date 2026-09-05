@@ -78,7 +78,7 @@ export default function GroupPage() {
      con "no tenés acceso" si no te corresponde. my_groups se dejó intacta a
      propósito — si devolviera todas, el hub del admin se llenaría de grupos de
      desconocidos. */
-  const { data: ajena } = useQuery({
+  const { data: ajena } = useConsultaDelUsuario({
     queryKey: ['quiniela_por_id', id],
     enabled: !!id && !lg && !propia,
     retry: false,
@@ -139,7 +139,7 @@ export default function GroupPage() {
 
   // Créditos de ×2 arrastrados de partidos cancelados (uso extra en la próxima
   // jornada/fase), otorgados por void_cancelled_match. { [powerupKey]: cantidad }
-  const { data: powerupCredits = {} } = useQuery({
+  const { data: powerupCredits = {} } = useConsultaDelUsuario({
     queryKey: ['powerup_credits', id],
     queryFn: () => fetchMyPowerupCredits(id),
     enabled: !!id,
@@ -533,7 +533,7 @@ function RulesPanel({ group, tournamentStarted, showToast, onDeleted }) {
   // (?? is_admin para no esconderlo antes de que corra la migración 59.)
   const soyCreador = group.soy_creador ?? !!group.is_admin
   const qc = useQueryClient()
-  const { data: proposals = [], refetch } = useQuery({
+  const { data: proposals = [], refetch } = useConsultaDelUsuario({
     queryKey: ['league_proposals', group.id],
     queryFn: () => fetchLeagueProposals(group.id),
     enabled: !!group.id,
