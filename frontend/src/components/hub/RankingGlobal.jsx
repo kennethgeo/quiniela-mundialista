@@ -12,16 +12,23 @@
    la tarjeta lo dice para que nadie los confunda. */
 import { useState } from 'react'
 import { motion } from 'motion/react'
-import { useQuery } from '@tanstack/react-query'
+import { useConsultaDelUsuario } from '../../hooks/useConsultaDelUsuario'
 import { Globe, ChevronDown, Target, Zap, AlertTriangle, RotateCw } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
+import { useAuth } from '../../hooks/useAuth'
 
 const ORO = '#E8B75A'
 
 export default function RankingGlobal() {
   const [abierto, setAbierto] = useState(false)
+  /* Las dos consultas se guardan POR PERSONA. `ranking_global` no devuelve una
+     tabla neutra: marca `soy_yo` en tu fila y, si quedás fuera del top 20, te
+     AGREGA igual (migración 63). O sea que la respuesta está armada para vos.
+     Compartir esa entrada entre cuentas ponía el "(vos)" en la persona
+     equivocada y dejaba colgada la fila de quien se acababa de ir. */
+  const { user } = useAuth()
 
-  const { data: resumen, isError, error, isLoading, refetch } = useQuery({
+  const { data: resumen, isError, error, isLoading, refetch } = useConsultaDelUsuario({
     queryKey: ['mi_resumen_global'],
     queryFn: async () => {
       const { data, error } = await supabase.rpc('mi_resumen_global')
@@ -30,9 +37,9 @@ export default function RankingGlobal() {
     },
   })
 
-  const { data: ranking = [], isError: rankingFallo } = useQuery({
+  const { data: ranking = [], isError: rankingFallo } = useConsultaDelUsuario({
     queryKey: ['ranking_global'],
-    enabled: abierto,
+    enabled: abierto && !!user?.id,
     queryFn: async () => {
       const { data, error } = await supabase.rpc('ranking_global', { p_limite: 20 })
       if (error) throw error

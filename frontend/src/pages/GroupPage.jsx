@@ -2,6 +2,7 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useConsultaDelUsuario } from '../hooks/useConsultaDelUsuario'
 import { motion, AnimatePresence } from 'motion/react'
 import { ArrowLeft, CalendarDays, ListOrdered, Copy, Check, Trophy, GitBranch, BarChart3, Shield, ScrollText, Loader2, Pencil, Lock, Trash2, AlertTriangle, Vote, ThumbsUp, ThumbsDown, X, Home, ChevronRight, Target, Gift, MessageCircle, LayoutGrid, Zap, ShieldCheck, Eye, Share2} from 'lucide-react'
 import { supabase } from '../lib/supabase'
@@ -67,7 +68,7 @@ export default function GroupPage() {
 
   // Grupo (de mis grupos). refetchOnMount 'always' para que una quiniela recién
   // creada/unida aparezca aunque la caché tenga una lista vieja.
-  const { data: groups = [], isLoading: lg, isFetching: fg } = useQuery({
+  const { data: groups = [], isLoading: lg, isFetching: fg } = useConsultaDelUsuario({
     queryKey: ['my_groups'], queryFn: fetchMyGroups, refetchOnMount: 'always',
   })
   const propia = groups.find((g) => g.id === id)
@@ -77,7 +78,7 @@ export default function GroupPage() {
      con "no tenés acceso" si no te corresponde. my_groups se dejó intacta a
      propósito — si devolviera todas, el hub del admin se llenaría de grupos de
      desconocidos. */
-  const { data: ajena } = useQuery({
+  const { data: ajena } = useConsultaDelUsuario({
     queryKey: ['quiniela_por_id', id],
     enabled: !!id && !lg && !propia,
     retry: false,
@@ -138,7 +139,7 @@ export default function GroupPage() {
 
   // Créditos de ×2 arrastrados de partidos cancelados (uso extra en la próxima
   // jornada/fase), otorgados por void_cancelled_match. { [powerupKey]: cantidad }
-  const { data: powerupCredits = {} } = useQuery({
+  const { data: powerupCredits = {} } = useConsultaDelUsuario({
     queryKey: ['powerup_credits', id],
     queryFn: () => fetchMyPowerupCredits(id),
     enabled: !!id,
@@ -532,7 +533,7 @@ function RulesPanel({ group, tournamentStarted, showToast, onDeleted }) {
   // (?? is_admin para no esconderlo antes de que corra la migración 59.)
   const soyCreador = group.soy_creador ?? !!group.is_admin
   const qc = useQueryClient()
-  const { data: proposals = [], refetch } = useQuery({
+  const { data: proposals = [], refetch } = useConsultaDelUsuario({
     queryKey: ['league_proposals', group.id],
     queryFn: () => fetchLeagueProposals(group.id),
     enabled: !!group.id,
@@ -1349,7 +1350,7 @@ function StandingsTab({ leagueId, matches = [], nombreQuiniela = '' }) {
   const [perfil, setPerfil] = useState(null)
   const [rival, setRival] = useState(null)
   const [generando, setGenerando] = useState(false)
-  const { data: rows, isLoading } = useQuery({
+  const { data: rows, isLoading } = useConsultaDelUsuario({
     queryKey: ['group_standings', leagueId],
     queryFn: () => fetchGroupStandings(leagueId),
   })
