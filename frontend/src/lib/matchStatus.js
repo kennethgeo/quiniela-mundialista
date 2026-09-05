@@ -2,7 +2,8 @@ export const PREDICTION_CLOSE_MINUTES = 15
 
 export function kickoffDate(value) {
   if (!value) return null
-  const iso = value.endsWith('Z') || value.slice(10).includes('+') ? value : `${value}Z`
+  if (typeof value !== 'string') return null
+  const iso = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(value) ? value : `${value}Z`
   const date = new Date(iso)
   return Number.isNaN(date.getTime()) ? null : date
 }

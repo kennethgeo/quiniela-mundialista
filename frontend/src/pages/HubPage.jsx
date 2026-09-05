@@ -10,6 +10,7 @@ import { tomarInvitacion } from '../lib/invitacion'
 import RankingGlobal from '../components/hub/RankingGlobal'
 import PendingPredictions from '../components/hub/PendingPredictions'
 import { EmptyState, ErrorState } from '../components/ui/StatePanel'
+import Button from '../components/ui/Button'
 
 // Paleta cíclica idéntica al mockup de Claude Design (teal, coral, gold, gris)
 const PALETTE = [
@@ -76,7 +77,7 @@ export default function HubPage() {
   const finishedGroups = useMemo(() => groups.filter((g) => g.tournament_status === 'finished'), [groups])
 
   return (
-    <div className="max-w-xl mx-auto">
+    <div className="mx-auto max-w-xl xl:max-w-6xl">
       {/* Header */}
       <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
         className="flex justify-between items-start mb-[22px]">
@@ -84,7 +85,7 @@ export default function HubPage() {
           <div className="font-['Archivo'] font-semibold text-[13px] text-[var(--text-muted,#8A8A8A)]">Hola, {firstName} 👋</div>
           <h1 className="font-['Unbounded'] font-bold text-[24px] tracking-[-0.02em] mt-1 text-slate-900 dark:text-[#F3F1EA]">Mis quinielas</h1>
           <div className="font-['Archivo'] font-semibold text-xs text-[var(--text-muted,#8A8A8A)] mt-1.5">
-            {loading ? 'Cargando…' : groups.length === 0
+            {loading ? 'Cargando…' : error ? 'No pudimos cargar tus quinielas' : groups.length === 0
               ? 'Todavía no estás en ninguna'
               : <>Estás en <span className="text-accent font-bold">{groups.length} {groups.length === 1 ? 'quiniela' : 'quinielas'}</span></>}
           </div>
@@ -93,23 +94,20 @@ export default function HubPage() {
           style={{ background: 'linear-gradient(135deg,#2ED3B7,#1a8f7c)' }}>{initial}</div>
       </motion.div>
 
-      {/* Lo global va arriba de la lista: es el resumen de todo, y la lista de
-          abajo es el detalle por quiniela. Se esconde solo si todavía no jugaste
-          ningún partido. */}
-      <RankingGlobal />
-
-      {!loading && !error && <PendingPredictions groups={groups} userId={profile?.id} />}
-
+      <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] xl:gap-8">
+        <aside className="min-w-0 space-y-6" aria-label="Tu actividad">
+          {!loading && !error && <PendingPredictions groups={groups} userId={profile?.id} />}
+          <RankingGlobal />
+        </aside>
+        <section className="min-w-0" aria-label="Tus quinielas">
       {/* CTAs */}
       <div className="flex gap-2.5 mb-6">
-        <button onClick={() => setModal('create')}
-          className="flex-1 flex items-center justify-center gap-2 rounded-xl py-3.5 font-['Archivo'] font-bold text-[13.5px] text-[#06231d] bg-gradient-to-r from-[#2ED3B7] to-[#26bfa5] active:scale-[0.98] transition-transform">
-          <Plus size={17} /> Crear quiniela
-        </button>
-        <button onClick={() => setModal('join')}
-          className="flex-1 flex items-center justify-center gap-2 rounded-xl py-3.5 font-['Archivo'] font-bold text-[13.5px] bg-transparent border-[1.5px] border-slate-200 dark:border-[#262626] text-slate-900 dark:text-[#F3F1EA] active:scale-[0.98] transition-transform">
-          <KeyRound size={16} /> Unirme por código
-        </button>
+        <Button onClick={() => setModal('create')} className="flex-1">
+          <Plus size={17} aria-hidden="true" /> Crear quiniela
+        </Button>
+        <Button variant="secondary" onClick={() => setModal('join')} className="flex-1">
+          <KeyRound size={16} aria-hidden="true" /> Unirme por código
+        </Button>
       </div>
 
       {error && (
@@ -123,7 +121,7 @@ export default function HubPage() {
         <div className="space-y-3.5">
           {[0, 1].map(i => <div key={i} className="h-36 rounded-2xl bg-slate-100 dark:bg-white/[0.04] animate-pulse" />)}
         </div>
-      ) : groups.length === 0 ? (
+      ) : error ? null : groups.length === 0 ? (
         <EmptyState title="Todavía no estás en ninguna" description="Creá tu propia quiniela o unite con el código de tus amigos." />
       ) : (
         <>
@@ -153,6 +151,9 @@ export default function HubPage() {
           )}
         </>
       )}
+
+        </section>
+      </div>
 
       <AnimatePresence>
         {modal === 'create' && <CreateModal onClose={() => setModal(null)} onDone={() => { setModal(null); load() }} />}
