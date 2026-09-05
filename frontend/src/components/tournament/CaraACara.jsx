@@ -7,7 +7,7 @@
    se destapan no son visibles para las predicciones ajenas (RLS). */
 import { useMemo } from 'react'
 import { motion } from 'motion/react'
-import { useQuery } from '@tanstack/react-query'
+import { useConsultaDelUsuario } from '../../hooks/useConsultaDelUsuario'
 import { X, Zap, Trophy } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 
@@ -29,7 +29,7 @@ const esExacto = (p, m) =>
 
 export default function CaraACara({ leagueId, matches = [], yo, rival, onClose }) {
   // Comparte caché con la pestaña Histórico: misma clave, misma consulta.
-  const { data: predicciones = [], isLoading } = useQuery({
+  const { data: predicciones = [], isLoading } = useConsultaDelUsuario({
     queryKey: ['historial_predictions', leagueId],
     enabled: !!leagueId,
     staleTime: 1000 * 60,

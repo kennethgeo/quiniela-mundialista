@@ -21,4 +21,10 @@ describe('matchStatus', () => {
     expect(predictionDeadline('2026-09-03T14:00:00Z').toISOString()).toBe('2026-09-03T13:45:00.000Z')
     expect(timeUntilDeadline('2026-09-03T14:00:00Z', now)).toBe('1 h 45 min')
   })
+
+  it('respeta zonas negativas y no cierra antes de los 15 minutos exactos', () => {
+    expect(predictionDeadline('2026-09-03T08:00:00-06:00').toISOString()).toBe('2026-09-03T13:45:00.000Z')
+    expect(matchStatus(game('2026-09-03T12:15:00.001Z'), now).canPredict).toBe(true)
+    expect(matchStatus(game('2026-09-03T12:15:00.000Z'), now).canPredict).toBe(false)
+  })
 })

@@ -5,7 +5,7 @@
 
    Solo aparecen las correcciones manuales — el sync corre con service_role y
    no queda registrado, si no cada gol en vivo llenaría la lista. */
-import { useQuery } from '@tanstack/react-query'
+import { useConsultaDelUsuario } from '../../hooks/useConsultaDelUsuario'
 import { ScrollText } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 
@@ -30,7 +30,7 @@ const cuando = (iso) => {
 }
 
 export default function HistorialAjustes({ tournamentId }) {
-  const { data: filas = [], isLoading } = useQuery({
+  const { data: filas = [], isLoading } = useConsultaDelUsuario({
     queryKey: ['match_audit', tournamentId],
     enabled: !!tournamentId,
     staleTime: 1000 * 60 * 2,

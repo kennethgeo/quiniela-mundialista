@@ -13,7 +13,7 @@
    candados ni celdas fantasma: toda celda visible tiene dato real. */
 import { useState, useMemo } from 'react'
 import { motion, useReducedMotion } from 'motion/react'
-import { useQuery } from '@tanstack/react-query'
+import { useConsultaDelUsuario } from '../../hooks/useConsultaDelUsuario'
 import { ChevronLeft, ChevronRight, Zap, Share2, Loader2 } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { fetchGroupStandings } from '../../lib/groups'
@@ -85,13 +85,13 @@ export default function HistorialTab({ leagueId, matches = [], nombreQuiniela = 
   const [compartiendo, setCompartiendo] = useState(false)
   const ahora = Date.now()
 
-  const { data: miembros = [], isLoading: cargandoMiembros } = useQuery({
+  const { data: miembros = [], isLoading: cargandoMiembros } = useConsultaDelUsuario({
     queryKey: ['group_standings', leagueId],
     queryFn: () => fetchGroupStandings(leagueId),
     enabled: !!leagueId,
   })
 
-  const { data: predicciones = [], isLoading: cargandoPreds } = useQuery({
+  const { data: predicciones = [], isLoading: cargandoPreds } = useConsultaDelUsuario({
     queryKey: ['historial_predictions', leagueId],
     enabled: !!leagueId,
     staleTime: 1000 * 60,

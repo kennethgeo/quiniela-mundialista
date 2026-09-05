@@ -13,7 +13,7 @@
    y anotar una racha para desanotarla después es peor que no mostrarla. */
 import { useState } from 'react'
 import { motion, useReducedMotion } from 'motion/react'
-import { useQuery } from '@tanstack/react-query'
+import { useConsultaDelUsuario } from '../../hooks/useConsultaDelUsuario'
 import { Trophy, Flame, ChevronDown } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 
@@ -24,7 +24,7 @@ export default function JornadasYRachas({ leagueId }) {
   const [abierto, setAbierto] = useState(false)
   const sinMovimiento = useReducedMotion()
 
-  const { data } = useQuery({
+  const { data } = useConsultaDelUsuario({
     queryKey: ['league_jornadas', leagueId],
     enabled: !!leagueId,
     queryFn: async () => {

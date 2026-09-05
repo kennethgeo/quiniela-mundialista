@@ -15,7 +15,8 @@
    Nada de esto toca los RESULTADOS de los partidos: los partidos son
    compartidos por todas las quinielas del mismo torneo. */
 import { useState } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useConsultaDelUsuario } from '../../hooks/useConsultaDelUsuario'
 import { Users, Crown, Shield, Loader2, UserMinus, AlertTriangle } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 
@@ -24,7 +25,7 @@ export default function MiembrosYAdmins({ leagueId }) {
   const [porExpulsar, setPorExpulsar] = useState(null)
   const [error, setError] = useState(null)
 
-  const { data: gente = [], isLoading } = useQuery({
+  const { data: gente = [], isLoading } = useConsultaDelUsuario({
     queryKey: ['league_miembros', leagueId],
     enabled: !!leagueId,
     queryFn: async () => {

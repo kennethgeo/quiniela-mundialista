@@ -10,7 +10,7 @@
    recalcula nada en el navegador. */
 import { useState } from 'react'
 import { motion } from 'motion/react'
-import { useQuery } from '@tanstack/react-query'
+import { useConsultaDelUsuario } from '../../hooks/useConsultaDelUsuario'
 import { X, Zap, Flame, Swords, Loader2, Trophy, AlertTriangle, Share2 } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { MedalStrip } from '../medals/BadgeShowcase'
@@ -33,7 +33,7 @@ export default function PerfilEnQuiniela({ leagueId, userId, nombreQuiniela, onC
       setGenerando(false)
     }
   }
-  const { data: p, isLoading, isError, error } = useQuery({
+  const { data: p, isLoading, isError, error } = useConsultaDelUsuario({
     queryKey: ['perfil_en_quiniela', leagueId, userId],
     enabled: !!leagueId && !!userId,
     queryFn: async () => {
