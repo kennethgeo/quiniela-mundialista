@@ -1,7 +1,7 @@
 // Predicciones de campeón/goleador/asistidor de TODOS los miembros de la
 // quiniela — solo una vez que las predicciones del torneo están bloqueadas
 // (mismo criterio que GlobalPicksBoard), para que nadie copie antes de tiempo.
-import { useQuery } from '@tanstack/react-query'
+import { useConsultaDelUsuario } from '../../hooks/useConsultaDelUsuario'
 import { motion } from 'motion/react'
 import { Users, Crown, Target, Handshake } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
@@ -19,7 +19,7 @@ function gradientFor(name = '') {
 }
 
 export default function AllGlobalPicks({ tournamentId, leagueId }) {
-  const { data, isLoading } = useQuery({
+  const { data, isLoading } = useConsultaDelUsuario({
     queryKey: ['all_global_picks', leagueId],
     enabled: !!tournamentId && !!leagueId,
     queryFn: async () => {

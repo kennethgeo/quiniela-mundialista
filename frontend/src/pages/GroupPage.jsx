@@ -2,6 +2,7 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useConsultaDelUsuario } from '../hooks/useConsultaDelUsuario'
 import { motion, AnimatePresence } from 'motion/react'
 import { ArrowLeft, CalendarDays, ListOrdered, Copy, Check, Trophy, GitBranch, BarChart3, Shield, ScrollText, Loader2, Pencil, Lock, Trash2, AlertTriangle, Vote, ThumbsUp, ThumbsDown, X, Home, ChevronRight, Target, Gift, MessageCircle, LayoutGrid, Zap, ShieldCheck, Eye, Share2} from 'lucide-react'
 import { supabase } from '../lib/supabase'
@@ -67,7 +68,7 @@ export default function GroupPage() {
 
   // Grupo (de mis grupos). refetchOnMount 'always' para que una quiniela recién
   // creada/unida aparezca aunque la caché tenga una lista vieja.
-  const { data: groups = [], isLoading: lg, isFetching: fg } = useQuery({
+  const { data: groups = [], isLoading: lg, isFetching: fg } = useConsultaDelUsuario({
     queryKey: ['my_groups'], queryFn: fetchMyGroups, refetchOnMount: 'always',
   })
   const propia = groups.find((g) => g.id === id)
@@ -1349,7 +1350,7 @@ function StandingsTab({ leagueId, matches = [], nombreQuiniela = '' }) {
   const [perfil, setPerfil] = useState(null)
   const [rival, setRival] = useState(null)
   const [generando, setGenerando] = useState(false)
-  const { data: rows, isLoading } = useQuery({
+  const { data: rows, isLoading } = useConsultaDelUsuario({
     queryKey: ['group_standings', leagueId],
     queryFn: () => fetchGroupStandings(leagueId),
   })

@@ -10,6 +10,7 @@ import BottomNav from './components/ui/BottomNav'
 import QuickBar from './components/ui/QuickBar'
 import ProtectedRoute from './components/auth/ProtectedRoute'
 import InstallPrompt from './components/ui/InstallPrompt'
+import CambioDeCuenta from './hooks/useCambioDeCuenta'
 import LoadingSpinner from './components/ui/LoadingSpinner'
 
 import { useState, useEffect, lazy, Suspense } from 'react'
@@ -221,6 +222,9 @@ export default function App() {
           <SettingsProvider>
             <AuthProvider>
               <ToastProvider>
+                {/* Vacía la caché al cambiar de cuenta. Va DENTRO de
+                    AuthProvider y del QueryClientProvider: necesita los dos. */}
+                <CambioDeCuenta />
                 <InstallPrompt />
                 <AppRoutes />
               </ToastProvider>
