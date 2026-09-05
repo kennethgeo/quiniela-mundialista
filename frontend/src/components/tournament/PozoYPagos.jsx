@@ -8,7 +8,8 @@
    lo confirma. Así se distingue "dijo que pagó" de "está confirmado", que es
    justo la discusión que suele aparecer. */
 import { useState } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useConsultaDelUsuario } from '../../hooks/useConsultaDelUsuario'
 import { Wallet, Check, Clock, Loader2, Pencil, X } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 
@@ -30,7 +31,7 @@ export default function PozoYPagos({ leagueId }) {
   const qc = useQueryClient()
   const [editando, setEditando] = useState(false)
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading } = useConsultaDelUsuario({
     queryKey: ['league_pozo', leagueId],
     enabled: !!leagueId,
     queryFn: async () => {
