@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'motion/react'
 import { Activity, Trophy, Clock, Target, Zap, CheckCircle2, XCircle, Camera, Trash2, Loader2, Moon, Sun, LogOut, ShieldAlert, BookOpen, RefreshCw, Wrench } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { resizeImage } from '../lib/image'
+import { changeAvatar } from '../lib/avatar'
 import { getTournamentLocked } from '../lib/tournamentLock'
 import { useAuth } from '../hooks/useAuth'
 import { useTheme } from '../contexts/ThemeContext'
@@ -19,7 +20,7 @@ const MAX_AVATAR_SOURCE_BYTES = 12 * 1024 * 1024
 const MAX_AVATAR_UPLOAD_BYTES = 1024 * 1024
 
 export default function ProfilePage() {
-  const { profile, signOut } = useAuth()
+  const { profile, signOut, fetchProfile } = useAuth()
   const navigate = useNavigate()
   const { theme, toggleTheme } = useTheme()
   const [activeTab, setActiveTab] = useState('predictions')
@@ -45,91 +46,52 @@ export default function ProfilePage() {
   
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
   const [refreshingApp, setRefreshingApp] = useState(false)
+  const [avatarNotice, setAvatarNotice] = useState(null)
+  const avatarBusy = useRef(false)
   const fileInputRef = useRef(null)
 
+  const finishAvatarChange = async (blob) => {
+    const result = await changeAvatar({ client: supabase, userId: profile.id, previousUrl: profile.avatar_url, blob })
+    await fetchProfile(profile.id)
+    setAvatarNotice({
+      error: false,
+      message: result.cleanupPending
+        ? 'Tu foto se actualizó. La copia anterior quedó guardada y requiere limpieza de soporte.'
+        : blob ? 'Foto actualizada.' : 'Foto eliminada del perfil.',
+    })
+  }
+
   const handleAvatarUpload = async (event) => {
-    let uploadedPath = null
+    const input = event.target
+    const file = input.files[0]
+    if (!file || avatarBusy.current) return
+    avatarBusy.current = true
+    setUploadingAvatar(true)
+    setAvatarNotice(null)
     try {
-      setUploadingAvatar(true)
-      const file = event.target.files[0]
-      if (!file) return
       if (!AVATAR_TYPES.has(file.type)) throw new Error('Usá una imagen JPG, PNG o WebP.')
       if (file.size > MAX_AVATAR_SOURCE_BYTES) throw new Error('La imagen original no puede superar 12 MB.')
-
-      // Redimensionar/comprimir antes de subir: una foto de teléfono de varios
-      // MB se descargaba completa en ranking/podio/perfil (Cached Egress alto).
       const blob = await resizeImage(file, 256, 0.82)
-      if (blob.size > MAX_AVATAR_UPLOAD_BYTES) {
-        throw new Error('No pudimos optimizar la imagen por debajo de 1 MB. Probá con otra foto.')
-      }
-      const filePath = `${profile.id}-${Date.now()}.webp`
-
-      // La anterior se conserva hasta que la nueva esté subida y enlazada. Así
-      // una falla de red nunca deja al usuario sin la foto que ya tenía.
-      const prevUrl = profile.avatar_url || ''
-      const marker = '/avatars/'
-
-      // Upload to storage (webp pequeño + cache de 1 año para no re-descargar)
-      const { error: uploadError } = await supabase.storage
-        .from('avatars')
-        .upload(filePath, blob, { contentType: 'image/webp', cacheControl: '31536000', upsert: true })
-
-      if (uploadError) throw uploadError
-      uploadedPath = filePath
-
-      // Get public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('avatars')
-        .getPublicUrl(filePath)
-
-      // Update user record
-      const { error: updateError } = await supabase
-        .from('users')
-        .update({ avatar_url: publicUrl })
-        .eq('id', profile.id)
-
-      if (updateError) throw updateError
-      uploadedPath = null
-
-      if (prevUrl.includes(marker)) {
-        const oldPath = decodeURIComponent(prevUrl.split(marker)[1]?.split('?')[0] || '')
-        if (oldPath && oldPath !== filePath) await supabase.storage.from('avatars').remove([oldPath]).catch(() => {})
-      }
-
-      // Reload window to reflect changes globally
-      window.location.reload()
+      if (blob.size > MAX_AVATAR_UPLOAD_BYTES) throw new Error('No pudimos optimizar la imagen por debajo de 1 MB. Probá con otra foto.')
+      await finishAvatarChange(blob)
     } catch (error) {
-      if (uploadedPath) await supabase.storage.from('avatars').remove([uploadedPath]).catch(() => {})
-      console.error('Error uploading avatar:', error)
-      alert('Error subiendo la foto: ' + error.message)
+      setAvatarNotice({ error: true, message: error.message })
     } finally {
+      avatarBusy.current = false
       setUploadingAvatar(false)
-      event.target.value = ''
+      input.value = ''
     }
   }
 
   const handleAvatarRemove = async () => {
-    try {
-      setUploadingAvatar(true)
-      const { error: updateError } = await supabase
-        .from('users')
-        .update({ avatar_url: null })
-        .eq('id', profile.id)
-
-      if (updateError) throw updateError
-
-      const prevUrl = profile.avatar_url || ''
-      const marker = '/avatars/'
-      if (prevUrl.includes(marker)) {
-        const oldPath = decodeURIComponent(prevUrl.split(marker)[1]?.split('?')[0] || '')
-        if (oldPath) await supabase.storage.from('avatars').remove([oldPath]).catch(() => {})
-      }
-      
-      window.location.reload()
-    } catch (error) {
-      console.error('Error removing avatar:', error)
-      alert('Error eliminando la foto: ' + error.message)
+    if (avatarBusy.current) return
+    avatarBusy.current = true
+    setUploadingAvatar(true)
+    setAvatarNotice(null)
+    try { await finishAvatarChange(null) } catch (error) {
+      setAvatarNotice({ error: true, message: error.message })
     } finally {
+      avatarBusy.current = false
       setUploadingAvatar(false)
     }
   }
@@ -235,8 +197,11 @@ export default function ProfilePage() {
       >
         <div className="flex flex-col items-center gap-2.5 mb-5">
           <div className="relative group">
-            <div
-              className="w-[76px] h-[76px] rounded-full flex items-center justify-center overflow-hidden cursor-pointer transition-transform hover:scale-105 font-['Unbounded'] font-bold text-[26px] text-[#06231d]"
+            <button
+              type="button"
+              aria-label="Cambiar foto de perfil"
+              disabled={uploadingAvatar}
+              className="focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent w-[76px] h-[76px] rounded-full flex items-center justify-center overflow-hidden cursor-pointer transition-transform hover:scale-105 font-['Unbounded'] font-bold text-[26px] text-[#06231d]"
               style={{ background: 'linear-gradient(135deg,#2ED3B7,#1a8f7c)' }}
               onClick={() => !uploadingAvatar && fileInputRef.current?.click()}
             >
@@ -257,13 +222,14 @@ export default function ProfilePage() {
                   </div>
                 </>
               )}
-            </div>
+            </button>
 
             {profile?.avatar_url && !uploadingAvatar && (
               <button
                 onClick={handleAvatarRemove}
                 className="absolute -top-1 -right-1 bg-[#FF7A59] rounded-full p-1 shadow-md hover:opacity-90 transition-opacity"
                 title="Eliminar foto"
+                aria-label="Eliminar foto"
               >
                 <Trash2 size={12} className="text-white" />
               </button>
@@ -277,6 +243,7 @@ export default function ProfilePage() {
               className="hidden"
             />
           </div>
+          {avatarNotice && <p role={avatarNotice.error ? 'alert' : 'status'} className={`max-w-sm text-center text-sm ${avatarNotice.error ? 'text-[#FF7A59]' : 'text-slate-600 dark:text-slate-300'}`}>{avatarNotice.message}</p>}
           <h1 className="font-['Unbounded'] font-bold text-[18px] text-slate-900 dark:text-[#F3F1EA] text-center">{profile?.display_name || 'Jugador'}</h1>
           <p className="font-['JetBrains_Mono'] font-semibold text-[11px] text-[var(--text-muted,#8A8A8A)]">{profile?.total_points || 0} pts totales</p>
           {/* Este perfil es el GLOBAL: junta todas las quinielas. El de cada
