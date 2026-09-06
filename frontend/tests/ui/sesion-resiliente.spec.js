@@ -36,7 +36,7 @@ test('la sesión inicial carga el perfil sin una consulta adicional a Auth', asy
   let consultas = 0
   await preparar(page, USUARIO, (_route, dar) => { consultas++; return dar(USUARIO) })
   await page.goto('/')
-  await expect(page.getByText('Hola, Perfil cargado', { exact: false })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Mis quinielas', exact: true })).toBeVisible()
   expect(consultas).toBe(0)
 })
 
@@ -49,7 +49,7 @@ test('un usuario incompleto espera la comprobación antes de abrir el Hub', asyn
     await expect(page.getByRole('status')).toHaveText('Comprobando tu sesión…')
     await expect(page.getByRole('heading', { name: 'Mis quinielas', exact: true })).toHaveCount(0)
   } finally { liberar() }
-  await expect(page.getByText('Hola, Perfil cargado', { exact: false })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Mis quinielas', exact: true })).toBeVisible()
 })
 
 test('null explícito conserva la pantalla de correo sin verificar', async ({ page }) => {
@@ -71,7 +71,7 @@ test('el fallo de verificación permite reintentar y recuperar la entrada', asyn
   await expect(page.getByRole('heading', { name: 'Mis quinielas', exact: true })).toHaveCount(0)
   fallar = false
   await page.getByRole('button', { name: 'Reintentar', exact: true }).click()
-  await expect(page.getByText('Hola, Perfil cargado', { exact: false })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Mis quinielas', exact: true })).toBeVisible()
 })
 
 test('una respuesta verificada de otra cuenta no abre el Hub', async ({ page }) => {
