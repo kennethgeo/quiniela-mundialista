@@ -1,5 +1,6 @@
 /* Lista de partidos agrupada por jornada */
 import { motion } from 'motion/react'
+import { matchStatus } from '../../lib/matchStatus'
 import { ListChecks } from 'lucide-react'
 import { powerupKey } from '../../lib/powerups'
 import MatchCard from './MatchCard'
@@ -61,12 +62,16 @@ export default function MatchList({ matches, predictions, onSavePrediction, isLo
 
         // Editable = todavia se puede predecir (falta mas de 15 min para el saque).
         // Es el mismo corte que aplica MatchCard.
-        const ahora = Date.now();
-        const editables = groupMatches.filter((m) => {
-          if (['finished', 'in_progress', 'cancelled', 'canceled', 'postponed', 'suspended'].includes(m.status)) return false;
-          const iso = m.kickoff_at.endsWith('Z') || m.kickoff_at.includes('+') ? m.kickoff_at : `${m.kickoff_at}Z`;
-          return new Date(iso).getTime() - ahora > 15 * 60 * 1000;
-        });
+        // Se usa matchStatus, que es LA regla: misma lista de estados y el mismo
+        // corte de 15 minutos que aplica MatchCard y que valida la base.
+        //
+        // Acá vivía una copia en línea del parseo de la fecha, y arrastraba dos
+        // fallos que el helper ya no tiene: reventaba con kickoff_at nulo —la
+        // pantalla entera caía en el error boundary— y su `.includes('+')` no
+        // reconocía un offset NEGATIVO, así que a un "-06:00" le pegaba una "Z"
+        // y lo corría seis horas. Justo el offset de Costa Rica.
+        const ahora = new Date();
+        const editables = groupMatches.filter((m) => matchStatus(m, ahora).canPredict);
         
         return (
         <div key={label}>
