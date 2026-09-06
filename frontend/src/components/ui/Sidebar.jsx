@@ -87,7 +87,7 @@ export default function Sidebar({ isOpen, onClose }) {
                       className={`flex items-center gap-3.5 px-4 py-3 rounded-2xl transition-all duration-300 ${
                         isActive 
                           ? 'bg-slate-200/80 dark:bg-white/10 text-slate-900 dark:text-white shadow-[0_4px_24px_rgba(0,0,0,0.05)] dark:shadow-[0_4px_24px_rgba(255,255,255,0.05)] border border-slate-300/50 dark:border-white/10' 
-                          : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/5 border border-transparent'
+                          : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/5 border border-transparent'
                       }`}
                     >
                       <div className="relative">
@@ -161,20 +161,29 @@ export default function Sidebar({ isOpen, onClose }) {
               )}
             </nav>
 
+            {/* El pie se pintó mirando SOLO el modo oscuro: texto blanco,
+                bg-white/5 y bordes blancos. En el tema claro eso daba blanco
+                sobre crema —tu propio nombre a 1.09:1, ilegible— y el botón de
+                tema a 1.37:1. Cada clase lleva ahora su variante clara.
+
+                El acento #2ED3B7 no sirve para texto chico sobre crema
+                (1.74:1), así que en claro se usa teal-700 (5.04:1), que
+                conserva la familia de color y pasa AA. En oscuro sigue el
+                acento de siempre. */}
             {/* User Profile Footer */}
             {profile && (
-              <div className="mt-auto pt-6 border-t border-white/[0.06]">
+              <div className="mt-auto pt-6 border-t border-slate-200 dark:border-white/[0.06]">
                 <div className="flex items-center gap-3 mb-4 px-2">
                   <div className="w-10 h-10 rounded-full bg-gradient-to-br from-accent/25 to-accent/5 border border-accent/25 flex items-center justify-center text-accent font-bold shadow-lg shadow-accent/10">
                     {profile?.display_name?.charAt(0)?.toUpperCase() || '?'}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-bold text-white truncate">
+                    <p className="text-sm font-bold text-slate-900 dark:text-white truncate">
                       {profile?.display_name || 'Jugador'}
                     </p>
                     <div className="flex items-center gap-1 mt-0.5">
-                      <Star size={10} fill="currentColor" className="text-accent" />
-                      <span className="text-accent font-bold text-xs tabular-nums">
+                      <Star size={10} fill="currentColor" className="text-[#0f766e] dark:text-accent" />
+                      <span className="text-[#0f766e] dark:text-accent font-bold text-xs tabular-nums">
                         {profile?.total_points ?? 0} pts
                       </span>
                     </div>
@@ -184,7 +193,7 @@ export default function Sidebar({ isOpen, onClose }) {
                 <div className="flex flex-col gap-3 pb-safe">
                   <button
                     onClick={toggleTheme}
-                    className="w-full flex items-center justify-center gap-3 px-4 py-3 rounded-2xl font-semibold bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white transition-all border border-white/5 shadow-sm"
+                    className="w-full flex items-center justify-center gap-3 px-4 py-3 rounded-2xl font-semibold bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-all border border-slate-200 dark:border-white/5 shadow-sm"
                     title={`Cambiar a modo ${theme === 'light' ? 'oscuro' : 'claro'}`}
                   >
                     {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
@@ -195,7 +204,7 @@ export default function Sidebar({ isOpen, onClose }) {
                   
                   <button
                     onClick={() => { onClose(); handleSignOut(); }}
-                    className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-2xl text-[13px] font-semibold text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition-all border border-transparent"
+                    className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-2xl text-[13px] font-semibold text-slate-600 dark:text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-500/10 transition-all border border-transparent"
                   >
                     <LogOut size={18} />
                     Cerrar sesión

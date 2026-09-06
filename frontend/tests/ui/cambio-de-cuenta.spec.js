@@ -143,6 +143,13 @@ test('los datos de la persona se borran al cambiar de cuenta, los del aparato no
   await cerrarSesion(page)
   await expect(page).toHaveURL(/\/auth/)
 
+  /* El efecto de limpieza corre al cambiar el usuario, y ese cambio puede
+     llegar DESPUÉS del redirect a /auth. Leer justo tras el redirect es una
+     carrera: contra el bundle desplegado se ve "true" en la primera lectura y
+     null a los 250 ms. Se espera al efecto, no al redirect. */
+  await expect.poll(() => page.evaluate(() => localStorage.getItem('tutorial_seen')),
+    { timeout: 10000 }).toBeNull()
+
   const guardado = await page.evaluate(() => ({
     tutorial: localStorage.getItem('tutorial_seen'),
     invitacion: localStorage.getItem('tico:invitacion'),
