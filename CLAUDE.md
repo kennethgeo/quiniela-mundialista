@@ -100,7 +100,8 @@ Son **dos números distintos a propósito** y confundirlos es el error fácil:
 
 ## Verificación de correo
 - La fuente de verdad es `auth.users` (la sesión de Supabase), **no** una columna en `public.users`: `email_confirmed_at` nunca existió ahí y la consulta fallaba, caía al `catch` y dejaba pasar a todos.
-- `lib/verificacionCorreo.js` distingue **tres** estados: timestamp → entra · `null` explícito → bloqueado · claves ausentes → entra igual con aviso en consola. Ese tercer caso es a propósito: dejar afuera a alguien legítimo por un cambio de forma del SDK sería peor que el agujero que cierra.
+- `lib/verificacionCorreo.js` distingue **tres** estados: timestamp → entra · `null` explícito → bloqueado · claves ausentes → se comprueba con `auth.getUser()` antes de entrar, con límite de 4 segundos y reintento visible si falla. El resultado debe pertenecer al mismo usuario. Una sesión con el timestamp esperado no agrega ninguna consulta. Un `null` no puede perderse porque el campo alternativo esté ausente.
+- Las respuestas de `public.users` se invalidan por cambio de usuario, cierre de sesión y orden de solicitud. Una respuesta lenta del perfil anterior nunca puede reemplazar el perfil de la nueva cuenta. La suscripción atiende también `INITIAL_SESSION`; no depender solo de `SIGNED_IN` para cargar un perfil al recargar.
 
 ## Partidos del día y aviso de las 6 am
 - **Costa Rica es UTC-6 todo el año** (sin horario de verano), así que 6 am local = 12:00 UTC fijas y el día natural va de 06:00Z a 06:00Z. Usar el día UTC haría que un partido de las 8 pm de ayer apareciera como de hoy.
