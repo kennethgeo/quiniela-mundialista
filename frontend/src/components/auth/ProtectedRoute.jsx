@@ -5,7 +5,10 @@ import { supabase } from '../../lib/supabase'
 import LoadingSpinner from '../ui/LoadingSpinner'
 import { motion } from 'motion/react'
 import { Mail, RefreshCw, Send, Check } from 'lucide-react'
-import { puedeEntrar } from '../../lib/verificacionCorreo'
+import { estadoVerificacionCorreo, verificarConAuth } from '../../lib/verificacionCorreo'
+import { useQuery } from '@tanstack/react-query'
+import { conLimite } from '../../lib/loginResiliente'
+import { ErrorState } from '../ui/StatePanel'
 
 export default function ProtectedRoute({ children }) {
   const { user, loading: authLoading } = useAuth()
@@ -19,7 +22,14 @@ export default function ProtectedRoute({ children }) {
      medio. La sesión de Supabase ya trae el dato; no hace falta nada de eso.
      La regla de qué cuenta como verificado vive en lib/verificacionCorreo.js,
      con tests. */
-  const verificado = puedeEntrar(user)
+  const estado = estadoVerificacionCorreo(user)
+  const comprobacion = useQuery({
+    queryKey: ['verificacion-correo', user?.id],
+    enabled: !authLoading && !!user && estado === 'desconocido',
+    retry: false,
+    queryFn: () => verificarConAuth(user, () => conLimite(supabase.auth.getUser(), 4000, 'verificación')),
+  })
+  const verificado = (estado === 'desconocido' ? comprobacion.data : estado) === 'verificado'
 
   const reenviarCorreo = async () => {
     if (!user?.email || reenviando) return
@@ -41,6 +51,17 @@ export default function ProtectedRoute({ children }) {
 
   if (!user) {
     return <Navigate to="/auth" replace />
+  }
+
+  if (estado === 'desconocido' && !comprobacion.data) {
+    if (comprobacion.isError) return (
+      <div className="max-w-md mx-auto p-6">
+        <ErrorState title="No pudimos comprobar tu sesión"
+          description="Revisá tu conexión y volvé a intentar."
+          onRetry={() => comprobacion.refetch()} />
+      </div>
+    )
+    return <div role="status" className="p-6 text-center">Comprobando tu sesión…</div>
   }
 
   if (!verificado) {

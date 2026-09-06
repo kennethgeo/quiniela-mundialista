@@ -15,6 +15,7 @@ import { useState } from 'react'
 import { motion, useReducedMotion } from 'motion/react'
 import { useConsultaDelUsuario } from '../../hooks/useConsultaDelUsuario'
 import { Trophy, Flame, ChevronDown } from 'lucide-react'
+import { ErrorState } from '../ui/StatePanel'
 import { supabase } from '../../lib/supabase'
 
 const ORO = '#E8B75A'
@@ -24,7 +25,7 @@ export default function JornadasYRachas({ leagueId }) {
   const [abierto, setAbierto] = useState(false)
   const sinMovimiento = useReducedMotion()
 
-  const { data } = useConsultaDelUsuario({
+  const { data, isError, refetch } = useConsultaDelUsuario({
     queryKey: ['league_jornadas', leagueId],
     enabled: !!leagueId,
     queryFn: async () => {
@@ -37,6 +38,9 @@ export default function JornadasYRachas({ leagueId }) {
   const rachas = data?.rachas || []
   const jornadas = data?.jornadas || []
   const cerradas = jornadas.filter((j) => j.cerrada)
+
+  if (isError) return <ErrorState compact title="No pudimos cargar las jornadas"
+    description="Revisá tu conexión y reintentá." onRetry={refetch} />
 
   // Sin ninguna jornada cerrada no hay nada honesto que decir todavía.
   if (cerradas.length === 0) return null
