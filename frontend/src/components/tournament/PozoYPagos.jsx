@@ -11,6 +11,7 @@ import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useConsultaDelUsuario } from '../../hooks/useConsultaDelUsuario'
 import { Wallet, Check, Clock, Loader2, Pencil, X } from 'lucide-react'
+import { ErrorState } from '../ui/StatePanel'
 import { supabase } from '../../lib/supabase'
 
 const REPARTO_DEFECTO = [
@@ -31,7 +32,7 @@ export default function PozoYPagos({ leagueId }) {
   const qc = useQueryClient()
   const [editando, setEditando] = useState(false)
 
-  const { data, isLoading } = useConsultaDelUsuario({
+  const { data, isLoading, isError, refetch } = useConsultaDelUsuario({
     queryKey: ['league_pozo', leagueId],
     enabled: !!leagueId,
     queryFn: async () => {
@@ -61,7 +62,10 @@ export default function PozoYPagos({ leagueId }) {
     onSuccess: refrescar,
   })
 
-  if (isLoading || !data) return null
+  if (isError) return <ErrorState compact title="No pudimos cargar el pozo"
+    description="Revisá tu conexión y reintentá." onRetry={refetch} />
+  if (isLoading) return <p role="status" className="p-4 text-sm">Cargando pozo y pagos…</p>
+  if (!data) return null
 
   const { cuota, moneda, reparto, soy_admin, miembros, pagados, pozo_total, recaudado, gente } = data
   const yo = (gente || []).find((g) => g.soy_yo)
@@ -83,6 +87,14 @@ export default function PozoYPagos({ leagueId }) {
         )}
       </div>
 
+      {(avisar.isError || confirmar.isError) && <div className="my-3">
+        <ErrorState compact title="No pudimos confirmar el cambio del pago"
+          description="Actualizá el estado antes de volver a intentarlo."
+          onRetry={async () => {
+            const resultado = await refetch()
+            if (!resultado.isError) { avisar.reset(); confirmar.reset() }
+          }} />
+      </div>}
       {editando ? (
         <Config leagueId={leagueId} inicial={{ cuota, moneda, reparto }}
           onListo={() => { setEditando(false); refrescar() }} onCancelar={() => setEditando(false)} />

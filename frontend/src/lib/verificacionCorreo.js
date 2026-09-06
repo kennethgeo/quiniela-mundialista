@@ -11,37 +11,30 @@
    hace falta duplicar el dato en `public.users`: duplicarlo es justamente cómo
    se generan las derivas que ya nos mordieron.
 
-   TRES ESTADOS, NO DOS. Y la diferencia importa:
-     · timestamp  → verificado.
-     · null       → Supabase dice explícitamente que NO está verificado. Se bloquea.
-     · undefined  → el objeto no tiene la forma esperada (versión distinta del
-                    SDK, sesión rara). NO se bloquea: dejar afuera a gente
-                    legítima por un cambio de forma sería peor que el agujero
-                    que esto cierra. Se avisa por consola.
-
-   Se exporta aparte del componente para poder probarla sin montar React. */
+   TRES ESTADOS: un timestamp confirma, null explícito bloquea y un objeto
+   incompleto exige consultar Auth antes de mostrar las rutas protegidas. */
 
 export function estadoVerificacionCorreo(user) {
   if (!user) return 'sin-sesion'
 
-  const confirmado = user.email_confirmed_at ?? user.confirmed_at
-
-  if (confirmado) return 'verificado'
+  if (user.email_confirmed_at || user.confirmed_at) return 'verificado'
   // null explícito: Supabase sabe que no confirmó.
-  if (confirmado === null) return 'sin-verificar'
+  if (user.email_confirmed_at === null || user.confirmed_at === null) return 'sin-verificar'
   // Ninguna de las dos claves está presente: forma inesperada.
   return 'desconocido'
 }
 
-/* ¿Se le deja pasar? Solo 'sin-verificar' bloquea. */
 export function puedeEntrar(user) {
-  const estado = estadoVerificacionCorreo(user)
-  if (estado === 'desconocido') {
-    console.warn(
-      '[verificacionCorreo] La sesión no trae email_confirmed_at ni confirmed_at. ' +
-      'Se permite el acceso para no bloquear a alguien legítimo, pero revisá la ' +
-      'forma del objeto de usuario de Supabase.',
-    )
+  return estadoVerificacionCorreo(user) === 'verificado'
+}
+
+// La respuesta debe ser de la misma cuenta, incluso si Auth cambia durante la consulta.
+export async function verificarConAuth(user, obtenerUsuario) {
+  const { data, error } = await obtenerUsuario()
+  if (error || !data?.user || data.user.id !== user?.id) {
+    throw new Error('No pudimos comprobar tu sesión. Reintentá cuando vuelva la conexión.')
   }
-  return estado === 'verificado' || estado === 'desconocido'
+  const estado = estadoVerificacionCorreo(data.user)
+  if (estado === 'desconocido') throw new Error('No pudimos comprobar la verificación de tu cuenta.')
+  return estado
 }

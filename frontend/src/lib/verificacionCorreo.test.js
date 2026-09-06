@@ -1,8 +1,8 @@
 /* Lo que se cuida acá: la puerta estaba abierta (la consulta a una columna
    inexistente fallaba y el catch dejaba pasar a todos), pero cerrarla de más
    dejaría afuera a gente legítima. Por eso hay tres estados y no dos. */
-import { describe, it, expect, vi } from 'vitest'
-import { estadoVerificacionCorreo, puedeEntrar } from './verificacionCorreo'
+import { describe, it, expect } from 'vitest'
+import { estadoVerificacionCorreo, puedeEntrar, verificarConAuth } from './verificacionCorreo'
 
 describe('estadoVerificacionCorreo', () => {
   it('con timestamp está verificado', () => {
@@ -36,15 +36,26 @@ describe('puedeEntrar', () => {
     expect(puedeEntrar({ email_confirmed_at: null, confirmed_at: null })).toBe(false)
   })
 
-  // La válvula: no romper lo que hoy funciona.
-  it('forma inesperada entra igual, avisando', () => {
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
-    expect(puedeEntrar({ id: 'x' })).toBe(true)
-    expect(warn).toHaveBeenCalled()
-    warn.mockRestore()
+  it('forma inesperada requiere comprobar Auth antes de entrar', () => {
+    expect(puedeEntrar({ id: 'x' })).toBe(false)
   })
 
   it('sin sesión no entra (lo resuelve el redirect a /auth)', () => {
     expect(puedeEntrar(null)).toBe(false)
   })
 })
+
+ it.each([{ email_confirmed_at: null }, { confirmed_at: null }])('null explícito no se pierde si falta el campo alternativo: %j', user => {
+  expect(estadoVerificacionCorreo(user)).toBe('sin-verificar')
+  expect(puedeEntrar(user)).toBe(false)
+ })
+ it('completa un objeto incompleto consultando Auth', async () => {
+  expect(await verificarConAuth({ id: 'A' }, async () => ({ data: { user: { id: 'A', email_confirmed_at: '2026-01-01' } } }))).toBe('verificado')
+ })
+ it.each([
+  { data: { user: { id: 'B', email_confirmed_at: '2026-01-01' } } },
+  { error: new Error('red') },
+  { data: { user: { id: 'A' } } },
+ ])('no autoriza respuestas de otra cuenta, inciertas o fallidas', async response => {
+  await expect(verificarConAuth({ id: 'A' }, async () => response)).rejects.toThrow()
+ })

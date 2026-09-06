@@ -1,6 +1,7 @@
 // Contexto de autenticación - gestiona el estado del usuario en toda la app
 import { createContext, useContext, useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
+import { crearCargaDePerfil } from '../lib/cargaDePerfil'
 import { conLimite, describirFallo, registrarIntento } from '../lib/loginResiliente'
 
 const AuthContext = createContext(null)
@@ -10,31 +11,24 @@ export function AuthProvider({ children }) {
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
 
-  /**
-   * Obtiene el perfil del usuario desde la tabla public.users
-   */
-  const fetchProfile = useCallback(async (userId) => {
-    try {
-      // Columnas explícitas, NO select('*'). 'email' dejó de ser legible desde
-      // el cliente (RLS filtra filas, no columnas, así que la única forma era
-      // quitar el permiso de esa columna) y un '*' se expande a TODAS —
-      // incluida esa — y devuelve "permission denied". Con el '*' puesto, esto
-      // rompía el arranque de sesión de todo el mundo.
+  const [cargaPerfil] = useState(() => crearCargaDePerfil({
+    leer: async (userId) => {
       const { data, error } = await supabase
         .from('users')
         .select('id, display_name, avatar_url, total_points, points_adjustment, is_admin, created_at, updated_at')
         .eq('id', userId)
         .single()
-
       if (error) throw error
-      setProfile(data)
       return data
-    } catch (err) {
-      console.error('Error al obtener perfil:', err.message)
-      setProfile(null)
-      return null
-    }
-  }, [])
+    },
+    aplicar: setProfile,
+    alFallar: () => console.warn('[perfil] No se pudo cargar el perfil de la sesión actual'),
+  }))
+  const asignarUsuario = useCallback((actual) => {
+    if (cargaPerfil.cambiarUsuario(actual?.id)) setProfile(null)
+    setUser(actual)
+  }, [cargaPerfil])
+  const fetchProfile = useCallback((id) => cargaPerfil.cargar(id), [cargaPerfil])
 
   /**
    * Registra un nuevo usuario con email, contraseña y nombre visible
@@ -127,9 +121,8 @@ export function AuthProvider({ children }) {
       // Que no vuelva sirve igual: abajo se limpia el estado de todos modos.
       console.info(`[login] restablecer local: ${describirFallo(err)}`)
     }
-    setUser(null)
-    setProfile(null)
-  }, [])
+    asignarUsuario(null)
+  }, [asignarUsuario])
 
   /**
    * Cierra la sesión actual
@@ -137,12 +130,13 @@ export function AuthProvider({ children }) {
   const signOut = useCallback(async () => {
     const { error } = await supabase.auth.signOut()
     if (error) throw error
-    setUser(null)
-    setProfile(null)
-  }, [])
+    asignarUsuario(null)
+  }, [asignarUsuario])
 
   // Escuchar cambios en el estado de autenticación
   useEffect(() => {
+    let vigente = true
+    let huboEvento = false
     // Obtener sesión inicial
     const initAuth = async () => {
       try {
@@ -153,8 +147,9 @@ export function AuthProvider({ children }) {
         const { data: { session }, error } = await Promise.race([sessionPromise, timeoutPromise])
         if (error) throw error
 
+        if (!vigente || huboEvento) return
         const currentUser = session?.user ?? null
-        setUser(currentUser)
+        asignarUsuario(currentUser)
 
         if (currentUser) {
           // Lanzar fetchProfile sin await para no bloquear la pantalla de carga (soluciona pantalla en negro en PWA)
@@ -163,7 +158,7 @@ export function AuthProvider({ children }) {
       } catch (err) {
         console.error('Error al inicializar auth:', err.message)
       } finally {
-        setLoading(false)
+        if (vigente) setLoading(false)
       }
     }
 
@@ -171,11 +166,13 @@ export function AuthProvider({ children }) {
 
     // Suscribirse a cambios de autenticación
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      (event, session) => {
+        if (!vigente) return
+        huboEvento = true
         const currentUser = session?.user ?? null
-        setUser(currentUser)
+        asignarUsuario(currentUser)
 
-        if (currentUser && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED')) {
+        if (currentUser && (['INITIAL_SESSION', 'SIGNED_IN', 'TOKEN_REFRESHED', 'USER_UPDATED'].includes(event))) {
           fetchProfile(currentUser.id).catch(err => console.error('Error cargando perfil en evento:', err))
         }
 
@@ -185,8 +182,12 @@ export function AuthProvider({ children }) {
       }
     )
 
-    return () => subscription.unsubscribe()
-  }, [fetchProfile])
+    return () => {
+      vigente = false
+      cargaPerfil.cambiarUsuario(null)
+      subscription.unsubscribe()
+    }
+  }, [fetchProfile, asignarUsuario, cargaPerfil])
 
   // Lógica de inactividad (1 día)
   useEffect(() => {
