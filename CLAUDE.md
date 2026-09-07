@@ -188,6 +188,8 @@ La 68 dejó el editor **inservible justo cuando hace falta usarlo**. Dos causas 
 - `fases_del_torneo` devuelve ahora las fases con partidos **más** las que ya tengan cupo guardado (`FULL OUTER JOIN`), con una columna `existe boolean`. Sin eso, una fase configurada por adelantado desaparecía de la pantalla hasta que ESPN la publicara.
 - El editor permite **agregar una fase a mano** con sugerencias y campo libre (cada torneo escribe sus rondas a su manera), la marca «aún sin partidos», y no guarda nada hasta pulsar Guardar. Un cupo guardado que la RPC no devuelva ya no se pierde al abrir la pantalla.
 - Sigue en pie lo de la 68: una fase **sin entrada usa el número fijo, NO cero**.
+- **El nombre de la fase que escribe el admin ES la clave**, no una etiqueta: en la liga tica y en la Champions las eliminatorias llegan con `phase = 'knockout'` y la clave sale de `matches.stage`. Un nombre que no coincida exacto guarda un cupo que **nunca se aplica** — guarda, dice «listo» y el trigger sigue con el número fijo, que es el fallo de la 48 otra vez. Se sugerían «Semis» y «Play-offs»; el sync escribe **«Semifinal»** y **«Repechaje»**, y a la tica le faltaba **«Liguilla»**.
+- Las sugerencias viven en `lib/fasesDeTorneo.js` y son las etiquetas literales de `_STAGE_KEYS` (`espn_tournament_sync.py`). `fasesDeTorneo.test.js` **lee ese archivo de Python** y falla si las dos listas se separan: copiar los valores sería repetir el problema de tener la misma lista escrita dos veces. Comprobado que la prueba cae al reintroducir «Semis».
 
 ## Despliegue
 - **Vercel** despliega frontend Y backend juntos en cada push a `main` (root `vercel.json` → `experimentalServices`, backend `@vercel/python` bajo `/_backend`).

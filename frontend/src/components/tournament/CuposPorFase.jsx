@@ -21,24 +21,10 @@ import { useQuery } from '@tanstack/react-query'
 import { motion } from 'motion/react'
 import { Loader2, Check, Zap } from 'lucide-react'
 import { fetchFasesDelTorneo, setPowerupLimits } from '../../lib/groups'
-
-const NOMBRES = {
-  groups: 'Jornadas regulares',
-  knockout: 'Eliminatoria (sin fase definida)',
-  round_of_32: 'Dieciseisavos',
-  round_of_16: 'Octavos',
-  quarter_finals: 'Cuartos',
-  semi_finals: 'Semifinales',
-  third_place: 'Tercer puesto',
-  final: 'Final',
-}
-const bonito = (clave) => NOMBRES[clave] || clave
-
-/* Sugerencias para agregar una fase que todavía no existe. No se guardan solas
-   ni aparecen como filas: son atajos para no tener que escribir bien la clave.
-   La lista no es exhaustiva a propósito — el campo acepta cualquier nombre,
-   porque cada torneo escribe sus rondas a su manera. */
-const SUGERENCIAS = ['Play-offs', 'Octavos', 'Cuartos', 'Semis', 'Final', 'Tercer puesto']
+/* Los nombres viven en lib/fasesDeTorneo porque tienen que coincidir EXACTO
+   con lo que el sync escribe en matches.stage: es la clave del cupo, no una
+   etiqueta. Ahí está el porqué y la prueba que lo sujeta. */
+import { SUGERENCIAS, nombreDeFase } from '../../lib/fasesDeTorneo'
 
 export default function CuposPorFase({ leagueId, limiteFijo, valores = {}, bloqueado, onGuardado }) {
   const { data: fases = [], isLoading, error } = useQuery({
@@ -123,7 +109,7 @@ export default function CuposPorFase({ leagueId, limiteFijo, valores = {}, bloqu
         {[...fases, ...extras.filter((e) => !fases.some((f) => f.clave === e.clave))].map((f) => (
           <div key={f.clave} className="flex items-center gap-2">
             <span className="flex-1 min-w-0 font-['Archivo'] text-[12px] text-slate-800 dark:text-[#F3F1EA] truncate">
-              {bonito(f.clave)}
+              {nombreDeFase(f.clave)}
               <span className="text-[10px] text-[var(--text-muted,#8A8A8A)] ml-1.5">
                 {f.existe === false || f.partidos === 0
                   ? 'aún sin partidos'
