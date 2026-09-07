@@ -208,6 +208,16 @@ Comprobado consultando el scoreboard (uefa.champions y crc.1, temporadas 2025 y 
 - **`_STAGE_KEYS` se recorre EN ORDEN y devuelve la primera que aparezca en el slug**, así que lo específico va antes que lo genérico. Dos fallos que dejó ese orden: `grand-finals` daba «Final» (la misma clave de cupo que la final, siendo dos series distintas) y `knockout-round-playoffs` daba «Eliminatoria» porque `knockout` se comprobaba antes que `playoff`.
 - **Un slug que no se reconoce da `None`, y `None` = fase REGULAR**: jornada por fecha y puntaje **sin las reglas de penales**. Es el modo de fallo peligroso — si aparece una ronda nueva hay que mapearla, no dejarla caer.
 
+## El candado del cupo de ×2 es POR FASE (migración `database/74_candado_por_fase.sql`)
+La pantalla de cupos por fase nació **inútil en los dos torneos para los que se hizo**, y no se vio hasta que el dueño intentó usarla: `set_powerup_limits` rechazaba cualquier cambio si `group_tournament_started` era cierto, y esa función mira el **primer partido del torneo**.
+- Medido: **Bundestica** arrancó el 2026-07-24 → editor bloqueado con 55 partidos por jugar y toda la postemporada por delante. **Champions 26-27** empieza el 2026-09-08 → se bloqueaba al día siguiente. La ventana real para configurar era de horas.
+- **Por qué el candado existe y por qué esto no lo afloja**: en una quiniela por plata, cambiar cuánto vale algo con la tabla a la vista es hacer trampa. Pero fijar el cupo de una fase **que todavía no empezó** no es cambiar las reglas en marcha —nadie predijo nada ahí y ninguna predicción existente cambia de valor— y es el único momento en que se puede decidir. Tocar una fase **ya empezada** sigue prohibido.
+- `fase_ya_empezo(league, clave)` mira el primer saque **de esa bolsa**. Una fase sin partidos **no** empezó: es justo la que hay que poder configurar por adelantado.
+- `set_powerup_limits` compara el jsonb viejo con el nuevo y **solo rechaza las claves que CAMBIAN**. Reenviar el mismo valor de una fase empezada no es un cambio: si no, no se podría guardar una fase nueva sin borrar antes las viejas.
+- Se comprueba **en el servidor**, no solo en la pantalla. El editor pinta el candado por fila con la columna `empezo` de `fases_del_torneo`.
+- **`fase_ya_empezo` es interna**: la llama `set_powerup_limits` (que es `SECURITY DEFINER`); el editor recibe `empezo` ya calculado. No lleva EXECUTE para nadie y **no va en el inventario de la 61** — mismo caso que `es_admin_global`.
+- `tests/ui/cupos-por-fase.spec.js` abre la pantalla de verdad. **Ninguna prueba de vitest podía ver esto**: todas miran lógica pura y el fallo era que la pantalla no dejaba hacer nada. Comprobado que las tres caen si se devuelve el candado global.
+
 ## Despliegue
 - **Vercel** despliega frontend Y backend juntos en cada push a `main` (root `vercel.json` → `experimentalServices`, backend `@vercel/python` bajo `/_backend`).
 - Cron de marcadores: GitHub Actions `sync-live-scores.yml` (cada ~5 min) → `POST /_backend/api/matches/sync-live`.

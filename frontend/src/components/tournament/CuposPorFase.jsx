@@ -15,7 +15,15 @@
    Una fase que se deje vacía usa el número fijo de la quiniela, NO cero. Eso
    importa: cuando ESPN publique una fase nueva —los octavos de la Champions
    aparecen en enero— nadie se queda sin comodines por no haberla configurado
-   todavía. */
+   todavía.
+
+   EL CANDADO ES POR FASE, NO POR TORNEO (migración 74). Antes se apagaba el
+   editor entero en cuanto el torneo empezaba, y eso lo dejaba inútil: la liga
+   tica arrancó en julio y sus semifinales son en diciembre. Fijar el cupo de
+   una fase que NO empezó no es cambiar las reglas en marcha —nadie predijo
+   nada ahí y ninguna predicción cambia de valor—, así que se permite. Tocar
+   el de una fase ya empezada sigue prohibido, y lo comprueba la RPC: la
+   pantalla solo pinta lo que el servidor ya decide. */
 import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { motion } from 'motion/react'
@@ -26,6 +34,10 @@ import { fetchFasesDelTorneo, setPowerupLimits } from '../../lib/groups'
    etiqueta. Ahí está el porqué y la prueba que lo sujeta. */
 import { SUGERENCIAS, nombreDeFase } from '../../lib/fasesDeTorneo'
 
+/* `bloqueado` apaga el editor entero. HOY NADIE LO PASA —GroupPage dejó de
+   hacerlo en la 74— y se conserva solo como cierre de emergencia; el candado
+   normal es por fila (`f.empezo`). Si algún día vuelve a pasarse, que sea por
+   una razón escrita, no por copiar el patrón viejo. */
 export default function CuposPorFase({ leagueId, limiteFijo, valores = {}, bloqueado, onGuardado }) {
   const { data: fases = [], isLoading, error } = useQuery({
     queryKey: ['fases_torneo', leagueId],
@@ -102,7 +114,8 @@ export default function CuposPorFase({ leagueId, limiteFijo, valores = {}, bloqu
       </div>
       <p className="text-[10.5px] text-[var(--text-muted,#8A8A8A)] mb-3">
         Vacío usa el cupo general ({limiteFijo}). Una jornada de 18 partidos no
-        se juega igual que una final.
+        se juega igual que una final. Una fase que ya empezó no se puede
+        cambiar; las que faltan, sí.
       </p>
 
       <div className="space-y-1.5">
@@ -114,12 +127,13 @@ export default function CuposPorFase({ leagueId, limiteFijo, valores = {}, bloqu
                 {f.existe === false || f.partidos === 0
                   ? 'aún sin partidos'
                   : f.jornadas > 1 ? `${f.jornadas} jornadas` : `${f.partidos} partido${f.partidos === 1 ? '' : 's'}`}
+                {f.empezo && ' · ya empezó'}
               </span>
             </span>
             <input
               type="number" min="0" max="99" inputMode="numeric"
               value={cfg[f.clave] ?? ''}
-              disabled={bloqueado}
+              disabled={bloqueado || f.empezo}
               placeholder={String(limiteFijo)}
               onChange={(e) => setCfg({ ...cfg, [f.clave]: e.target.value })}
               className="w-14 text-center rounded-lg px-2 py-1.5 font-['JetBrains_Mono'] font-bold text-[12px] bg-slate-100 dark:bg-[#0C0C0C] border border-slate-200 dark:border-[#262626] text-slate-900 dark:text-[#F3F1EA] disabled:opacity-50"

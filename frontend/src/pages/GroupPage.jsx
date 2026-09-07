@@ -567,10 +567,14 @@ function RulesPanel({ group, tournamentStarted, showToast, onDeleted }) {
         hasOpenProposal={!!openProposal} onSaved={afterChange} onProposed={afterChange} showToast={showToast} />
       {/* Solo lo ve un admin: el resto del grupo ve las reglas en la tarjeta
           de puntaje, y un editor que no pueden usar sería ruido. */}
+      {/* NO se le pasa `bloqueado`: el candado del cupo de ×2 es POR FASE
+          (migración 74), no por torneo. Apagarlo entero al arrancar el torneo
+          era lo que dejaba la pantalla inservible — la liga tica empieza en
+          julio y sus semifinales son en diciembre. Cada fila se bloquea sola
+          si esa fase ya empezó. */}
       {isAdmin && (
         <CuposPorFase leagueId={group.id} limiteFijo={group.powerup_limit ?? 2}
-          valores={group.powerup_limits || {}} bloqueado={tournamentStarted}
-          onGuardado={afterChange} />
+          valores={group.powerup_limits || {}} onGuardado={afterChange} />
       )}
       <RulesTab group={group} isAdmin={isAdmin} tournamentStarted={tournamentStarted}
         hasOpenProposal={!!openProposal} onSaved={afterChange} onProposed={afterChange} showToast={showToast} />

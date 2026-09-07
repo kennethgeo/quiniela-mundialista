@@ -83,6 +83,7 @@ FROM unnest(ARRAY[
   'fases_del_torneo',
   'clave_fase',
   'llave_cupo',
+  'fase_ya_empezo',
   'powerup_limits_valido'
 ]::text[]) x
 WHERE NOT EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
@@ -162,6 +163,7 @@ WHERE n.nspname = 'public'
   'fases_del_torneo',
   'clave_fase',
   'llave_cupo',
+  'fase_ya_empezo',
   'powerup_limits_valido'
 ]::text[])
 ORDER BY p.proname;
