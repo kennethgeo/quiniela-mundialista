@@ -18,7 +18,10 @@ const grupo = {
   champion_points: 12, scorer_points: 12, assist_points: 12,
   is_admin: true, rules_accepted: true, rules: null, members_count: 1,
   tournament_kind: 'league', tournament_status: 'active',
-  powerup_limits: {},
+  tournament_ref: 'crc.1',
+  // Un cupo YA GUARDADO: tiene que verse al abrir. Cuando `my_groups` no lo
+  // devolvía, la casilla salía vacía y el siguiente guardado lo borraba.
+  powerup_limits: { Final: 1 },
 }
 
 /* El torneo YA EMPEZÓ: el primer partido fue hace meses. Es el caso real de
@@ -111,4 +114,31 @@ test('se puede agregar una ronda que el torneo todavía no publicó', async ({ p
   await expect(page.getByText('Gran final')).toBeVisible()
   await expect(page.getByText(/aún sin partidos/)).toBeVisible()
   await expect(page.getByRole('spinbutton').nth(1)).toBeEnabled()
+})
+
+test('un cupo ya guardado se VE al abrir, no en blanco', async ({ page }) => {
+  /* Si sale vacío, el admin lo da por no configurado y al guardar otra fase se
+     manda el objeto entero sin él: se pierde sin que nadie se entere. */
+  await montar(page, [
+    FASES[0],
+    { clave: 'Final', partidos: 0, jornadas: 0, existe: false, empezo: false },
+  ])
+  await expect(editor(page)).toBeVisible({ timeout: 10000 })
+  await expect(page.getByRole('spinbutton').nth(1)).toHaveValue('1')
+})
+
+test('solo se ofrecen las rondas que ESE torneo juega', async ({ page }) => {
+  await montar(page, [FASES[0]])
+  await expect(editor(page)).toBeVisible({ timeout: 10000 })
+
+  // La liga tica: semis, final y gran final.
+  await expect(page.getByRole('button', { name: '+ Semifinal' })).toBeVisible()
+  await expect(page.getByRole('button', { name: '+ Gran final' })).toBeVisible()
+  // Nunca juega estas, y ofrecerlas invita a un cupo que no se aplica jamás.
+  await expect(page.getByRole('button', { name: '+ Octavos' })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: '+ Dieciseisavos' })).toHaveCount(0)
+
+  // Pero la lista no es una jaula: un formato cambia y hay que poder salir.
+  await page.getByRole('button', { name: /Ver todas/ }).click()
+  await expect(page.getByRole('button', { name: '+ Octavos' })).toBeVisible()
 })

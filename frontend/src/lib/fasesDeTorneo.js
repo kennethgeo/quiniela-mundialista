@@ -25,6 +25,48 @@ export const SUGERENCIAS = [
   'Tercer puesto', 'Final', 'Gran final', 'Liguilla', 'Eliminatoria',
 ]
 
+/* LAS RONDAS QUE JUEGA CADA TORNEO, por su `external_ref` de ESPN.
+
+   POR QUÉ NO SE OFRECEN TODAS SIEMPRE: la liga tica no tiene octavos ni
+   dieciseisavos, y la Champions no tiene gran final ni liguilla. Ofrecerlas
+   invita a configurar un cupo que nunca se va a aplicar — y eso no da error,
+   simplemente no pasa nada, que es el peor modo de fallo de esta pantalla.
+
+   EL ORDEN ES EL DEL TORNEO, no alfabético: es como lo piensa quien configura.
+
+   Los formatos salen del reglamento y están comprobados contra lo que ESPN
+   publica de verdad (`backend/tests/test_fases_reales.py`):
+     · crc.1          10 equipos, 18 jornadas, luego semis (1-4, 2-3), final
+                      y gran final SOLO si el líder no gana la final.
+     · uefa.champions 36 equipos, 8 jornadas de fase de liga; los 8 primeros
+                      pasan directo a octavos y del 9º al 24º juegan repechaje.
+     · esp.1/eng.1    liga pura: no hay eliminatoria, así que no hay nada que
+                      sugerir.
+     · fifa.world     el Mundial trae la ronda en la propia `phase`, así que
+                      sus filas salen solas y no hace falta agregarlas a mano.
+
+   NO ES UNA LISTA CERRADA: `SUGERENCIAS` sigue disponible detrás de «ver
+   todas», y el campo de texto acepta cualquier nombre. Un formato que cambie
+   —pasa— no puede dejar a nadie sin poder configurar su torneo. */
+export const FASES_POR_TORNEO = {
+  'crc.1': ['Semifinal', 'Final', 'Gran final'],
+  'uefa.champions': ['Repechaje', 'Octavos', 'Cuartos', 'Semifinal', 'Final'],
+  'esp.1': [],
+  'eng.1': [],
+  'fifa.world': [],
+}
+
+/** Rondas a sugerir para un torneo. Un torneo desconocido recibe la lista
+ *  completa: es preferible ofrecer de más que dejar a alguien sin su ronda. */
+export function sugerenciasPara (ref) {
+  const propias = FASES_POR_TORNEO[ref]
+  return propias === undefined ? SUGERENCIAS : propias
+}
+
+/** ¿Sabemos qué juega este torneo? Sirve para decidir si vale la pena ofrecer
+ *  el «ver todas»: en un torneo desconocido ya se están viendo todas. */
+export const formatoConocido = (ref) => FASES_POR_TORNEO[ref] !== undefined
+
 /* Fases del sync que NO son eliminatoria. Su clave de cupo es 'groups'. */
 export const FASES_REGULARES = ['Fase de grupos', 'Fase de liga']
 
