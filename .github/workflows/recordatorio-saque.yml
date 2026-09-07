@@ -11,8 +11,11 @@ name: Recordatorio antes del saque
 # backend/tests/test_recordatorio_saque.py.
 #
 # GitHub no garantiza la puntualidad de los cron: cuando la cola está cargada
-# puede atrasarse varios minutos. Un atraso corre la ventana con el reloj, así
-# que el aviso sale algo más tarde, pero nunca duplicado.
+# puede atrasarse varios minutos o faltar una corrida. Atrasos desiguales pueden
+# solapar ventanas y duplicar avisos; las ausencias dejan partidos sin aviso.
+# La prueba actual solo cubre la cadencia ideal. Faltan un disparador fiable y
+# deduplicación persistente con reclamación atómica y recuperación de fallos;
+# ver CLAUDE.md. Este workflow todavía no implementa esos mecanismos.
 on:
   schedule:
     - cron: "*/15 * * * *"

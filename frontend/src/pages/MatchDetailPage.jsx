@@ -10,6 +10,7 @@ import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { pedirRefrescoEnVivo } from '../lib/refrescoEnVivo'
 import { fotoDeEstadio } from '../lib/estadios'
+import { kickoffDate, predictionDeadline } from '../lib/matchStatus'
 
 export default function MatchDetailPage() {
   const { id } = useParams()
@@ -60,13 +61,8 @@ export default function MatchDetailPage() {
       setMatch(resolvedMatch)
 
       // Determinar si está bloqueado
-      const dateString = matchData.kickoff_at.endsWith('Z') || matchData.kickoff_at.includes('+')
-        ? matchData.kickoff_at
-        : `${matchData.kickoff_at}Z`
-      const kickoff = new Date(dateString)
-      const now = new Date()
-
-      const locked = (kickoff - now) <= 15 * 60 * 1000 || ['in_progress', 'finished'].includes(matchData.status)
+      const cierre = predictionDeadline(matchData.kickoff_at)
+      const locked = (!!cierre && cierre <= new Date()) || ['in_progress', 'finished'].includes(matchData.status)
       setIsLocked(locked)
 
       // 2. Fetch predictions si está bloqueado
@@ -140,11 +136,8 @@ export default function MatchDetailPage() {
   useEffect(() => {
     if (!match || match.status === 'finished') return
 
-    const ds = match.kickoff_at.endsWith('Z') || match.kickoff_at.includes('+')
-      ? match.kickoff_at
-      : `${match.kickoff_at}Z`
-    const kickoff = new Date(ds).getTime()
-    const liveish = match.status === 'in_progress' || Date.now() >= kickoff
+    const kickoff = kickoffDate(match.kickoff_at)
+    const liveish = match.status === 'in_progress' || (!!kickoff && Date.now() >= kickoff.getTime())
     if (!liveish) return
 
     let cancelled = false
@@ -186,10 +179,7 @@ export default function MatchDetailPage() {
     )
   }
 
-  const dateString = match.kickoff_at.endsWith('Z') || match.kickoff_at.includes('+')
-    ? match.kickoff_at
-    : `${match.kickoff_at}Z`
-  const kickoff = new Date(dateString)
+  const kickoff = kickoffDate(match.kickoff_at)
   const fotoEstadio = fotoDeEstadio(match.venue)
   const isFinished = match.status === 'finished'
   const isCancelled = ['cancelled', 'canceled', 'postponed', 'suspended'].includes(match.status)
@@ -238,7 +228,7 @@ export default function MatchDetailPage() {
           <div className="flex flex-wrap justify-between items-center gap-2 mb-6">
             <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 bg-white/5 px-3 py-1.5 rounded-full shrink-0">
               <Calendar size={14} />
-              {format(kickoff, "EEEE d 'de' MMMM", { locale: es })}
+              {kickoff ? format(kickoff, "EEEE d 'de' MMMM", { locale: es }) : 'Por confirmar'}
             </div>
             <div className={`flex items-center gap-1.5 text-xs font-bold uppercase px-3 py-1.5 rounded-full shrink-0 ${
               isCancelled ? 'bg-[#FF7A59]/10 text-[#FF7A59] border border-[#FF7A59]/25' :
@@ -304,7 +294,7 @@ export default function MatchDetailPage() {
               ) : (
                 <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 text-sm font-medium">
                   <Clock size={14} />
-                  <span>{format(kickoff, "HH:mm")}</span>
+                  <span>{kickoff ? format(kickoff, "HH:mm") : '--:--'}</span>
                 </div>
               )}
             </div>
@@ -340,7 +330,7 @@ export default function MatchDetailPage() {
             )}
             <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 text-sm">
               <Clock size={16} />
-              {format(kickoff, 'h:mm a')}
+              {kickoff ? format(kickoff, 'h:mm a') : 'Hora por confirmar'}
             </div>
             {match.stage && (
               <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 text-sm font-semibold uppercase tracking-wider">

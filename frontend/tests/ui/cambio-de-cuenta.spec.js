@@ -118,7 +118,9 @@ test('al cambiar de cuenta sin recargar, el ranking deja de decir que sos el ant
 
   await page.getByRole('button', { name: 'Ver el ranking global' }).click()
   // El marcador tiene que haberse MUDADO, no duplicado ni quedado en KGC.
-  expect(await quienEstaMarcado(page)).toEqual({ nombre: KGCNA.nombre, cuantos: 1 })
+  // Abrir el ranking inicia una consulta: esperar su resultado conservando
+  // la aserción exacta sobre identidad y cantidad, igual que en la primera cuenta.
+  await expect.poll(() => quienEstaMarcado(page)).toEqual({ nombre: KGCNA.nombre, cuantos: 1 })
 })
 
 test('los datos de la persona se borran al cambiar de cuenta, los del aparato no', async ({ page }) => {

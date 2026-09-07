@@ -1,3 +1,5 @@
+import { kickoffDate } from './matchStatus'
+
 /* El texto de "los partidos de hoy" para mandar al grupo de WhatsApp.
 
    Se arma acá, puro y probado, en vez de dentro del componente: el formato es
@@ -9,17 +11,8 @@
 
 const UTC_CR_MS = -6 * 60 * 60 * 1000
 
-/* El sync a veces guarda kickoff_at sin sufijo de zona; se asume UTC, igual que
-   hace MatchCard. */
-function aFecha(kickoff) {
-  if (!kickoff) return null
-  const iso = kickoff.endsWith('Z') || kickoff.slice(10).includes('+') ? kickoff : `${kickoff}Z`
-  const d = new Date(iso)
-  return isNaN(d) ? null : d
-}
-
 export function horaCostaRica(kickoff) {
-  const d = aFecha(kickoff)
+  const d = kickoffDate(kickoff)
   if (!d) return '--:--'
   const cr = new Date(d.getTime() + UTC_CR_MS)
   const h = cr.getUTCHours()
@@ -39,10 +32,10 @@ export function partidosDeHoy(matches = [], ahora = new Date()) {
   return matches
     .filter((m) => m.status !== 'cancelled' && m.status !== 'postponed')
     .filter((m) => {
-      const d = aFecha(m.kickoff_at)
+      const d = kickoffDate(m.kickoff_at)
       return d && d.getTime() >= desde && d.getTime() < hasta
     })
-    .sort((a, b) => aFecha(a.kickoff_at) - aFecha(b.kickoff_at))
+    .sort((a, b) => kickoffDate(a.kickoff_at) - kickoffDate(b.kickoff_at))
 }
 
 /* El mensaje listo para pegar en el chat.

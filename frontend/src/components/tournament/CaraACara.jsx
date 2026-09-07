@@ -10,18 +10,14 @@ import { motion } from 'motion/react'
 import { useConsultaDelUsuario } from '../../hooks/useConsultaDelUsuario'
 import { X, Zap, Trophy } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
+import { kickoffDate } from '../../lib/matchStatus'
 
 const jornadaKeyOf = (m) =>
   m.stage || (m.matchday ? `Jornada ${m.matchday}` : (m.phase ? m.phase.replace(/_/g, ' ') : 'Partidos'))
 
 const esAnulado = (m) => m.status === 'cancelled' || m.status === 'postponed'
 
-const kickoffMs = (m) => {
-  const s = m?.kickoff_at
-  if (!s) return 0
-  const d = new Date(s.endsWith('Z') || s.includes('+') ? s : `${s}Z`)
-  return isNaN(d) ? 0 : d.getTime()
-}
+const kickoffMs = (m) => kickoffDate(m?.kickoff_at)?.getTime() ?? 0
 
 const esExacto = (p, m) =>
   p && m.home_goals_actual != null &&

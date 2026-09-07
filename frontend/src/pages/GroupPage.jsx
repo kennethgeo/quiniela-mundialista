@@ -10,6 +10,7 @@ import { useAuth } from '../hooks/useAuth'
 import { useToast } from '../components/ui/Toast'
 import { friendlySaveError } from '../lib/saveError'
 import { powerupKey } from '../lib/powerups'
+import { kickoffDate } from '../lib/matchStatus'
 import { fetchCuposPorJornada, fetchMyGroups, fetchGroupStandings, fetchTeamStandings, acceptGroupRules, setGroupRules, setGroupScoring, deleteGroup, proposeRuleChange, castRuleVote, cancelRuleProposal, fetchLeagueProposals, fetchMyPowerupCredits, setGroupExtras } from '../lib/groups'
 import { initialsDataUri, crestOnError } from '../lib/teamLogo'
 import { enlaceDeInvitacion } from '../lib/invitacion'
@@ -1341,7 +1342,8 @@ function TeamMini({ name, flag, code, right }) {
 }
 
 function kickoffLabel(iso) {
-  const d = new Date((iso && (iso.endsWith('Z') || iso.includes('+'))) ? iso : `${iso}Z`)
+  const d = kickoffDate(iso)
+  if (!d) return 'Por confirmar'
   return d.toLocaleDateString('es', { weekday: 'short', day: '2-digit', month: 'short' }).replace(/\./g, '')
     + ' ' + d.toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit', hour12: false })
 }
