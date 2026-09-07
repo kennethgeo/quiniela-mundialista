@@ -4,8 +4,13 @@
    de liga de la Champions son 18 partidos por jornada, los octavos son 8 en dos
    series y la final es 1. Con un cupo fijo de 5, la final queda sin límite real.
 
-   SOLO SE MUESTRAN LAS FASES QUE EXISTEN en el torneo, no una lista inventada:
-   la liga tica no tiene octavos y la Champions no tiene tercer puesto.
+   SE MUESTRAN LAS FASES QUE EXISTEN **Y** SE PUEDEN AGREGAR LAS QUE NO.
+   Antes solo salían las que ya estaban en `matches`, y eso dejaba el editor
+   inservible justo cuando hace falta: ESPN publica los octavos de la Champions
+   en enero y las finales de la liga tica al final del torneo, así que hasta
+   entonces la única fase existente era `groups` — una sola fila, y el editor
+   ni siquiera se dibujaba. El cupo hay que poder decidirlo ANTES de que la
+   fase empiece; después ya es cambiar las reglas en marcha.
 
    Una fase que se deje vacía usa el número fijo de la quiniela, NO cero. Eso
    importa: cuando ESPN publique una fase nueva —los octavos de la Champions
@@ -20,8 +25,20 @@ import { fetchFasesDelTorneo, setPowerupLimits } from '../../lib/groups'
 const NOMBRES = {
   groups: 'Jornadas regulares',
   knockout: 'Eliminatoria (sin fase definida)',
+  round_of_32: 'Dieciseisavos',
+  round_of_16: 'Octavos',
+  quarter_finals: 'Cuartos',
+  semi_finals: 'Semifinales',
+  third_place: 'Tercer puesto',
+  final: 'Final',
 }
 const bonito = (clave) => NOMBRES[clave] || clave
+
+/* Sugerencias para agregar una fase que todavía no existe. No se guardan solas
+   ni aparecen como filas: son atajos para no tener que escribir bien la clave.
+   La lista no es exhaustiva a propósito — el campo acepta cualquier nombre,
+   porque cada torneo escribe sus rondas a su manera. */
+const SUGERENCIAS = ['Play-offs', 'Octavos', 'Cuartos', 'Semis', 'Final', 'Tercer puesto']
 
 export default function CuposPorFase({ leagueId, limiteFijo, valores = {}, bloqueado, onGuardado }) {
   const { data: fases = [], isLoading, error } = useQuery({
@@ -30,6 +47,8 @@ export default function CuposPorFase({ leagueId, limiteFijo, valores = {}, bloqu
     enabled: !!leagueId,
   })
   const [cfg, setCfg] = useState({})
+  const [extras, setExtras] = useState([])   // fases agregadas a mano, aún sin partidos
+  const [nueva, setNueva] = useState('')
   const [guardando, setGuardando] = useState(false)
   const [listo, setListo] = useState(false)
   const [fallo, setFallo] = useState(null)
@@ -39,8 +58,22 @@ export default function CuposPorFase({ leagueId, limiteFijo, valores = {}, bloqu
   useEffect(() => {
     const inicial = {}
     for (const f of fases) inicial[f.clave] = valores[f.clave] ?? ''
+    // Un cupo guardado para una fase que la RPC no devuelva no se pierde.
+    for (const [k, v] of Object.entries(valores)) if (!(k in inicial)) inicial[k] = String(v)
     setCfg(inicial)
   }, [fases, valores])
+
+  const existentes = [...fases.map((f) => f.clave), ...extras.map((e) => e.clave)]
+
+  /* Agregar es solo local: la fase no se guarda hasta que se pulse Guardar y
+     tenga un número. Así no se ensucia la configuración con filas vacías. */
+  const agregar = (nombre) => {
+    const clave = String(nombre || '').trim().slice(0, 40)
+    if (!clave || existentes.includes(clave)) { setNueva(''); return }
+    setExtras((prev) => [...prev, { clave, partidos: 0, jornadas: 0, existe: false }])
+    setCfg((prev) => ({ ...prev, [clave]: prev[clave] ?? '' }))
+    setNueva('')
+  }
 
   const guardar = async () => {
     if (guardando) return
@@ -72,7 +105,6 @@ export default function CuposPorFase({ leagueId, limiteFijo, valores = {}, bloqu
       </p>
     )
   }
-  if (fases.length <= 1) return null   // con una sola fase no aporta nada
 
   return (
     <div className="mt-4 pt-4 border-t border-slate-200 dark:border-[#262626]">
@@ -88,12 +120,14 @@ export default function CuposPorFase({ leagueId, limiteFijo, valores = {}, bloqu
       </p>
 
       <div className="space-y-1.5">
-        {fases.map((f) => (
+        {[...fases, ...extras.filter((e) => !fases.some((f) => f.clave === e.clave))].map((f) => (
           <div key={f.clave} className="flex items-center gap-2">
             <span className="flex-1 min-w-0 font-['Archivo'] text-[12px] text-slate-800 dark:text-[#F3F1EA] truncate">
               {bonito(f.clave)}
               <span className="text-[10px] text-[var(--text-muted,#8A8A8A)] ml-1.5">
-                {f.jornadas > 1 ? `${f.jornadas} jornadas` : `${f.partidos} partido${f.partidos === 1 ? '' : 's'}`}
+                {f.existe === false || f.partidos === 0
+                  ? 'aún sin partidos'
+                  : f.jornadas > 1 ? `${f.jornadas} jornadas` : `${f.partidos} partido${f.partidos === 1 ? '' : 's'}`}
               </span>
             </span>
             <input
@@ -107,6 +141,36 @@ export default function CuposPorFase({ leagueId, limiteFijo, valores = {}, bloqu
           </div>
         ))}
       </div>
+
+      {!bloqueado && (
+        <div className="mt-3 pt-3 border-t border-dashed border-slate-200 dark:border-[#262626]">
+          <label htmlFor="fase-nueva" className="block text-[10.5px] text-[var(--text-muted,#8A8A8A)] mb-1.5">
+            ¿Falta una fase? Agregala aunque todavía no tenga partidos.
+          </label>
+          <div className="flex items-center gap-2">
+            <input
+              id="fase-nueva" type="text" value={nueva} maxLength={40}
+              placeholder="Octavos, Semis, Final…"
+              onChange={(e) => setNueva(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); agregar(nueva) } }}
+              className="flex-1 min-w-0 rounded-lg px-2.5 py-1.5 font-['Archivo'] text-[12px] bg-slate-100 dark:bg-[#0C0C0C] border border-slate-200 dark:border-[#262626] text-slate-900 dark:text-[#F3F1EA]"
+            />
+            <button type="button" onClick={() => agregar(nueva)} disabled={!nueva.trim()}
+              className="shrink-0 rounded-lg px-3 py-1.5 font-['Archivo'] font-bold text-[12px] disabled:opacity-40"
+              style={{ background: 'rgba(46,211,183,.12)', color: '#2ED3B7' }}>
+              Agregar
+            </button>
+          </div>
+          <div className="flex flex-wrap gap-1.5 mt-2">
+            {SUGERENCIAS.filter((x) => !existentes.includes(x)).map((x) => (
+              <button key={x} type="button" onClick={() => agregar(x)}
+                className="rounded-full px-2.5 py-1 text-[10.5px] font-['Archivo'] bg-slate-100 dark:bg-[#0C0C0C] border border-slate-200 dark:border-[#262626] text-slate-700 dark:text-slate-300">
+                + {x}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {fallo && <p className="text-[11px] text-[#FF7A59] mt-2">{fallo}</p>}
 
