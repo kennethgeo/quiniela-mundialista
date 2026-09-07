@@ -172,11 +172,19 @@ Son **dos números distintos a propósito** y confundirlos es el error fácil:
 ## Cupo de ×2 por fase (migración `database/68_cupo_por_fase.sql`)
 - La 67 dejó dos formas de fijar el cupo —número fijo y razón "1 cada N partidos"— y **ninguna deja decir "en la fase de liga tres, pero en la final uno"**. Los formatos son muy distintos: 18 partidos por jornada en la Champions, 8 en los octavos, 1 en la final.
 - `leagues.powerup_limits` es un jsonb `{"groups":3,"Octavos":2,"Final":1}`.
-- **La clave es la ETIQUETA, no `matches.phase`**: `phase` solo tiene dos valores (`groups`/`knockout`) y con eso no se distingue octavos de la final. `clave_fase()` saca la etiqueta de `matches.stage` cortando en `' · '` (`'Octavos · Ida'` → `'Octavos'`), porque el cupo es de la ronda, no de cada partido.
+- **La clave la da `clave_fase()`** (corregida en la 72, ver abajo): `phase` cuando es específica (`round_of_16`, `final`…) y, solo para el comodín `'knockout'`, la etiqueta de `matches.stage` cortada en `' · '` (`'Octavos · Ida'` → `'Octavos'`), porque el cupo es de la ronda, no de cada partido.
 - **Orden de resolución**: cupo de la fase → razón → número fijo. Una fase **sin entrada usa el número fijo, NO cero** — cuando ESPN publique los octavos en enero, nadie se queda sin comodines por no haberlos configurado.
-- El editor solo muestra **las fases que existen** en ese torneo (`fases_del_torneo`), no una lista inventada: la liga tica no tiene octavos.
+- El editor muestra las fases que existen en ese torneo (`fases_del_torneo`) **y, desde la 72, deja agregar las que todavía no**.
 - **Antecedente que no hay que repetir**: ya existió una tabla `powerup_limits` por fase y se quitó en la migración 48 porque el panel guardaba, decía "listo" y **no cambiaba el límite aplicado**. Acá el valor entra en `cupo_powerups()`, que es la que usa el trigger.
 - Dos cosas de Postgres que aparecieron al escribirla: **un `CHECK` no admite subconsultas** (recorrer las claves del jsonb necesita una, así que va en una función `IMMUTABLE`), y **`CREATE OR REPLACE` no puede cambiar el tipo de retorno** de una función que devuelve `TABLE` — hay que soltarla, lo que reabre su ACL.
+
+## Cupos de ×2 en fases que aún no existen (migración `database/72_cupos_por_fase_configurables.sql`)
+La 68 dejó el editor **inservible justo cuando hace falta usarlo**. Dos causas distintas, las dos comprobadas contra producción:
+- `fases_del_torneo` sale de `matches`, y la Champions y la liga tica solo tienen `groups`: ESPN publica los octavos en enero y las finales de la liga tica al final del torneo. Encima `CuposPorFase.jsx` se ocultaba con una sola fase. **El cupo hay que poder decidirlo ANTES de que la fase empiece**; después ya es cambiar las reglas en marcha.
+- `clave_fase` resolvía por `stage`, que en el Mundial es NULL: `round_of_32`, `round_of_16`, `quarter_finals`, `semi_finals`, `third_place` y `final` caían las seis en `'knockout'`. 32 partidos con un mismo número, sin manera de dar 1 en la final y 3 en los octavos. **El trigger que valida ya agrupaba por fase; el que colapsaba era el que elegía el número.**
+- `fases_del_torneo` devuelve ahora las fases con partidos **más** las que ya tengan cupo guardado (`FULL OUTER JOIN`), con una columna `existe boolean`. Sin eso, una fase configurada por adelantado desaparecía de la pantalla hasta que ESPN la publicara.
+- El editor permite **agregar una fase a mano** con sugerencias y campo libre (cada torneo escribe sus rondas a su manera), la marca «aún sin partidos», y no guarda nada hasta pulsar Guardar. Un cupo guardado que la RPC no devuelva ya no se pierde al abrir la pantalla.
+- Sigue en pie lo de la 68: una fase **sin entrada usa el número fijo, NO cero**.
 
 ## Despliegue
 - **Vercel** despliega frontend Y backend juntos en cada push a `main` (root `vercel.json` → `experimentalServices`, backend `@vercel/python` bajo `/_backend`).
