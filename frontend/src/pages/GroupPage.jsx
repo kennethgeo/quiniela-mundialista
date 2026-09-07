@@ -34,6 +34,7 @@ import PartidosDeHoy from '../components/tournament/PartidosDeHoy'
 import PanelAdminQuiniela from '../components/tournament/PanelAdminQuiniela'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
 import CuposPorFase from '../components/tournament/CuposPorFase'
+import ExportarCalendario from '../components/tournament/ExportarCalendario'
 
 // Clave de jornada/fase de un partido (misma lógica de agrupación que MatchList).
 function jornadaKeyOf(m) {
@@ -395,6 +396,7 @@ export default function GroupPage() {
                 ))}
               </div>
             )}
+            <ExportarCalendario matches={resolved} shownMatches={shownMatches} group={group} jornada={jornadaSel} />
             <MatchList
               matches={shownMatches}
               predictions={predictions}

@@ -10,7 +10,7 @@ import { crestOnError } from '../../lib/teamLogo'
 import { fotoDeEstadio } from '../../lib/estadios'
 import GolAnimado from './GolAnimado'
 import MatchStatusBadge from '../ui/MatchStatusBadge'
-import { matchStatus, predictionDeadline } from '../../lib/matchStatus'
+import { kickoffDate, matchStatus, predictionDeadline } from '../../lib/matchStatus'
 
 const flagSrc = (url, code) => url || `https://flagcdn.com/w80/${(code || 'xx').toLowerCase()}.png`
 
@@ -44,10 +44,13 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
   const [penaltiesWinner, setPenaltiesWinner] = useState(prediction?.penalties_winner_pred || '')
   const [countdown, setCountdown] = useState('')
 
-  const dateString = match.kickoff_at.endsWith('Z') || match.kickoff_at.includes('+')
-    ? match.kickoff_at
-    : `${match.kickoff_at}Z`
-  const kickoff = new Date(dateString)
+  /* Se usa kickoffDate, LA regla de parseo, en vez de una copia propia.
+     La copia que había acá tenía dos fallos: con kickoff_at nulo tiraba
+     "Cannot read properties of null (reading 'endsWith')" y se llevaba puesta
+     la pantalla entera al error boundary; y su `.includes('+')` no reconocía
+     un offset NEGATIVO —el "-06:00" de Costa Rica— así que le pegaba una "Z"
+     y corría el partido seis horas. */
+  const kickoff = kickoffDate(match.kickoff_at)
   const state = matchStatus(match)
   const isLocked = state.key === 'locked' || state.key === 'started'
   const isFinished = match.status === 'finished'
@@ -56,7 +59,7 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
   const isCancelled = ['cancelled', 'canceled', 'postponed', 'suspended'].includes(match.status)
   // El partido ya arrancó (pasó el saque) pero la BD aún lo tiene 'pending' porque
   // el sync todavía no lo actualizó. Evita el "Cierra en En curso" / "Cierra pronto".
-  const started = kickoff.getTime() <= Date.now()
+  const started = kickoff ? kickoff.getTime() <= Date.now() : false
   const awaitingData = started && !isFinished && !isInProgress && !isCancelled
   const isKnockout = match.phase !== 'groups'
   const isTiePredicted = homeGoals === awayGoals && homeGoals !== null
@@ -110,8 +113,10 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
 
   // Meta (fecha/contexto) en mono minúsculo
   const contextLabel = match.stage || (match.group_name ? `Grupo ${match.group_name}` : match.phase.replace(/_/g, ' '))
-  const dateLabel = kickoff.toLocaleDateString('es', { weekday: 'short' }).replace('.', '').toUpperCase()
-    + ' ' + kickoff.toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit', hour12: false })
+  const dateLabel = kickoff
+    ? kickoff.toLocaleDateString('es', { weekday: 'short' }).replace('.', '').toUpperCase()
+      + ' ' + kickoff.toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit', hour12: false })
+    : 'POR CONFIRMAR'
 
   // Color del borde de la tarjeta según estado
   const borderStyle = isInProgress
