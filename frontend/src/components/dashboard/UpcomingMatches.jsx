@@ -7,6 +7,7 @@ import { es } from 'date-fns/locale'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { resolveKnockoutTeams } from '../../lib/bracketResolver'
+import { kickoffDate, matchStatus } from '../../lib/matchStatus'
 
 export default function UpcomingMatches() {
   const [matches, setMatches] = useState([])
@@ -111,26 +112,20 @@ function UpcomingMatchCard({ match, index }) {
   const homeCode = match.home_team_code_resolved || match.home_team_code
   const awayCode = match.away_team_code_resolved || match.away_team_code
 
-  // Asegurar que la fecha se parsea como UTC si Supabase omite la zona horaria
-  const dateString = match.kickoff_at.endsWith('Z') || match.kickoff_at.includes('+')
-    ? match.kickoff_at
-    : `${match.kickoff_at}Z`
-
-  const kickoff = new Date(dateString)
-  const now = new Date()
-  const isLocked = (kickoff - now) <= 15 * 60 * 1000 // 15 minutos
+  const kickoff = kickoffDate(match.kickoff_at)
+  const isLocked = !matchStatus(match).canPredict
 
   // Intentar obtener la cuenta regresiva legible
   let countdown
   try {
-    countdown = formatDistanceToNow(kickoff, { addSuffix: false, locale: es })
+    countdown = kickoff ? formatDistanceToNow(kickoff, { addSuffix: false, locale: es }) : '—'
   } catch {
     countdown = '—'
   }
 
   // Format time for display
-  const matchTime = kickoff.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-  const matchDate = kickoff.toLocaleDateString('es', { day: 'numeric', month: 'short' })
+  const matchTime = kickoff?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) ?? '--:--'
+  const matchDate = kickoff?.toLocaleDateString('es', { day: 'numeric', month: 'short' }) ?? 'Por confirmar'
 
   return (
     <motion.div
@@ -204,7 +199,7 @@ function UpcomingMatchCard({ match, index }) {
             : 'bg-purple-500/10 text-purple-600 border border-purple-500/20 dark:bg-purple-400/10 dark:text-purple-400 dark:border-purple-400/10'
         }`}>
           {isLocked ? <Lock size={12} /> : <Clock size={12} />}
-          <span>{isLocked ? 'Bloqueado' : `En ${countdown}`}</span>
+          <span>{!kickoff ? 'Horario por confirmar' : isLocked ? 'Bloqueado' : `En ${countdown}`}</span>
         </div>
       </div>
     </motion.div>

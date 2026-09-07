@@ -1,8 +1,24 @@
 import { describe, expect, it } from 'vitest'
-import { matchStatus, predictionDeadline, timeUntilDeadline } from './matchStatus'
+import { kickoffDate, matchStatus, predictionDeadline, timeUntilDeadline } from './matchStatus'
 
 const now = new Date('2026-09-03T12:00:00Z')
 const game = (kickoff_at, status = 'pending') => ({ kickoff_at, status })
+
+describe('kickoffDate', () => {
+  it.each([
+    '2026-09-03T14:00:00Z', '2026-09-03T14:00:00+00:00',
+    '2026-09-03T08:00:00-06:00', '2026-09-03T08:00:00-0600',
+    '2026-09-03T16:00:00+02:00', '2026-09-03T14:00:00',
+  ])('normaliza el mismo instante desde %s', value => {
+    expect(kickoffDate(value)?.toISOString()).toBe('2026-09-03T14:00:00.000Z')
+  })
+
+  it.each([null, undefined, '', 'sin fecha', 42, {}])('rechaza %s sin convertirlo a 1970', value => {
+    expect(kickoffDate(value)).toBeNull()
+    expect(predictionDeadline(value)).toBeNull()
+    expect(matchStatus(game(value), now).canPredict).toBe(false)
+  })
+})
 
 describe('matchStatus', () => {
   it('distingue abierto, por cerrar y cerrado con el corte real de 15 minutos', () => {

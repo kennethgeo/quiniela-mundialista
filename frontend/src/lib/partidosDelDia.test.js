@@ -10,6 +10,11 @@ const p = (id, kickoff, extra = {}) => ({
 })
 
 describe('horaCostaRica', () => {
+  it('respeta un offset negativo sin pegarle una Z ni desplazar la hora', () => {
+    expect(horaCostaRica('2026-08-26T14:00:00-06:00')).toBe('2:00 pm')
+    expect(horaCostaRica(null)).toBe('--:--')
+    expect(horaCostaRica('sin fecha')).toBe('--:--')
+  })
   it('convierte UTC a hora tica en 12h', () => {
     expect(horaCostaRica('2026-08-26T20:00:00Z')).toBe('2:00 pm')
     expect(horaCostaRica('2026-08-26T18:30:00Z')).toBe('12:30 pm')
@@ -28,6 +33,12 @@ describe('horaCostaRica', () => {
 describe('partidosDeHoy', () => {
   // 26 ago 12:00Z = 6am en Costa Rica. El día local va de 06:00Z a 06:00Z.
   const ahora = new Date('2026-08-26T12:00:00Z')
+
+  it('selecciona el día tico y ordena mezclando zonas, ignorando fechas inválidas', () => {
+    const matches = [p(4, null), p(3, '2026-08-26T21:00:00-06:00'),
+      p(1, '2026-08-25T23:59:00-06:00'), p(2, '2026-08-26T20:00:00Z'), p(5, 'sin fecha')]
+    expect(partidosDeHoy(matches, ahora).map(m => m.id)).toEqual([2, 3])
+  })
 
   it('toma los de hoy en hora tica', () => {
     const r = partidosDeHoy([p(1, '2026-08-26T20:00:00Z')], ahora)
