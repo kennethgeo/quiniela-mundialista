@@ -17,10 +17,12 @@
 /* Etiquetas literales de `_STAGE_KEYS`
    (`backend/app/services/espn_tournament_sync.py`), sin las regulares:
    «Fase de grupos» y «Fase de liga» van a `phase = 'groups'`, y su clave es
-   'groups' — la fila que la pantalla ya muestra sola. */
+   'groups' — la fila que la pantalla ya muestra sola.
+   Van en orden de avance del torneo, no alfabético: es como las piensa
+   quien configura («primero el repechaje, al final la final»). */
 export const SUGERENCIAS = [
-  'Octavos', 'Cuartos', 'Semifinal', 'Tercer puesto', 'Final',
-  'Liguilla', 'Repechaje', 'Eliminatoria',
+  'Repechaje', 'Dieciseisavos', 'Octavos', 'Cuartos', 'Semifinal',
+  'Tercer puesto', 'Final', 'Gran final', 'Liguilla', 'Eliminatoria',
 ]
 
 /* Fases del sync que NO son eliminatoria. Su clave de cupo es 'groups'. */

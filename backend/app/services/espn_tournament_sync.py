@@ -25,7 +25,31 @@ def _to_int(v):
 
 
 # slug de ESPN (season.slug / type) -> etiqueta de fase en español
+# EL ORDEN MANDA: se devuelve la PRIMERA que aparezca en el slug, así que lo
+# específico va antes que lo genérico. Comprobado contra ESPN de verdad
+# (uefa.champions y crc.1, temporadas 2025 y 2026), no supuesto:
+#
+#   'clausura---grand-finals'     -> Gran final   (contiene "final": si "final"
+#                                                  fuera antes, la gran final y
+#                                                  la final serían la MISMA
+#                                                  clave de cupo, y en la liga
+#                                                  tica son dos series distintas)
+#   'clausura---playoff-finals'   -> Final
+#   'clausura---playoff-semifinals' -> Semifinal
+#   'knockout-round-playoffs'     -> Repechaje    (la ronda previa a octavos de
+#                                                  la Champions; con "knockout"
+#                                                  antes se llamaba
+#                                                  "Eliminatoria", que es el
+#                                                  comodín genérico)
+#   'round-of-16' / 'quarterfinals' / 'semifinals' / 'final' -> lo obvio
+#   'league-phase' -> Fase de liga  ·  'apertura'/'clausura' -> None (regular)
+#
+# La etiqueta NO es decorativa: en las ligas es la CLAVE del cupo de ×2
+# (`clave_fase`), así que cambiarla cambia a qué bolsa va un partido.
 _STAGE_KEYS = [
+    ("grand-final", "Gran final"), ("grand_final", "Gran final"),
+    ("knockout-round-playoff", "Repechaje"), ("knockout_round_playoff", "Repechaje"),
+    ("round-of-32", "Dieciseisavos"), ("round_of_32", "Dieciseisavos"),
     ("round-of-16", "Octavos"), ("round_of_16", "Octavos"),
     ("quarter", "Cuartos"), ("semi", "Semifinal"),
     ("third", "Tercer puesto"), ("final", "Final"),

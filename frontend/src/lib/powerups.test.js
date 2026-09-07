@@ -1,21 +1,74 @@
+/* La llave de cupo del navegador tiene que dar EXACTAMENTE lo mismo que
+   `clave_fase` + jornada en Postgres. Los casos de abajo son los mismos que
+   verifica la migración 73 en su bloque final: si alguien cambia una de las
+   dos definiciones, una de las dos comprobaciones cae. */
 import { describe, expect, it } from 'vitest'
-import { buildPowerupLimits, powerupKey } from './powerups'
+import { claveDeFase, powerupKey, llaveDeCupo } from './powerups'
 
-describe('powerupKey', () => {
-  it('usa la misma llave fase/jornada que valida Postgres', () => {
-    expect(powerupKey('groups', 2)).toBe('groups_2')
-    expect(powerupKey('third_place', 0)).toBe('third_place')
-    expect(powerupKey('final', 0)).toBe('final')
+describe('claveDeFase — espejo de clave_fase() en Postgres', () => {
+  it('la fase regular es siempre "groups", venga como venga', () => {
+    expect(claveDeFase('groups', 'Jornada 7')).toBe('groups')
+    expect(claveDeFase(null, null)).toBe('groups')
+    expect(claveDeFase(undefined, 'Jornada 1')).toBe('groups')
+  })
+
+  it('una fase específica es su propia clave (Mundial)', () => {
+    expect(claveDeFase('round_of_16', null)).toBe('round_of_16')
+    expect(claveDeFase('semi_finals', null)).toBe('semi_finals')
+    expect(claveDeFase('third_place', null)).toBe('third_place')
+    expect(claveDeFase('final', null)).toBe('final')
+  })
+
+  it('con "knockout" manda la etiqueta, recortada en " · " (liga tica, Champions)', () => {
+    // El cupo es de la RONDA: ida y vuelta comparten bolsa.
+    expect(claveDeFase('knockout', 'Octavos · Ida')).toBe('Octavos')
+    expect(claveDeFase('knockout', 'Octavos · Vuelta')).toBe('Octavos')
+    expect(claveDeFase('knockout', 'Semifinal')).toBe('Semifinal')
+    expect(claveDeFase('knockout', 'Gran final · Ida')).toBe('Gran final')
+  })
+
+  it('sin etiqueta cae en "knockout", que es una bolsa válida y no un vacío', () => {
+    expect(claveDeFase('knockout', null)).toBe('knockout')
+    expect(claveDeFase('knockout', '')).toBe('knockout')
   })
 })
 
-describe('buildPowerupLimits', () => {
-  it('no mezcla tercer puesto y final', () => {
-    const limits = buildPowerupLimits([
-      { phase: 'third_place', matchday: 0, max_uses: 1 },
-      { phase: 'final', matchday: 0, max_uses: 2 },
-    ])
+describe('powerupKey', () => {
+  it('separa las jornadas de la fase regular', () => {
+    expect(powerupKey('groups', 1)).toBe('groups|1')
+    expect(powerupKey('groups', 2)).toBe('groups|2')
+    expect(powerupKey('groups', 1)).not.toBe(powerupKey('groups', 2))
+  })
 
-    expect(limits).toEqual({ third_place: 1, final: 2 })
+  it('no mezcla tercer puesto y final', () => {
+    expect(powerupKey('third_place', 0)).not.toBe(powerupKey('final', 0))
+  })
+
+  it('EL BUG: semifinal y final de una liga ya no comparten bolsa', () => {
+    // Las dos llegan con phase='knockout' y jornada nula. Antes daban la misma
+    // llave, así que gastar el cupo en semis dejaba la final sin comodines.
+    const semi = powerupKey('knockout', null, 'Semifinal · Ida')
+    const fin = powerupKey('knockout', null, 'Final · Vuelta')
+    expect(semi).toBe('Semifinal|0')
+    expect(fin).toBe('Final|0')
+    expect(semi).not.toBe(fin)
+  })
+
+  it('la jornada nula y la cero son la misma bolsa, como COALESCE(matchday,0)', () => {
+    expect(powerupKey('final', null)).toBe(powerupKey('final', 0))
+  })
+})
+
+describe('llaveDeCupo', () => {
+  it('saca la llave del partido entero, sin olvidar stage', () => {
+    expect(llaveDeCupo({ phase: 'knockout', stage: 'Cuartos · Ida', matchday: null }))
+      .toBe('Cuartos|0')
+    expect(llaveDeCupo({ phase: 'groups', stage: 'Jornada 3', matchday: 3 }))
+      .toBe('groups|3')
+  })
+
+  it('un partido vacío no revienta la pantalla', () => {
+    expect(llaveDeCupo(undefined)).toBe('groups|0')
+    expect(llaveDeCupo({})).toBe('groups|0')
   })
 })
