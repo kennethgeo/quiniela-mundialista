@@ -2,7 +2,7 @@
 import { motion } from 'motion/react'
 import { matchStatus } from '../../lib/matchStatus'
 import { ListChecks } from 'lucide-react'
-import { powerupKey } from '../../lib/powerups'
+import { llaveDeCupo } from '../../lib/powerups'
 import MatchCard from './MatchCard'
 
 const containerVariants = {
@@ -35,11 +35,11 @@ export default function MatchList({ matches, predictions, onSavePrediction, isLo
   return (
     <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-8">
       {Object.entries(grouped).map(([label, groupMatches]) => {
-        // La llave puede ser 'groups_1', 'round_of_32', etc.
+        // La llave es 'clave de fase|jornada': 'groups|1', 'Octavos|0'…
+        // Sale del partido ENTERO porque en las ligas la ronda viene en
+        // `stage`, no en `phase` (ver lib/powerups).
         const matchExample = groupMatches[0]
-        const phase = matchExample?.phase || 'groups'
-        const matchday = matchExample?.matchday
-        const limitKey = powerupKey(phase, matchday)
+        const limitKey = llaveDeCupo(matchExample)
 
         // Límite efectivo = cupo base + créditos arrastrados de partidos
         // cancelados (uso extra ganado por votación del grupo). El cupo base
@@ -50,7 +50,7 @@ export default function MatchList({ matches, predictions, onSavePrediction, isLo
         // Orden de preferencia: el cupo que calculó la base para ESA jornada
         // (cupoDe, que puede escalar con la cantidad de partidos), luego el
         // mapa por fase de las vistas multi-torneo, y al final el número fijo.
-        const baseLimit = cupoDe ? cupoDe(matches.find((m) => powerupKey(m.phase, m.matchday) === limitKey) || {})
+        const baseLimit = cupoDe ? cupoDe(matches.find((m) => llaveDeCupo(m) === limitKey) || {})
           : powerupLimits && powerupLimits[limitKey] != null ? powerupLimits[limitKey] : powerupLimit
         const limit = baseLimit + credit;
 

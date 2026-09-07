@@ -191,6 +191,23 @@ La 68 dejó el editor **inservible justo cuando hace falta usarlo**. Dos causas 
 - **El nombre de la fase que escribe el admin ES la clave**, no una etiqueta: en la liga tica y en la Champions las eliminatorias llegan con `phase = 'knockout'` y la clave sale de `matches.stage`. Un nombre que no coincida exacto guarda un cupo que **nunca se aplica** — guarda, dice «listo» y el trigger sigue con el número fijo, que es el fallo de la 48 otra vez. Se sugerían «Semis» y «Play-offs»; el sync escribe **«Semifinal»** y **«Repechaje»**, y a la tica le faltaba **«Liguilla»**.
 - Las sugerencias viven en `lib/fasesDeTorneo.js` y son las etiquetas literales de `_STAGE_KEYS` (`espn_tournament_sync.py`). `fasesDeTorneo.test.js` **lee ese archivo de Python** y falla si las dos listas se separan: copiar los valores sería repetir el problema de tener la misma lista escrita dos veces. Comprobado que la prueba cae al reintroducir «Semis».
 
+## Una sola llave de cupo de ×2 (migración `database/73_una_sola_llave_de_cupo.sql`)
+El cupo se **elegía** por fase pero se **contaba** por otra cosa. Reproducido en Postgres con la postemporada real de la liga tica: con `{"Semifinal":2,"Final":1}`, gastar los 2 en semifinales dejaba la final **sin ningún comodín**.
+- `cupo_powerups` elegía el número por `clave_fase()` → `Semifinal`/`Final`; `check_powerup_limit` contaba por `(phase, matchday)` → `('knockout', NULL)` para TODA la eliminatoria.
+- **En el Mundial no se veía** porque ahí cada ronda trae su propia `phase` y las dos agrupaciones coincidían por casualidad. En la liga tica y en la Champions la eliminatoria entera llega con `phase='knockout'` y jornada nula.
+- Ahora la bolsa es **`llave_cupo(match)` = clave de fase + jornada**, y la usan el trigger, `cupo_powerups`, `cupos_por_jornada` y los créditos de arrastre (`powerup_credits.phase` guarda la **clave**, no la fase cruda).
+- La razón "1 cada N partidos" también cuenta los partidos **de esa ronda**: antes contaba toda la fase y en la postemporada tica daba 6 para cualquier ronda.
+- La migración va **dentro de una transacción** y comprueba **antes** de tocar nada que nadie quede pasado de cupo al partirse su bolsa. La comprobación mide el **estado final**, no la diferencia, para que sea idempotente: una que miraba "cambió de bolsa" saltaba en falso la segunda corrida (comprobado).
+- **`llave_cupo` es interna**: la llaman funciones que ya son `SECURITY DEFINER`, así que no lleva EXECUTE para nadie y **no va en el inventario de la 61** (mismo caso que `es_admin_global`).
+- La regla está escrita **dos veces a la fuerza** (`clave_fase` en SQL y `claveDeFase` en `lib/powerups.js`): el navegador no puede llamar a la función para cada partido de una pantalla. Los dos lados **fijan los mismos casos** — el bloque final de la 73 y `powerups.test.js` — así que cambiar uno rompe la comprobación del otro.
+
+## Las fases que ESPN publica de verdad
+Comprobado consultando el scoreboard (uefa.champions y crc.1, temporadas 2025 y 2026), no supuesto. `backend/tests/test_fases_reales.py` fija estos slugs:
+- **Champions**: `league-phase` (144 partidos, 8 jornadas, 36 equipos) · `knockout-round-playoffs` · `round-of-16` · `quarterfinals` · `semifinals` · `final`. Todas las eliminatorias son **ida y vuelta menos la final**.
+- **Liga tica**: `apertura`/`clausura` (10 equipos, 18 jornadas, 90 partidos) · `…---playoff-semifinals` (2 series) · `…---playoff-finals` · `…---grand-finals`, que **solo se juega si el líder de la fase regular no gana la final**.
+- **`_STAGE_KEYS` se recorre EN ORDEN y devuelve la primera que aparezca en el slug**, así que lo específico va antes que lo genérico. Dos fallos que dejó ese orden: `grand-finals` daba «Final» (la misma clave de cupo que la final, siendo dos series distintas) y `knockout-round-playoffs` daba «Eliminatoria» porque `knockout` se comprobaba antes que `playoff`.
+- **Un slug que no se reconoce da `None`, y `None` = fase REGULAR**: jornada por fecha y puntaje **sin las reglas de penales**. Es el modo de fallo peligroso — si aparece una ronda nueva hay que mapearla, no dejarla caer.
+
 ## Despliegue
 - **Vercel** despliega frontend Y backend juntos en cada push a `main` (root `vercel.json` → `experimentalServices`, backend `@vercel/python` bajo `/_backend`).
 - Cron de marcadores: GitHub Actions `sync-live-scores.yml` (cada ~5 min) → `POST /_backend/api/matches/sync-live`.

@@ -9,7 +9,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import { useToast } from '../components/ui/Toast'
 import { friendlySaveError } from '../lib/saveError'
-import { powerupKey } from '../lib/powerups'
+import { llaveDeCupo } from '../lib/powerups'
 import { kickoffDate } from '../lib/matchStatus'
 import { fetchCuposPorJornada, fetchMyGroups, fetchGroupStandings, fetchTeamStandings, acceptGroupRules, setGroupRules, setGroupScoring, deleteGroup, proposeRuleChange, castRuleVote, cancelRuleProposal, fetchLeagueProposals, fetchMyPowerupCredits, setGroupExtras } from '../lib/groups'
 import { initialsDataUri, crestOnError } from '../lib/teamLogo'
@@ -140,7 +140,7 @@ export default function GroupPage() {
   const powerupLimit = limiteFijo
 
   // Créditos de ×2 arrastrados de partidos cancelados (uso extra en la próxima
-  // jornada/fase), otorgados por void_cancelled_match. { [powerupKey]: cantidad }
+  // jornada/fase), otorgados por void_cancelled_match. { "fase|jornada": cantidad }
   const { data: powerupCredits = {} } = useConsultaDelUsuario({
     queryKey: ['powerup_credits', id],
     queryFn: () => fetchMyPowerupCredits(id),
@@ -196,7 +196,7 @@ export default function GroupPage() {
     const o = {}
     resolved.forEach((m) => {
       if (predictions.find((p) => p.match_id === m.id)?.use_powerup_x2) {
-        const k = powerupKey(m.phase, m.matchday)
+        const k = llaveDeCupo(m)
         o[k] = (o[k] || 0) + 1
       }
     })

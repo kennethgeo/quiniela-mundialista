@@ -1,6 +1,6 @@
 // Acceso a grupos (quinielas) — envuelve las RPCs de database/26_groups_rpc.sql
 import { supabase } from './supabase'
-import { powerupKey } from './powerups'
+// (la llave de cupo se arma con la clave que ya manda la base; ver lib/powerups)
 
 export async function fetchMyGroups() {
   const { data, error } = await supabase.rpc('my_groups')
@@ -119,13 +119,15 @@ export async function fetchLeagueProposals(leagueId) {
 }
 
 // Mis créditos de comodín ×2 sin consumir en una quiniela (arrastrados de un
-// partido cancelado). Devuelve { [powerupKey]: cantidad }.
+// partido cancelado). Devuelve { "fase|jornada": cantidad }.
 export async function fetchMyPowerupCredits(leagueId) {
   const { data, error } = await supabase.rpc('my_powerup_credits', { p_league_id: leagueId })
   if (error) throw error
   const o = {}
   for (const r of data || []) {
-    const k = powerupKey(r.phase, r.matchday)
+    // powerup_credits.phase guarda la CLAVE de fase desde la migración 73,
+    // así que ya viene lista: no hay que volver a derivarla de `stage`.
+    const k = `${r.phase ?? 'groups'}|${r.matchday || 0}`
     o[k] = (o[k] || 0) + r.credits
   }
   return o
@@ -174,13 +176,14 @@ export async function fetchPlayerStats(tournamentId) {
    quedaría vieja y la app mostraría un cupo que la base no respeta — que es
    exactamente lo que pasó con los puntos de asistidor.
 
-   Devuelve { "fase|jornada": cupo }, con la MISMA clave que usa el trigger:
-   (phase, matchday). */
+   Devuelve { "fase|jornada": cupo }, con la MISMA llave que usa el trigger.
+   La RPC ya la manda armada en `llave` (migración 73): no se recompone acá
+   para que no haya una tercera versión de la regla dando vueltas. */
 export async function fetchCuposPorJornada(leagueId) {
   const { data, error } = await supabase.rpc('cupos_por_jornada', { p_league_id: leagueId })
   if (error) throw error
   const mapa = {}
-  for (const f of data || []) mapa[`${f.phase ?? ''}|${f.matchday ?? 0}`] = f.cupo
+  for (const f of data || []) mapa[f.llave] = f.cupo
   return mapa
 }
 
