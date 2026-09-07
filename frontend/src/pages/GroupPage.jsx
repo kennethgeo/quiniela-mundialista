@@ -574,7 +574,8 @@ function RulesPanel({ group, tournamentStarted, showToast, onDeleted }) {
           si esa fase ya empezó. */}
       {isAdmin && (
         <CuposPorFase leagueId={group.id} limiteFijo={group.powerup_limit ?? 2}
-          valores={group.powerup_limits || {}} onGuardado={afterChange} />
+          valores={group.powerup_limits || {}} hasOpenProposal={!!openProposal}
+          onGuardado={afterChange} onProposed={afterChange} showToast={showToast} />
       )}
       <RulesTab group={group} isAdmin={isAdmin} tournamentStarted={tournamentStarted}
         hasOpenProposal={!!openProposal} onSaved={afterChange} onProposed={afterChange} showToast={showToast} />

@@ -218,6 +218,16 @@ La pantalla de cupos por fase nació **inútil en los dos torneos para los que s
 - **`fase_ya_empezo` es interna**: la llama `set_powerup_limits` (que es `SECURITY DEFINER`); el editor recibe `empezo` ya calculado. No lleva EXECUTE para nadie y **no va en el inventario de la 61** — mismo caso que `es_admin_global`.
 - `tests/ui/cupos-por-fase.spec.js` abre la pantalla de verdad. **Ninguna prueba de vitest podía ver esto**: todas miran lógica pura y el fallo era que la pantalla no dejaba hacer nada. Comprobado que las tres caen si se devuelve el candado global.
 
+## Quién cambia los cupos de ×2 (migración `database/75_votar_cupos_por_fase.sql`)
+- **Editar es solo de admin**, y se comprueba en el servidor: `set_powerup_limits` exige `es_admin_liga`. La pantalla además solo se le muestra a un admin, pero eso es cosmética — quien manda es la RPC.
+- **Proponer también es solo de admin** (`propose_rule_change` exige `es_admin_liga`). En este proyecto un miembro no propone: le pide a un admin que lo proponga. Es así para todas las reglas, no solo para los cupos.
+- **`_apply_rule_proposal` tenía dos huecos silenciosos**, los dos del tipo «guarda, dice listo y no cambia nada» — el mismo por el que se quitó la tabla `powerup_limits` en la 48:
+  - `powerup_por_partidos` **se mandaba** en el payload desde la 67 y **nunca se aplicaba**. El grupo votaba, la propuesta quedaba `approved` y la razón seguía igual.
+  - `powerup_limits` no estaba contemplado, y la 74 rechaza tocar una fase empezada diciendo «proponé el cambio y el grupo lo vota» — **una vía que no existía**.
+- Se distingue **«no venía en la propuesta»** de **«venía en null»** (`payload ? 'clave'`): un `COALESCE` contra el valor viejo impediría **desactivar** la razón por votación, y un payload viejo sin la clave **borraría** los cupos guardados.
+- **La votación SÍ puede cambiar una fase empezada; el admin solo, no.** La regla del grupo no es «esto no se cambia nunca», es «esto no lo cambia una persona sola con el torneo en marcha».
+- El editor decide el botón **antes** de pulsarlo: si lo que cambió es una fase ya empezada dice «Proponer cambio al grupo». Reenviar el mismo valor **no** cuenta como cambio — si contara, no se podría guardar una fase nueva sin mandar todo el lote a votación.
+
 ## Despliegue
 - **Vercel** despliega frontend Y backend juntos en cada push a `main` (root `vercel.json` → `experimentalServices`, backend `@vercel/python` bajo `/_backend`).
 - Cron de marcadores: GitHub Actions `sync-live-scores.yml` (cada ~5 min) → `POST /_backend/api/matches/sync-live`.

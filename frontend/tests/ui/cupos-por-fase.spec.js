@@ -67,24 +67,38 @@ test('el editor se puede usar aunque el torneo ya haya empezado', async ({ page 
   await expect(page.getByRole('button', { name: 'Guardar' })).toBeVisible()
 })
 
-test('una fase que YA EMPEZÓ no se puede tocar; una que no, sí', async ({ page }) => {
+test('una fase pendiente se GUARDA; una ya empezada va a VOTACIÓN', async ({ page }) => {
   await montar(page, FASES)
   await expect(editor(page)).toBeVisible({ timeout: 10000 })
 
-  // La fase regular arrancó en julio: su cupo queda congelado.
-  const empezada = page.getByRole('spinbutton').first()
-  await expect(empezada).toBeDisabled()
   // Se apunta a la etiqueta DE LA FILA, no a cualquier "ya empezó": el texto
   // de ayuda del editor también lo dice, y un selector ambiguo no prueba nada.
   await expect(page.getByText(/18 jornadas · ya empezó/)).toBeVisible()
 
-  // La semifinal es en diciembre: se decide ahora o no se decide nunca. Ya
-  // viene como fila (la RPC devuelve también las fases sin partidos), así que
-  // no hay que agregarla — eso se prueba aparte.
+  // La semifinal es en diciembre: se decide ahora o no se decide nunca, y la
+  // decide el admin solo. El botón tiene que seguir siendo "Guardar".
   const pendiente = page.getByRole('spinbutton').nth(1)
-  await expect(pendiente).toBeEnabled()
   await pendiente.fill('1')
-  await expect(pendiente).toHaveValue('1')
+  await expect(page.getByRole('button', { name: /Guardar cupos por fase/ })).toBeVisible()
+
+  /* Tocar la fase YA EMPEZADA cambia el botón ANTES de pulsarlo: el admin ve
+     que eso va a votación en vez de descubrirlo con un error de la base. */
+  await page.getByRole('spinbutton').first().fill('4')
+  await expect(page.getByRole('button', { name: /Proponer cambio al grupo/ })).toBeVisible()
+})
+
+test('volver una fase empezada a su valor original NO pide votación', async ({ page }) => {
+  /* Reenviar el mismo valor no es un cambio. Si contara como tal, no se podría
+     guardar una fase nueva sin que todo el lote fuera a votación. */
+  await montar(page, FASES)
+  await expect(editor(page)).toBeVisible({ timeout: 10000 })
+
+  const empezada = page.getByRole('spinbutton').first()
+  await empezada.fill('4')
+  await expect(page.getByRole('button', { name: /Proponer cambio al grupo/ })).toBeVisible()
+
+  await empezada.fill('')
+  await expect(page.getByRole('button', { name: /Guardar cupos por fase/ })).toBeVisible()
 })
 
 test('se puede agregar una ronda que el torneo todavía no publicó', async ({ page }) => {
