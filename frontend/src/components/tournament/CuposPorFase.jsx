@@ -32,14 +32,15 @@ import { fetchFasesDelTorneo, setPowerupLimits, proposeRuleChange } from '../../
 /* Los nombres viven en lib/fasesDeTorneo porque tienen que coincidir EXACTO
    con lo que el sync escribe en matches.stage: es la clave del cupo, no una
    etiqueta. Ahí está el porqué y la prueba que lo sujeta. */
-import { SUGERENCIAS, nombreDeFase } from '../../lib/fasesDeTorneo'
+import { SUGERENCIAS, sugerenciasPara, formatoConocido, nombreDeFase } from '../../lib/fasesDeTorneo'
 
 /* `bloqueado` apaga el editor entero. HOY NADIE LO PASA —GroupPage dejó de
    hacerlo en la 74— y se conserva solo como cierre de emergencia; el candado
    normal es por fila (`f.empezo`). Si algún día vuelve a pasarse, que sea por
    una razón escrita, no por copiar el patrón viejo. */
 export default function CuposPorFase({ leagueId, limiteFijo, valores = {}, bloqueado,
-                                       hasOpenProposal, onGuardado, onProposed, showToast }) {
+                                       torneoRef, hasOpenProposal, onGuardado,
+                                       onProposed, showToast }) {
   const { data: fases = [], isLoading, error } = useQuery({
     queryKey: ['fases_torneo', leagueId],
     queryFn: () => fetchFasesDelTorneo(leagueId),
@@ -48,6 +49,7 @@ export default function CuposPorFase({ leagueId, limiteFijo, valores = {}, bloqu
   const [cfg, setCfg] = useState({})
   const [extras, setExtras] = useState([])   // fases agregadas a mano, aún sin partidos
   const [nueva, setNueva] = useState('')
+  const [verTodas, setVerTodas] = useState(false)
   const [nota, setNota] = useState('')
   const [guardando, setGuardando] = useState(false)
   const [listo, setListo] = useState(false)
@@ -195,13 +197,24 @@ export default function CuposPorFase({ leagueId, limiteFijo, valores = {}, bloqu
             </button>
           </div>
           <div className="flex flex-wrap gap-1.5 mt-2">
-            {SUGERENCIAS.filter((x) => !existentes.includes(x)).map((x) => (
-              <button key={x} type="button" onClick={() => agregar(x)}
-                className="rounded-full px-2.5 py-1 text-[10.5px] font-['Archivo'] bg-slate-100 dark:bg-[#0C0C0C] border border-slate-200 dark:border-[#262626] text-slate-700 dark:text-slate-300">
-                + {x}
-              </button>
-            ))}
+            {(verTodas ? SUGERENCIAS : sugerenciasPara(torneoRef))
+              .filter((x) => !existentes.includes(x)).map((x) => (
+                <button key={x} type="button" onClick={() => agregar(x)}
+                  className="rounded-full px-2.5 py-1 text-[10.5px] font-['Archivo'] bg-slate-100 dark:bg-[#0C0C0C] border border-slate-200 dark:border-[#262626] text-slate-700 dark:text-slate-300">
+                  + {x}
+                </button>
+              ))}
           </div>
+
+          {/* La lista por torneo evita ofrecer rondas que ahí no existen, pero
+              NO puede dejar a nadie sin configurar la suya: un formato cambia y
+              el campo de texto ya acepta cualquier nombre. Esto es el atajo. */}
+          {formatoConocido(torneoRef) && !verTodas && (
+            <button type="button" onClick={() => setVerTodas(true)}
+              className="mt-2 text-[10.5px] underline text-[var(--text-muted,#8A8A8A)]">
+              ¿Tu torneo juega otra ronda? Ver todas
+            </button>
+          )}
         </div>
       )}
 

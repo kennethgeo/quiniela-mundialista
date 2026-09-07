@@ -228,6 +228,18 @@ La pantalla de cupos por fase nació **inútil en los dos torneos para los que s
 - **La votación SÍ puede cambiar una fase empezada; el admin solo, no.** La regla del grupo no es «esto no se cambia nunca», es «esto no lo cambia una persona sola con el torneo en marcha».
 - El editor decide el botón **antes** de pulsarlo: si lo que cambió es una fase ya empezada dice «Proponer cambio al grupo». Reenviar el mismo valor **no** cuenta como cambio — si contara, no se podría guardar una fase nueva sin mandar todo el lote a votación.
 
+## Las reglas de comodines tienen que VIAJAR a la pantalla (migración `database/76_reglas_visibles_y_formato.sql`)
+Dos pérdidas silenciosas de datos, del mismo tipo: la pantalla editaba una regla que las RPC **no devolvían**, así que se veía vacía y el siguiente guardado la borraba.
+- `powerup_por_partidos` se edita en la tarjeta de Puntaje desde la 67 y **ninguna RPC lo devolvía**. Siempre vacío → guardar cualquier otra cosa del puntaje **borraba la razón**.
+- `powerup_limits` igual: `valores={group.powerup_limits || {}}` era **siempre `{}`**. Los cupos guardados no se veían y, como el guardado manda el objeto entero, guardar una fase nueva **perdía todas las demás**. No se había notado porque hasta la 74 el editor estaba bloqueado en los dos torneos donde se usa.
+- **Regla general**: si una pantalla EDITA un campo, la RPC que alimenta esa pantalla tiene que DEVOLVERLO. Con un guardado que manda el objeto completo, no devolverlo no es "se ve vacío", es **borrado silencioso**.
+
+### Las rondas que se ofrecen dependen del torneo
+- `tournament_ref` (`tournaments.external_ref`) viaja ahora en `my_groups`/`quiniela_por_id`, y `FASES_POR_TORNEO` (`lib/fasesDeTorneo.js`) dice qué juega cada uno: `crc.1` → Semifinal · Final · Gran final; `uefa.champions` → Repechaje · Octavos · Cuartos · Semifinal · Final; `esp.1`/`eng.1` → nada (liga pura); `fifa.world` → nada (trae la ronda en `phase`, sus filas salen solas).
+- **Por qué**: la tica ofrecía «Octavos» y «Dieciseisavos», que no juega. Configurar eso guarda un cupo que **nunca se aplica** y no da ningún error.
+- **No es una jaula**: un torneo desconocido recibe la lista completa, hay un «ver todas» y el campo de texto acepta cualquier nombre. Un formato cambia, y quedarse sin poder configurar es peor que ver una ronda de más.
+- `fasesDeTorneo.test.js` comprueba que **ninguna ronda de ningún formato es inventada**: todas tienen que ser etiquetas que el sync sepa escribir.
+
 ## Despliegue
 - **Vercel** despliega frontend Y backend juntos en cada push a `main` (root `vercel.json` → `experimentalServices`, backend `@vercel/python` bajo `/_backend`).
 - Cron de marcadores: GitHub Actions `sync-live-scores.yml` (cada ~5 min) → `POST /_backend/api/matches/sync-live`.
