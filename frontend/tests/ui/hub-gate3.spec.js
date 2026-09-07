@@ -47,16 +47,38 @@ test('el foco de teclado se VE sobre la tarjeta, no solo existe', async ({ page 
   await expect(fila(page)).toBeVisible()
   await fila(page).focus()
   await expect(fila(page)).toBeFocused()
-  const m = await fila(page).evaluate((el) => {
-    const s = getComputedStyle(el)
-    const card = el.closest('div[class*="rounded-2xl"]') || document.body
-    return { ancho: parseFloat(s.outlineWidth), estilo: s.outlineStyle,
-             contorno: s.outlineColor, fondo: getComputedStyle(card).backgroundColor }
-  })
-  const rgb = (c) => c.match(/\d+(\.\d+)?/g).slice(0, 3).map(Number)
-  const lum = ([r, g, b]) => [r, g, b].map((v) => { const x = v / 255; return x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4 })
+  /* Se mide con expect.poll y subiendo hasta un fondo NO transparente.
+     La primera versión leía el primer `rounded-2xl` que encontrara y, si ese
+     fondo salía `rgba(0,0,0,0)`, el parseo lo tomaba como NEGRO: contraste ~1
+     contra un contorno oscuro y la prueba caía sola bajo carga. Un falso
+     positivo intermitente es peor que no tener la prueba. */
+  let m
+  await expect.poll(async () => {
+    m = await fila(page).evaluate((el) => {
+      const cv = document.createElement('canvas'); cv.width = cv.height = 1
+      const cx = cv.getContext('2d', { willReadFrequently: true })
+      const aRGB = (color, sobre) => {
+        cx.clearRect(0, 0, 1, 1)
+        if (sobre) { cx.fillStyle = sobre; cx.fillRect(0, 0, 1, 1) }
+        cx.fillStyle = color; cx.fillRect(0, 0, 1, 1)
+        const d = cx.getImageData(0, 0, 1, 1).data
+        return [d[0], d[1], d[2]]
+      }
+      const s = getComputedStyle(el)
+      let f = el, fondo = 'rgba(0, 0, 0, 0)'
+      while (f && (fondo === 'rgba(0, 0, 0, 0)' || fondo === 'transparent')) {
+        fondo = getComputedStyle(f).backgroundColor; f = f.parentElement
+      }
+      return { ancho: parseFloat(s.outlineWidth), estilo: s.outlineStyle,
+               contorno: aRGB(s.outlineColor), fondo: aRGB(fondo, getComputedStyle(document.body).backgroundColor) }
+    })
+    return m.estilo
+  }, { timeout: 10000 }).not.toBe('none')
+
+  const lum = ([r, g, b]) => [r, g, b]
+    .map((v) => { const x = v / 255; return x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4 })
     .reduce((a, v, i) => a + v * [0.2126, 0.7152, 0.0722][i], 0)
-  const a = lum(rgb(m.contorno)), b = lum(rgb(m.fondo))
+  const a = lum(m.contorno), b = lum(m.fondo)
   const contraste = (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05)
   expect(m.estilo).not.toBe('none')
   expect(m.ancho).toBeGreaterThanOrEqual(2)

@@ -1,5 +1,6 @@
 // Página de una quiniela (grupo): sus partidos (predecir, scoped al torneo) + tabla.
 import { useState, useMemo, useEffect, useRef } from 'react'
+import { kickoffDate } from '../lib/matchStatus'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useConsultaDelUsuario } from '../hooks/useConsultaDelUsuario'
@@ -1341,7 +1342,8 @@ function TeamMini({ name, flag, code, right }) {
 }
 
 function kickoffLabel(iso) {
-  const d = new Date((iso && (iso.endsWith('Z') || iso.includes('+'))) ? iso : `${iso}Z`)
+  const d = kickoffDate(iso)
+  if (!d) return 'Por confirmar'
   return d.toLocaleDateString('es', { weekday: 'short', day: '2-digit', month: 'short' }).replace(/\./g, '')
     + ' ' + d.toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit', hour12: false })
 }

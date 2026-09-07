@@ -7,16 +7,13 @@
    conversión es fija y no depende del reloj de quien comparte — alguien de
    viaje mandaría horas distintas si se usara la zona del dispositivo. */
 
+import { kickoffDate } from './matchStatus'
+
 const UTC_CR_MS = -6 * 60 * 60 * 1000
 
 /* El sync a veces guarda kickoff_at sin sufijo de zona; se asume UTC, igual que
    hace MatchCard. */
-function aFecha(kickoff) {
-  if (!kickoff) return null
-  const iso = kickoff.endsWith('Z') || kickoff.slice(10).includes('+') ? kickoff : `${kickoff}Z`
-  const d = new Date(iso)
-  return isNaN(d) ? null : d
-}
+const aFecha = (kickoff) => kickoffDate(kickoff)
 
 export function horaCostaRica(kickoff) {
   const d = aFecha(kickoff)

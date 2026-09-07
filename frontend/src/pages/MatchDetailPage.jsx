@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { kickoffDate } from '../lib/matchStatus'
 import { useParams, useNavigate } from 'react-router-dom'
 import { motion } from 'motion/react'
 import { ArrowLeft, Clock, Calendar, MapPin, ShieldAlert, Star, TrendingUp, HelpCircle } from 'lucide-react'
@@ -60,13 +61,12 @@ export default function MatchDetailPage() {
       setMatch(resolvedMatch)
 
       // Determinar si está bloqueado
-      const dateString = matchData.kickoff_at.endsWith('Z') || matchData.kickoff_at.includes('+')
-        ? matchData.kickoff_at
-        : `${matchData.kickoff_at}Z`
-      const kickoff = new Date(dateString)
+      const kickoff = kickoffDate(matchData.kickoff_at)
       const now = new Date()
 
-      const locked = (kickoff - now) <= 15 * 60 * 1000 || ['in_progress', 'finished'].includes(matchData.status)
+      // Sin fecha interpretable no se bloquea por tiempo; el estado sí manda.
+      const locked = (kickoff ? (kickoff - now) <= 15 * 60 * 1000 : false)
+        || ['in_progress', 'finished'].includes(matchData.status)
       setIsLocked(locked)
 
       // 2. Fetch predictions si está bloqueado
@@ -140,11 +140,8 @@ export default function MatchDetailPage() {
   useEffect(() => {
     if (!match || match.status === 'finished') return
 
-    const ds = match.kickoff_at.endsWith('Z') || match.kickoff_at.includes('+')
-      ? match.kickoff_at
-      : `${match.kickoff_at}Z`
-    const kickoff = new Date(ds).getTime()
-    const liveish = match.status === 'in_progress' || Date.now() >= kickoff
+    const kickoff = kickoffDate(match.kickoff_at)?.getTime()
+    const liveish = match.status === 'in_progress' || (kickoff != null && Date.now() >= kickoff)
     if (!liveish) return
 
     let cancelled = false
@@ -186,10 +183,7 @@ export default function MatchDetailPage() {
     )
   }
 
-  const dateString = match.kickoff_at.endsWith('Z') || match.kickoff_at.includes('+')
-    ? match.kickoff_at
-    : `${match.kickoff_at}Z`
-  const kickoff = new Date(dateString)
+  const kickoff = kickoffDate(match.kickoff_at)
   const fotoEstadio = fotoDeEstadio(match.venue)
   const isFinished = match.status === 'finished'
   const isCancelled = ['cancelled', 'canceled', 'postponed', 'suspended'].includes(match.status)
@@ -238,7 +232,7 @@ export default function MatchDetailPage() {
           <div className="flex flex-wrap justify-between items-center gap-2 mb-6">
             <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 bg-white/5 px-3 py-1.5 rounded-full shrink-0">
               <Calendar size={14} />
-              {format(kickoff, "EEEE d 'de' MMMM", { locale: es })}
+              {kickoff ? format(kickoff, "EEEE d 'de' MMMM", { locale: es }) : 'Fecha por confirmar'}
             </div>
             <div className={`flex items-center gap-1.5 text-xs font-bold uppercase px-3 py-1.5 rounded-full shrink-0 ${
               isCancelled ? 'bg-[#FF7A59]/10 text-[#FF7A59] border border-[#FF7A59]/25' :
@@ -304,7 +298,7 @@ export default function MatchDetailPage() {
               ) : (
                 <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 text-sm font-medium">
                   <Clock size={14} />
-                  <span>{format(kickoff, "HH:mm")}</span>
+                  <span>{kickoff ? format(kickoff, 'HH:mm') : '--:--'}</span>
                 </div>
               )}
             </div>
@@ -340,7 +334,7 @@ export default function MatchDetailPage() {
             )}
             <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 text-sm">
               <Clock size={16} />
-              {format(kickoff, 'h:mm a')}
+              {kickoff ? format(kickoff, 'h:mm a') : '--:--'}
             </div>
             {match.stage && (
               <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 text-sm font-semibold uppercase tracking-wider">

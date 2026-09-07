@@ -1,5 +1,6 @@
 // Carrusel horizontal de próximos partidos con cuenta regresiva
 import { useState, useEffect } from 'react'
+import { kickoffDate } from '../../lib/matchStatus'
 import { motion } from 'motion/react'
 import { Clock, Lock, ChevronRight, Calendar } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
@@ -111,14 +112,11 @@ function UpcomingMatchCard({ match, index }) {
   const homeCode = match.home_team_code_resolved || match.home_team_code
   const awayCode = match.away_team_code_resolved || match.away_team_code
 
-  // Asegurar que la fecha se parsea como UTC si Supabase omite la zona horaria
-  const dateString = match.kickoff_at.endsWith('Z') || match.kickoff_at.includes('+')
-    ? match.kickoff_at
-    : `${match.kickoff_at}Z`
-
-  const kickoff = new Date(dateString)
+  const kickoff = kickoffDate(match.kickoff_at)
   const now = new Date()
-  const isLocked = (kickoff - now) <= 15 * 60 * 1000 // 15 minutos
+  // Sin fecha interpretable NO se bloquea: cerrar por una fecha que no se
+  // entiende sería peor que dejar predecir de más.
+  const isLocked = kickoff ? (kickoff - now) <= 15 * 60 * 1000 : false
 
   // Intentar obtener la cuenta regresiva legible
   let countdown
@@ -128,9 +126,10 @@ function UpcomingMatchCard({ match, index }) {
     countdown = '—'
   }
 
-  // Format time for display
-  const matchTime = kickoff.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-  const matchDate = kickoff.toLocaleDateString('es', { day: 'numeric', month: 'short' })
+  // Format time for display. Sin fecha se dice "por confirmar" en vez de
+  // reventar: un partido sin horario todavía es un partido válido.
+  const matchTime = kickoff ? kickoff.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--'
+  const matchDate = kickoff ? kickoff.toLocaleDateString('es', { day: 'numeric', month: 'short' }) : 'Por confirmar'
 
   return (
     <motion.div

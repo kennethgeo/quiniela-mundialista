@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { kickoffDate } from './matchStatus'
 
 /**
  * Determina si las predicciones globales (campeón y goleador) están bloqueadas.
@@ -31,9 +32,8 @@ export async function getTournamentLocked() {
 
   let hasStarted = false
   if (firstMatch?.kickoff_at) {
-    const raw = firstMatch.kickoff_at
-    const iso = raw.endsWith('Z') || raw.includes('+') ? raw : `${raw}Z`
-    hasStarted = new Date(iso) <= new Date()
+    const inicio = kickoffDate(firstMatch.kickoff_at)
+    hasStarted = inicio ? inicio <= new Date() : false
   }
 
   return manualLock || hasStarted

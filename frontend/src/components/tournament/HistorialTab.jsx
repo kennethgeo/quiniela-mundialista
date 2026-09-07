@@ -12,6 +12,7 @@
    predicciones ajenas recién 15 min antes del saque) NO se muestran. Nada de
    candados ni celdas fantasma: toda celda visible tiene dato real. */
 import { useState, useMemo } from 'react'
+import { kickoffDate } from '../../lib/matchStatus'
 import { motion, useReducedMotion } from 'motion/react'
 import { useConsultaDelUsuario } from '../../hooks/useConsultaDelUsuario'
 import { ChevronLeft, ChevronRight, Zap, Share2, Loader2 } from 'lucide-react'
@@ -22,17 +23,13 @@ import LoadingSpinner from '../ui/LoadingSpinner'
 import { renderJornadaCard, compartirImagen } from '../../lib/shareCard'
 
 // El sync a veces guarda kickoff_at sin sufijo de zona; normalizamos como MatchCard.
-const kickoffDate = (m) => {
-  const s = m?.kickoff_at
-  if (!s) return null
-  const iso = s.endsWith('Z') || s.includes('+') ? s : `${s}Z`
-  const d = new Date(iso)
-  return isNaN(d) ? null : d
-}
+// Toma el partido; kickoffDate toma la cadena. Se renombra para no tapar al
+// helper compartido, que es el que manda.
+const fechaDelPartido = (m) => kickoffDate(m?.kickoff_at)
 
 // Destapado = la BD ya revela las predicciones ajenas (kickoff - 15 min <= now).
 const estaDestapado = (m, ahora) => {
-  const k = kickoffDate(m)
+  const k = fechaDelPartido(m)
   return !!k && k.getTime() - 15 * 60 * 1000 <= ahora
 }
 
@@ -108,7 +105,7 @@ export default function HistorialTab({ leagueId, matches = [], nombreQuiniela = 
   const jornadas = useMemo(() => {
     const destapados = (matches || [])
       .filter((m) => estaDestapado(m, ahora))
-      .sort((a, b) => (kickoffDate(a)?.getTime() || 0) - (kickoffDate(b)?.getTime() || 0))
+      .sort((a, b) => (fechaDelPartido(a)?.getTime() || 0) - (fechaDelPartido(b)?.getTime() || 0))
     const mapa = new Map()
     for (const m of destapados) {
       const k = jornadaKeyOf(m)

@@ -6,6 +6,7 @@
    Solo mira partidos ya jugados: los pendientes no dicen nada y los que aún no
    se destapan no son visibles para las predicciones ajenas (RLS). */
 import { useMemo } from 'react'
+import { kickoffDate } from '../../lib/matchStatus'
 import { motion } from 'motion/react'
 import { useConsultaDelUsuario } from '../../hooks/useConsultaDelUsuario'
 import { X, Zap, Trophy } from 'lucide-react'
@@ -16,12 +17,7 @@ const jornadaKeyOf = (m) =>
 
 const esAnulado = (m) => m.status === 'cancelled' || m.status === 'postponed'
 
-const kickoffMs = (m) => {
-  const s = m?.kickoff_at
-  if (!s) return 0
-  const d = new Date(s.endsWith('Z') || s.includes('+') ? s : `${s}Z`)
-  return isNaN(d) ? 0 : d.getTime()
-}
+const kickoffMs = (m) => kickoffDate(m?.kickoff_at)?.getTime() ?? 0
 
 const esExacto = (p, m) =>
   p && m.home_goals_actual != null &&
