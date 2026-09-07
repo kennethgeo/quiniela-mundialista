@@ -27,7 +27,7 @@
 import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { motion } from 'motion/react'
-import { Loader2, Check, Zap } from 'lucide-react'
+import { Loader2, Check, Zap, Lock, Vote } from 'lucide-react'
 import { fetchFasesDelTorneo, setPowerupLimits, proposeRuleChange } from '../../lib/groups'
 /* Los nombres viven en lib/fasesDeTorneo porque tienen que coincidir EXACTO
    con lo que el sync escribe en matches.stage: es la clave del cupo, no una
@@ -50,6 +50,7 @@ export default function CuposPorFase({ leagueId, limiteFijo, valores = {}, bloqu
   const [extras, setExtras] = useState([])   // fases agregadas a mano, aún sin partidos
   const [nueva, setNueva] = useState('')
   const [verTodas, setVerTodas] = useState(false)
+  const [proponiendo, setProponiendo] = useState(false)
   const [nota, setNota] = useState('')
   const [guardando, setGuardando] = useState(false)
   const [listo, setListo] = useState(false)
@@ -66,6 +67,7 @@ export default function CuposPorFase({ leagueId, limiteFijo, valores = {}, bloqu
   }, [fases, valores])
 
   const existentes = [...fases.map((f) => f.clave), ...extras.map((e) => e.clave)]
+  const hayEmpezadas = fases.some((f) => f.empezo)
 
   /* Agregar es solo local: la fase no se guarda hasta que se pulse Guardar y
      tenga un número. Así no se ensucia la configuración con filas vacías. */
@@ -156,19 +158,22 @@ export default function CuposPorFase({ leagueId, limiteFijo, valores = {}, bloqu
       <div className="space-y-1.5">
         {[...fases, ...extras.filter((e) => !fases.some((f) => f.clave === e.clave))].map((f) => (
           <div key={f.clave} className="flex items-center gap-2">
-            <span className="flex-1 min-w-0 font-['Archivo'] text-[12px] text-slate-800 dark:text-[#F3F1EA] truncate">
+            <span className="flex-1 min-w-0 font-['Archivo'] text-[12px] text-slate-800 dark:text-[#F3F1EA] truncate flex items-center gap-1">
+              {f.empezo && !proponiendo && (
+                <Lock size={10} className="shrink-0 text-[var(--text-muted,#8A8A8A)]" />
+              )}
               {nombreDeFase(f.clave)}
               <span className="text-[10px] text-[var(--text-muted,#8A8A8A)] ml-1.5">
                 {f.existe === false || f.partidos === 0
                   ? 'aún sin partidos'
                   : f.jornadas > 1 ? `${f.jornadas} jornadas` : `${f.partidos} partido${f.partidos === 1 ? '' : 's'}`}
-                {f.empezo && ' · ya empezó, requiere votación'}
+                {f.empezo && ' · ya empezó'}
               </span>
             </span>
             <input
               type="number" min="0" max="99" inputMode="numeric"
               value={cfg[f.clave] ?? ''}
-              disabled={bloqueado}
+              disabled={bloqueado || (f.empezo && !proponiendo)}
               placeholder={String(limiteFijo)}
               onChange={(e) => setCfg({ ...cfg, [f.clave]: e.target.value })}
               className="w-14 text-center rounded-lg px-2 py-1.5 font-['JetBrains_Mono'] font-bold text-[12px] bg-slate-100 dark:bg-[#0C0C0C] border border-slate-200 dark:border-[#262626] text-slate-900 dark:text-[#F3F1EA] disabled:opacity-50"
@@ -219,6 +224,25 @@ export default function CuposPorFase({ leagueId, limiteFijo, valores = {}, bloqu
       )}
 
       {fallo && <p className="text-[11px] text-[#FF7A59] mt-2">{fallo}</p>}
+
+      {/* Una fase en curso se ve CERRADA, como la tarjeta de Puntaje. Antes se
+          dejaba escribir y el botón cambiaba solo al tocarla: se podía teclear
+          un número creyendo que se estaba cambiando algo. Ahora hay que pedir
+          explícitamente proponer, que es lo que de verdad va a pasar. */}
+      {!bloqueado && hayEmpezadas && !proponiendo && (
+        <button type="button" onClick={() => setProponiendo(true)}
+          className="mt-3 flex items-center gap-1.5 text-[11px] font-['Archivo'] text-[var(--text-muted,#8A8A8A)]">
+          <Vote size={12} />
+          Proponer un cambio en una fase ya empezada
+        </button>
+      )}
+
+      {!bloqueado && proponiendo && (
+        <p className="mt-3 text-[10.5px] text-[var(--text-muted,#8A8A8A)]">
+          Las fases en curso quedaron abiertas. Lo que cambies acá <b>no se
+          guarda directo</b>: se manda a votación del grupo.
+        </p>
+      )}
 
       {/* El botón cambia solo cuando lo que se tocó es una fase YA EMPEZADA:
           ahí no se guarda, se propone. Así el admin ve ANTES de pulsar que eso
