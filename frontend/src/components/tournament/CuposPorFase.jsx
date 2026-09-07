@@ -15,18 +15,31 @@
    Una fase que se deje vacía usa el número fijo de la quiniela, NO cero. Eso
    importa: cuando ESPN publique una fase nueva —los octavos de la Champions
    aparecen en enero— nadie se queda sin comodines por no haberla configurado
-   todavía. */
+   todavía.
+
+   EL CANDADO ES POR FASE, NO POR TORNEO (migración 74). Antes se apagaba el
+   editor entero en cuanto el torneo empezaba, y eso lo dejaba inútil: la liga
+   tica arrancó en julio y sus semifinales son en diciembre. Fijar el cupo de
+   una fase que NO empezó no es cambiar las reglas en marcha —nadie predijo
+   nada ahí y ninguna predicción cambia de valor—, así que se permite. Tocar
+   el de una fase ya empezada sigue prohibido, y lo comprueba la RPC: la
+   pantalla solo pinta lo que el servidor ya decide. */
 import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { motion } from 'motion/react'
 import { Loader2, Check, Zap } from 'lucide-react'
-import { fetchFasesDelTorneo, setPowerupLimits } from '../../lib/groups'
+import { fetchFasesDelTorneo, setPowerupLimits, proposeRuleChange } from '../../lib/groups'
 /* Los nombres viven en lib/fasesDeTorneo porque tienen que coincidir EXACTO
    con lo que el sync escribe en matches.stage: es la clave del cupo, no una
    etiqueta. Ahí está el porqué y la prueba que lo sujeta. */
 import { SUGERENCIAS, nombreDeFase } from '../../lib/fasesDeTorneo'
 
-export default function CuposPorFase({ leagueId, limiteFijo, valores = {}, bloqueado, onGuardado }) {
+/* `bloqueado` apaga el editor entero. HOY NADIE LO PASA —GroupPage dejó de
+   hacerlo en la 74— y se conserva solo como cierre de emergencia; el candado
+   normal es por fila (`f.empezo`). Si algún día vuelve a pasarse, que sea por
+   una razón escrita, no por copiar el patrón viejo. */
+export default function CuposPorFase({ leagueId, limiteFijo, valores = {}, bloqueado,
+                                       hasOpenProposal, onGuardado, onProposed, showToast }) {
   const { data: fases = [], isLoading, error } = useQuery({
     queryKey: ['fases_torneo', leagueId],
     queryFn: () => fetchFasesDelTorneo(leagueId),
@@ -35,6 +48,7 @@ export default function CuposPorFase({ leagueId, limiteFijo, valores = {}, bloqu
   const [cfg, setCfg] = useState({})
   const [extras, setExtras] = useState([])   // fases agregadas a mano, aún sin partidos
   const [nueva, setNueva] = useState('')
+  const [nota, setNota] = useState('')
   const [guardando, setGuardando] = useState(false)
   const [listo, setListo] = useState(false)
   const [fallo, setFallo] = useState(null)
@@ -61,20 +75,51 @@ export default function CuposPorFase({ leagueId, limiteFijo, valores = {}, bloqu
     setNueva('')
   }
 
+  /* Solo van las que tienen número. Las vacías se quitan del objeto para que
+     caigan al número fijo. */
+  const limpiar = () => {
+    const limpio = {}
+    for (const [k, v] of Object.entries(cfg)) {
+      const n = parseInt(v, 10)
+      if (Number.isFinite(n) && String(v).trim() !== '') limpio[k] = Math.max(0, Math.min(99, n))
+    }
+    return limpio
+  }
+
+  /* ¿Se está tocando el cupo de una fase QUE YA EMPEZÓ? Eso no lo cambia un
+     admin solo: va a votación del grupo (migraciones 74 y 75). Se compara con
+     lo guardado, así que reenviar el mismo valor no cuenta como cambio.
+     La comprobación de verdad está en la base; esto solo elige el botón. */
+  const tocaFaseEmpezada = () => {
+    const limpio = limpiar()
+    const claves = new Set([...Object.keys(valores), ...Object.keys(limpio)])
+    for (const k of claves) {
+      const antes = valores[k] ?? null
+      const ahora = limpio[k] ?? null
+      if (antes === ahora) continue
+      if (fases.some((f) => f.clave === k && f.empezo)) return true
+    }
+    return false
+  }
+
+  /* Se calcula en el render para que el BOTÓN lo diga antes de pulsarlo. */
+  const aVotacion = tocaFaseEmpezada()
+
   const guardar = async () => {
     if (guardando) return
     setGuardando(true); setFallo(null)
     try {
-      // Solo van las que tienen número. Las vacías se quitan del objeto para
-      // que caigan al número fijo.
-      const limpio = {}
-      for (const [k, v] of Object.entries(cfg)) {
-        const n = parseInt(v, 10)
-        if (Number.isFinite(n) && String(v).trim() !== '') limpio[k] = Math.max(0, Math.min(99, n))
+      const limpio = limpiar()
+      if (aVotacion) {
+        await proposeRuleChange(leagueId, 'scoring', { powerup_limits: limpio }, nota)
+        setNota('')
+        showToast?.('Propuesta de cupos enviada a votación del grupo.', 'success', 5000)
+        onProposed?.()
+      } else {
+        await setPowerupLimits(leagueId, limpio)
+        setListo(true); setTimeout(() => setListo(false), 2500)
+        onGuardado?.()
       }
-      await setPowerupLimits(leagueId, limpio)
-      setListo(true); setTimeout(() => setListo(false), 2500)
-      onGuardado?.()
     } catch (e) {
       // Se muestra el error: un permiso que falta no debe verse como "no pasó nada".
       setFallo(e?.message || 'No se pudo guardar')
@@ -102,7 +147,8 @@ export default function CuposPorFase({ leagueId, limiteFijo, valores = {}, bloqu
       </div>
       <p className="text-[10.5px] text-[var(--text-muted,#8A8A8A)] mb-3">
         Vacío usa el cupo general ({limiteFijo}). Una jornada de 18 partidos no
-        se juega igual que una final.
+        se juega igual que una final. Una fase que ya empezó no se puede
+        cambiar; las que faltan, sí.
       </p>
 
       <div className="space-y-1.5">
@@ -114,6 +160,7 @@ export default function CuposPorFase({ leagueId, limiteFijo, valores = {}, bloqu
                 {f.existe === false || f.partidos === 0
                   ? 'aún sin partidos'
                   : f.jornadas > 1 ? `${f.jornadas} jornadas` : `${f.partidos} partido${f.partidos === 1 ? '' : 's'}`}
+                {f.empezo && ' · ya empezó, requiere votación'}
               </span>
             </span>
             <input
@@ -160,12 +207,31 @@ export default function CuposPorFase({ leagueId, limiteFijo, valores = {}, bloqu
 
       {fallo && <p className="text-[11px] text-[#FF7A59] mt-2">{fallo}</p>}
 
+      {/* El botón cambia solo cuando lo que se tocó es una fase YA EMPEZADA:
+          ahí no se guarda, se propone. Así el admin ve ANTES de pulsar que eso
+          va a votación, en vez de descubrirlo con un error de la base. */}
+      {!bloqueado && aVotacion && (
+        <textarea value={nota} onChange={(e) => setNota(e.target.value)} rows={2}
+          placeholder="¿Por qué? (opcional, lo lee el grupo al votar)"
+          className="w-full mt-3 rounded-xl px-3 py-2 font-['Archivo'] text-[12px] bg-slate-100 dark:bg-[#0C0C0C] border border-slate-200 dark:border-[#262626] text-slate-900 dark:text-[#F3F1EA]" />
+      )}
+
+      {!bloqueado && aVotacion && hasOpenProposal && (
+        <p className="text-[11px] text-[var(--text-muted,#8A8A8A)] mt-2">
+          Ya hay una propuesta abierta en esta quiniela: hay que cerrarla antes
+          de mandar otra.
+        </p>
+      )}
+
       {!bloqueado && (
-        <motion.button whileTap={{ scale: 0.98 }} onClick={guardar} disabled={guardando}
+        <motion.button whileTap={{ scale: 0.98 }} onClick={guardar}
+          disabled={guardando || (aVotacion && hasOpenProposal)}
           className="w-full mt-3 rounded-xl py-2 font-['Archivo'] font-bold text-[12px] flex items-center justify-center gap-1.5 disabled:opacity-50"
           style={{ background: 'rgba(46,211,183,.12)', color: '#2ED3B7' }}>
           {guardando ? <Loader2 size={13} className="animate-spin" /> : listo ? <Check size={13} /> : null}
-          {guardando ? 'Guardando…' : listo ? 'Guardado' : 'Guardar cupos por fase'}
+          {guardando ? (aVotacion ? 'Enviando…' : 'Guardando…')
+            : listo ? 'Guardado'
+              : aVotacion ? 'Proponer cambio al grupo' : 'Guardar cupos por fase'}
         </motion.button>
       )}
     </div>

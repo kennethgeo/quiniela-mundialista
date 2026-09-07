@@ -208,6 +208,26 @@ Comprobado consultando el scoreboard (uefa.champions y crc.1, temporadas 2025 y 
 - **`_STAGE_KEYS` se recorre EN ORDEN y devuelve la primera que aparezca en el slug**, así que lo específico va antes que lo genérico. Dos fallos que dejó ese orden: `grand-finals` daba «Final» (la misma clave de cupo que la final, siendo dos series distintas) y `knockout-round-playoffs` daba «Eliminatoria» porque `knockout` se comprobaba antes que `playoff`.
 - **Un slug que no se reconoce da `None`, y `None` = fase REGULAR**: jornada por fecha y puntaje **sin las reglas de penales**. Es el modo de fallo peligroso — si aparece una ronda nueva hay que mapearla, no dejarla caer.
 
+## El candado del cupo de ×2 es POR FASE (migración `database/74_candado_por_fase.sql`)
+La pantalla de cupos por fase nació **inútil en los dos torneos para los que se hizo**, y no se vio hasta que el dueño intentó usarla: `set_powerup_limits` rechazaba cualquier cambio si `group_tournament_started` era cierto, y esa función mira el **primer partido del torneo**.
+- Medido: **Bundestica** arrancó el 2026-07-24 → editor bloqueado con 55 partidos por jugar y toda la postemporada por delante. **Champions 26-27** empieza el 2026-09-08 → se bloqueaba al día siguiente. La ventana real para configurar era de horas.
+- **Por qué el candado existe y por qué esto no lo afloja**: en una quiniela por plata, cambiar cuánto vale algo con la tabla a la vista es hacer trampa. Pero fijar el cupo de una fase **que todavía no empezó** no es cambiar las reglas en marcha —nadie predijo nada ahí y ninguna predicción existente cambia de valor— y es el único momento en que se puede decidir. Tocar una fase **ya empezada** sigue prohibido.
+- `fase_ya_empezo(league, clave)` mira el primer saque **de esa bolsa**. Una fase sin partidos **no** empezó: es justo la que hay que poder configurar por adelantado.
+- `set_powerup_limits` compara el jsonb viejo con el nuevo y **solo rechaza las claves que CAMBIAN**. Reenviar el mismo valor de una fase empezada no es un cambio: si no, no se podría guardar una fase nueva sin borrar antes las viejas.
+- Se comprueba **en el servidor**, no solo en la pantalla. El editor pinta el candado por fila con la columna `empezo` de `fases_del_torneo`.
+- **`fase_ya_empezo` es interna**: la llama `set_powerup_limits` (que es `SECURITY DEFINER`); el editor recibe `empezo` ya calculado. No lleva EXECUTE para nadie y **no va en el inventario de la 61** — mismo caso que `es_admin_global`.
+- `tests/ui/cupos-por-fase.spec.js` abre la pantalla de verdad. **Ninguna prueba de vitest podía ver esto**: todas miran lógica pura y el fallo era que la pantalla no dejaba hacer nada. Comprobado que las tres caen si se devuelve el candado global.
+
+## Quién cambia los cupos de ×2 (migración `database/75_votar_cupos_por_fase.sql`)
+- **Editar es solo de admin**, y se comprueba en el servidor: `set_powerup_limits` exige `es_admin_liga`. La pantalla además solo se le muestra a un admin, pero eso es cosmética — quien manda es la RPC.
+- **Proponer también es solo de admin** (`propose_rule_change` exige `es_admin_liga`). En este proyecto un miembro no propone: le pide a un admin que lo proponga. Es así para todas las reglas, no solo para los cupos.
+- **`_apply_rule_proposal` tenía dos huecos silenciosos**, los dos del tipo «guarda, dice listo y no cambia nada» — el mismo por el que se quitó la tabla `powerup_limits` en la 48:
+  - `powerup_por_partidos` **se mandaba** en el payload desde la 67 y **nunca se aplicaba**. El grupo votaba, la propuesta quedaba `approved` y la razón seguía igual.
+  - `powerup_limits` no estaba contemplado, y la 74 rechaza tocar una fase empezada diciendo «proponé el cambio y el grupo lo vota» — **una vía que no existía**.
+- Se distingue **«no venía en la propuesta»** de **«venía en null»** (`payload ? 'clave'`): un `COALESCE` contra el valor viejo impediría **desactivar** la razón por votación, y un payload viejo sin la clave **borraría** los cupos guardados.
+- **La votación SÍ puede cambiar una fase empezada; el admin solo, no.** La regla del grupo no es «esto no se cambia nunca», es «esto no lo cambia una persona sola con el torneo en marcha».
+- El editor decide el botón **antes** de pulsarlo: si lo que cambió es una fase ya empezada dice «Proponer cambio al grupo». Reenviar el mismo valor **no** cuenta como cambio — si contara, no se podría guardar una fase nueva sin mandar todo el lote a votación.
+
 ## Despliegue
 - **Vercel** despliega frontend Y backend juntos en cada push a `main` (root `vercel.json` → `experimentalServices`, backend `@vercel/python` bajo `/_backend`).
 - Cron de marcadores: GitHub Actions `sync-live-scores.yml` (cada ~5 min) → `POST /_backend/api/matches/sync-live`.
