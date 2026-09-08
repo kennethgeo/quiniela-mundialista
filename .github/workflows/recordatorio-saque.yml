@@ -16,9 +16,20 @@ name: Recordatorio antes del saque
 # La prueba actual solo cubre la cadencia ideal. Faltan un disparador fiable y
 # deduplicación persistente con reclamación atómica y recuperación de fallos;
 # ver CLAUDE.md. Este workflow todavía no implementa esos mecanismos.
+# EL CRON DE GITHUB QUEDÓ APAGADO (migración 79, sep 2026).
+#
+# MEDIDO: este workflow decía `*/5` y las últimas 100 corridas dieron un hueco
+# mediano de HORAS — 2.5% de la cobertura esperada, arrastrándose desde el 26
+# de agosto. GitHub no garantiza la puntualidad de `schedule` y no hay nada que
+# podamos ajustar de nuestro lado.
+#
+# Ahora lo dispara la BASE con pg_cron, que sí respeta la cadencia y además
+# solo llama si hay partidos de un torneo CON quiniela.
+#
+# NO SE BORRA EL ARCHIVO: `workflow_dispatch` sigue sirviendo para dispararlo a
+# mano si algún día la base no puede. Se quita SOLO el `schedule`, porque con
+# los dos activos el recordatorio se solapa y manda avisos repetidos.
 on:
-  schedule:
-    - cron: "*/15 * * * *"
   workflow_dispatch: {}
 
 concurrency:

@@ -8,9 +8,14 @@ name: Resumen diario de partidos
 # Usa el mismo secreto que el sync de marcadores:
 #   - Variable  DAILY_NOTIFY_URL : opcional; por defecto apunta a producción
 #   - Secreto   CRON_SECRET      : el mismo que ya está en Vercel
+# EL CRON DE GITHUB QUEDÓ APAGADO (migración 79, sep 2026).
+#
+# Este decía las 12:00 UTC —6 am en Costa Rica— y se lo vio corriendo a las
+# 15:05, o sea que el «aviso de las 6 am» llegaba cerca de las 9. Ahora lo
+# dispara la base con pg_cron, que sí respeta la hora.
+#
+# `workflow_dispatch` se queda para poder mandarlo a mano.
 on:
-  schedule:
-    - cron: "0 12 * * *"
   workflow_dispatch: {}
 
 concurrency:
