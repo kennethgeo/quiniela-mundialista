@@ -136,7 +136,13 @@ export default function GroupPage() {
     staleTime: 1000 * 60 * 5,
   })
   const limiteFijo = group?.powerup_limit ?? 2
-  const cupoDe = (m) => cupos[`${m?.phase ?? ''}|${m?.matchday ?? 0}`] ?? limiteFijo
+  /* La llave la arma `llaveDeCupo`, NO una plantilla a mano: el mapa viene
+     con la CLAVE DE FASE (migración 73) —«Semifinal|0»— y componerlo con
+     `m.phase` daba «knockout|0», que no existe en el mapa. Caía al cupo
+     general sin avisar, así que la pantalla habría mostrado un número que el
+     trigger no aplica. En fase de grupos las dos llaves coinciden, por eso no
+     se veía: se rompía al llegar la eliminatoria de una liga. */
+  const cupoDe = (m) => cupos[llaveDeCupo(m)] ?? limiteFijo
   const powerupLimit = limiteFijo
 
   // Créditos de ×2 arrastrados de partidos cancelados (uso extra en la próxima
