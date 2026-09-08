@@ -227,6 +227,7 @@ La pantalla de cupos por fase nació **inútil en los dos torneos para los que s
 - Se distingue **«no venía en la propuesta»** de **«venía en null»** (`payload ? 'clave'`): un `COALESCE` contra el valor viejo impediría **desactivar** la razón por votación, y un payload viejo sin la clave **borraría** los cupos guardados.
 - **La votación SÍ puede cambiar una fase empezada; el admin solo, no.** La regla del grupo no es «esto no se cambia nunca», es «esto no lo cambia una persona sola con el torneo en marcha».
 - El editor decide el botón **antes** de pulsarlo: si lo que cambió es una fase ya empezada dice «Proponer cambio al grupo». Reenviar el mismo valor **no** cuenta como cambio — si contara, no se podría guardar una fase nueva sin mandar todo el lote a votación.
+- **Una fase en curso se ve CERRADA** (candado, casilla deshabilitada), como la tarjeta de Puntaje. Primero se dejaba escribir y solo cambiaba el botón: el dueño reportó que «aún puedo editar los de fase regular». No se perdía nada —la RPC lo rechaza igual— pero **parecía** que sí se podía. Para tocarla hay que pedir «Proponer un cambio en una fase ya empezada», que es lo que de verdad va a pasar.
 
 ## Las reglas de comodines tienen que VIAJAR a la pantalla (migración `database/76_reglas_visibles_y_formato.sql`)
 Dos pérdidas silenciosas de datos, del mismo tipo: la pantalla editaba una regla que las RPC **no devolvían**, así que se veía vacía y el siguiente guardado la borraba.

@@ -70,23 +70,36 @@ test('el editor se puede usar aunque el torneo ya haya empezado', async ({ page 
   await expect(page.getByRole('button', { name: 'Guardar' })).toBeVisible()
 })
 
-test('una fase pendiente se GUARDA; una ya empezada va a VOTACIÓN', async ({ page }) => {
+test('una fase EN CURSO se ve cerrada y no se puede teclear', async ({ page }) => {
+  /* Antes se dejaba escribir y el botón cambiaba solo al tocarla: se podía
+     teclear un número creyendo que se estaba cambiando algo. Una fase en curso
+     tiene que verse cerrada, igual que la tarjeta de Puntaje. */
   await montar(page, FASES)
   await expect(editor(page)).toBeVisible({ timeout: 10000 })
 
   // Se apunta a la etiqueta DE LA FILA, no a cualquier "ya empezó": el texto
   // de ayuda del editor también lo dice, y un selector ambiguo no prueba nada.
   await expect(page.getByText(/18 jornadas · ya empezó/)).toBeVisible()
+  await expect(page.getByRole('spinbutton').first()).toBeDisabled()
 
-  // La semifinal es en diciembre: se decide ahora o no se decide nunca, y la
-  // decide el admin solo. El botón tiene que seguir siendo "Guardar".
+  // La semifinal es en diciembre: la decide el admin solo, sin votación.
   const pendiente = page.getByRole('spinbutton').nth(1)
+  await expect(pendiente).toBeEnabled()
   await pendiente.fill('1')
   await expect(page.getByRole('button', { name: /Guardar cupos por fase/ })).toBeVisible()
+})
 
-  /* Tocar la fase YA EMPEZADA cambia el botón ANTES de pulsarlo: el admin ve
-     que eso va a votación en vez de descubrirlo con un error de la base. */
-  await page.getByRole('spinbutton').first().fill('4')
+test('para cambiar una fase en curso hay que pedir proponer, y eso va a votación', async ({ page }) => {
+  await montar(page, FASES)
+  await expect(editor(page)).toBeVisible({ timeout: 10000 })
+
+  await page.getByRole('button', { name: /Proponer un cambio en una fase ya empezada/ }).click()
+
+  const empezada = page.getByRole('spinbutton').first()
+  await expect(empezada).toBeEnabled()
+  await empezada.fill('4')
+
+  // El botón dice lo que va a pasar ANTES de pulsarlo.
   await expect(page.getByRole('button', { name: /Proponer cambio al grupo/ })).toBeVisible()
 })
 
@@ -96,6 +109,7 @@ test('volver una fase empezada a su valor original NO pide votación', async ({ 
   await montar(page, FASES)
   await expect(editor(page)).toBeVisible({ timeout: 10000 })
 
+  await page.getByRole('button', { name: /Proponer un cambio en una fase ya empezada/ }).click()
   const empezada = page.getByRole('spinbutton').first()
   await empezada.fill('4')
   await expect(page.getByRole('button', { name: /Proponer cambio al grupo/ })).toBeVisible()
