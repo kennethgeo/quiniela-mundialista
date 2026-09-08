@@ -105,12 +105,7 @@ export default function MatchResultsAdmin() {
       if (error) throw error
 
       const oldMatch = matches.find(m => m.id === id)
-      /* Al CERRAR una reapertura hay que volver a puntuar: ningún trigger lo
-         hace al guardar una predicción —points_earned lo fija el recálculo—,
-         así que sin esto las correcciones se guardan y no suman. */
-      const cerroReapertura = oldMatch && oldMatch.predictions_force_open &&
-        !formState.predictions_force_open
-      if (oldMatch && (formState.status !== oldMatch.status || formState.home_goals_actual !== oldMatch.home_goals_actual || formState.away_goals_actual !== oldMatch.away_goals_actual || (formState.goes_to_penalties || false) !== (oldMatch.goes_to_penalties || false) || (formState.penalties_winner_real || '') !== (oldMatch.penalties_winner_real || '') || cerroReapertura)) {
+      if (oldMatch && (formState.status !== oldMatch.status || formState.home_goals_actual !== oldMatch.home_goals_actual || formState.away_goals_actual !== oldMatch.away_goals_actual || (formState.goes_to_penalties || false) !== (oldMatch.goes_to_penalties || false) || (formState.penalties_winner_real || '') !== (oldMatch.penalties_winner_real || ''))) {
         await recalcMatch(id)
       }
 
@@ -415,28 +410,6 @@ export default function MatchResultsAdmin() {
                       </span>
                     </label>
 
-                    {/* Reabrir las predicciones de ESTE partido. Solo lo ve el
-                        admin global, que es quien entra a esta pantalla. */}
-                    <label className="flex items-start gap-2 cursor-pointer bg-slate-100 dark:bg-black/20 p-3 rounded-xl">
-                      <input
-                        type="checkbox"
-                        checked={!!formState.predictions_force_open}
-                        onChange={(e) => setFormState({ ...formState, predictions_force_open: e.target.checked })}
-                        className="accent-amber-500 w-4 h-4 mt-0.5 shrink-0"
-                      />
-                      <span className="min-w-0">
-                        <span className="block text-xs font-semibold text-slate-700 dark:text-slate-200">
-                          🔓 Reabrir predicciones de este partido
-                        </span>
-                        <span className="block text-[11px] text-slate-500 mt-0.5">
-                          Para cuando el cierre fue un error de los datos: la hora del saque
-                          vino mal, o el partido se reprogramó. Mientras esté activo, todos
-                          pueden corregir su predicción y <b>las predicciones ajenas se vuelven
-                          a tapar</b>, para que nadie copie al vecino. Al desactivarlo se
-                          recalculan los puntos del partido.
-                        </span>
-                      </span>
-                    </label>
 
                     {/* Reabrir las predicciones de ESTE partido. Solo se ofrece
                         mientras el partido NO haya terminado: en uno finalizado
@@ -479,12 +452,6 @@ export default function MatchResultsAdmin() {
                     <span className="flex items-center gap-1.5">
                       <Clock size={10} />
                       {new Date(match.kickoff_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
-                      {match.predictions_force_open && (
-                        <span className="flex items-center gap-0.5 font-bold text-[10px] text-[#FF7A59]"
-                          title="Predicciones reabiertas: todos pueden corregir la suya">
-                          🔓 reabierto
-                        </span>
-                      )}
                       {match.predictions_force_open && !['finished', 'cancelled', 'postponed'].includes(match.status) && (
                         <span className="flex items-center gap-0.5 font-bold text-[10px] text-[#FF7A59]"
                           title="Predicciones reabiertas: todos pueden corregir la suya hasta que termine">

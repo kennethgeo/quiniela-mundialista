@@ -55,6 +55,11 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
   const isLocked = state.key === 'locked' || state.key === 'started'
   const isFinished = match.status === 'finished'
   const isInProgress = match.status === 'in_progress' || match.status === 'live'
+  /* REABIERTO (migración 77): el admin global devolvió la posibilidad de
+     corregir este partido. Manda sobre `isInProgress` para decidir QUÉ se
+     dibuja: si se muestra el marcador en vivo en vez de los +/−, el botón
+     dice «Actualizar predicción» y no hay nada que actualizar. Pasó. */
+  const isReopened = state.key === 'reopened'
   const fotoEstadio = fotoDeEstadio(match.venue)
   const isCancelled = ['cancelled', 'canceled', 'postponed', 'suspended'].includes(match.status)
   // El partido ya arrancó (pasó el saque) pero la BD aún lo tiene 'pending' porque
@@ -93,7 +98,7 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
   }, [match.kickoff_at, isFinished, isInProgress])
 
   const handleSave = () => {
-    if (isLocked || isFinished) return
+    if ((isLocked || isFinished) && !isReopened) return
     onSavePrediction({
       match_id: match.id,
       prediction_type: 'Marcador',
@@ -189,7 +194,7 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
         <Team name={match.home_team} flag={match.home_flag_url} code={match.home_team_code} align="left" />
 
         <div className="shrink-0 flex items-center justify-center">
-          {isFinished || isInProgress ? (
+          {(isFinished || isInProgress) && !isReopened ? (
             <div className="flex items-center gap-1.5">
               <GolAnimado valor={match.home_goals_actual ?? 0} enVivo={isInProgress}
                 className={`w-8 h-9 rounded-lg grid place-items-center font-['JetBrains_Mono'] font-bold text-[17px] tabular-nums bg-slate-100 dark:bg-[#0C0C0C] border border-slate-200 dark:border-[#262626] ${isInProgress ? 'text-[#FF4D6D]' : 'text-slate-900 dark:text-[#F3F1EA]'}`} />

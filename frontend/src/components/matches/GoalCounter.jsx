@@ -23,6 +23,8 @@ export default function GoalCounter({ value = 0, onChange, disabled = false }) {
         whileTap={{ scale: 0.82 }}
         whileHover={{ scale: 1.05 }}
         onClick={handleIncrement}
+        // Sin nombre accesible eran dos botones «» para un lector de pantalla.
+        aria-label="Sumar gol"
         disabled={disabled || value >= 20}
         className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-[#0C0C0C] border border-slate-200 dark:border-[#262626] flex items-center justify-center text-slate-600 dark:text-slate-300 hover:text-accent hover:border-accent/40 active:bg-accent/10 transition-all disabled:opacity-20 disabled:cursor-not-allowed touch-manipulation"
       >
@@ -46,6 +48,7 @@ export default function GoalCounter({ value = 0, onChange, disabled = false }) {
         whileTap={{ scale: 0.82 }}
         whileHover={{ scale: 1.05 }}
         onClick={handleDecrement}
+        aria-label="Restar gol"
         disabled={disabled || value <= 0}
         className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-[#0C0C0C] border border-slate-200 dark:border-[#262626] flex items-center justify-center text-slate-600 dark:text-slate-300 hover:text-accent hover:border-accent/40 active:bg-accent/10 transition-all disabled:opacity-20 disabled:cursor-not-allowed touch-manipulation"
       >
