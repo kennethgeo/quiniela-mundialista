@@ -72,3 +72,33 @@ describe('llaveDeCupo', () => {
     expect(llaveDeCupo({})).toBe('groups|0')
   })
 })
+
+/* La pantalla busca el cupo en el mapa que devuelve `cupos_por_jornada`, y ese
+   mapa viene con la CLAVE DE FASE (migración 73). Componer la llave a mano con
+   `m.phase` daba «knockout|0» contra un mapa que tiene «Semifinal|0»: no
+   encontraba nada y caía al cupo general, o sea la pantalla mostraba un número
+   que el trigger no aplica — el fallo que este repo persigue desde la 48.
+
+   En fase de grupos las dos formas coinciden, por eso no se veía. */
+describe('la llave de la pantalla coincide con la del mapa de cupos', () => {
+  // Tal como lo devuelve la RPC: llave = clave de fase + jornada.
+  const mapa = { 'groups|1': 3, 'Semifinal|0': 2, 'Final|0': 1, 'round_of_16|0': 4 }
+  const cupoDe = (m, fijo = 9) => mapa[llaveDeCupo(m)] ?? fijo
+
+  it('la fase regular encuentra su cupo', () => {
+    expect(cupoDe({ phase: 'groups', stage: 'Jornada 1', matchday: 1 })).toBe(3)
+  })
+
+  it('EL BUG: una eliminatoria de liga encontraba el cupo, no el general', () => {
+    expect(cupoDe({ phase: 'knockout', stage: 'Semifinal · Ida', matchday: null })).toBe(2)
+    expect(cupoDe({ phase: 'knockout', stage: 'Final · Vuelta', matchday: null })).toBe(1)
+  })
+
+  it('las rondas del Mundial también', () => {
+    expect(cupoDe({ phase: 'round_of_16', stage: null, matchday: null })).toBe(4)
+  })
+
+  it('una fase sin cupo propio cae al número fijo, no a cero', () => {
+    expect(cupoDe({ phase: 'knockout', stage: 'Cuartos', matchday: null })).toBe(9)
+  })
+})
