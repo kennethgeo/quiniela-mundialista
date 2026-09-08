@@ -8,9 +8,25 @@ export function kickoffDate(value) {
   return Number.isNaN(date.getTime()) ? null : date
 }
 
-export function matchStatus(match, now = new Date()) {
-  const status = String(match?.status || '').toLowerCase()
+/* REAPERTURA POR PARTIDO (migración 77). Solo la enciende el admin global, y
+   solo para cuando el cierre fue un error de los datos: ESPN trae mal la hora
+   del saque, o el partido se reprograma.
 
+   SOLO VALE MIENTRAS EL PARTIDO ESTÁ EN CURSO. En uno finalizado no es
+   reabrir, es dejar predecir con el marcador puesto — así que la reapertura se
+   apaga sola al terminar el partido y nadie tiene que acordarse de nada.
+   Cancelado o pospuesto tampoco: ahí no hay nada que predecir y
+   `void_cancelled_match` ya anuló lo que hubiera.
+
+   La pantalla NO es la que manda: la política RLS comprueba exactamente lo
+   mismo. Esto solo evita que la casilla se vea apagada. */
+const CERRADOS = ['finished', 'cancelled', 'canceled', 'postponed']
+
+function reabierto(match, status) {
+  return match?.predictions_force_open === true && !CERRADOS.includes(status)
+}
+
+function estadoNormal(match, now, status) {
   if (['cancelled', 'canceled'].includes(status)) return { key: 'cancelled', label: 'Cancelado', tone: 'muted', canPredict: false }
   if (status === 'postponed') return { key: 'postponed', label: 'Pospuesto', tone: 'warning', canPredict: false }
   if (status === 'suspended') return { key: 'suspended', label: 'Suspendido', tone: 'warning', canPredict: false }
@@ -25,6 +41,19 @@ export function matchStatus(match, now = new Date()) {
   if (minutesUntilKickoff <= PREDICTION_CLOSE_MINUTES) return { key: 'locked', label: 'Cerrado', tone: 'warning', canPredict: false }
   if (minutesUntilKickoff <= 60) return { key: 'closing', label: 'Cierra pronto', tone: 'warning', canPredict: true }
   return { key: 'open', label: 'Abierto', tone: 'success', canPredict: true }
+}
+
+export function matchStatus(match, now = new Date()) {
+  const status = String(match?.status || '').toLowerCase()
+  const base = estadoNormal(match, now, status)
+
+  /* La reapertura SOLO pisa lo que estaría cerrado. En un partido que todavía
+     no empezó no cambia nada —ya está abierto— y decir «Reabierto» ahí sería
+     mentirle a quien lo lee. */
+  if (!base.canPredict && reabierto(match, status)) {
+    return { key: 'reopened', label: 'Reabierto', tone: 'warning', canPredict: true }
+  }
+  return base
 }
 
 export function predictionDeadline(value) {

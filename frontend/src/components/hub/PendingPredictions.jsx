@@ -9,7 +9,7 @@ import Button from '../ui/Button'
 import MatchStatusBadge from '../ui/MatchStatusBadge'
 import { EmptyState, ErrorState } from '../ui/StatePanel'
 
-const MATCH_FIELDS = 'id,tournament_id,home_team,away_team,home_team_code,away_team_code,home_flag_url,away_flag_url,kickoff_at,status,stage,matchday,phase'
+const MATCH_FIELDS = 'id,tournament_id,home_team,away_team,home_team_code,away_team_code,home_flag_url,away_flag_url,kickoff_at,status,stage,matchday,phase,predictions_force_open'
 
 async function fetchPending(groups, userId) {
   const active = groups.filter((group) => group.tournament_status !== 'finished')
