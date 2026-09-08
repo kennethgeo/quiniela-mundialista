@@ -265,6 +265,19 @@ Dos pérdidas silenciosas de datos, del mismo tipo: la pantalla editaba una regl
 - La casilla del panel se publicó **duplicada** (dos copias, y la primera sin el candado por estado, así que salía en partidos finalizados). Causa: una edición que parecía rechazada sí se había escrito, y la segunda añadió otra copia. `admin-reabrir.spec.js` exige `toHaveCount(1)`.
 - `matchStatus.js` fija los mismos casos que la política. La reapertura **solo pisa lo que estaría cerrado**: en un partido que aún no empieza no cambia nada y decir «Reabierto» ahí sería mentir.
 
+## Detalle del partido: alineaciones, estadísticas y forma (migración `database/78_cache_detalle_partido.sql`)
+- Sale del `summary` de ESPN, **recortado en el backend**: el crudo pesa ~200 KB y trae decenas de secciones que la pantalla no usa.
+- **Cuándo hay qué** (medido, no supuesto): la **alineación con formación aparece cerca de una hora antes** del saque — a 87 y a 73 minutos ESPN todavía la devolvía vacía. Las **estadísticas** solo con el partido en marcha. La **forma reciente** y el **historial** están desde antes, y son lo único que sostiene el panel hasta esa hora.
+- Como las predicciones cierran 15 min antes, queda una ventana real de **~45 minutos** para ver el once y corregir. Ese es el valor: por eso el panel va **antes** de las predicciones del grupo.
+- **ESPN devuelve el plantel completo con `starter: false` hasta que publica el equipo.** Un recorte ingenuo mostraría 20 «titulares» que nadie anunció, y alguien predeciría con eso. `_alineaciones` descarta el equipo sin once.
+- **Sin cuotas de apuestas** (decisión del dueño) y **sin «noticias»**: las de ESPN son de la LIGA, no del partido —en el resumen del Real Madrid venían previas de Porto–City—, así que mostrarlas ahí sería mentir. Hay una prueba que recorre el JSON entero buscando `odds`/`cuota`/`pickcenter` para que no vuelvan por una sección nueva.
+- **La caché va en tabla aparte, NO en dos columnas de `matches`**: `GroupPage` hace `select('*')` sobre los partidos del torneo —144 en la Champions— así que un jsonb pegado ahí viajaría entero al navegador de todos, en cada carga, para una pantalla que ni lo usa.
+- `match_details_cache` queda con **RLS activa y sin una sola política**: la escribe y la lee el backend con `service_role`; el cliente pide el detalle por el endpoint y nunca toca la tabla. Se puede vaciar entera sin perder nada.
+- TTL por estado: 60 s en curso · 15 min por jugar · 24 h terminado. **Si ESPN no responde se sirve la copia vieja marcada como tal**: una alineación de hace diez minutos es más útil que una pantalla en blanco.
+- El endpoint **exige sesión** aunque el dato sea público: si no, cualquiera podría usarlo para pegarle a ESPN a través nuestro. Es la lección de `/refresh-live`, que nació público.
+- **No funciona en el Mundial 2026**: es el único torneo sin `external_id` (usa su propio sync). Se dice en pantalla, en vez de dejar un vacío que parezca un fallo.
+- Los fixtures de las pruebas son respuestas **reales** de ESPN adelgazadas, y viven **en el repo** (`backend/tests/datos/`, `frontend/tests/ui/datos/`): en una carpeta temporal la prueba pasa en local y CI no encuentra el archivo.
+
 ## Despliegue
 - **Vercel** despliega frontend Y backend juntos en cada push a `main` (root `vercel.json` → `experimentalServices`, backend `@vercel/python` bajo `/_backend`).
 - Cron de marcadores: GitHub Actions `sync-live-scores.yml` (cada ~5 min) → `POST /_backend/api/matches/sync-live`.
