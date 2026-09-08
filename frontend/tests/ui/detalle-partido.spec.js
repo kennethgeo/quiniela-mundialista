@@ -100,8 +100,6 @@ test('la cancha muestra los 11 y se cambia de equipo por pestaña', async ({ pag
   await abrir(page, EN_VIVO)
   await expect(page.getByRole('tab', { name: 'AEK Athens' })).toBeVisible({ timeout: 15000 })
 
-  // Once fichas: si la formación no cuadrara con la lista, alguien se perdería.
-  const fichas = page.locator('[role="tabpanel"], .\\[perspective\\:900px\\]').first()
   await expect(page.getByText('Brignoli')).toBeVisible()
   await expect(page.getByText('4-4-2')).toBeVisible()
 
