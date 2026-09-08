@@ -145,3 +145,31 @@ def test_la_cache_es_una_mejora_no_una_dependencia():
     # escritura de más abajo.
     assert 'try:' in cuerpo[:lectura], 'la lectura de la cache quedo sin try'
     assert 'No se pudo leer la cache' in cuerpo
+
+
+def test_historial_con_marcador(en_curso, por_jugar):
+    """La primera versión leía `summary`/`shortName` del evento, que NO existen
+    en `seasonseries`: la pantalla mostraba la fecha y nada más. El marcador
+    está en `competitors`."""
+    h = por_jugar['historial'] or en_curso['historial']
+    if not h:
+        pytest.skip('ninguno de los dos fixtures trae enfrentamientos previos')
+    for p in h['partidos']:
+        assert len(p['equipos']) == 2
+        for e in p['equipos']:
+            assert e['equipo']
+            assert e['goles'] is not None
+
+
+def test_cerca_del_saque_la_respuesta_dura_menos():
+    """A 15 minutos del pitazo la alineación es justo lo que está por salir:
+    guardar la respuesta un cuarto de hora la deja vieja todo ese rato."""
+    from app.services.espn_match_detail import TTL_CERCA_DEL_SAQUE
+    assert ttl_para('pending', 20) == TTL_CERCA_DEL_SAQUE
+    assert ttl_para('pending', 90) == TTL_CERCA_DEL_SAQUE
+    # Lejos del partido no hace falta insistir.
+    assert ttl_para('pending', 600) == TTL_POR_JUGAR
+    assert ttl_para('pending', None) == TTL_POR_JUGAR
+    # Ya empezado manda el estado, no el reloj.
+    assert ttl_para('in_progress', 5) == TTL_EN_CURSO
+    assert TTL_CERCA_DEL_SAQUE < TTL_POR_JUGAR

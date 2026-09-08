@@ -19,6 +19,7 @@ import { useQuery } from '@tanstack/react-query'
 import { motion } from 'motion/react'
 import { Users, BarChart3, History, TrendingUp, Loader2, ChevronDown } from 'lucide-react'
 import { fetchDetalleDelPartido, frescuraDe } from '../../lib/detalleDelPartido'
+import CanchaAlineacion from './CanchaAlineacion'
 
 const RESULTADO = {
   G: { texto: 'G', color: '#2ED3B7', fondo: 'rgba(46,211,183,.14)' },
@@ -77,62 +78,89 @@ function Comparativa ({ etiqueta, local, visita }) {
   )
 }
 
-function Once ({ equipo }) {
-  const [verSuplentes, setVerSuplentes] = useState(false)
+/* Pestañas por equipo. Dos canchas lado a lado en un celular dejan fichas de
+   30 px con el nombre ilegible; una a la vez se lee y además hace más obvio de
+   quién es la formación que estás mirando. */
+function Alineaciones ({ equipos }) {
+  const [activo, setActivo] = useState(0)
+  const eq = equipos[activo] || equipos[0]
   return (
-    <div className="min-w-0">
-      <div className="flex items-center gap-1.5 mb-2">
-        <span className="font-bold font-['Archivo'] text-[12px] text-slate-900 dark:text-[#F3F1EA] truncate">
-          {equipo.equipo}
+    <Tarjeta>
+      <Titulo icono={Users}>Alineaciones</Titulo>
+
+      <div role="tablist" aria-label="Equipo" className="flex gap-1.5 mb-3">
+        {equipos.map((e, i) => (
+          <button key={e.equipo} role="tab" type="button"
+            aria-selected={i === activo}
+            onClick={() => setActivo(i)}
+            className={`flex-1 min-w-0 rounded-lg px-2 py-1.5 font-['Archivo'] text-[11.5px] font-bold truncate transition-colors ${
+              i === activo
+                ? 'bg-accent/10 text-teal-700 dark:text-accent'
+                : 'bg-slate-100 dark:bg-[#0C0C0C] text-slate-600 dark:text-slate-300'
+            }`}>
+            {e.equipo}
+          </button>
+        ))}
+      </div>
+
+      <div className="flex items-center justify-between mb-2">
+        <span className="font-['Archivo'] text-[11px] text-slate-600 dark:text-slate-300">
+          {eq.esLocal ? 'Local' : 'Visitante'}
         </span>
-        {equipo.formacion && (
-          <span className="shrink-0 rounded-md px-1.5 py-0.5 font-['JetBrains_Mono'] text-[10px] font-bold"
-            style={{ background: 'rgba(46,211,183,.12)', color: '#2ED3B7' }}>
-            {equipo.formacion}
+        {eq.formacion && (
+          <span className="rounded-md px-1.5 py-0.5 font-['JetBrains_Mono'] text-[10px] font-bold bg-accent/10 text-teal-700 dark:text-accent">
+            {eq.formacion}
           </span>
         )}
       </div>
 
-      <ul className="space-y-1">
-        {equipo.titulares.map((j) => (
-          <li key={`${j.dorsal}-${j.nombre}`} className="flex items-center gap-2 min-w-0">
-            <span className="w-5 shrink-0 text-right font-['JetBrains_Mono'] text-[10.5px] tabular-nums text-slate-500 dark:text-slate-400">
-              {j.dorsal}
-            </span>
-            <span className="flex-1 min-w-0 truncate font-['Archivo'] text-[11.5px] text-slate-800 dark:text-[#F3F1EA]">
-              {j.nombre}
-            </span>
-            {j.salio && <span title="Salió" className="shrink-0 text-[10px] text-[#FF7A59]">↓</span>}
-          </li>
-        ))}
-      </ul>
+      <CanchaAlineacion equipo={eq} />
+      <Suplentes equipo={eq} />
+    </Tarjeta>
+  )
+}
 
-      {equipo.suplentes?.length > 0 && (
-        <>
-          <button type="button" onClick={() => setVerSuplentes((v) => !v)}
-            aria-expanded={verSuplentes}
-            className="mt-2 flex items-center gap-1 text-[10.5px] text-slate-600 dark:text-slate-300">
-            <ChevronDown size={11} className={verSuplentes ? 'rotate-180 transition-transform' : 'transition-transform'} />
-            Suplentes ({equipo.suplentes.length})
-          </button>
-          {verSuplentes && (
-            <ul className="mt-1.5 space-y-1">
-              {equipo.suplentes.map((j) => (
-                <li key={`${j.dorsal}-${j.nombre}`} className="flex items-center gap-2 min-w-0">
-                  <span className="w-5 shrink-0 text-right font-['JetBrains_Mono'] text-[10.5px] tabular-nums text-slate-500 dark:text-slate-400">
-                    {j.dorsal}
-                  </span>
-                  <span className="flex-1 min-w-0 truncate font-['Archivo'] text-[11.5px] text-slate-600 dark:text-slate-300">
-                    {j.nombre}
-                  </span>
-                  {j.entro && <span title="Entró" className="shrink-0 text-[10px] text-accent">↑</span>}
-                </li>
-              ))}
-            </ul>
-          )}
-        </>
+function Suplentes ({ equipo }) {
+  const [abierto, setAbierto] = useState(false)
+  if (!equipo.suplentes?.length) return null
+  return (
+    <>
+      <button type="button" onClick={() => setAbierto((v) => !v)} aria-expanded={abierto}
+        className="mt-3 flex items-center gap-1 text-[11px] text-slate-600 dark:text-slate-300">
+        <ChevronDown size={12} className={abierto ? 'rotate-180 transition-transform' : 'transition-transform'} />
+        Suplentes ({equipo.suplentes.length})
+      </button>
+      {abierto && (
+        <ul className="mt-1.5 grid grid-cols-2 gap-x-3 gap-y-1">
+          {equipo.suplentes.map((j) => (
+            <li key={`${j.dorsal}-${j.nombre}`} className="flex items-center gap-2 min-w-0">
+              <span className="w-5 shrink-0 text-right font-['JetBrains_Mono'] text-[10.5px] tabular-nums text-slate-500 dark:text-slate-400">
+                {j.dorsal}
+              </span>
+              <span className="flex-1 min-w-0 truncate font-['Archivo'] text-[11px] text-slate-600 dark:text-slate-300">
+                {j.nombre}
+              </span>
+              {j.entro && <span title="Entró" className="shrink-0 text-[10px] text-accent">↑</span>}
+            </li>
+          ))}
+        </ul>
       )}
-    </div>
+    </>
+  )
+}
+
+/* Cuando todavía no hay once, se DICE por qué y cuándo. Una tarjeta ausente se
+   lee como «esta app no tiene alineaciones»; el dato es que aún no salieron. */
+function SinAlineacion ({ status }) {
+  if (['finished', 'cancelled', 'postponed'].includes(status)) return null
+  return (
+    <Tarjeta>
+      <Titulo icono={Users}>Alineaciones</Titulo>
+      <p className="text-[11.5px] text-slate-600 dark:text-slate-300">
+        Todavía no se publicaron. Los equipos suelen anunciarse alrededor de una
+        hora antes del saque; en cuanto salgan aparecen acá.
+      </p>
+    </Tarjeta>
   )
 }
 
@@ -178,14 +206,9 @@ export default function DetalleDelPartido ({ matchId, status }) {
         </p>
       )}
 
-      {d.alineaciones && (
-        <Tarjeta>
-          <Titulo icono={Users}>Alineaciones</Titulo>
-          <div className="grid grid-cols-2 gap-4">
-            {d.alineaciones.map((eq) => <Once key={eq.equipo} equipo={eq} />)}
-          </div>
-        </Tarjeta>
-      )}
+      {d.alineaciones
+        ? <Alineaciones equipos={d.alineaciones} />
+        : <SinAlineacion status={status} />}
 
       {local && visita && (
         <Tarjeta>
@@ -242,10 +265,20 @@ export default function DetalleDelPartido ({ matchId, status }) {
           {d.historial.resumen && (
             <p className="text-[11.5px] text-slate-800 dark:text-[#F3F1EA] mb-1.5">{d.historial.resumen}</p>
           )}
-          <ul className="space-y-0.5">
+          <ul className="space-y-1">
             {d.historial.partidos.map((p, i) => (
-              <li key={i} className="font-['JetBrains_Mono'] text-[10.5px] text-[var(--text-muted,#8A8A8A)]">
-                {p.fecha} · {p.detalle}
+              <li key={i} className="flex items-center gap-2 font-['JetBrains_Mono'] text-[10.5px]">
+                <span className="text-[var(--text-muted,#8A8A8A)] shrink-0">{p.fecha}</span>
+                <span className="flex-1 min-w-0 truncate text-slate-800 dark:text-[#F3F1EA]">
+                  {p.equipos.map((e, j) => (
+                    <span key={j}>
+                      {j > 0 && <span className="text-[var(--text-muted,#8A8A8A)]"> – </span>}
+                      <span className={e.gano ? 'font-bold text-accent' : ''}>
+                        {e.equipo} {e.goles}
+                      </span>
+                    </span>
+                  ))}
+                </span>
               </li>
             ))}
           </ul>

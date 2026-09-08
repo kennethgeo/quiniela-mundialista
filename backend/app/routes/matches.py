@@ -700,7 +700,7 @@ async def detalle_del_partido(match_id: int, user: dict = Depends(get_current_us
 
     partido = (
         supabase.table("matches")
-        .select("id, external_id, status, tournament_id")
+        .select("id, external_id, status, tournament_id, kickoff_at")
         .eq("id", match_id)
         .maybe_single()
         .execute()
@@ -741,7 +741,17 @@ async def detalle_del_partido(match_id: int, user: dict = Depends(get_current_us
         guardado = (cache.data or {}) if cache else {}
     except Exception:  # noqa: BLE001
         logger.warning("No se pudo leer la cache del detalle de %s", match_id)
-    ttl = ttl_para(partido.data.get("status") or "pending")
+    # Cuánto falta para el saque decide la frescura: cerca del pitazo la
+    # alineación es justo lo que está por aparecer.
+    minutos = None
+    ko = partido.data.get("kickoff_at")
+    if ko:
+        try:
+            saque = datetime.fromisoformat(str(ko).replace("Z", "+00:00"))
+            minutos = (saque - datetime.now(timezone.utc)).total_seconds() / 60
+        except Exception:  # noqa: BLE001
+            minutos = None
+    ttl = ttl_para(partido.data.get("status") or "pending", minutos)
 
     if guardado.get("fetched_at"):
         try:
