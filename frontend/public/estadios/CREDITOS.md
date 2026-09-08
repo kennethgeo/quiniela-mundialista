@@ -7,6 +7,25 @@ ninguna.
 **Al agregar una foto nueva, anotala acá.** Las licencias CC BY y CC BY-SA
 exigen dar crédito al autor: sin esta lista estaríamos incumpliéndolas.
 
+**Anotá también el AÑO de la foto y su categoría en Commons.** Sin eso no hay
+manera de saber si una foto se quedó vieja salvo abrir las 48 y mirarlas: fue
+justo lo que pasó cuando el dueño notó que el Bernabéu salía con las rampas de
+hormigón anteriores a la remodelación. Con esos dos datos,
+`scripts/revisar_estadios.py` le pregunta a Commons si hay algo más nuevo y lo
+resuelve en un comando.
+
+## Revisión de septiembre de 2026
+
+Se comprobaron a ojo las que más habían cambiado:
+
+| Foto | Estado |
+|---|---|
+| `bernabeu.jpg` | **Reemplazada.** La anterior era del estadio previo a la remodelación (rampas de hormigón a la vista). Ahora es el interior actual, con el anillo de pantallas y el techo. |
+| `camp-nou.jpg` | **Vieja y sin reemplazo.** Es el graderío anterior al Espai Barça. En Commons no hay ninguna foto libre del estadio reconstruido: solo imágenes de la obra, que servirían menos que esta. Revisar más adelante. |
+| `raiffeisen-linz.jpg` | **Correcta.** Es el Raiffeisen Arena inaugurado en 2023, no el Gugl viejo. |
+
+Las 44 sedes de los torneos activos tienen foto; no falta ninguna.
+
 ## Dominio público — sin obligaciones
 
 | Archivo | Estadio | Local | Autor |
@@ -43,8 +62,8 @@ Las **36 sedes** de la fase de liga, todas con foto.
 
 ### Dominio público / CC0 — sin obligaciones
 
-| Archivo | Local | Autor | Licencia |
-|---|---|---|---|
+| Archivo | Local | Autor | Licencia | Año | Categoría en Commons |
+|---|---|---|---|---|---|
 | `dragao.jpg` | FC Porto | JonnyJonny | Public domain |
 | `fortuna-arena.jpg` | Slavia Praga | Tomas62 | CC0 |
 | `metropolitano.jpg` | Atlético de Madrid | Zarateman | CC0 |
@@ -56,14 +75,14 @@ Las **36 sedes** de la fase de liga, todas con foto.
 | `sinigaglia.jpg` | Como | Fra Casa | CC0 |
 | `stamford-bridge.jpg` | Shakhtar (local en Londres) | Dani- -152010 | CC0 |
 | `villa-park.jpg` | Aston Villa | en:User:Miniluver04 | Public domain |
+| `bernabeu.jpg` | Real Madrid | Badefa | CC0 | 2026 | `Category:Bernabéu Stadium` |
 
 ### CC BY — crédito, sin *share-alike*
 
-| Archivo | Local | Autor | Licencia |
-|---|---|---|---|
+| Archivo | Local | Autor | Licencia | Año | Categoría en Commons |
+|---|---|---|---|---|---|
 | `alvalade.jpg` | Sporting CP | Megutim | CC BY 4.0 |
 | `bank-respublika.jpg` | Sabah FK | Nicat49 | CC BY 4.0 |
-| `bernabeu.jpg` | Real Madrid | Hector Blanco de Frutos | CC BY 2.5 |
 | `camp-nou.jpg` | Barcelona | Markus Unger from Vienna, Au | CC BY 2.0 |
 | `cartuja.jpg` | Real Betis | Валерий Дед | CC BY 3.0 |
 | `ceramica.jpg` | Villarreal | Emilio Leiras | CC BY 2.0 |
@@ -77,8 +96,8 @@ Las **36 sedes** de la fase de liga, todas con foto.
 
 ### CC BY-SA — crédito y *share-alike*
 
-| Archivo | Local | Autor | Licencia |
-|---|---|---|---|
+| Archivo | Local | Autor | Licencia | Año | Categoría en Commons |
+|---|---|---|---|---|---|
 | `allianz-arena.jpg` | Bayern München | Diego Delso | CC BY-SA 3.0 |
 | `anfield.jpg` | Liverpool | Ruaraidh Gillies | CC BY-SA 2.0 |
 | `aspmyra.jpg` | Bodø/Glimt | Røed | CC BY-SA 2.5 |
