@@ -17,13 +17,17 @@ const grupos = [{
   members: 1, my_points: 0, my_rank: 1,
 }]
 
-async function montar (page) {
+/* EL PERMISO SE FIJA SIEMPRE, nunca se hereda del entorno. En CI el navegador
+   arranca con las notificaciones DENEGADAS y en local no: las mismas pruebas
+   pasaban acá y caían allá, y el fallo era de la prueba, no de la app. */
+async function montar (page, permiso = 'default') {
   await sinRedExterna(page)
   await conSesion(page)
-  await page.addInitScript(() => {
+  await page.addInitScript((p) => {
     localStorage.setItem('tutorial_seen', 'true')
     localStorage.setItem('pwaPromptDismissed', 'true')
-  })
+    Object.defineProperty(Notification, 'permission', { get: () => p, configurable: true })
+  }, permiso)
   await interceptarSupabase(page, {
     '/rest/v1/users': { id: USUARIO.id, display_name: 'Prueba', avatar_url: null, is_admin: false },
     '/rest/v1/rpc/my_groups': grupos,
@@ -61,10 +65,7 @@ test('con las notificaciones BLOQUEADAS se explica cómo, sin un botón muerto',
   // El navegador ya no vuelve a preguntar: ofrecer "Activar" sería un botón
   // que no puede funcionar, y la persona concluiría que la app está rota.
   await context.clearPermissions()
-  await montar(page)
-  await page.addInitScript(() => {
-    Object.defineProperty(Notification, 'permission', { get: () => 'denied', configurable: true })
-  })
+  await montar(page, 'denied')
   await page.goto('/')
   await expect(aviso(page)).toBeVisible({ timeout: 10000 })
   await expect(page.getByText(/bloqueadas para este sitio/)).toBeVisible()
@@ -72,9 +73,8 @@ test('con las notificaciones BLOQUEADAS se explica cómo, sin un botón muerto',
 })
 
 test('a quien YA tiene avisos no se le muestra nada', async ({ page }) => {
-  await montar(page)
+  await montar(page, 'granted')
   await page.addInitScript(() => {
-    Object.defineProperty(Notification, 'permission', { get: () => 'granted', configurable: true })
     // Suscripción viva en este dispositivo.
     Object.defineProperty(navigator, 'serviceWorker', {
       configurable: true,

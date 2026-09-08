@@ -60,3 +60,34 @@ test('el Hub aprovecha el escritorio y mantiene las acciones accesibles', async 
   expect(leagues.x).toBeGreaterThan(activity.x + activity.width)
   await expect(page.getByRole('button', { name: 'Crear quiniela', exact: true })).toBeVisible()
 })
+
+/* En el Hub, LAS QUINIELAS VAN PRIMERO.
+
+   En móvil la grilla se apila en el orden del documento, y con la columna de
+   actividad delante había que bajar por el aviso, «Me falta predecir» y el
+   ranking antes de ver la propia quiniela — que es a lo que se entra.
+
+   Se afirma sobre la POSICIÓN EN PANTALLA y sobre el orden del DOM, no sobre
+   clases: una prueba que mire `order` pasaría igual con el problema puesto,
+   porque `order` mueve lo que se ve pero no el orden de lectura. */
+test('a 390 px la quiniela se ve antes que «Me falta predecir»', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto('/')
+
+  const quiniela = page.getByRole('region', { name: 'Tus quinielas' })
+  // <aside> tiene rol `complementary`, no `region` — eso es de <section>.
+  const actividad = page.getByRole('complementary', { name: 'Tu actividad' })
+  await expect(quiniela).toBeVisible({ timeout: 10000 })
+
+  const cajaQ = await quiniela.boundingBox()
+  const cajaA = await actividad.boundingBox()
+  expect(cajaQ.y).toBeLessThan(cajaA.y)
+
+  // Y en el DOM también: es lo que recorren el teclado y un lector de pantalla.
+  const quinielaPrimero = await page.evaluate(() => {
+    const q = document.querySelector('[aria-label="Tus quinielas"]')
+    const a = document.querySelector('[aria-label="Tu actividad"]')
+    return !!(q && a && (q.compareDocumentPosition(a) & Node.DOCUMENT_POSITION_FOLLOWING))
+  })
+  expect(quinielaPrimero).toBe(true)
+})
