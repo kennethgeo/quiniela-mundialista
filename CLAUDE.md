@@ -276,6 +276,7 @@ Dos pérdidas silenciosas de datos, del mismo tipo: la pantalla editaba una regl
 - TTL por estado: 60 s en curso · 15 min por jugar · 24 h terminado. **Si ESPN no responde se sirve la copia vieja marcada como tal**: una alineación de hace diez minutos es más útil que una pantalla en blanco.
 - El endpoint **exige sesión** aunque el dato sea público: si no, cualquiera podría usarlo para pegarle a ESPN a través nuestro. Es la lección de `/refresh-live`, que nació público.
 - **No funciona en el Mundial 2026**: es el único torneo sin `external_id` (usa su propio sync). Se dice en pantalla, en vez de dejar un vacío que parezca un fallo.
+- **La caché es una mejora, NO una dependencia.** Se mergeó el código antes de aplicar la migración, la tabla no existía, la lectura reventó sin `try` y el endpoint devolvió **500** en producción. La escritura sí estaba protegida; la lectura no. Ahora un fallo de caché se registra y se sigue: se le pregunta a ESPN igual. **Regla**: al agregar una migración y el código que la usa, o sale la migración primero, o el código aguanta sin ella.
 - Los fixtures de las pruebas son respuestas **reales** de ESPN adelgazadas, y viven **en el repo** (`backend/tests/datos/`, `frontend/tests/ui/datos/`): en una carpeta temporal la prueba pasa en local y CI no encuentra el archivo.
 
 ## Despliegue
