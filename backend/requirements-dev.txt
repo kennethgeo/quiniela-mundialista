@@ -1,0 +1,8 @@
+# Solo para trabajar en local. NO se instala en Vercel: cada MB de acá viajaría
+# a cada despliegue y el runtime serverless no usa ninguno.
+-r requirements.txt
+
+# Servidor local:  uvicorn app.main:app --reload
+uvicorn[standard]>=0.30.0,<1.0.0
+
+pytest>=8.0.0,<9.0.0

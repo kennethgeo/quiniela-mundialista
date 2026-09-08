@@ -1,14 +1,28 @@
+# LO QUE VA AL SERVERLESS. Medido: con los extras `[standard]` el paquete pesaba
+# 147 MB y sin ellos 93 MB — 54 MB menos POR DESPLIEGUE, y Vercel cobra el
+# Function Storage acumulado de todos los despliegues que conserva. El aviso de
+# "75% de 10 GB" llegó por esto.
+#
+# `fastapi[standard]` y `uvicorn[standard]` arrastran uvloop (14 MB), httptools,
+# watchfiles, websockets, rich, typer, fastapi-cli, jinja2, email-validator y
+# python-multipart. NINGUNO se importa en `app/`: comprobado. En Vercel el
+# runtime habla ASGI directamente, así que tampoco hace falta un servidor.
+# Para correr en local está `requirements-dev.txt`.
+#
 # Rangos con tope superior a propósito. Antes eran solo mínimos (">=") y sin
 # lockfile, así que dos despliegues del mismo commit podían resolver versiones
 # distintas — y una major nueva entraba sola a producción sin que nadie la
 # probara. El tope deja pasar parches y minors, no rupturas.
-fastapi[standard]>=0.115.0,<1.0.0
-uvicorn[standard]>=0.30.0,<1.0.0
+fastapi>=0.115.0,<1.0.0
 supabase>=2.10.0,<3.0.0
 pydantic>=2.9.0,<3.0.0
 pydantic-settings>=2.6.0,<3.0.0
-PyJWT[cryptography]>=2.9.0,<3.0.0
+# Sin el extra `[cryptography]`: PyJWT no lo declara —pip avisaba
+# "does not provide the extra"— y los tokens de Supabase se verifican con HS256,
+# que no lo necesita. `cryptography` llega igual con pywebpush.
+PyJWT>=2.9.0,<3.0.0
 python-dotenv>=1.0.0,<2.0.0
 httpx>=0.27.0,<1.0.0
 pywebpush>=1.14.0,<2.0.0
+# Se usa en un import perezoso dentro de admin.py (imagen del día).
 Pillow>=10.0.0,<12.0.0

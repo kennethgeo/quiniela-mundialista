@@ -294,10 +294,20 @@ Dos pérdidas silenciosas de datos, del mismo tipo: la pantalla editaba una regl
 - **Los `schedule:` de GitHub quedaron apagados, pero los archivos NO se borraron**: `workflow_dispatch` sirve para disparar a mano si la base no puede. Con los dos activos el recordatorio **se solapa y manda avisos repetidos** — es el fallo que este mismo archivo ya tenía anotado como pendiente.
 - Con pg_cron la cadencia sí es la nominal, que es justo lo que la ventana `[45, 60)` del recordatorio necesitaba para no solaparse ni dejar huecos. **Sigue pendiente** la deduplicación persistente: protege de atrasos y reintentos, que una cadencia fiable hace raros pero no imposibles.
 - `cron.schedule` con un nombre que ya existe lo **reemplaza**, así que volver a correr la migración no duplica tareas.
+## El paquete del backend pesa la mitad
+- Vercel avisó al **75% de los 10 GB de Function Storage**. Ese storage es **acumulado**: cada despliegue guarda su propio paquete de funciones.
+- **Medido, no supuesto**: con los extras `[standard]` el paquete pesa **147 MB**; sin ellos, **93 MB**. Son **54 MB por despliegue**. `uvloop` solo son 14 MB.
+- `fastapi[standard]` y `uvicorn[standard]` arrastran uvloop, httptools, watchfiles, rich, typer, fastapi-cli, jinja2, email-validator y python-multipart. **Ninguno se importa en `app/`** — comprobado leyendo los imports, y en Vercel el runtime habla ASGI directo, así que tampoco hace falta un servidor.
+- `uvicorn` se movió a **`requirements-dev.txt`** (que incluye `-r requirements.txt`): sigue disponible para levantar la API en local, no viaja al despliegue.
+- `PyJWT[cryptography]` **no existe como extra** —pip avisaba «does not provide the extra»— y los tokens de Supabase se verifican con **HS256**, que no lo necesita. `cryptography` llega igual con pywebpush.
+- `test_dependencias_livianas.py` lo sujeta: prohíbe `[standard]` en producción, exige que uvicorn siga en dev, y mira `sys.modules` **después** de importar la app para cazar un `import` nuevo aunque la dependencia esté declarada. Comprobado que **falla en un entorno con los extras y pasa sin ellos**.
+- **`websockets` NO es prescindible**: lo usa `supabase` para realtime. Lo incluí en la lista de pesadas por suponer y la propia prueba lo cazó.
+- **Lo que el código no puede arreglar**: el storage ya consumido es de los despliegues viejos que Vercel conserva. Borrarlos es una acción de la cuenta, no del repo.
 
 ## Despliegue
 - **Vercel** despliega frontend Y backend juntos en cada push a `main` (root `vercel.json` → `experimentalServices`, backend `@vercel/python` bajo `/_backend`).
-- Cron de marcadores: GitHub Actions `sync-live-scores.yml` (cada ~5 min) → `POST /_backend/api/matches/sync-live`.
+- Cron de marcadores, recordatorio y resumen diario: **pg_cron en la base** (migración 79). Los workflows de GitHub
+  siguen existiendo pero **sin `schedule:`**, solo para dispararlos a mano.
 - Migraciones SQL: el admin las corre a mano en el SQL Editor de Supabase (archivos en `database/`).
 
 ## Al cambiar reglas de puntaje
