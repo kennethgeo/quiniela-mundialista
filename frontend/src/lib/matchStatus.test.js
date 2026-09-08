@@ -44,3 +44,66 @@ describe('matchStatus', () => {
     expect(matchStatus(game('2026-09-03T12:15:00.000Z'), now).canPredict).toBe(false)
   })
 })
+
+/* Reapertura por partido (migración 77).
+
+   Lo que se fija acá es EXACTAMENTE lo que comprueba la política RLS: la
+   pantalla y la base tienen que decidir igual, o alguien ve la casilla abierta
+   y la base le rechaza el guardado (o al revés, que es peor). */
+describe('predictions_force_open', () => {
+  const enCurso = (extra = {}) => ({
+    status: 'in_progress',
+    kickoff_at: new Date(Date.now() - 30 * 60000).toISOString(),
+    ...extra,
+  })
+
+  it('un partido en curso NO acepta predicciones sin la reapertura', () => {
+    expect(matchStatus(enCurso()).canPredict).toBe(false)
+  })
+
+  it('con la reapertura, un partido en curso SÍ acepta', () => {
+    const r = matchStatus(enCurso({ predictions_force_open: true }))
+    expect(r.canPredict).toBe(true)
+    expect(r.key).toBe('reopened')
+  })
+
+  it('también sirve si el saque ya pasó pero el estado sigue pendiente', () => {
+    // Es el caso real: ESPN trae mal la hora y el partido queda "cerrado" sin
+    // haber empezado de verdad.
+    const r = matchStatus({
+      status: 'pending',
+      kickoff_at: new Date(Date.now() - 10 * 60000).toISOString(),
+      predictions_force_open: true,
+    })
+    expect(r.canPredict).toBe(true)
+  })
+
+  it('EN UN PARTIDO FINALIZADO NO HACE NADA', () => {
+    // Con el marcador puesto no es reabrir, es copiar. La reapertura se apaga
+    // sola al terminar el partido: nadie tiene que acordarse de apagarla.
+    const r = matchStatus(enCurso({ status: 'finished', predictions_force_open: true }))
+    expect(r.canPredict).toBe(false)
+    expect(r.key).toBe('finished')
+  })
+
+  it('tampoco en cancelado ni pospuesto', () => {
+    for (const status of ['cancelled', 'canceled', 'postponed']) {
+      const r = matchStatus(enCurso({ status, predictions_force_open: true }))
+      expect(r.canPredict, status).toBe(false)
+    }
+  })
+
+  it('un partido sin la columna se comporta como siempre', () => {
+    // La columna nace en false y las consultas viejas puede que ni la pidan:
+    // ausente tiene que significar "cerrado", nunca "abierto".
+    expect(matchStatus(enCurso({ predictions_force_open: undefined })).canPredict).toBe(false)
+    expect(matchStatus(enCurso({ predictions_force_open: null })).canPredict).toBe(false)
+    expect(matchStatus(enCurso({ predictions_force_open: 'true' })).canPredict).toBe(false)
+  })
+
+  it('no altera un partido que todavía no empezó', () => {
+    const futuro = { status: 'pending', kickoff_at: new Date(Date.now() + 3 * 3600000).toISOString() }
+    expect(matchStatus(futuro).key).toBe('open')
+    expect(matchStatus({ ...futuro, predictions_force_open: true }).key).toBe('open')
+  })
+})

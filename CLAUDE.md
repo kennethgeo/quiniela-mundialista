@@ -252,6 +252,16 @@ Dos pérdidas silenciosas de datos, del mismo tipo: la pantalla editaba una regl
 - **El permiso de notificaciones se fija SIEMPRE en las pruebas, nunca se hereda del entorno**: en CI el navegador arranca con las notificaciones denegadas y en local no, así que las mismas pruebas pasaban acá y caían allá. Lo cazó CI, no la corrida local.
 - **El contraste se MIDE pintando el color en un canvas**, no parseando `getComputedStyle` (Tailwind v4 devuelve `oklch(...)` y leer esos números como RGB da ratios inventados). El aviso nació con el botón principal a **1.74:1** —acento `#2ED3B7` sobre su propio fondo al 12%— y `aviso-notificaciones.spec.js` ahora exige 4.5:1 en los dos temas. Comprobado que la prueba cae al devolver el acento.
 
+## Reabrir las predicciones de un partido (migración `database/77_reabrir_predicciones_de_partido.sql`)
+- **No existía nada parecido para partidos.** `tournaments.predictions_force_open` (migración 47) reabre solo las **globales**; `matches.score_locked` protege el resultado del sync; y las políticas `predictions_*_admin` dejan al admin global escribir **por otro**, que no es lo mismo que devolverle la predicción al jugador.
+- Para qué sirve: ESPN a veces trae mal la hora del saque, o el partido se reprograma. Ahí la gente queda fuera por un error de los datos, no por dormirse.
+- **Es por partido**, no por torneo: un interruptor por torneo reabriría también los ya jugados, y eso no es reabrir, es dejar predecir con el resultado a la vista.
+- **No vale en partidos finalizados** (ni cancelados ni pospuestos). Se comprueba dentro de la política y **no con un `CHECK`**: un `CHECK` reventaría el sync el día que un partido reabierto termine. El efecto bonito de hacerlo así es que **la reapertura se apaga sola** al finalizar el partido — nadie tiene que acordarse — y el puntaje sale al final con lo que haya, sin recálculo manual.
+- **Mientras dura, las predicciones ajenas se vuelven a tapar.** Sin eso la reapertura sería un agujero: pasados los 15 minutos ya están destapadas, así que quien entrara a corregir vería antes las de sus rivales. Una ventana reabierta se comporta como la de antes del saque **en los dos sentidos**. Efecto lateral aceptado: esa fila del Histórico se ve tapada mientras el partido está en curso.
+- Se **alteran** las políticas existentes en vez de apilar otras: las permisivas se combinan con OR y repartir la regla en dos sitios es como se coló el agujero de la 65.
+- La comprobación final mide el **default de la columna**, no que no haya partidos reabiertos: eso último dejaría de ser cierto en cuanto se use la función y haría fallar una segunda corrida (comprobado).
+- `matchStatus.js` fija los mismos casos que la política. La reapertura **solo pisa lo que estaría cerrado**: en un partido que aún no empieza no cambia nada y decir «Reabierto» ahí sería mentir.
+
 ## Despliegue
 - **Vercel** despliega frontend Y backend juntos en cada push a `main` (root `vercel.json` → `experimentalServices`, backend `@vercel/python` bajo `/_backend`).
 - Cron de marcadores: GitHub Actions `sync-live-scores.yml` (cada ~5 min) → `POST /_backend/api/matches/sync-live`.
