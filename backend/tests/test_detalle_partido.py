@@ -120,3 +120,28 @@ def test_un_resumen_vacio_no_revienta():
     assert d['alineaciones'] is None and d['estadisticas'] is None
     assert d['forma'] is None and d['historial'] is None
     assert d['actualizado']
+
+
+def test_la_cache_es_una_mejora_no_una_dependencia():
+    """Si la tabla de caché no existe —la migración todavía no se corrió— o la
+    consulta falla, el endpoint tiene que seguir y preguntarle a ESPN.
+
+    Esto pasó en producción: se mergeó el código antes de aplicar la migración,
+    la lectura de la caché reventó sin `try` y el endpoint devolvió 500. La
+    escritura sí estaba protegida; la lectura no.
+
+    Se lee el ARCHIVO en vez de importar el módulo: `app.routes.matches` arrastra
+    fastapi y el resto de las dependencias, que no hacen falta para comprobar
+    esto y harían que la prueba solo corriera donde estén instaladas.
+    """
+    ruta = os.path.join(os.path.dirname(__file__), '..', 'app', 'routes', 'matches.py')
+    with open(ruta, encoding='utf-8') as f:
+        fuente = f.read()
+
+    cuerpo = fuente[fuente.index('async def detalle_del_partido'):]
+    lectura = cuerpo.index('.select("payload, fetched_at")')
+
+    # El `try` que la cubre tiene que estar ANTES de la lectura, no solo en la
+    # escritura de más abajo.
+    assert 'try:' in cuerpo[:lectura], 'la lectura de la cache quedo sin try'
+    assert 'No se pudo leer la cache' in cuerpo

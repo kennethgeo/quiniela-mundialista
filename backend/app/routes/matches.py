@@ -724,14 +724,23 @@ async def detalle_del_partido(match_id: int, user: dict = Depends(get_current_us
         return {"disponible": False,
                 "motivo": "Este torneo no trae datos de ESPN."}
 
-    cache = (
-        supabase.table("match_details_cache")
-        .select("payload, fetched_at")
-        .eq("match_id", match_id)
-        .maybe_single()
-        .execute()
-    )
-    guardado = (cache.data or {}) if cache else {}
+    # LA CACHÉ ES UNA MEJORA, NO UNA DEPENDENCIA. Si la tabla no existe —la
+    # migración todavía no se corrió— o la consulta falla, se sigue adelante y
+    # se le pregunta a ESPN. Sin esto el endpoint devolvía 500 y la pantalla se
+    # quedaba sin detalle: pasó en producción, por mergear el código antes de
+    # aplicar la migración.
+    guardado = {}
+    try:
+        cache = (
+            supabase.table("match_details_cache")
+            .select("payload, fetched_at")
+            .eq("match_id", match_id)
+            .maybe_single()
+            .execute()
+        )
+        guardado = (cache.data or {}) if cache else {}
+    except Exception:  # noqa: BLE001
+        logger.warning("No se pudo leer la cache del detalle de %s", match_id)
     ttl = ttl_para(partido.data.get("status") or "pending")
 
     if guardado.get("fetched_at"):
