@@ -9,6 +9,7 @@ import { fetchMyGroups, fetchTournaments, createGroup, joinGroupByCode, DEFAULT_
 import { tomarInvitacion } from '../lib/invitacion'
 import RankingGlobal from '../components/hub/RankingGlobal'
 import PendingPredictions from '../components/hub/PendingPredictions'
+import AvisoNotificaciones from '../components/hub/AvisoNotificaciones'
 import { EmptyState, ErrorState } from '../components/ui/StatePanel'
 import Button from '../components/ui/Button'
 
@@ -96,12 +97,18 @@ export default function HubPage() {
           style={{ background: 'linear-gradient(135deg,#2ED3B7,#1a8f7c)' }}>{initial}</div>
       </motion.div>
 
+      {/* LAS QUINIELAS VAN PRIMERAS EN EL DOM. En móvil la grilla se apila en el
+          orden del documento, y con la columna de actividad delante había que
+          bajar por el aviso, «Me falta predecir» y el ranking antes de ver la
+          propia quiniela — que es a lo que se entra.
+
+          Se reordena el DOM y NO con `order` de CSS: `order` mueve lo que se ve
+          pero deja el orden de lectura y el del tabulador como estaban, así que
+          quien navega con teclado o lector de pantalla seguiría recorriendo lo
+          mismo de antes. En escritorio la posición no cambia: las columnas se
+          fijan a mano para que la actividad siga a la izquierda. */}
       <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] xl:gap-8">
-        <aside className="min-w-0 space-y-6" aria-label="Tu actividad">
-          {!loading && !error && <PendingPredictions groups={groups} userId={profile?.id} />}
-          <RankingGlobal />
-        </aside>
-        <section className="min-w-0" aria-label="Tus quinielas">
+        <section className="min-w-0 xl:col-start-2 xl:row-start-1" aria-label="Tus quinielas">
       {/* CTAs */}
       <div className="flex gap-2.5 mb-6">
         <Button onClick={() => setModal('create')} className="flex-1">
@@ -155,6 +162,14 @@ export default function HubPage() {
       )}
 
         </section>
+
+        <aside className="min-w-0 space-y-6 xl:col-start-1 xl:row-start-1" aria-label="Tu actividad">
+          {/* El aviso va ARRIBA de «Me falta predecir»: es justo lo que sirve
+              para no olvidar. Se retira solo cuando ya hay avisos. */}
+          <AvisoNotificaciones />
+          {!loading && !error && <PendingPredictions groups={groups} userId={profile?.id} />}
+          <RankingGlobal />
+        </aside>
       </div>
 
       <AnimatePresence>

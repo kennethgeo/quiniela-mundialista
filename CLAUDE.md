@@ -241,6 +241,17 @@ Dos pérdidas silenciosas de datos, del mismo tipo: la pantalla editaba una regl
 - **No es una jaula**: un torneo desconocido recibe la lista completa, hay un «ver todas» y el campo de texto acepta cualquier nombre. Un formato cambia, y quedarse sin poder configurar es peor que ver una ronda de más.
 - `fasesDeTorneo.test.js` comprueba que **ninguna ronda de ningún formato es inventada**: todas tienen que ser etiquetas que el sync sepa escribir.
 
+## Aviso en la app para activar notificaciones
+- **Medido**: 9 de 22 jugadores tenían push activado. El interruptor vivía —y sigue viviendo— en el **Perfil**, una pantalla a la que casi nadie entra, así que a más de la mitad del grupo no le llegaba ni el resumen de las 6 am ni el recordatorio del saque.
+- `components/hub/AvisoNotificaciones.jsx` va **arriba de «Me falta predecir»**, que es justo lo que el aviso sirve para no olvidar. Un modal al entrar se cierra por reflejo.
+- **No insiste**: «Ahora no» lo pospone **14 días**, no para siempre. Un aviso que reaparece en cada carga es el que hace que la gente apague TODAS las notificaciones, y ahí se pierden también las que importan; pero alguien que lo cerró sin pensar tampoco debería quedarse sin avisos toda la temporada.
+- **Tres situaciones distintas, y confundirlas deja a alguien pulsando un botón muerto**: `denied` (el navegador ya no vuelve a preguntar → se explica dónde está el ajuste, sin botón), **iOS sin instalar** (push solo funciona con la app en la pantalla de inicio) y el resto (se activa ahí mismo).
+- **Se ofrece también con `granted` pero sin suscripción**: pasa al actualizar la app o el service worker, y esa persona cree tener avisos que no le llegan.
+- La lógica de alta/baja se movió a **`lib/notificaciones.js`**, compartida con el interruptor del Perfil; la decisión de *cuándo ofrecerlo* vive aparte en **`lib/avisoPush.js`** porque `notificaciones.js` importa Supabase y eso no se puede cargar desde vitest.
+- **En el Hub las quinielas van PRIMERO en el DOM.** En móvil la grilla se apila en el orden del documento, y con la columna de actividad delante había que bajar por el aviso, «Me falta predecir» y el ranking antes de ver la propia quiniela. Se reordenó el DOM y **no con `order` de CSS**: `order` mueve lo que se ve pero deja el orden de lectura y el del tabulador como estaban. En escritorio la posición no cambia — las columnas se fijan con `xl:col-start-*`.
+- **El permiso de notificaciones se fija SIEMPRE en las pruebas, nunca se hereda del entorno**: en CI el navegador arranca con las notificaciones denegadas y en local no, así que las mismas pruebas pasaban acá y caían allá. Lo cazó CI, no la corrida local.
+- **El contraste se MIDE pintando el color en un canvas**, no parseando `getComputedStyle` (Tailwind v4 devuelve `oklch(...)` y leer esos números como RGB da ratios inventados). El aviso nació con el botón principal a **1.74:1** —acento `#2ED3B7` sobre su propio fondo al 12%— y `aviso-notificaciones.spec.js` ahora exige 4.5:1 en los dos temas. Comprobado que la prueba cae al devolver el acento.
+
 ## Despliegue
 - **Vercel** despliega frontend Y backend juntos en cada push a `main` (root `vercel.json` → `experimentalServices`, backend `@vercel/python` bajo `/_backend`).
 - Cron de marcadores: GitHub Actions `sync-live-scores.yml` (cada ~5 min) → `POST /_backend/api/matches/sync-live`.
