@@ -260,6 +260,8 @@ Dos pérdidas silenciosas de datos, del mismo tipo: la pantalla editaba una regl
 - **Mientras dura, las predicciones ajenas se vuelven a tapar.** Sin eso la reapertura sería un agujero: pasados los 15 minutos ya están destapadas, así que quien entrara a corregir vería antes las de sus rivales. Una ventana reabierta se comporta como la de antes del saque **en los dos sentidos**. Efecto lateral aceptado: esa fila del Histórico se ve tapada mientras el partido está en curso.
 - Se **alteran** las políticas existentes en vez de apilar otras: las permisivas se combinan con OR y repartir la regla en dos sitios es como se coló el agujero de la 65.
 - La comprobación final mide el **default de la columna**, no que no haya partidos reabiertos: eso último dejaría de ser cierto en cuanto se use la función y haría fallar una segunda corrida (comprobado).
+- **La tarjeta tiene que DEJAR EDITAR, no solo decirlo.** `MatchCard` decidía qué dibujar con `match.status`, así que un partido reabierto seguía mostrando el marcador EN VIVO en vez de los +/−: aparecía el botón «Actualizar predicción» y no había nada que actualizar. Ahora la reapertura manda sobre `isInProgress` para elegir el editor. Lo encontró el dueño, no una prueba.
+- La casilla del panel se publicó **duplicada** (dos copias, y la primera sin el candado por estado, así que salía en partidos finalizados). Causa: una edición que parecía rechazada sí se había escrito, y la segunda añadió otra copia. `admin-reabrir.spec.js` exige `toHaveCount(1)`.
 - `matchStatus.js` fija los mismos casos que la política. La reapertura **solo pisa lo que estaría cerrado**: en un partido que aún no empieza no cambia nada y decir «Reabierto» ahí sería mentir.
 
 ## Despliegue
