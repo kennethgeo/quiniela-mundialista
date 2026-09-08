@@ -11,6 +11,7 @@ import { es } from 'date-fns/locale'
 import { pedirRefrescoEnVivo } from '../lib/refrescoEnVivo'
 import { fotoDeEstadio } from '../lib/estadios'
 import { kickoffDate, predictionDeadline } from '../lib/matchStatus'
+import DetalleDelPartido from '../components/matches/DetalleDelPartido'
 
 export default function MatchDetailPage() {
   const { id } = useParams()
@@ -380,6 +381,13 @@ export default function MatchDetailPage() {
           </div>
         </motion.div>
       )}
+
+      {/* Alineaciones, estadísticas, forma e historial. Va ANTES de las
+          predicciones del grupo: sirve para decidir la tuya, así que tiene que
+          verse antes de saber lo que pusieron los demás. */}
+      <div className="max-w-4xl mx-auto">
+        <DetalleDelPartido matchId={match.id} status={match.status} />
+      </div>
 
       {/* ── Predicciones de la Liga ── */}
       <div className="space-y-4 max-w-4xl mx-auto">

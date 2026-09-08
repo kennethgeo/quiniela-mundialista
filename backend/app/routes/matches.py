@@ -678,3 +678,88 @@ async def get_match(match_id: int, user: dict = Depends(get_current_user)):
         .execute()
     )
     return response.data
+
+
+@router.get("/{match_id}/detalle")
+async def detalle_del_partido(match_id: int, user: dict = Depends(get_current_user)):
+    """Alineaciones, estadísticas, forma reciente e historial, desde ESPN.
+
+    EXIGE SESIÓN aunque el dato sea público: si no, cualquiera en internet
+    podría usar el endpoint para pegarle a ESPN a través de nosotros. Es la
+    misma lección de `/refresh-live`, que nació público.
+
+    SIRVE UNA COPIA VIEJA ANTES QUE UN ERROR: si ESPN no responde, se devuelve
+    lo último que se guardó marcándolo como viejo. Una alineación de hace diez
+    minutos es infinitamente más útil que una pantalla en blanco.
+    """
+    from datetime import datetime, timedelta, timezone
+
+    from app.services.espn_match_detail import traer_detalle, ttl_para
+
+    supabase = get_supabase()
+
+    partido = (
+        supabase.table("matches")
+        .select("id, external_id, status, tournament_id")
+        .eq("id", match_id)
+        .maybe_single()
+        .execute()
+    )
+    if not partido.data:
+        raise HTTPException(status_code=404, detail="Partido no encontrado")
+
+    external_id = partido.data.get("external_id")
+    torneo = (
+        supabase.table("tournaments")
+        .select("external_ref, source")
+        .eq("id", partido.data["tournament_id"])
+        .maybe_single()
+        .execute()
+    )
+    liga = (torneo.data or {}).get("external_ref")
+
+    # El Mundial usa su propio sync y no guarda el id de ESPN: no hay de dónde
+    # traer el detalle. Se dice, en vez de devolver un vacío que parezca un fallo.
+    if not external_id or not liga:
+        return {"disponible": False,
+                "motivo": "Este torneo no trae datos de ESPN."}
+
+    cache = (
+        supabase.table("match_details_cache")
+        .select("payload, fetched_at")
+        .eq("match_id", match_id)
+        .maybe_single()
+        .execute()
+    )
+    guardado = (cache.data or {}) if cache else {}
+    ttl = ttl_para(partido.data.get("status") or "pending")
+
+    if guardado.get("fetched_at"):
+        try:
+            edad = datetime.now(timezone.utc) - datetime.fromisoformat(
+                guardado["fetched_at"].replace("Z", "+00:00"))
+            if edad < timedelta(seconds=ttl):
+                return {"disponible": True, "detalle": guardado["payload"]}
+        except Exception:  # noqa: BLE001 - una fecha ilegible solo obliga a refrescar
+            logger.warning("fetched_at ilegible en la cache del partido %s", match_id)
+
+    try:
+        detalle = await traer_detalle(liga, str(external_id))
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("ESPN no respondió el detalle de %s: %s", match_id, exc)
+        if guardado.get("payload"):
+            return {"disponible": True, "detalle": guardado["payload"], "viejo": True}
+        raise HTTPException(status_code=503,
+                            detail="No se pudo traer el detalle del partido")
+
+    try:
+        supabase.table("match_details_cache").upsert(
+            {"match_id": match_id, "payload": detalle,
+             "fetched_at": datetime.now(timezone.utc).isoformat()},
+            on_conflict="match_id",
+        ).execute()
+    except Exception:  # noqa: BLE001
+        # Que no se pueda cachear no es motivo para no responder.
+        logger.warning("No se pudo guardar la cache del detalle de %s", match_id)
+
+    return {"disponible": True, "detalle": detalle}
