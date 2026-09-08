@@ -9,6 +9,7 @@ import { fetchMyGroups, fetchTournaments, createGroup, joinGroupByCode, DEFAULT_
 import { tomarInvitacion } from '../lib/invitacion'
 import RankingGlobal from '../components/hub/RankingGlobal'
 import PendingPredictions from '../components/hub/PendingPredictions'
+import AvisoNotificaciones from '../components/hub/AvisoNotificaciones'
 import { EmptyState, ErrorState } from '../components/ui/StatePanel'
 import Button from '../components/ui/Button'
 
@@ -98,6 +99,9 @@ export default function HubPage() {
 
       <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] xl:gap-8">
         <aside className="min-w-0 space-y-6" aria-label="Tu actividad">
+          {/* Va ARRIBA de «Me falta predecir» a propósito: es justo lo que el
+              aviso sirve para no olvidar. Se retira solo cuando ya hay avisos. */}
+          <AvisoNotificaciones />
           {!loading && !error && <PendingPredictions groups={groups} userId={profile?.id} />}
           <RankingGlobal />
         </aside>
