@@ -30,11 +30,19 @@ TTL_POR_JUGAR = 15 * 60
 TTL_TERMINADO = 24 * 3600
 
 
-def ttl_para(status: str) -> int:
+# Cerca del saque la alineación es justo lo que está por aparecer, así que
+# guardar la respuesta 15 minutos hace que se vea vieja durante 15 minutos.
+TTL_CERCA_DEL_SAQUE = 3 * 60
+MINUTOS_CERCA = 150
+
+
+def ttl_para(status: str, minutos_al_saque: Optional[float] = None) -> int:
     if status == "in_progress":
         return TTL_EN_CURSO
     if status in ("finished", "cancelled", "postponed"):
         return TTL_TERMINADO
+    if minutos_al_saque is not None and 0 <= minutos_al_saque <= MINUTOS_CERCA:
+        return TTL_CERCA_DEL_SAQUE
     return TTL_POR_JUGAR
 
 
@@ -125,16 +133,38 @@ def _forma(summary: dict) -> Optional[list]:
 
 
 def _historial(summary: dict) -> Optional[dict]:
+    """Enfrentamientos anteriores, CON el marcador.
+
+    La primera versión leía `summary`/`shortName` del evento y esos campos NO
+    existen en `seasonseries`: la pantalla mostraba la fecha y nada más. El
+    marcador está en `competitors`, uno por equipo, con su `score`.
+    """
     for ss in summary.get("seasonseries") or []:
         eventos = ss.get("events") or []
         if not eventos:
             continue
-        return {
-            "resumen": ss.get("summary"),
-            "partidos": [{"fecha": (e.get("date") or "")[:10],
-                          "detalle": e.get("summary") or e.get("shortName")}
-                         for e in eventos[:5]],
-        }
+        partidos = []
+        for e in eventos[:5]:
+            equipos = []
+            for c in (e.get("competitors") or []):
+                t = c.get("team") or {}
+                equipos.append({
+                    "equipo": t.get("abbreviation") or t.get("displayName"),
+                    "goles": c.get("score"),
+                    "gano": bool(c.get("winner")),
+                })
+            # Sin los dos equipos no hay marcador que mostrar; se omite la fila
+            # en vez de pintar una fecha suelta, que es lo que pasaba antes.
+            if len(equipos) != 2:
+                continue
+            partidos.append({
+                "fecha": (e.get("date") or "")[:10],
+                "equipos": equipos,
+                "torneo": e.get("competitionName"),
+            })
+        if not partidos:
+            continue
+        return {"resumen": ss.get("summary"), "partidos": partidos}
     return None
 
 

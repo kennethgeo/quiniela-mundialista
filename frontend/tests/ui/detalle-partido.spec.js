@@ -52,9 +52,10 @@ async function abrir (page, respuesta, status = 'in_progress') {
 test('con el partido en curso muestra alineaciones y estadísticas', async ({ page }) => {
   await abrir(page, EN_VIVO)
   await expect(page.getByRole('heading', { name: 'Alineaciones' })).toBeVisible({ timeout: 15000 })
-  // Formación y once, no un plantel entero.
+  // Formación y once sobre la cancha, no un plantel entero.
   await expect(page.getByText('4-4-2')).toBeVisible()
-  await expect(page.getByText('Alberto Brignoli')).toBeVisible()
+  await expect(page.getByRole('tab', { name: 'AEK Athens' })).toBeVisible()
+  await expect(page.getByText('Brignoli')).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Estadísticas' })).toBeVisible()
   await expect(page.getByText('Posesión')).toBeVisible()
 })
@@ -74,7 +75,10 @@ test('ANTES del partido no inventa una alineación, pero sí muestra la forma', 
      decidir la predicción. */
   await abrir(page, PREVIA, 'pending')
   await expect(page.getByRole('heading', { name: 'Cómo vienen' })).toBeVisible({ timeout: 15000 })
-  await expect(page.getByRole('heading', { name: 'Alineaciones' })).toHaveCount(0)
+  // La tarjeta SÍ está, pero explicando que aún no salieron: que falte se lee
+  // como «esta app no tiene alineaciones».
+  await expect(page.getByText(/Todavía no se publicaron/)).toBeVisible()
+  await expect(page.getByRole('tab')).toHaveCount(0)
   await expect(page.getByRole('heading', { name: 'Estadísticas' })).toHaveCount(0)
 })
 
@@ -90,4 +94,28 @@ test('un torneo sin datos de ESPN lo explica', async ({ page }) => {
   await abrir(page, { disponible: false, motivo: 'Este torneo no trae datos de ESPN.' })
   await expect(page.getByText('Este torneo no trae datos de ESPN.')).toBeVisible({ timeout: 15000 })
   await expect(page.getByRole('heading', { name: 'Cómo vienen' })).toHaveCount(0)
+})
+
+test('la cancha muestra los 11 y se cambia de equipo por pestaña', async ({ page }) => {
+  await abrir(page, EN_VIVO)
+  await expect(page.getByRole('tab', { name: 'AEK Athens' })).toBeVisible({ timeout: 15000 })
+
+  // Once fichas: si la formación no cuadrara con la lista, alguien se perdería.
+  const fichas = page.locator('[role="tabpanel"], .\\[perspective\\:900px\\]').first()
+  await expect(page.getByText('Brignoli')).toBeVisible()
+  await expect(page.getByText('4-4-2')).toBeVisible()
+
+  await page.getByRole('tab', { name: 'LASK Linz' }).click()
+  await expect(page.getByText('3-1-4-2')).toBeVisible()
+  await expect(page.getByText('Jungwirth')).toBeVisible()
+})
+
+test('el historial muestra el MARCADOR, no solo la fecha', async ({ page }) => {
+  /* La primera versión leía campos que `seasonseries` no trae, así que salía
+     la fecha y un punto suelto. */
+  await abrir(page, PREVIA, 'pending')
+  await expect(page.getByRole('heading', { name: 'Entre ellos' })).toBeVisible({ timeout: 15000 })
+  await expect(page.getByText(/RMA lidera/)).toBeVisible()
+  // Alguna fila con dos equipos y sus goles.
+  await expect(page.locator('li').filter({ hasText: /\d{4}-\d{2}-\d{2}/ }).first()).toContainText(/\d/)
 })
