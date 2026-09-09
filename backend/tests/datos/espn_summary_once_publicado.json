@@ -1,0 +1,623 @@
+{
+ "_nota": "Respuesta REAL de ESPN (Champions, Barcelona vs Feyenoord, 9 sep 2026) a 28 minutos del saque, adelgazada. Pedida SIN lang=es: con ese parametro ESPN devuelve el mismo partido sin once ni formacion.",
+ "rosters": [
+  {
+   "homeAway": "home",
+   "formation": "4-3-3",
+   "team": {
+    "displayName": "Barcelona",
+    "logo": null
+   },
+   "roster": [
+    {
+     "starter": true,
+     "jersey": "1",
+     "subbedIn": {
+      "didSub": false
+     },
+     "subbedOut": {
+      "didSub": false
+     },
+     "position": {
+      "abbreviation": "G"
+     },
+     "athlete": {
+      "displayName": "Joan García"
+     }
+    },
+    {
+     "starter": true,
+     "jersey": "23",
+     "subbedIn": {
+      "didSub": false
+     },
+     "subbedOut": {
+      "didSub": false
+     },
+     "position": {
+      "abbreviation": "D"
+     },
+     "athlete": {
+      "displayName": "Jules Koundé"
+     }
+    },
+    {
+     "starter": true,
+     "jersey": "15",
+     "subbedIn": {
+      "didSub": false
+     },
+     "subbedOut": {
+      "didSub": false
+     },
+     "position": {
+      "abbreviation": "D"
+     },
+     "athlete": {
+      "displayName": "Andreas Christensen"
+     }
+    },
+    {
+     "starter": true,
+     "jersey": "2",
+     "subbedIn": {
+      "didSub": false
+     },
+     "subbedOut": {
+      "didSub": false
+     },
+     "position": {
+      "abbreviation": "D"
+     },
+     "athlete": {
+      "displayName": "João Cancelo"
+     }
+    },
+    {
+     "starter": true,
+     "jersey": "5",
+     "subbedIn": {
+      "didSub": false
+     },
+     "subbedOut": {
+      "didSub": false
+     },
+     "position": {
+      "abbreviation": "D"
+     },
+     "athlete": {
+      "displayName": "Pau Cubarsí"
+     }
+    },
+    {
+     "starter": true,
+     "jersey": "20",
+     "subbedIn": {
+      "didSub": false
+     },
+     "subbedOut": {
+      "didSub": false
+     },
+     "position": {
+      "abbreviation": "M"
+     },
+     "athlete": {
+      "displayName": "Dani Olmo"
+     }
+    },
+    {
+     "starter": true,
+     "jersey": "8",
+     "subbedIn": {
+      "didSub": false
+     },
+     "subbedOut": {
+      "didSub": false
+     },
+     "position": {
+      "abbreviation": "M"
+     },
+     "athlete": {
+      "displayName": "Pedri"
+     }
+    },
+    {
+     "starter": true,
+     "jersey": "16",
+     "subbedIn": {
+      "didSub": false
+     },
+     "subbedOut": {
+      "didSub": false
+     },
+     "position": {
+      "abbreviation": "M"
+     },
+     "athlete": {
+      "displayName": "Rodri"
+     }
+    },
+    {
+     "starter": true,
+     "jersey": "14",
+     "subbedIn": {
+      "didSub": false
+     },
+     "subbedOut": {
+      "didSub": false
+     },
+     "position": {
+      "abbreviation": "F"
+     },
+     "athlete": {
+      "displayName": "Karim Adeyemi"
+     }
+    },
+    {
+     "starter": true,
+     "jersey": "11",
+     "subbedIn": {
+      "didSub": false
+     },
+     "subbedOut": {
+      "didSub": false
+     },
+     "position": {
+      "abbreviation": "F"
+     },
+     "athlete": {
+      "displayName": "Raphinha"
+     }
+    },
+    {
+     "starter": true,
+     "jersey": "10",
+     "subbedIn": {
+      "didSub": false
+     },
+     "subbedOut": {
+      "didSub": false
+     },
+     "position": {
+      "abbreviation": "F"
+     },
+     "athlete": {
+      "displayName": "Lamine Yamal"
+     }
+    },
+    {
+     "starter": false,
+     "jersey": "12",
+     "subbedIn": {
+      "didSub": false
+     },
+     "subbedOut": {
+      "didSub": false
+     },
+     "position": {
+      "abbreviation": "SUB"
+     },
+     "athlete": {
+      "displayName": "Xavi Espart"
+     }
+    },
+    {
+     "starter": false,
+     "jersey": "22",
+     "subbedIn": {
+      "didSub": false
+     },
+     "subbedOut": {
+      "didSub": false
+     },
+     "position": {
+      "abbreviation": "SUB"
+     },
+     "athlete": {
+      "displayName": "Marc Bernal"
+     }
+    },
+    {
+     "starter": false,
+     "jersey": "9",
+     "subbedIn": {
+      "didSub": false
+     },
+     "subbedOut": {
+      "didSub": false
+     },
+     "position": {
+      "abbreviation": "SUB"
+     },
+     "athlete": {
+      "displayName": "Gabriel Jesus"
+     }
+    },
+    {
+     "starter": false,
+     "jersey": "18",
+     "subbedIn": {
+      "didSub": false
+     },
+     "subbedOut": {
+      "didSub": false
+     },
+     "position": {
+      "abbreviation": "SUB"
+     },
+     "athlete": {
+      "displayName": "Gerard Martín"
+     }
+    }
+   ]
+  },
+  {
+   "homeAway": "away",
+   "formation": "4-3-3",
+   "team": {
+    "displayName": "Feyenoord Rotterdam",
+    "logo": null
+   },
+   "roster": [
+    {
+     "starter": true,
+     "jersey": "1",
+     "subbedIn": {
+      "didSub": false
+     },
+     "subbedOut": {
+      "didSub": false
+     },
+     "position": {
+      "abbreviation": "G"
+     },
+     "athlete": {
+      "displayName": "Tjark Ernst"
+     }
+    },
+    {
+     "starter": true,
+     "jersey": "6",
+     "subbedIn": {
+      "didSub": false
+     },
+     "subbedOut": {
+      "didSub": false
+     },
+     "position": {
+      "abbreviation": "D"
+     },
+     "athlete": {
+      "displayName": "Jerry St. Juste"
+     }
+    },
+    {
+     "starter": true,
+     "jersey": "35",
+     "subbedIn": {
+      "didSub": false
+     },
+     "subbedOut": {
+      "didSub": false
+     },
+     "position": {
+      "abbreviation": "D"
+     },
+     "athlete": {
+      "displayName": "Mika Mármol"
+     }
+    },
+    {
+     "starter": true,
+     "jersey": "4",
+     "subbedIn": {
+      "didSub": false
+     },
+     "subbedOut": {
+      "didSub": false
+     },
+     "position": {
+      "abbreviation": "D"
+     },
+     "athlete": {
+      "displayName": "Tsuyoshi Watanabe"
+     }
+    },
+    {
+     "starter": true,
+     "jersey": "26",
+     "subbedIn": {
+      "didSub": false
+     },
+     "subbedOut": {
+      "didSub": false
+     },
+     "position": {
+      "abbreviation": "D"
+     },
+     "athlete": {
+      "displayName": "Givairo Read"
+     }
+    },
+    {
+     "starter": true,
+     "jersey": "10",
+     "subbedIn": {
+      "didSub": false
+     },
+     "subbedOut": {
+      "didSub": false
+     },
+     "position": {
+      "abbreviation": "M"
+     },
+     "athlete": {
+      "displayName": "Luciano Valente"
+     }
+    },
+    {
+     "starter": true,
+     "jersey": "34",
+     "subbedIn": {
+      "didSub": false
+     },
+     "subbedOut": {
+      "didSub": false
+     },
+     "position": {
+      "abbreviation": "M"
+     },
+     "athlete": {
+      "displayName": "Charles Vanhoutte"
+     }
+    },
+    {
+     "starter": true,
+     "jersey": "8",
+     "subbedIn": {
+      "didSub": false
+     },
+     "subbedOut": {
+      "didSub": false
+     },
+     "position": {
+      "abbreviation": "M"
+     },
+     "athlete": {
+      "displayName": "Gjivai Zechiël"
+     }
+    },
+    {
+     "starter": true,
+     "jersey": "19",
+     "subbedIn": {
+      "didSub": false
+     },
+     "subbedOut": {
+      "didSub": false
+     },
+     "position": {
+      "abbreviation": "F"
+     },
+     "athlete": {
+      "displayName": "Nacho Ferri"
+     }
+    },
+    {
+     "starter": true,
+     "jersey": "23",
+     "subbedIn": {
+      "didSub": false
+     },
+     "subbedOut": {
+      "didSub": false
+     },
+     "position": {
+      "abbreviation": "F"
+     },
+     "athlete": {
+      "displayName": "Anis Hadj Moussa"
+     }
+    },
+    {
+     "starter": true,
+     "jersey": "16",
+     "subbedIn": {
+      "didSub": false
+     },
+     "subbedOut": {
+      "didSub": false
+     },
+     "position": {
+      "abbreviation": "F"
+     },
+     "athlete": {
+      "displayName": "Javi López"
+     }
+    },
+    {
+     "starter": false,
+     "jersey": "49",
+     "subbedIn": {
+      "didSub": false
+     },
+     "subbedOut": {
+      "didSub": false
+     },
+     "position": {
+      "abbreviation": "SUB"
+     },
+     "athlete": {
+      "displayName": "Shaqueel Van Persie"
+     }
+    },
+    {
+     "starter": false,
+     "jersey": "28",
+     "subbedIn": {
+      "didSub": false
+     },
+     "subbedOut": {
+      "didSub": false
+     },
+     "position": {
+      "abbreviation": "SUB"
+     },
+     "athlete": {
+      "displayName": "Oussama Targhaline"
+     }
+    },
+    {
+     "starter": false,
+     "jersey": "57",
+     "subbedIn": {
+      "didSub": false
+     },
+     "subbedOut": {
+      "didSub": false
+     },
+     "position": {
+      "abbreviation": "SUB"
+     },
+     "athlete": {
+      "displayName": "Jerayno Schaken"
+     }
+    },
+    {
+     "starter": false,
+     "jersey": "27",
+     "subbedIn": {
+      "didSub": false
+     },
+     "subbedOut": {
+      "didSub": false
+     },
+     "position": {
+      "abbreviation": "SUB"
+     },
+     "athlete": {
+      "displayName": "Gaoussou Diarra"
+     }
+    }
+   ]
+  }
+ ],
+ "lastFiveGames": [
+  {
+   "team": {
+    "displayName": "Barcelona"
+   },
+   "events": [
+    {
+     "gameDate": "2026-08-19T18:00Z",
+     "score": "2-1",
+     "gameResult": "W",
+     "leagueAbbreviation": "Trofeo Joan Gamper",
+     "opponent": {
+      "abbreviation": "AHL"
+     }
+    },
+    {
+     "gameDate": "2026-08-23T19:30Z",
+     "score": "5-0",
+     "gameResult": "W",
+     "leagueAbbreviation": "LALIGA",
+     "opponent": {
+      "abbreviation": "ELC"
+     }
+    },
+    {
+     "gameDate": "2026-08-27T19:00Z",
+     "score": "2-0",
+     "gameResult": "W",
+     "leagueAbbreviation": "LALIGA",
+     "opponent": {
+      "abbreviation": "ATH"
+     }
+    },
+    {
+     "gameDate": "2026-08-31T19:30Z",
+     "score": "5-2",
+     "gameResult": "W",
+     "leagueAbbreviation": "LALIGA",
+     "opponent": {
+      "abbreviation": "RAY"
+     }
+    },
+    {
+     "gameDate": "2026-09-06T14:15Z",
+     "score": "5-0",
+     "gameResult": "W",
+     "leagueAbbreviation": "LALIGA",
+     "opponent": {
+      "abbreviation": "VAL"
+     }
+    }
+   ]
+  },
+  {
+   "team": {
+    "displayName": "Feyenoord Rotterdam"
+   },
+   "events": [
+    {
+     "gameDate": "2026-08-09T10:15Z",
+     "score": "1-0",
+     "gameResult": "W",
+     "leagueAbbreviation": "Eredivisie",
+     "opponent": {
+      "abbreviation": "SPA"
+     }
+    },
+    {
+     "gameDate": "2026-08-16T12:30Z",
+     "score": "2-2",
+     "gameResult": "D",
+     "leagueAbbreviation": "Eredivisie",
+     "opponent": {
+      "abbreviation": "GAE"
+     }
+    },
+    {
+     "gameDate": "2026-08-23T14:45Z",
+     "score": "5-2",
+     "gameResult": "W",
+     "leagueAbbreviation": "Eredivisie",
+     "opponent": {
+      "abbreviation": "CAM"
+     }
+    },
+    {
+     "gameDate": "2026-08-30T12:30Z",
+     "score": "2-2",
+     "gameResult": "D",
+     "leagueAbbreviation": "Eredivisie",
+     "opponent": {
+      "abbreviation": "ADO"
+     }
+    },
+    {
+     "gameDate": "2026-09-05T14:30Z",
+     "score": "3-1",
+     "gameResult": "W",
+     "leagueAbbreviation": "Eredivisie",
+     "opponent": {
+      "abbreviation": "NEC"
+     }
+    }
+   ]
+  }
+ ],
+ "boxscore": {
+  "teams": []
+ },
+ "seasonseries": [],
+ "gameInfo": {
+  "venue": {
+   "fullName": "Spotify Camp Nou",
+   "address": {
+    "city": "Barcelona"
+   }
+  }
+ }
+}

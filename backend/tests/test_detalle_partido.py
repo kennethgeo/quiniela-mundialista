@@ -15,7 +15,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 import pytest  # noqa: E402
 
 from app.services.espn_match_detail import (  # noqa: E402
-    recortar, ttl_para, TTL_EN_CURSO, TTL_POR_JUGAR, TTL_TERMINADO,
+    PARAMS_ESPN, recortar, ttl_para, TTL_EN_CURSO, TTL_POR_JUGAR, TTL_TERMINADO,
 )
 
 DATOS = os.path.join(os.path.dirname(__file__), 'datos')
@@ -34,6 +34,12 @@ def en_curso():
 @pytest.fixture(scope='module')
 def por_jugar():
     return recortar(cargar('por_jugar'))
+
+
+@pytest.fixture(scope='module')
+def once_publicado():
+    """Barcelona–Feyenoord a 28 minutos del saque, pedido SIN `lang=es`."""
+    return recortar(cargar('once_publicado'))
 
 
 def test_alineaciones_con_once_completo(en_curso):
@@ -173,3 +179,59 @@ def test_cerca_del_saque_la_respuesta_dura_menos():
     # Ya empezado manda el estado, no el reloj.
     assert ttl_para('in_progress', 5) == TTL_EN_CURSO
     assert TTL_CERCA_DEL_SAQUE < TTL_POR_JUGAR
+
+
+def test_no_se_pide_la_edicion_en_espanol():
+    """El parámetro que dejó el panel sin alineaciones desde el primer día.
+
+    Medido el 9 sep 2026 sobre Barcelona–Feyenoord y Stuttgart–Viking, a 28
+    minutos del saque y con el once ya publicado: la misma petición devuelve 11
+    titulares y formación sin `lang`, y 0 titulares con `lang=es&region=es`.
+    `_alineaciones` descartaba los dos equipos y el panel decía «todavía no se
+    publicaron» para siempre.
+
+    Esto no demuestra nada sobre ESPN —no hay red acá—: es un candado para que
+    el parámetro no vuelva a entrar sin que nadie lo note.
+    """
+    assert 'lang' not in PARAMS_ESPN
+    assert 'region' not in PARAMS_ESPN
+
+
+def test_la_alineacion_publicada_SI_llega_a_la_pantalla(once_publicado):
+    """El caso que el panel nunca pudo mostrar: partido por jugar, once ya
+    anunciado. Es la ventana de ~30 minutos que hace útil todo el panel."""
+    al = once_publicado['alineaciones']
+    assert al and len(al) == 2
+    for eq in al:
+        assert len(eq['titulares']) == 11, eq['equipo']
+        assert eq['formacion'], eq['equipo']
+        assert all(j['nombre'] for j in eq['titulares'])
+    assert sorted(eq['esLocal'] for eq in al) == [False, True]
+
+
+def test_el_resultado_de_la_forma_se_traduce(once_publicado):
+    """Sin `lang=es` ESPN manda W/L/D. La pantalla solo entiende G/P/E y pinta
+    un punto gris para lo demás, así que las cinco casillas de «Cómo vienen» se
+    habrían quedado en gris — un arreglo que rompía otra cosa."""
+    fo = once_publicado['forma']
+    assert fo
+    vistos = {p['resultado'] for eq in fo for p in eq['partidos']}
+    assert vistos <= {'G', 'P', 'E'}
+    assert vistos, 'el fixture no trae ningún resultado'
+
+
+def test_se_traducen_las_dos_formas_de_escribirlo():
+    """La respuesta en español ya usaba G/P/E: la traducción no puede romperla,
+    porque una copia vieja en la caché todavía viene así."""
+    ingles = {'lastFiveGames': [{'team': {'displayName': 'X'}, 'events': [
+        {'gameDate': '2026-09-01', 'gameResult': r, 'score': '1-0'} for r in ('W', 'L', 'D')]}]}
+    espanol = {'lastFiveGames': [{'team': {'displayName': 'X'}, 'events': [
+        {'gameDate': '2026-09-01', 'gameResult': r, 'score': '1-0'} for r in ('G', 'P', 'E')]}]}
+    esperado = ['G', 'P', 'E']
+    for crudo in (ingles, espanol):
+        assert [p['resultado'] for p in recortar(crudo)['forma'][0]['partidos']] == esperado
+
+    # Algo que no se reconoce queda en None, no se inventa un resultado.
+    raro = {'lastFiveGames': [{'team': {'displayName': 'X'}, 'events': [
+        {'gameDate': '2026-09-01', 'gameResult': 'ZZ', 'score': '1-0'}]}]}
+    assert recortar(raro)['forma'][0]['partidos'][0]['resultado'] is None
