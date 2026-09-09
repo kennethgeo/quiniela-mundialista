@@ -12,6 +12,7 @@ import { pedirRefrescoEnVivo } from '../lib/refrescoEnVivo'
 import { fotoDeEstadio } from '../lib/estadios'
 import { kickoffDate, predictionDeadline } from '../lib/matchStatus'
 import DetalleDelPartido from '../components/matches/DetalleDelPartido'
+import { fetchGroupStandings, fetchMyGroups } from '../lib/groups'
 
 export default function MatchDetailPage() {
   const { id } = useParams()
@@ -22,6 +23,68 @@ export default function MatchDetailPage() {
   const [predictions, setPredictions] = useState([])
   const [loading, setLoading] = useState(true)
   const [isLocked, setIsLocked] = useState(false)
+  /* Puntos EN LA QUINIELA de cada quien, por `${league_id}|${user_id}`.
+
+     Esta pantalla mostraba `users.total_points`, que es el total GLOBAL: junta
+     todas las quinielas de la persona. Acá eso es engañoso y en una quiniela
+     por plata no es un detalle — medido en producción el 9 sep: Ruddy aparecía
+     con 15 al lado de gente con 47 y 55, cuando en ESA quiniela va 16 contra
+     19 y 18, o sea tercero de siete. El número correcto acá es el de la
+     quiniela a la que pertenece cada predicción. */
+  const [puntosPorQuiniela, setPuntosPorQuiniela] = useState({})
+  const [nombresQuiniela, setNombresQuiniela] = useState({})
+
+  /* Los puntos de cada quien EN SU QUINIELA.
+
+     Se piden con `group_standings`, que es la RPC que ya usa la Tabla: así el
+     número de acá y el de la Tabla salen de la MISMA fórmula (`league_points`,
+     con el desempate de la 55). Calcularlo en el navegador sumando
+     `points_earned` daría la fórmula escrita dos veces — el error que en este
+     repo dejó los puntos de asistidor fuera del total global durante meses— y
+     encima saldría mal: antes del saque la RLS no deja leer las predicciones
+     ajenas, así que la suma vendría incompleta.
+
+     `league_table` NO se puede llamar desde el cliente: la migración 61 le
+     quita EXECUTE a propósito. La vía es `group_standings`, que sí está en el
+     inventario.
+
+     Se agrupa por liga porque una lista PUEDE traer varias: la RLS destapa las
+     predicciones de cualquier quiniela que compartas, y dos quinielas pueden
+     correr sobre el mismo torneo (hoy no pasa —lo comprobé en producción— pero
+     la liga tica corre temporada tras temporada sobre el mismo tournament_id).
+
+     Si falla, no se inventa nada: la fila cae a mostrar el total global CON SU
+     ETIQUETA, que es honesto, en vez de un número equivocado sin avisar. */
+  const cargarPuntosDeQuiniela = useCallback(async (preds) => {
+    const ligas = [...new Set(preds.map((p) => p.league_id).filter(Boolean))]
+    if (ligas.length === 0) return
+
+    const mapa = {}
+    await Promise.all(ligas.map(async (ligaId) => {
+      try {
+        const filas = await fetchGroupStandings(ligaId)
+        for (const f of filas) mapa[`${ligaId}|${f.user_id}`] = f.points
+      } catch (e) {
+        // Sin puntos de esa quiniela: la fila usa el respaldo etiquetado.
+        console.error('No se pudieron traer los puntos de la quiniela', ligaId, e)
+      }
+    }))
+    setPuntosPorQuiniela(mapa)
+
+    /* Con una sola quiniela el nombre sobra: ya lo dice el encabezado. Con
+       varias hay que decirlo, o la misma persona aparece dos veces con números
+       distintos y parece un error. */
+    if (ligas.length > 1) {
+      try {
+        const grupos = await fetchMyGroups()
+        const nombres = {}
+        for (const g of grupos) if (ligas.includes(g.id)) nombres[g.id] = g.name
+        setNombresQuiniela(nombres)
+      } catch {
+        /* Sin nombres se sigue: el número por fila ya es el correcto. */
+      }
+    }
+  }, [])
 
   const fetchMatchAndPredictions = useCallback(async ({ withSpinner = true } = {}) => {
     try {
@@ -82,14 +145,16 @@ export default function MatchDetailPage() {
           .order('points_earned', { ascending: false })
 
         if (predsError) throw predsError
-        setPredictions(predsData || [])
+        const preds = predsData || []
+        setPredictions(preds)
+        await cargarPuntosDeQuiniela(preds)
       }
     } catch (err) {
       console.error('Error fetching match details:', err)
     } finally {
       if (withSpinner) setLoading(false)
     }
-  }, [id])
+  }, [id, cargarPuntosDeQuiniela])
 
   useEffect(() => {
     if (id) {
@@ -419,6 +484,9 @@ export default function MatchDetailPage() {
           <div className="space-y-3">
             {predictions.map((pred, i) => {
               const isMe = pred.user_id === profile?.id;
+              // Los de ESTA quiniela, no el total global (ver puntosPorQuiniela).
+              const enLaQuiniela = puntosPorQuiniela[`${pred.league_id}|${pred.user_id}`];
+              const nombreQuiniela = nombresQuiniela[pred.league_id];
               return (
                 <motion.div
                   key={pred.id}
@@ -455,7 +523,12 @@ export default function MatchDetailPage() {
                         )}
                       </div>
                       <span className="text-xs text-slate-500 dark:text-slate-400">
-                        Puntos totales: {pred.users?.total_points}
+                        {enLaQuiniela != null
+                          ? <>En la quiniela: {enLaQuiniela}{nombreQuiniela && <> · {nombreQuiniela}</>}</>
+                          /* Respaldo con su etiqueta: un número global rotulado
+                             como global es honesto; rotulado como de la
+                             quiniela sería mentira. */
+                          : <>Total global: {pred.users?.total_points}</>}
                       </span>
                     </div>
                   </div>
