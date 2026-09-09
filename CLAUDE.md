@@ -285,6 +285,16 @@ Dos pérdidas silenciosas de datos, del mismo tipo: la pantalla editaba una regl
 - **La caché es una mejora, NO una dependencia.** Se mergeó el código antes de aplicar la migración, la tabla no existía, la lectura reventó sin `try` y el endpoint devolvió **500** en producción. La escritura sí estaba protegida; la lectura no. Ahora un fallo de caché se registra y se sigue: se le pregunta a ESPN igual. **Regla**: al agregar una migración y el código que la usa, o sale la migración primero, o el código aguanta sin ella.
 - Los fixtures de las pruebas son respuestas **reales** de ESPN adelgazadas, y viven **en el repo** (`backend/tests/datos/`, `frontend/tests/ui/datos/`): en una carpeta temporal la prueba pasa en local y CI no encuentra el archivo.
 
+## El cron vive en la BASE, no en GitHub (migración `database/79_cron_en_la_base.sql`)
+- **Medido, y por eso se movió**: `sync-live-scores.yml` decía `*/5` y las últimas 100 corridas dieron **100 en 327 h — 2.5% de la cobertura esperada**, arrastrándose desde el 26 de agosto. El recordatorio de 45 min, ~8%. El resumen «de las 6 am» se vio corriendo a las 15:05 UTC. GitHub no garantiza la puntualidad de `schedule` y no hay nada que ajustar de nuestro lado.
+- El síntoma que lo destapó: un partido **en curso** mostraba «PROGRAMADO». ESPN ya lo tenía en vivo; nosotros no lo habíamos escrito.
+- Ahora lo dispara **pg_cron**: `sync-en-vivo` cada minuto, `recordatorio-saque` cada 15, `resumen-diario` a las 12:00 UTC (6 am de Costa Rica, que es UTC-6 todo el año).
+- **Solo llama si hay algo que hacer, y «algo» incluye que el torneo TENGA QUINIELA.** Medido: LaLiga y Premier tienen 10 partidos cada una en las próximas dos semanas y **ninguna quiniela** — sin ese filtro estaríamos llamando a ESPN por torneos que nadie juega. Es el mismo criterio que ya usaba `sync_all_espn_tournaments`.
+- **El secreto va en Vault, cifrado, no en una tabla.** Una tabla plana la lee cualquiera con acceso a la base, y ese secreto abre endpoints que escriben. Se carga a mano (`vault.create_secret`); la migración no lo trae ni podría.
+- **Los `schedule:` de GitHub quedaron apagados, pero los archivos NO se borraron**: `workflow_dispatch` sirve para disparar a mano si la base no puede. Con los dos activos el recordatorio **se solapa y manda avisos repetidos** — es el fallo que este mismo archivo ya tenía anotado como pendiente.
+- Con pg_cron la cadencia sí es la nominal, que es justo lo que la ventana `[45, 60)` del recordatorio necesitaba para no solaparse ni dejar huecos. **Sigue pendiente** la deduplicación persistente: protege de atrasos y reintentos, que una cadencia fiable hace raros pero no imposibles.
+- `cron.schedule` con un nombre que ya existe lo **reemplaza**, así que volver a correr la migración no duplica tareas.
+
 ## Despliegue
 - **Vercel** despliega frontend Y backend juntos en cada push a `main` (root `vercel.json` → `experimentalServices`, backend `@vercel/python` bajo `/_backend`).
 - Cron de marcadores: GitHub Actions `sync-live-scores.yml` (cada ~5 min) → `POST /_backend/api/matches/sync-live`.
