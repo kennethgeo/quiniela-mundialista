@@ -33,6 +33,7 @@ const PARTIDOS = [
   partido(3, 'Hoy abierto'),
   partido(4, 'Hoy tambien'),
   partido(5, 'Hoy predicho'),
+  partido(8, 'Hoy cuarto'),
   // Jornada 2: sirve para comprobar que el filtro no deja la pantalla vacía.
   partido(6, 'Semana que viene', { matchday: 2, stage: 'Jornada 2', kickoff_at: '2026-09-16T19:00:00Z' }),
   partido(7, 'Semana que viene dos', { matchday: 2, stage: 'Jornada 2', kickoff_at: '2026-09-16T19:00:00Z' }),
@@ -78,15 +79,47 @@ const abrir = (page, extra = '') => page.goto(`/q/${LIGA}?tab=matches&j=Jornada+
 const tarjeta = (page, nombre) => page.getByText(nombre, { exact: true })
 const chip = (page, nombre) => page.getByRole('group', { name: 'Filtrar partidos' }).getByRole('button', { name: nombre })
 
-test('sin filtro se ve la jornada entera, jugados incluidos', async ({ page }) => {
+/* EL REPORTE DEL DUEÑO, dos veces: «sigo teniendo que bajar a ver los de hoy».
+   La pantalla tiene que ABRIR mostrando lo que todavía se puede predecir. Un
+   filtro que hay que ir a buscar no resuelve eso. */
+test('abre sin los partidos ya jugados', async ({ page }) => {
   await abrir(page)
   await expect(tarjeta(page, 'Hoy abierto')).toBeVisible({ timeout: 15000 })
+  await expect(tarjeta(page, 'Jugado uno')).toHaveCount(0)
+  await expect(tarjeta(page, 'Jugado dos')).toHaveCount(0)
+})
+
+test('«Todos» trae de vuelta los jugados, y la elección no se deshace sola', async ({ page }) => {
+  await abrir(page)
+  await expect(tarjeta(page, 'Hoy abierto')).toBeVisible({ timeout: 15000 })
+
+  await chip(page, /^Todos/).click()
   await expect(tarjeta(page, 'Jugado uno')).toBeVisible()
+
+  /* Si «Todos» no se guardara —borrando el parámetro en vez de escribirlo—,
+     al volver de un partido la pantalla volvería a filtrar sola y los jugados
+     desaparecerían otra vez. */
+  await page.goto(`/match/${uuid(3)}`)
+  await page.waitForTimeout(500)
+  await page.goBack()
+  await expect(tarjeta(page, 'Jugado uno')).toBeVisible({ timeout: 15000 })
+})
+
+/* El calendario es un botón que se usa una vez por torneo y estaba empujando
+   los partidos fuera de pantalla — parte del mismo problema. */
+test('el calendario va DEBAJO de la lista, no encima', async ({ page }) => {
+  await abrir(page)
+  const primera = tarjeta(page, 'Hoy abierto')
+  await expect(primera).toBeVisible({ timeout: 15000 })
+  const calendario = page.getByText('Llevar partidos a mi calendario')
+  await expect(calendario).toBeVisible()
+  const [a, b] = [await primera.boundingBox(), await calendario.boundingBox()]
+  expect(b.y).toBeGreaterThan(a.y)
 })
 
 test('«Hoy» esconde lo ya jugado y deja solo los de hoy', async ({ page }) => {
   await abrir(page)
-  await expect(tarjeta(page, 'Jugado uno')).toBeVisible({ timeout: 15000 })
+  await expect(tarjeta(page, 'Hoy abierto')).toBeVisible({ timeout: 15000 })
 
   await chip(page, /^Hoy/).click()
 
@@ -100,7 +133,7 @@ test('«Hoy» esconde lo ya jugado y deja solo los de hoy', async ({ page }) => 
 
 test('«Por predecir» deja solo lo que falta, sin lo ya predicho', async ({ page }) => {
   await abrir(page)
-  await expect(tarjeta(page, 'Jugado uno')).toBeVisible({ timeout: 15000 })
+  await expect(tarjeta(page, 'Hoy abierto')).toBeVisible({ timeout: 15000 })
 
   await chip(page, /^Por predecir/).click()
 
@@ -112,25 +145,27 @@ test('«Por predecir» deja solo lo que falta, sin lo ya predicho', async ({ pag
 
 test('el chip lleva la cuenta de lo que deja ver', async ({ page }) => {
   await abrir(page)
-  // 5 en la jornada, 3 hoy, 2 por predecir (el quinto ya tiene marcador puesto).
-  await expect(chip(page, /^Todos/)).toContainText('5', { timeout: 15000 })
-  await expect(chip(page, /^Hoy/)).toContainText('3')
-  await expect(chip(page, /^Por predecir/)).toContainText('2')
+  // La cuenta es SIEMPRE de la jornada entera, no de lo que dejó el filtro:
+  // si no, «Todos» diría 3 estando filtrado y no habría manera de saber qué
+  // se está escondiendo.
+  await expect(chip(page, /^Todos/)).toContainText('6', { timeout: 15000 })
+  await expect(chip(page, /^Hoy/)).toContainText('4')
+  await expect(chip(page, /^Por predecir/)).toContainText('3')
 })
 
 test('el filtro sobrevive al entrar a un partido y volver', async ({ page }) => {
   await abrir(page)
-  await expect(tarjeta(page, 'Jugado uno')).toBeVisible({ timeout: 15000 })
-  await chip(page, /^Hoy/).click()
-  await expect(tarjeta(page, 'Jugado uno')).toHaveCount(0)
+  await expect(tarjeta(page, 'Hoy abierto')).toBeVisible({ timeout: 15000 })
+  await chip(page, /^Por predecir/).click()
+  await expect(tarjeta(page, 'Hoy predicho')).toHaveCount(0)
 
   await page.goto(`/match/${uuid(3)}`)
   await page.waitForTimeout(500)
   await page.goBack()
 
-  // Si el filtro viviera en useState, acá volverían a verse los terminados.
+  // Si el filtro viviera en useState, acá volvería a verse el ya predicho.
   await expect(tarjeta(page, 'Hoy abierto')).toBeVisible({ timeout: 15000 })
-  await expect(tarjeta(page, 'Jugado uno')).toHaveCount(0)
+  await expect(tarjeta(page, 'Hoy predicho')).toHaveCount(0)
 })
 
 /* El callejón sin salida: un filtro guardado que en otra jornada no tiene
@@ -144,3 +179,32 @@ test('un filtro sin partidos en esa jornada no deja la pantalla vacía', async (
   // Y el chip de «Hoy» ni se ofrece, porque ahí no hay nada hoy.
   await expect(chip(page, /^Hoy/)).toHaveCount(0)
 })
+
+/* La tarjeta de «hoy» era el bloque más alto de la pantalla: con los partidos
+   de una jornada de Champions empujaba el primer partido predecible fuera de
+   la vista. El encabezado se sigue viendo; la lista de horas se pide. */
+test('con muchos partidos hoy, la lista de horas viene plegada', async ({ page }) => {
+  await abrir(page)
+  await expect(page.getByText('Hoy se juegan 4')).toBeVisible({ timeout: 15000 })
+
+  const ver = page.getByRole('button', { name: /VER HORAS/ })
+  await expect(ver).toBeVisible()
+  // La hora solo aparece dentro de la tarjeta, no en las tarjetas de partido.
+  await expect(page.getByText('1:00 pm').first()).toBeHidden()
+
+  await ver.click()
+  await expect(page.getByText('1:00 pm').first()).toBeVisible()
+  // Compartir con el grupo sigue a un toque, plegada o no.
+  await expect(page.getByRole('button', { name: /COMPARTIR/ })).toBeVisible()
+})
+
+test('lo primero que se ve es un partido que se puede predecir', async ({ page }) => {
+  await abrir(page)
+  const primera = page.getByRole('button', { name: /Guardar predicción/ }).first()
+  await expect(primera).toBeVisible({ timeout: 15000 })
+  const caja = await primera.boundingBox()
+  const alto = page.viewportSize().height
+  // Sin bajar: el botón de guardar entra en la primera pantalla.
+  expect(caja.y + caja.height).toBeLessThanOrEqual(alto)
+})
+

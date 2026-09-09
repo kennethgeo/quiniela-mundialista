@@ -11,7 +11,7 @@ import { useToast } from '../components/ui/Toast'
 import { friendlySaveError } from '../lib/saveError'
 import { llaveDeCupo } from '../lib/powerups'
 import { kickoffDate } from '../lib/matchStatus'
-import { FILTRO_TODOS, aplicarFiltro, contarFiltros, filtroEfectivo } from '../lib/filtroPartidos'
+import { aplicarFiltro, contarFiltros, filtroEfectivo } from '../lib/filtroPartidos'
 import { fetchCuposPorJornada, fetchMyGroups, fetchGroupStandings, fetchTeamStandings, acceptGroupRules, setGroupRules, setGroupScoring, deleteGroup, proposeRuleChange, castRuleVote, cancelRuleProposal, fetchLeagueProposals, fetchMyPowerupCredits, setGroupExtras } from '../lib/groups'
 import { initialsDataUri, crestOnError } from '../lib/teamLogo'
 import { enlaceDeInvitacion } from '../lib/invitacion'
@@ -267,10 +267,15 @@ export default function GroupPage() {
      Se aplica DENTRO de la jornada, no sobre el torneo: en la Champions las 8
      jornadas se publican de una, así que un «por predecir» de todo el torneo
      devolvería 126 partidos — más de los que ya hay que bajar. */
-  const filtroSel = searchParams.get('f') || FILTRO_TODOS
+  /* Sin `f` en la URL significa «no elegiste», que NO es lo mismo que «Todos»:
+     ahí manda `filtroInicial`, que abre en «Por jugar» para que lo primero que
+     se vea sea lo que todavía se puede predecir. Por eso al elegir «Todos» se
+     escribe `f=todos` explícito en vez de borrar el parámetro — si no, tu
+     elección se perdería y la pantalla volvería a filtrar sola. */
+  const filtroSel = searchParams.get('f')
   const setFiltroSel = (nuevo) => {
     const p = new URLSearchParams(searchParams)
-    if (nuevo && nuevo !== FILTRO_TODOS) p.set('f', nuevo); else p.delete('f')
+    p.set('f', nuevo)
     setSearchParams(p, { replace: true })
   }
   const conteosFiltro = useMemo(
@@ -434,10 +439,6 @@ export default function GroupPage() {
                 con 0 partidos no se dibujan, así que nunca lleva a una lista
                 vacía. */}
             <FiltroPartidos valor={filtroAplicado} conteos={conteosFiltro} onChange={setFiltroSel} />
-            {/* El calendario exporta LA JORNADA, no lo que dejó el filtro: el
-                selector dice «Jornada 1» y mandarle un subconjunto sería
-                exportar menos de lo que promete. */}
-            <ExportarCalendario matches={resolved} shownMatches={deLaJornada} group={group} jornada={jornadaSel} />
             <MatchList
               matches={shownMatches}
               predictions={predictions}
@@ -449,6 +450,22 @@ export default function GroupPage() {
               powerupCredits={powerupCredits}
               onPredecirJornada={setJornadaRapida}
             />
+            {/* Debajo de la lista, no encima: es un botón que se usa una vez
+                por torneo y estaba empujando los partidos fuera de pantalla,
+                que es justo lo que había que arreglar.
+
+                Exporta LA JORNADA, no lo que dejó el filtro: el selector dice
+                «Jornada 1» y mandarle un subconjunto sería exportar menos de
+                lo que promete. */}
+            <ExportarCalendario matches={resolved} shownMatches={deLaJornada} group={group} jornada={jornadaSel} />
+            {/* Aire al final del scroll. Vivía dentro de MatchList y al bajar
+                el calendario quedaba EN MEDIO: 128 px de hueco entre el último
+                partido y el botón. Va al final, que es lo que siempre quiso
+                ser. (El comentario que traía decía que era para que el
+                BottomNav no tapara el último partido; no es cierto — la barra
+                es `flex-none` al final de la columna y `main` scrollea por
+                dentro, así que nunca se superpone.) */}
+            <div className="h-32 w-full shrink-0 md:hidden pointer-events-none" />
           </>
         )
       )}

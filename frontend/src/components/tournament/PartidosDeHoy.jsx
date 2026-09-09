@@ -14,17 +14,26 @@
    No incluye predicciones ni marcadores a propósito: esto circula por WhatsApp
    antes de que se juegue nada y no debería filtrar justo lo que la app protege
    con RLS. */
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useId } from 'react'
 import { motion } from 'motion/react'
-import { CalendarClock, Share2, Copy, Check, Loader2 } from 'lucide-react'
+import { CalendarClock, Share2, Copy, Check, Loader2, ChevronDown } from 'lucide-react'
 import { partidosDeHoy, horaCostaRica, textoParaWhatsApp } from '../../lib/partidosDelDia'
 import { renderPartidosDeHoyCard, compartirImagen } from '../../lib/shareCard'
 import MatchStatusBadge from '../ui/MatchStatusBadge'
+
+/* A partir de acá la lista se pliega sola. Con 3 partidos la tarjeta ocupa un
+   tercio de pantalla; con los 9 de una jornada de Champions empuja el primer
+   partido predecible fuera de la vista, que es justo lo que hay que evitar.
+   El encabezado —cuántos son y el botón de compartir— se ve siempre. */
+const CUANTOS_SIN_PLEGAR = 3
 
 export default function PartidosDeHoy({ matches = [], nombreQuiniela = '' }) {
   const [copiado, setCopiado] = useState(false)
   const [generando, setGenerando] = useState(false)
   const hoy = useMemo(() => partidosDeHoy(matches), [matches])
+  const [abierta, setAbierta] = useState(null)
+  const idLista = useId()
+  const desplegada = abierta ?? hoy.length <= CUANTOS_SIN_PLEGAR
 
   // Sin partidos hoy no se ocupa la tarjeta: el hub ya está bastante cargado.
   if (hoy.length === 0) return null
@@ -87,8 +96,16 @@ export default function PartidosDeHoy({ matches = [], nombreQuiniela = '' }) {
         <h3 className="font-bold font-['Archivo'] text-[13px] text-slate-900 dark:text-[#F3F1EA]">
           {hoy.length === 1 ? 'Hoy se juega' : `Hoy se juegan ${hoy.length}`}
         </h3>
+        {hoy.length > CUANTOS_SIN_PLEGAR && (
+          <button type="button" onClick={() => setAbierta(!desplegada)}
+            aria-expanded={desplegada} aria-controls={idLista}
+            className="ml-auto flex items-center gap-1 font-['JetBrains_Mono'] font-bold text-[9px] px-2 py-1 rounded-[20px] text-[var(--text-muted,#8A8A8A)]">
+            {desplegada ? 'OCULTAR' : 'VER HORAS'}
+            <ChevronDown size={10} className={desplegada ? 'rotate-180 transition-transform' : 'transition-transform'} />
+          </button>
+        )}
         <motion.button whileTap={{ scale: 0.94 }} onClick={compartir} disabled={generando}
-          className="ml-auto flex items-center gap-1 font-['JetBrains_Mono'] font-bold text-[9px] px-2 py-1 rounded-[20px] text-accent disabled:opacity-60"
+          className={`${hoy.length > CUANTOS_SIN_PLEGAR ? '' : 'ml-auto '}flex items-center gap-1 font-['JetBrains_Mono'] font-bold text-[9px] px-2 py-1 rounded-[20px] text-accent disabled:opacity-60`}
           style={{ background: 'rgba(46,211,183,.12)' }}
           title="Mandar la imagen de los partidos de hoy al grupo">
           {generando ? <Loader2 size={10} className="animate-spin" />
@@ -98,7 +115,7 @@ export default function PartidosDeHoy({ matches = [], nombreQuiniela = '' }) {
         </motion.button>
       </div>
 
-      <div className="space-y-0.5">
+      <div className="space-y-0.5" id={idLista} hidden={!desplegada}>
         {hoy.map((m) => (
           <div key={m.id} className="flex items-center gap-2 py-1">
             <span className="font-['JetBrains_Mono'] text-[10.5px] text-[var(--text-muted,#8A8A8A)] w-[62px] shrink-0">

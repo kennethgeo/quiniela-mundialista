@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
-  FILTRO_TODOS, FILTROS, aplicarFiltro, contarFiltros, filtroEfectivo,
+  FILTRO_TODOS, FILTROS, aplicarFiltro, contarFiltros, filtroEfectivo, filtroInicial,
 } from './filtroPartidos'
 
 /* AHORA fijo: si la prueba dependiera del reloj, «hoy» cambiaría de resultado
@@ -85,11 +85,50 @@ describe('contarFiltros', () => {
   })
 })
 
+describe('filtroInicial', () => {
+  /* Lo que el dueño reportó DOS VECES: «sigo teniendo que bajar a ver los de
+     hoy». En la jornada 1 de la Champions los 12 ya jugados van antes que los
+     6 de hoy, así que abrir sin filtrar deja fuera de pantalla lo único sobre
+     lo que se puede actuar. */
+  it('abre en «Por jugar» cuando la jornada arrastra partidos terminados', () => {
+    expect(filtroInicial(contarFiltros(TODOS, OPCIONES))).toBe('porjugar')
+  })
+
+  it('abre en «Todos» si no hay nada terminado: filtrar no ahorraría nada', () => {
+    const sinJugar = TODOS.filter((m) => m.status !== 'finished')
+    expect(filtroInicial(contarFiltros(sinJugar, OPCIONES))).toBe(FILTRO_TODOS)
+  })
+
+  /* Una jornada ya cerrada: «Por jugar» daría CERO partidos. Abrir en una
+     lista vacía sería peor que no filtrar. */
+  it('abre en «Todos» en una jornada enteramente jugada', () => {
+    const jugados = TODOS.map((m) => ({ ...m, status: 'finished' }))
+    expect(filtroInicial(contarFiltros(jugados, OPCIONES))).toBe(FILTRO_TODOS)
+  })
+
+  it('sin conteos no revienta', () => {
+    expect(filtroInicial()).toBe(FILTRO_TODOS)
+  })
+})
+
 describe('filtroEfectivo', () => {
   const conteos = contarFiltros(TODOS, OPCIONES)
 
   it('respeta el filtro elegido cuando tiene partidos', () => {
     expect(filtroEfectivo('hoy', conteos)).toBe('hoy')
+  })
+
+  /* «No elegiste» y «elegiste Todos» son estados DISTINTOS y confundirlos
+     rompe las dos mitades: si «no elegiste» diera Todos, la pantalla nunca
+     abriría filtrada; si «Todos» no se respetara, tu elección se perdería y
+     volvería a filtrar sola. */
+  it('sin filtro elegido usa el inicial, no «Todos»', () => {
+    expect(filtroEfectivo(null, conteos)).toBe('porjugar')
+    expect(filtroEfectivo(undefined, conteos)).toBe('porjugar')
+  })
+
+  it('«Todos» elegido a mano se respeta aunque el inicial sea otro', () => {
+    expect(filtroEfectivo(FILTRO_TODOS, conteos)).toBe(FILTRO_TODOS)
   })
 
   /* Lo que evita la pantalla en blanco: elegiste «Hoy» en la jornada 1 y te
@@ -98,8 +137,7 @@ describe('filtroEfectivo', () => {
     expect(filtroEfectivo('hoy', { todos: 3, pendientes: 0, hoy: 0, porjugar: 3 })).toBe(FILTRO_TODOS)
   })
 
-  it('un filtro que no existe cae a «todos»', () => {
-    expect(filtroEfectivo('inventado', conteos)).toBe(FILTRO_TODOS)
-    expect(filtroEfectivo(null, conteos)).toBe(FILTRO_TODOS)
+  it('un filtro que no existe se trata como no elegido', () => {
+    expect(filtroEfectivo('inventado', conteos)).toBe(filtroInicial(conteos))
   })
 })

@@ -75,12 +75,39 @@ export function contarFiltros(matches = [], opciones = {}) {
   return conteos
 }
 
+/* Con qué filtro ABRE la pantalla cuando no elegiste ninguno.
+
+   «Por jugar», no «Todos»: en la jornada 1 de la Champions los 12 partidos ya
+   jugados van ANTES que los 6 de hoy, así que abrir sin filtrar deja lo único
+   sobre lo que se puede actuar fuera de pantalla. Un filtro que hay que ir a
+   buscar no resuelve eso — lo hace resoluble, que no es lo mismo.
+
+   Se elige «Por jugar» y no «Por predecir» a propósito: no depende de lo que
+   hayas predicho, así que la pantalla no cambia de forma según cómo vas. Y no
+   esconde nada que se pueda hacer — un partido en curso también entra.
+
+   Cuando no hay nada terminado, filtrar no ahorra un solo píxel: ahí abre en
+   «Todos», que además es lo correcto en una jornada ya cerrada — mostrar cero
+   partidos porque no queda nada por jugar sería absurdo. */
+export function filtroInicial(conteos = {}) {
+  const todos = conteos[FILTRO_TODOS] || 0
+  const porJugar = conteos.porjugar || 0
+  if (porJugar === 0 || porJugar === todos) return FILTRO_TODOS
+  return 'porjugar'
+}
+
 /* El filtro que se aplica DE VERDAD. Se deriva, no se guarda: al cambiar de
    jornada el filtro elegido puede quedarse sin partidos (elegiste «Hoy» en la
    jornada 1 y te pasás a la 5), y ahí vale más enseñar la jornada entera que
-   una lista vacía. */
+   una lista vacía.
+
+   `filtro` nulo significa «no elegiste», no «Todos»: son distintos y
+   confundirlos rompe las dos mitades. Si «no elegiste» diera «Todos», la
+   pantalla nunca abriría filtrada; si elegir «Todos» no se guardara, tu propia
+   elección se perdería y volvería a filtrar sola. Por eso la URL guarda
+   `f=todos` explícito. */
 export function filtroEfectivo(filtro, conteos = {}) {
-  if (!filtro || !IDS_FILTRO.includes(filtro)) return FILTRO_TODOS
+  if (!filtro || !IDS_FILTRO.includes(filtro)) return filtroInicial(conteos)
   if (filtro === FILTRO_TODOS) return FILTRO_TODOS
   return conteos[filtro] > 0 ? filtro : FILTRO_TODOS
 }
