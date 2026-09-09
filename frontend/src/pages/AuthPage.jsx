@@ -4,6 +4,7 @@ import { Navigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../lib/supabase'
 import { TicoLogo, TicoWordmark, authStyles as S } from '../components/auth/TicoBrand'
+import { mensajeDeFallo } from '../lib/loginResiliente'
 
 // Escala el marco de 320px al ancho del viewport (tope 1.5×).
 function useScale() {
@@ -71,7 +72,7 @@ function LoginBody({ signIn, restablecerSesionLocal, confirmationMessage, toRegi
     setError(''); setAtascado(false); setLoading(true)
     try { await signIn(email, password) }
     catch (err) {
-      setError(err.message === 'Invalid login credentials' ? 'Credenciales inválidas. Revisá tu correo y contraseña.' : err.message)
+      setError(mensajeDeFallo(err))
       // Solo cuando venció el plazo ofrecemos limpiar: si las credenciales
       // están mal, borrar la sesión local no arregla nada y confunde.
       if (err.recuperable) setAtascado(true)

@@ -56,6 +56,40 @@ export function describirFallo(err) {
   return err.name ? `error:${err.name}` : 'desconocido'
 }
 
+/* Qué se le enseña a la persona, por categoría.
+
+   La pantalla mostraba `err.message` tal cual salvo que fuera EXACTAMENTE
+   'Invalid login credentials'. Todo lo demás llegaba crudo y en inglés: el
+   dueño reportó una alerta que decía «Network request failed», que no le dice
+   a nadie qué hacer y encima apunta al lado equivocado — parece que la app
+   está caída cuando puede ser el wifi del teléfono.
+
+   La comparación exacta era frágil por sí sola: basta que Supabase cambie una
+   mayúscula para que el mensaje en español deje de salir y vuelva el inglés.
+   `describirFallo` ya clasificaba bien estos casos; solo que nadie usaba esa
+   clasificación para hablarle a la persona. */
+const MENSAJES = {
+  credenciales: 'Credenciales inválidas. Revisá tu correo y contraseña.',
+  'correo-sin-confirmar': 'Falta confirmar tu correo. Buscá el enlace que te enviamos al registrarte.',
+  red: 'No pudimos conectar. Revisá tu internet y probá de nuevo.',
+  'tiempo-agotado': 'La conexión está tardando demasiado. Revisá tu internet y probá de nuevo.',
+}
+
+export function mensajeDeFallo(err) {
+  /* Un error nuestro ya viene redactado en español (el del plazo vencido, que
+     además trae el botón de rescate). No hay que volver a traducirlo. */
+  if (err?.recuperable && err?.message) return err.message
+
+  const categoria = describirFallo(err)
+  if (MENSAJES[categoria]) return MENSAJES[categoria]
+
+  /* Un caso que no conocemos NO se traga en silencio —una pantalla que no
+     explica nada es la que hace imposible diagnosticar— pero tampoco se
+     escupe el mensaje crudo del servidor: se enseña la CATEGORÍA, que es lo
+     mismo que guardan los logs y no lleva correo, contraseña ni token. */
+  return `No pudimos iniciar sesión (${categoria}). Probá de nuevo en un momento.`
+}
+
 /**
  * Deja constancia de cómo fue un intento de login, sin datos personales.
  * Solo la categoría y cuánto tardó: con eso alcanza para saber si la gente se
