@@ -136,6 +136,12 @@ function LoginBody({ signIn, entrarConGoogle, restablecerSesionLocal, confirmati
             }}>
             <LogoGoogle /> Entrar con Google
           </button>
+          {/* El enlace con una cuenta que ya existe es POR CORREO, no por
+              persona: Supabase junta las identidades que comparten correo.
+              Quien entre con un Google de otra dirección cae en una cuenta
+              nueva y vacía —sin sus quinielas ni sus puntos— y va a creer que
+              perdió todo. Medido: 3 de los 26 se registraron con hotmail. */}
+          <div style={S.sub}>Usá el mismo correo con el que te registraste.</div>
         </>
       )}
       {atascado && (

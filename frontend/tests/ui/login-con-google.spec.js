@@ -79,3 +79,12 @@ test('el botón manda a Google, no a otro lado', async ({ page }) => {
   await expect.poll(() => destinos.length, { timeout: 10000 }).toBeGreaterThan(0)
   expect(destinos[0]).toContain('provider=google')
 })
+
+/* El enlace con una cuenta existente es POR CORREO. Quien entre con un Google
+   de otra dirección cae en una cuenta nueva y vacía y va a creer que perdió
+   sus quinielas. Medido el 9 sep 2026: 23 de 26 usan gmail, pero 3 usan
+   hotmail, así que el caso no es hipotético. */
+test('se avisa que hay que usar el mismo correo', async ({ page }) => {
+  await abrirLogin(page, { google: true })
+  await expect(page.getByText(/mismo correo con el que te registraste/i)).toBeVisible()
+})
