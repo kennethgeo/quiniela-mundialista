@@ -46,6 +46,31 @@ export function AuthProvider({ children }) {
     return data
   }
 
+  /* Entrar con Google.
+
+     No devuelve sesión: manda el navegador a Google y la app se recarga al
+     volver. La sesión la recoge `detectSessionInUrl` (que viene encendido por
+     defecto — comprobado en el paquete instalado, no en la documentación) y
+     `onAuthStateChange` la aplica, igual que cualquier otra.
+
+     NO se toca `flowType`. Viene en 'implicit' y así funciona; pasarlo a
+     'pkce' cambiaría también el formato del enlace de recuperar contraseña,
+     que la pantalla /reset-password lee como está hoy. Arreglar el login
+     rompiendo el restablecimiento no es un arreglo.
+
+     A quien YA tiene cuenta con ese mismo correo no se le crea una segunda:
+     Supabase enlaza las identidades con el mismo correo a un solo usuario,
+     siempre que el correo esté verificado — y los 26 de esta app lo están. Sin
+     eso, entrar con Google dejaría a alguien en una cuenta nueva y vacía, sin
+     sus quinielas ni sus puntos. */
+  const entrarConGoogle = async () => {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: `${window.location.origin}/` },
+    })
+    if (error) throw error
+  }
+
   /**
    * Inicia sesión con email y contraseña, con tiempo límite.
    *
@@ -224,6 +249,7 @@ export function AuthProvider({ children }) {
     profile,
     loading,
     signUp,
+    entrarConGoogle,
     signIn,
     signOut,
     restablecerSesionLocal,
