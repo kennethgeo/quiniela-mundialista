@@ -11,6 +11,7 @@ import { useToast } from '../components/ui/Toast'
 import { friendlySaveError } from '../lib/saveError'
 import { llaveDeCupo } from '../lib/powerups'
 import { kickoffDate } from '../lib/matchStatus'
+import { aplicarFiltro, contarFiltros, filtroEfectivo } from '../lib/filtroPartidos'
 import { fetchCuposPorJornada, fetchMyGroups, fetchGroupStandings, fetchTeamStandings, acceptGroupRules, setGroupRules, setGroupScoring, deleteGroup, proposeRuleChange, castRuleVote, cancelRuleProposal, fetchLeagueProposals, fetchMyPowerupCredits, setGroupExtras } from '../lib/groups'
 import { initialsDataUri, crestOnError } from '../lib/teamLogo'
 import { enlaceDeInvitacion } from '../lib/invitacion'
@@ -31,6 +32,7 @@ import PozoYPagos from '../components/tournament/PozoYPagos'
 import MiembrosYAdmins from '../components/tournament/MiembrosYAdmins'
 import JornadasYRachas from '../components/tournament/JornadasYRachas'
 import PredecirJornada from '../components/matches/PredecirJornada'
+import FiltroPartidos from '../components/matches/FiltroPartidos'
 import PartidosDeHoy from '../components/tournament/PartidosDeHoy'
 import PanelAdminQuiniela from '../components/tournament/PanelAdminQuiniela'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
@@ -253,9 +255,39 @@ export default function GroupPage() {
     chipActivo.current.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' })
   }, [jornadaSel, tab])
 
-  const shownMatches = useMemo(
+  const deLaJornada = useMemo(
     () => (jornadaSel && jornadaSel !== '__all__' ? resolved.filter((m) => jornadaKeyOf(m) === jornadaSel) : resolved),
     [resolved, jornadaSel],
+  )
+
+  /* Filtro dentro de la jornada (por predecir / hoy / por jugar). Vive en la
+     URL por lo mismo que la pestaña y la jornada: al entrar a un partido esta
+     pantalla se desmonta, y con useState al volver atrás se perdía.
+
+     Se aplica DENTRO de la jornada, no sobre el torneo: en la Champions las 8
+     jornadas se publican de una, así que un «por predecir» de todo el torneo
+     devolvería 126 partidos — más de los que ya hay que bajar. */
+  /* Sin `f` en la URL significa «no elegiste», que NO es lo mismo que «Todos»:
+     ahí manda `filtroInicial`, que abre en «Por jugar» para que lo primero que
+     se vea sea lo que todavía se puede predecir. Por eso al elegir «Todos» se
+     escribe `f=todos` explícito en vez de borrar el parámetro — si no, tu
+     elección se perdería y la pantalla volvería a filtrar sola. */
+  const filtroSel = searchParams.get('f')
+  const setFiltroSel = (nuevo) => {
+    const p = new URLSearchParams(searchParams)
+    p.set('f', nuevo)
+    setSearchParams(p, { replace: true })
+  }
+  const conteosFiltro = useMemo(
+    () => contarFiltros(deLaJornada, { predictions }),
+    [deLaJornada, predictions],
+  )
+  // Derivado, no guardado: al cambiar de jornada el filtro elegido puede
+  // quedarse sin partidos, y ahí vale más la jornada entera que una lista vacía.
+  const filtroAplicado = filtroEfectivo(filtroSel, conteosFiltro)
+  const shownMatches = useMemo(
+    () => aplicarFiltro(filtroAplicado, deLaJornada, { predictions }),
+    [filtroAplicado, deLaJornada, predictions],
   )
 
   if (lg) return <LoadingSpinner />
@@ -403,7 +435,10 @@ export default function GroupPage() {
                 ))}
               </div>
             )}
-            <ExportarCalendario matches={resolved} shownMatches={shownMatches} group={group} jornada={jornadaSel} />
+            {/* Afina la jornada: «Por predecir», «Hoy», «Por jugar». Los chips
+                con 0 partidos no se dibujan, así que nunca lleva a una lista
+                vacía. */}
+            <FiltroPartidos valor={filtroAplicado} conteos={conteosFiltro} onChange={setFiltroSel} />
             <MatchList
               matches={shownMatches}
               predictions={predictions}
@@ -415,6 +450,22 @@ export default function GroupPage() {
               powerupCredits={powerupCredits}
               onPredecirJornada={setJornadaRapida}
             />
+            {/* Debajo de la lista, no encima: es un botón que se usa una vez
+                por torneo y estaba empujando los partidos fuera de pantalla,
+                que es justo lo que había que arreglar.
+
+                Exporta LA JORNADA, no lo que dejó el filtro: el selector dice
+                «Jornada 1» y mandarle un subconjunto sería exportar menos de
+                lo que promete. */}
+            <ExportarCalendario matches={resolved} shownMatches={deLaJornada} group={group} jornada={jornadaSel} />
+            {/* Aire al final del scroll. Vivía dentro de MatchList y al bajar
+                el calendario quedaba EN MEDIO: 128 px de hueco entre el último
+                partido y el botón. Va al final, que es lo que siempre quiso
+                ser. (El comentario que traía decía que era para que el
+                BottomNav no tapara el último partido; no es cierto — la barra
+                es `flex-none` al final de la columna y `main` scrollea por
+                dentro, así que nunca se superpone.) */}
+            <div className="h-32 w-full shrink-0 md:hidden pointer-events-none" />
           </>
         )
       )}

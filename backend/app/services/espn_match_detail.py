@@ -23,6 +23,22 @@ import httpx
 
 ESPN_BASE = "https://site.api.espn.com/apis/site/v2/sports/soccer"
 
+# NADA DE `lang=es&region=es`, aunque la app esté en español.
+#
+# Medido el 9 sep 2026 sobre Barcelona–Feyenoord y Stuttgart–Viking, a 28
+# minutos del saque y con el once ya publicado: la MISMA petición devuelve
+#   sin lang  -> 11 titulares y formación 4-3-3 en los dos equipos
+#   lang=es   -> 0 titulares y formación None
+# O sea que la edición en español no trae la alineación. Con el parámetro
+# puesto, `_alineaciones` descartaba los dos equipos —hace bien: sin once no
+# hay nada que mostrar— y el panel decía «todavía no se publicaron» para
+# siempre. Nunca llegó a enseñar una alineación.
+#
+# Lo único que se pierde son las etiquetas: `gameResult` pasa a venir en
+# inglés (W/L/D). Se traduce en `_forma`, que es donde ya estaba la regla de
+# no fiarse del idioma de la fuente.
+PARAMS_ESPN: dict = {}
+
 # Cuánto vale una respuesta antes de volver a pedirla. Un partido en curso
 # cambia todo el tiempo; uno terminado ya no cambia nunca.
 TTL_EN_CURSO = 60
@@ -112,6 +128,14 @@ def _estadisticas(summary: dict) -> Optional[list]:
     return salida or None
 
 
+# ESPN escribe el resultado en el idioma de la respuesta: W/L/D en inglés,
+# G/P/E en español. Se normaliza acá, por lo mismo que las etiquetas de las
+# estadísticas: la pantalla no puede depender de qué idioma devolvió la fuente
+# —pinta un punto gris para lo que no reconoce— y el idioma es justo lo que
+# cambió al dejar de pedir la edición en español.
+_RESULTADO = {"W": "G", "L": "P", "D": "E", "G": "G", "P": "P", "E": "E"}
+
+
 def _forma(summary: dict) -> Optional[list]:
     salida = []
     for t in summary.get("lastFiveGames") or []:
@@ -122,8 +146,8 @@ def _forma(summary: dict) -> Optional[list]:
                 "rival": (e.get("opponent") or {}).get("abbreviation")
                          or (e.get("opponent") or {}).get("displayName"),
                 "marcador": e.get("score"),
-                # G / P / E tal como los manda ESPN.
-                "resultado": e.get("gameResult"),
+                # Siempre G / P / E, venga como venga (ver _RESULTADO).
+                "resultado": _RESULTADO.get(e.get("gameResult")),
                 "torneo": e.get("leagueAbbreviation"),
             })
         if partidos:
@@ -189,7 +213,7 @@ async def traer_detalle(liga: str, external_id: str) -> dict:
     async with httpx.AsyncClient(timeout=15.0) as client:
         r = await client.get(
             f"{ESPN_BASE}/{liga}/summary",
-            params={"event": external_id, "lang": "es", "region": "es"},
+            params={"event": external_id, **PARAMS_ESPN},
         )
         r.raise_for_status()
         return recortar(r.json())
