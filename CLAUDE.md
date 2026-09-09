@@ -172,6 +172,19 @@ Son **dos números distintos a propósito** y confundirlos es el error fácil:
 - La jornada por defecto **ya elegía bien** la primera con partidos por jugar. Lo que faltaba era que la fila de chips se **desplazara** hasta ella: en un torneo de 8 jornadas, la activa quedaba fuera de pantalla. Lo hace `scrollIntoView` con **`block: 'nearest'`** — sin eso también mueve la página verticalmente y te deja a media pantalla.
 - **Una prueba de navegación que solo mira los query params NO sirve**: la URL conserva los parámetros aunque la app los ignore, así que pasa igual con el bug puesto. Comprobado. Hay que afirmar sobre lo que se ve (que existan los chips de jornada, que solo están en «Partidos»).
 
+## Filtrar los partidos de una jornada
+- **Medido en la pantalla**: una jornada de la fase de liga de la Champions trae **18 partidos**. Los ya jugados van primero (el orden es por fecha), así que para llegar a los de hoy —los únicos sobre los que se puede hacer algo— hay que bajar por toda la lista. Con los ~5 de la liga tica no se nota; con 18 sí.
+- Tres filtros, en `lib/filtroPartidos.js` (puro y probado): **Por predecir** (abierto y todavía sin marcador puesto), **Hoy** y **Por jugar** (todo lo que no terminó, en curso incluidos). Más «Todos», que es el estado por defecto: **no se cambió lo que ve el grupo al entrar**, solo se agregó la manera de afinarlo.
+- **El filtro se aplica DENTRO de la jornada elegida, no sobre el torneo.** En la Champions las 8 jornadas se publican de una, así que un «por predecir» de todo el torneo devolvería ~126 partidos: más de los que ya hay que bajar. Lo que acota es la jornada; el filtro la afina. Para cruzar jornadas está el chip «Todas», que también es una selección de jornada.
+- **Ninguna combinación puede dejar la lista vacía.** Un chip con 0 partidos no se dibuja, y un filtro guardado en la URL que se queda sin nada al cambiar de jornada cae a «todos» (`filtroEfectivo`, derivado — no se guarda). Una pantalla en blanco se lee como «la app se rompió» y no da ninguna pista.
+- Cada chip lleva **su cuenta**: un filtro que esconde cosas solo se entiende si se ve cuánto esconde y cuánto había.
+- Vive en la URL (`?f=hoy`) por lo mismo que la pestaña y la jornada: al entrar a Detalles del Partido `GroupPage` se desmonta.
+- **Predicho = hay fila Y tiene marcador.** Una fila a medias no es una predicción y ese partido se sigue debiendo.
+- **El calendario exporta LA JORNADA, no lo que dejó el filtro**: su selector dice «Jornada 1» y mandarle un subconjunto sería exportar menos de lo que promete — el fallo de «guarda, dice listo y no hace lo que dice» otra vez.
+- `filtro-partidos.spec.js` abre la pantalla y afirma **qué partidos se ven**, nunca los query params (la URL los conserva aunque la app los ignore). Comprobado que cae con la pantalla ignorando el filtro, sin la caída a «todos», con el día UTC en vez del de Costa Rica, y contando una fila a medias como predicha.
+- El reloj de esa prueba va **clavado** (`page.clock.setFixedTime`): «hoy» depende de la fecha y si no cambiaría de resultado según a qué hora corra CI.
+- **`/rest/v1/users` se simula como OBJETO, no como lista**: `AuthContext` lo pide con `.single()`, y con una lista el perfil queda en null — sin perfil la app ni siquiera consulta las predicciones, así que «Por predecir» las contaba todas. Pasó al escribir esta prueba.
+
 ## Cupo de ×2 por fase (migración `database/68_cupo_por_fase.sql`)
 - La 67 dejó dos formas de fijar el cupo —número fijo y razón "1 cada N partidos"— y **ninguna deja decir "en la fase de liga tres, pero en la final uno"**. Los formatos son muy distintos: 18 partidos por jornada en la Champions, 8 en los octavos, 1 en la final.
 - `leagues.powerup_limits` es un jsonb `{"groups":3,"Octavos":2,"Final":1}`.
