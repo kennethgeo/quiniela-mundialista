@@ -52,7 +52,20 @@ test('el foco de teclado se VE sobre la tarjeta, no solo existe', async ({ page 
      fondo salía `rgba(0,0,0,0)`, el parseo lo tomaba como NEGRO: contraste ~1
      contra un contorno oscuro y la prueba caía sola bajo carga. Un falso
      positivo intermitente es peor que no tener la prueba. */
-  let m
+  /* Se espera a que el contorno DEJE DE CAMBIAR antes de medir.
+
+     El contorno del foco entra con una transición, así que leerlo en un
+     instante cualquiera devuelve un fotograma intermedio: medido bajo carga
+     salían ámbar (245,158,12) → (215,141,14) → (148,101,25) → (41,38,39)
+     antes de asentarse. Con la máquina ociosa llegaba al color final y la
+     prueba pasaba; con 4 procesos en paralelo caía 6 de 8 veces, y en CI
+     también. Es un FALSO POSITIVO —el foco está bien— y un falso positivo
+     intermitente es peor que no tener la prueba.
+
+     Lo que exige WCAG es el indicador que la persona ve, o sea el asentado.
+     Esto no ablanda la comprobación: sigue exigiendo 3:1, solo que sobre un
+     color que ya no se mueve. */
+  let m, anterior = null
   await expect.poll(async () => {
     m = await fila(page).evaluate((el) => {
       const cv = document.createElement('canvas'); cv.width = cv.height = 1
@@ -72,8 +85,11 @@ test('el foco de teclado se VE sobre la tarjeta, no solo existe', async ({ page 
       return { ancho: parseFloat(s.outlineWidth), estilo: s.outlineStyle,
                contorno: aRGB(s.outlineColor), fondo: aRGB(fondo, getComputedStyle(document.body).backgroundColor) }
     })
-    return m.estilo
-  }, { timeout: 10000 }).not.toBe('none')
+    const huella = `${m.estilo}|${m.contorno}|${m.fondo}|${m.ancho}`
+    const estable = m.estilo !== 'none' && huella === anterior
+    anterior = huella
+    return estable
+  }, { timeout: 15000, intervals: [120, 120, 200, 200, 300] }).toBe(true)
 
   const lum = ([r, g, b]) => [r, g, b]
     .map((v) => { const x = v / 255; return x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4 })
