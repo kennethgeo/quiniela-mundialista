@@ -117,3 +117,24 @@ test('el historial muestra el MARCADOR, no solo la fecha', async ({ page }) => {
   // Alguna fila con dos equipos y sus goles.
   await expect(page.locator('li').filter({ hasText: /\d{4}-\d{2}-\d{2}/ }).first()).toContainText(/\d/)
 })
+
+/* Sin historial la tarjeta DESAPARECÍA, y una tarjeta que falta se lee como
+   «esta app perdió el historial» — el mismo malentendido que ya se resolvió
+   con las alineaciones. Lo reportó el dueño en Fenerbahçe–AS Roma: comprobado
+   contra ESPN, ahí `seasonseries` viene AUSENTE del JSON porque no hay cruces
+   previos, así que no había nada que mostrar y la sección se esfumaba. */
+test('sin enfrentamientos previos se DICE, no se esconde la tarjeta', async ({ page }) => {
+  const sinHistorial = { ...PREVIA, detalle: { ...PREVIA.detalle, historial: null } }
+  await abrir(page, sinHistorial, 'pending')
+
+  await expect(page.getByRole('heading', { name: 'Entre ellos' })).toBeVisible({ timeout: 15000 })
+  await expect(page.getByText(/No hay enfrentamientos previos registrados/)).toBeVisible()
+})
+
+/* Y con historial NO puede salir el cartel de «no hay»: sería decir dos cosas
+   contrarias en la misma tarjeta. */
+test('con historial no aparece el cartel de vacío', async ({ page }) => {
+  await abrir(page, PREVIA, 'pending')
+  await expect(page.getByRole('heading', { name: 'Entre ellos' })).toBeVisible({ timeout: 15000 })
+  await expect(page.getByText(/No hay enfrentamientos previos registrados/)).toHaveCount(0)
+})
