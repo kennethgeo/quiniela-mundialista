@@ -28,6 +28,18 @@ async function abrirLogin(page, { google = false, ajustes = null } = {}) {
   await page.route('**/auth/v1/settings*', (route) => {
     if (ajustes === 'falla') return route.fulfill({ status: 500, body: '{}' })
     if (ajustes === 'cuelga') return new Promise(() => {})
+    /* El doble EXIGE la clave, como el servidor real: `/auth/v1/settings` no
+       es público y sin `apikey` responde 401 «No API key found in request».
+       Antes este doble devolvía 200 siempre, y por eso la prueba pasaba
+       mientras en producción la app recibía un 401 y el botón no aparecía
+       nunca. Un doble más permisivo que el servidor no prueba nada. */
+    const clave = route.request().headers()['apikey']
+    if (!clave) {
+      return route.fulfill({
+        status: 401, contentType: 'application/json',
+        body: '{"message":"No API key found in request"}',
+      })
+    }
     return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(AJUSTES(google)) })
   })
   await page.goto('/auth')
@@ -87,4 +99,23 @@ test('el botón manda a Google, no a otro lado', async ({ page }) => {
 test('se avisa que hay que usar el mismo correo', async ({ page }) => {
   await abrirLogin(page, { google: true })
   await expect(page.getByText(/mismo correo con el que te registraste/i)).toBeVisible()
+})
+
+/* Guardia del fallo que llegó a producción: si la app deja de mandar la clave,
+   el endpoint responde 401 y el botón desaparece aunque Google esté bien
+   configurado. Acá se comprueba que la petición LLEVA la clave. */
+test('la consulta de proveedores va firmada con la clave anónima', async ({ page }) => {
+  const claves = []
+  await sinRedExterna(page)
+  await page.route('**://pruebas.supabase.co/**', (route) =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }))
+  await page.route('**/auth/v1/settings*', (route) => {
+    claves.push(route.request().headers()['apikey'] || null)
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(AJUSTES(true)) })
+  })
+
+  await page.goto('/auth')
+  await expect(page.getByRole('button', { name: /entrar con google/i })).toBeVisible({ timeout: 10000 })
+  expect(claves.length).toBeGreaterThan(0)
+  expect(claves[0]).toBeTruthy()
 })

@@ -38,18 +38,54 @@ describe('proveedoresHabilitados', () => {
 })
 
 describe('traerProveedores', () => {
+  const CLAVE = 'anon-de-mentira'
+
   it('lee la lista del endpoint', async () => {
     const visitadas = []
-    const lista = await traerProveedores('https://x.supabase.co', {
+    const lista = await traerProveedores('https://x.supabase.co', CLAVE, {
       hacerPeticion: (u) => { visitadas.push(u); return respuesta(conGoogle()) },
     })
     expect(lista).toEqual(['google'])
     expect(visitadas).toEqual(['https://x.supabase.co/auth/v1/settings'])
   })
 
+  /* EL FALLO QUE LLEGÓ A PRODUCCIÓN. `/auth/v1/settings` NO es público: sin la
+     cabecera `apikey` responde 401 «No API key found in request». La app
+     llamaba sin clave, se quedaba con la lista vacía y el botón no aparecía
+     nunca, con Google ya configurado y todo bien del lado de Supabase.
+
+     Estas pruebas no lo veían porque el doble ignoraba las cabeceras: daba
+     200 siempre. Un doble más permisivo que el servidor real no prueba nada. */
+  it('manda la clave anónima en la cabecera apikey', async () => {
+    let opciones = null
+    await traerProveedores('https://x.supabase.co', CLAVE, {
+      hacerPeticion: (u, o) => { opciones = o; return respuesta(conGoogle()) },
+    })
+    expect(opciones?.headers?.apikey).toBe(CLAVE)
+  })
+
+  it('sin clave no llama: el endpoint la exige', async () => {
+    let llamo = false
+    const lista = await traerProveedores('https://x.supabase.co', undefined, {
+      hacerPeticion: () => { llamo = true; return respuesta(conGoogle()) },
+    })
+    expect(lista).toEqual([])
+    expect(llamo).toBe(false)
+  })
+
+  it('un 401 no se toma por respuesta válida', async () => {
+    const lista = await traerProveedores('https://x.supabase.co', CLAVE, {
+      hacerPeticion: () => Promise.resolve({
+        ok: false, status: 401,
+        json: async () => ({ message: 'No API key found in request' }),
+      }),
+    })
+    expect(lista).toEqual([])
+  })
+
   it('no duplica la barra si la URL trae una al final', async () => {
     const visitadas = []
-    await traerProveedores('https://x.supabase.co/', {
+    await traerProveedores('https://x.supabase.co/', CLAVE, {
       hacerPeticion: (u) => { visitadas.push(u); return respuesta(AJUSTES) },
     })
     expect(visitadas[0]).toBe('https://x.supabase.co/auth/v1/settings')
@@ -58,7 +94,7 @@ describe('traerProveedores', () => {
   /* Lo importante: esto es un EXTRA. Si falla, la pantalla de entrada tiene
      que seguir funcionando; solo se queda sin el botón. */
   it('si la petición falla no lanza: devuelve una lista vacía', async () => {
-    const lista = await traerProveedores('https://x.supabase.co', {
+    const lista = await traerProveedores('https://x.supabase.co', CLAVE, {
       hacerPeticion: () => Promise.reject(new TypeError('Network request failed')),
     })
     expect(lista).toEqual([])
@@ -68,14 +104,14 @@ describe('traerProveedores', () => {
      mirara `ok`, se creería una respuesta de error y pintaría el botón. Con un
      cuerpo vacío esta prueba pasaba con y sin la comprobación — comprobado. */
   it('un error HTTP no se toma por respuesta válida', async () => {
-    const lista = await traerProveedores('https://x.supabase.co', {
+    const lista = await traerProveedores('https://x.supabase.co', CLAVE, {
       hacerPeticion: () => respuesta(conGoogle(), false),
     })
     expect(lista).toEqual([])
   })
 
   it('si tarda demasiado se rinde en vez de dejar la pantalla esperando', async () => {
-    const lista = await traerProveedores('https://x.supabase.co', {
+    const lista = await traerProveedores('https://x.supabase.co', CLAVE, {
       hacerPeticion: () => new Promise(() => {}),
       limiteMs: 20,
     })
@@ -84,7 +120,7 @@ describe('traerProveedores', () => {
 
   it('sin URL de Supabase no intenta nada', async () => {
     let llamo = false
-    const lista = await traerProveedores('', { hacerPeticion: () => { llamo = true; return respuesta({}) } })
+    const lista = await traerProveedores('', CLAVE, { hacerPeticion: () => { llamo = true; return respuesta({}) } })
     expect(lista).toEqual([])
     expect(llamo).toBe(false)
   })

@@ -46,7 +46,7 @@ export default function AuthPage() {
   const [proveedores, setProveedores] = useState([])
   useEffect(() => {
     let vigente = true
-    traerProveedores(import.meta.env.VITE_SUPABASE_URL).then((lista) => {
+    traerProveedores(import.meta.env.VITE_SUPABASE_URL, import.meta.env.VITE_SUPABASE_ANON_KEY).then((lista) => {
       if (vigente) setProveedores(lista)
     })
     return () => { vigente = false }
