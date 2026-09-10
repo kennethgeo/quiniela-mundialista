@@ -32,6 +32,12 @@ export const authStyles = {
   forgot: { textAlign: 'right', font: "600 11px 'Archivo',sans-serif", color: '#8A8A8A', cursor: 'pointer', background: 'none', border: 'none', padding: 0 },
   button: { background: 'linear-gradient(90deg,#2ED3B7,#26bfa5)', borderRadius: 12, padding: 13, textAlign: 'center', fontWeight: 700, fontSize: 13.5, color: '#06231d', cursor: 'pointer', marginTop: 4, border: 'none', width: '100%', fontFamily: "'Archivo',sans-serif" },
   sub: { textAlign: 'center', font: "600 12px 'Archivo',sans-serif", color: '#8A8A8A', marginTop: 6 },
+  /* Botón de Google: blanco sobre oscuro, como pide su guía de marca — el
+     acento de la app en su propio fondo se queda muy por debajo de 4.5:1 y ese
+     es el error que ya se cometió en el aviso de notificaciones. */
+  botonGoogle: { background: '#F3F1EA', borderRadius: 12, padding: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9, fontWeight: 700, fontSize: 13.5, color: '#1F1F1F', cursor: 'pointer', border: 'none', width: '100%', fontFamily: "'Archivo',sans-serif" },
+  separador: { display: 'flex', alignItems: 'center', gap: 10, marginTop: 12, marginBottom: 2, color: '#8A8A8A' },
+  separadorTexto: { font: "600 11px 'Archivo',sans-serif", margin: '0 auto', position: 'relative', padding: '0 8px' },
   link: { color: '#2ED3B7', fontWeight: 700, cursor: 'pointer', background: 'none', border: 'none', padding: 0, font: 'inherit' },
   title: { fontFamily: "'Unbounded',sans-serif", fontWeight: 700, fontSize: 19, marginBottom: 8 },
   subtitle: { font: "500 12px 'Archivo',sans-serif", color: '#8A8A8A', marginBottom: 24, lineHeight: 1.5 },

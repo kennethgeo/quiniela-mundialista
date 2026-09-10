@@ -4,6 +4,8 @@ import { Navigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../lib/supabase'
 import { TicoLogo, TicoWordmark, authStyles as S } from '../components/auth/TicoBrand'
+import { mensajeDeFallo } from '../lib/loginResiliente'
+import { traerProveedores } from '../lib/proveedoresAuth'
 
 // Escala el marco de 320px al ancho del viewport (tope 1.5×).
 function useScale() {
@@ -17,11 +19,38 @@ function useScale() {
   return scale
 }
 
+/* La G de Google en SVG propio: el CSP solo permite recursos de este origen,
+   así que traerla de un CDN la bloquearía el navegador sin decir por qué. */
+function LogoGoogle() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 48 48" aria-hidden="true" focusable="false">
+      <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" />
+      <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" />
+      <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" />
+      <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
+    </svg>
+  )
+}
+
 export default function AuthPage() {
-  const { user, loading, signOut, signIn, signUp, restablecerSesionLocal } = useAuth()
+  const { user, loading, signOut, signIn, signUp, entrarConGoogle, restablecerSesionLocal } = useAuth()
   const scale = useScale()
   const [mode, setMode] = useState('login') // 'login' | 'register' | 'forgot'
   const [confirmationMessage, setConfirmationMessage] = useState('')
+
+  /* Qué proveedores están encendidos DE VERDAD en Supabase. El botón de Google
+     solo se dibuja si el proyecto lo tiene activo: encenderlo se hace en el
+     panel, no en el repo, y un botón que da «provider is not enabled» es peor
+     que no tenerlo. Si esto falla o tarda, la lista queda vacía y la pantalla
+     funciona igual — es un extra, nunca un requisito para entrar. */
+  const [proveedores, setProveedores] = useState([])
+  useEffect(() => {
+    let vigente = true
+    traerProveedores(import.meta.env.VITE_SUPABASE_URL).then((lista) => {
+      if (vigente) setProveedores(lista)
+    })
+    return () => { vigente = false }
+  }, [])
 
   useEffect(() => {
     const hash = window.location.hash
@@ -50,7 +79,7 @@ export default function AuthPage() {
             </div>
           )}
 
-          {mode === 'login' && <LoginBody signIn={signIn} restablecerSesionLocal={restablecerSesionLocal} confirmationMessage={confirmationMessage} toRegister={() => setMode('register')} toForgot={() => setMode('forgot')} />}
+          {mode === 'login' && <LoginBody signIn={signIn} entrarConGoogle={proveedores.includes('google') ? entrarConGoogle : null} restablecerSesionLocal={restablecerSesionLocal} confirmationMessage={confirmationMessage} toRegister={() => setMode('register')} toForgot={() => setMode('forgot')} />}
           {mode === 'register' && <RegisterBody signUp={signUp} toLogin={() => setMode('login')} />}
           {mode === 'forgot' && <ForgotBody toLogin={() => setMode('login')} />}
         </div>
@@ -59,7 +88,7 @@ export default function AuthPage() {
   )
 }
 
-function LoginBody({ signIn, restablecerSesionLocal, confirmationMessage, toRegister, toForgot }) {
+function LoginBody({ signIn, entrarConGoogle, restablecerSesionLocal, confirmationMessage, toRegister, toForgot }) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -71,7 +100,7 @@ function LoginBody({ signIn, restablecerSesionLocal, confirmationMessage, toRegi
     setError(''); setAtascado(false); setLoading(true)
     try { await signIn(email, password) }
     catch (err) {
-      setError(err.message === 'Invalid login credentials' ? 'Credenciales inválidas. Revisá tu correo y contraseña.' : err.message)
+      setError(mensajeDeFallo(err))
       // Solo cuando venció el plazo ofrecemos limpiar: si las credenciales
       // están mal, borrar la sesión local no arregla nada y confunde.
       if (err.recuperable) setAtascado(true)
@@ -94,10 +123,39 @@ function LoginBody({ signIn, restablecerSesionLocal, confirmationMessage, toRegi
       <input id="login-password" name="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Contraseña" autoComplete="current-password" required style={S.input} />
       <button type="button" onClick={toForgot} style={S.forgot}>¿Olvidaste tu contraseña?</button>
       <button type="submit" disabled={loading} style={{ ...S.button, opacity: loading ? 0.6 : 1 }}>{loading ? 'Entrando…' : 'Entrar'}</button>
+      {entrarConGoogle && (
+        <>
+          <div style={S.separador}><span style={S.separadorTexto}>o</span></div>
+          <button type="button" disabled={loading} style={{ ...S.botonGoogle, opacity: loading ? 0.6 : 1 }}
+            onClick={async () => {
+              setError('')
+              /* Esto MANDA el navegador a Google; si vuelve, es porque no
+                 salió. Por eso no hay `finally` que apague el cargando: la
+                 página ya no existe cuando sale bien. */
+              try { await entrarConGoogle() } catch (err) { setError(mensajeDeFallo(err)) }
+            }}>
+            <LogoGoogle /> Entrar con Google
+          </button>
+          {/* El enlace con una cuenta que ya existe es POR CORREO, no por
+              persona: Supabase junta las identidades que comparten correo.
+              Quien entre con un Google de otra dirección cae en una cuenta
+              nueva y vacía —sin sus quinielas ni sus puntos— y va a creer que
+              perdió todo. Medido: 3 de los 26 se registraron con hotmail. */}
+          <div style={S.sub}>Usá el mismo correo con el que te registraste.</div>
+        </>
+      )}
       {atascado && (
         <div style={S.sub}>¿Sigue sin entrar? <button type="button" onClick={limpiar} style={S.link}>Restablecer sesión local</button></div>
       )}
       <div style={S.sub}>¿Sin cuenta? <button type="button" onClick={toRegister} style={S.link}>Registrate</button></div>
+      {/* Enlazadas desde acá y no solo por URL: Google las revisa desde la
+          pantalla de consentimiento, y quien está por entrar con Google
+          debería poder leer qué se guarda de él ANTES de decidir. */}
+      <div style={{ ...S.sub, marginTop: 12, fontSize: 11 }}>
+        <a href="/privacidad" style={{ color: '#8A8A8A' }}>Privacidad</a>
+        {' · '}
+        <a href="/terminos" style={{ color: '#8A8A8A' }}>Condiciones</a>
+      </div>
     </form>
   )
 }

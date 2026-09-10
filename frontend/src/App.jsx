@@ -17,6 +17,8 @@ import { useState, useEffect, lazy, Suspense } from 'react'
 
 const AuthPage = lazy(() => import('./pages/AuthPage'))
 const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage'))
+const PrivacidadPage = lazy(() => import('./pages/PrivacidadPage'))
+const TerminosPage = lazy(() => import('./pages/TerminosPage'))
 const ProfilePage = lazy(() => import('./pages/ProfilePage'))
 const AdminPage = lazy(() => import('./pages/AdminPage'))
 const MatchDetailPage = lazy(() => import('./pages/MatchDetailPage'))
@@ -105,6 +107,13 @@ function AppRoutes() {
         {/* Pública a propósito: tiene que poder guardar el código antes de
             mandar a /auth a quien todavía no tiene cuenta. */}
         <Route path="/unirse/:codigo" element={<UnirsePage />} />
+        {/* Públicas y OBLIGATORIAS: Google exige una URL de política de
+            privacidad válida para pasar la pantalla de consentimiento de OAuth
+            a producción, y quien la abre no tiene sesión — la revisan personas
+            sin cuenta. Si se metieran tras ProtectedRoute, Google vería la
+            pantalla de login y la rechazaría. */}
+        <Route path="/privacidad" element={<PrivacidadPage />} />
+        <Route path="/terminos" element={<TerminosPage />} />
 
         {/* Rutas protegidas */}
       <Route
