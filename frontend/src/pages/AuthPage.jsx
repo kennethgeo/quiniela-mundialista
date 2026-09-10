@@ -148,6 +148,14 @@ function LoginBody({ signIn, entrarConGoogle, restablecerSesionLocal, confirmati
         <div style={S.sub}>¿Sigue sin entrar? <button type="button" onClick={limpiar} style={S.link}>Restablecer sesión local</button></div>
       )}
       <div style={S.sub}>¿Sin cuenta? <button type="button" onClick={toRegister} style={S.link}>Registrate</button></div>
+      {/* Enlazadas desde acá y no solo por URL: Google las revisa desde la
+          pantalla de consentimiento, y quien está por entrar con Google
+          debería poder leer qué se guarda de él ANTES de decidir. */}
+      <div style={{ ...S.sub, marginTop: 12, fontSize: 11 }}>
+        <a href="/privacidad" style={{ color: '#8A8A8A' }}>Privacidad</a>
+        {' · '}
+        <a href="/terminos" style={{ color: '#8A8A8A' }}>Condiciones</a>
+      </div>
     </form>
   )
 }
