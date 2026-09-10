@@ -213,10 +213,30 @@ input[type='number'] { -moz-appearance: textfield; }
 /* ── Tap highlight removal for mobile ── */
 button, a, [role="button"] { -webkit-tap-highlight-color: transparent; }
 
-/* ── Focus visible styling ── */
+/* ── Focus visible styling ──
+
+   El contorno era `rgba(245,158,11,.6)`: ámbar al 60%. Sobre una tarjeta clara
+   eso se compone en un amarillo pálido y da **2.15:1**, por debajo del 3:1 que
+   exige WCAG 2.2 §1.4.11 para un indicador de foco. Quien navega con teclado
+   apenas lo distinguía del fondo.
+
+   No lo cazó nadie porque la prueba que lo vigila medía el contorno EN MEDIO
+   de su transición: con la máquina ociosa leía el color previo (un azul muy
+   oscuro, 17:1) y daba por bueno lo que nunca llegaba a mirar. Bajo carga
+   fallaba 6 de 8 veces y se tomó por inestabilidad. Al arreglar la prueba para
+   que esperara al color asentado, apareció el fallo de verdad.
+
+   Se mantiene el ámbar como identidad, pero SIN transparencia y con un tono
+   por tema: el 500 sobre fondo oscuro da 8.5:1, y el 700 sobre blanco 4.98:1.
+   La transparencia era justo lo que hundía el contraste. */
 :focus-visible {
-  outline: 2px solid rgba(245, 158, 11, 0.6);
+  outline: 2px solid #B45309;
   outline-offset: 2px;
+}
+
+.dark :focus-visible,
+.dark:focus-visible {
+  outline-color: #F59E0B;
 }
 
 /* ── Webkit Autofill Fix for Light and Dark Mode Glassmorphism ── */

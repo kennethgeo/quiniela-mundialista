@@ -259,6 +259,25 @@ export default function DetalleDelPartido ({ matchId, status }) {
         </Tarjeta>
       )}
 
+      {/* Sin historial la tarjeta DESAPARECÍA, y una tarjeta que falta se lee
+          como «esta app perdió el historial» — el mismo malentendido que ya se
+          resolvió con las alineaciones. El dato real es que no hay
+          enfrentamientos previos: ESPN no manda `seasonseries` para un cruce
+          que nunca ocurrió (comprobado el 10 sep 2026 con Fenerbahçe–Roma,
+          donde la sección viene ausente del JSON, no vacía).
+
+          Se dice «no hay registrados» y no «nunca se enfrentaron» a propósito:
+          desde acá no se distingue un cruce inédito de un hueco de la fuente,
+          y afirmar lo segundo sería inventar. */}
+      {!d.historial && (
+        <Tarjeta>
+          <Titulo icono={History}>Entre ellos</Titulo>
+          <p className="text-[11.5px] text-slate-600 dark:text-slate-300">
+            No hay enfrentamientos previos registrados entre estos dos equipos.
+          </p>
+        </Tarjeta>
+      )}
+
       {d.historial && (
         <Tarjeta>
           <Titulo icono={History}>Entre ellos</Titulo>
