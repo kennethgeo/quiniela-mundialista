@@ -1,5 +1,7 @@
 # Tico Games
 
+*[Read in English](README.en.md)*
+
 Aplicación web (PWA) para quinielas de fútbol entre amigos: cada grupo predice
 los marcadores de un torneo, la app puntúa sola con los resultados reales y
 lleva la tabla, el histórico y el pozo.
