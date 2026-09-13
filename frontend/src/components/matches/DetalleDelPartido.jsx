@@ -150,15 +150,25 @@ function Suplentes ({ equipo }) {
 }
 
 /* Cuando todavía no hay once, se DICE por qué y cuándo. Una tarjeta ausente se
-   lee como «esta app no tiene alineaciones»; el dato es que aún no salieron. */
-function SinAlineacion ({ status }) {
-  if (['finished', 'cancelled', 'postponed'].includes(status)) return null
+   lee como «esta app no tiene alineaciones»; el dato es que aún no salieron.
+
+   Y hay DOS motivos distintos, que no se pueden decir con la misma frase:
+   «todavía no salieron» es cierto en Champions o LaLiga, y falso en la liga
+   tica, donde ESPN no las publica nunca (medido: un partido ya terminado
+   devuelve cero jugadores). Prometer un once que no va a llegar deja a alguien
+   recargando la pantalla hasta el saque. El backend manda
+   `fuente_con_alineaciones`; si no viene —una respuesta guardada de antes— se
+   dice lo de siempre. */
+function SinAlineacion ({ status, hayEnLaFuente }) {
+  const nunca = hayEnLaFuente === false
+  if (!nunca && ['finished', 'cancelled', 'postponed'].includes(status)) return null
   return (
     <Tarjeta>
       <Titulo icono={Users}>Alineaciones</Titulo>
       <p className="text-[11.5px] text-slate-600 dark:text-slate-300">
-        Todavía no se publicaron. Los equipos suelen anunciarse alrededor de una
-        hora antes del saque; en cuanto salgan aparecen acá.
+        {nunca
+          ? 'Nuestra fuente de datos no publica las alineaciones de este torneo, así que no podemos mostrarlas acá.'
+          : 'Todavía no se publicaron. Los equipos suelen anunciarse alrededor de una hora antes del saque; en cuanto salgan aparecen acá.'}
       </p>
     </Tarjeta>
   )
@@ -208,7 +218,7 @@ export default function DetalleDelPartido ({ matchId, status }) {
 
       {d.alineaciones
         ? <Alineaciones equipos={d.alineaciones} />
-        : <SinAlineacion status={status} />}
+        : <SinAlineacion status={status} hayEnLaFuente={d.fuente_con_alineaciones} />}
 
       {local && visita && (
         <Tarjeta>

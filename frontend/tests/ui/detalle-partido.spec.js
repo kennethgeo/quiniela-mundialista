@@ -138,3 +138,41 @@ test('con historial no aparece el cartel de vacío', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Entre ellos' })).toBeVisible({ timeout: 15000 })
   await expect(page.getByText(/No hay enfrentamientos previos registrados/)).toHaveCount(0)
 })
+
+/* LA LIGA TICA: la fuente no publica las alineaciones, así que decir «en
+   cuanto salgan aparecen acá» es prometer algo que no va a pasar — y deja a
+   alguien recargando la pantalla hasta el saque. Medido el 13 sep 2026: un
+   partido de crc.1 YA TERMINADO devuelve 0 jugadores. */
+test('si la fuente no tiene alineaciones de ese torneo, no promete que van a salir', async ({ page }) => {
+  const sinFuente = {
+    ...PREVIA,
+    detalle: { ...PREVIA.detalle, alineaciones: null, fuente_con_alineaciones: false },
+  }
+  await abrir(page, sinFuente, 'pending')
+  await expect(page.getByRole('heading', { name: 'Cómo vienen' })).toBeVisible({ timeout: 15000 })
+  await expect(page.getByText(/no publica las alineaciones de este torneo/i)).toBeVisible()
+  await expect(page.getByText(/Todavía no se publicaron/)).toHaveCount(0)
+})
+
+/* Y se dice también con el partido TERMINADO. Con «todavía no salieron» la
+   tarjeta se escondía —tenía sentido: ya no van a salir para ese partido—,
+   pero acá el dato es del torneo y sigue siendo cierto después del pitazo:
+   sin esto, el partido de ayer se ve igual que uno al que le falta la tarjeta
+   por un fallo. */
+test('lo dice también con el partido terminado', async ({ page }) => {
+  const sinFuente = {
+    ...PREVIA,
+    detalle: { ...PREVIA.detalle, alineaciones: null, fuente_con_alineaciones: false },
+  }
+  await abrir(page, sinFuente, 'finished')
+  await expect(page.getByText(/no publica las alineaciones de este torneo/i)).toBeVisible({ timeout: 15000 })
+})
+
+/* La otra mitad: una respuesta guardada en la caché ANTES de que el campo
+   existiera no lo trae, y un hueco no puede convertirse en una afirmación. */
+test('sin el campo se sigue diciendo lo de siempre', async ({ page }) => {
+  const viejo = { ...PREVIA, detalle: { ...PREVIA.detalle, alineaciones: null } }
+  delete viejo.detalle.fuente_con_alineaciones
+  await abrir(page, viejo, 'pending')
+  await expect(page.getByText(/Todavía no se publicaron/)).toBeVisible({ timeout: 15000 })
+})

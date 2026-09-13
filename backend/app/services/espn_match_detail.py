@@ -39,6 +39,23 @@ ESPN_BASE = "https://site.api.espn.com/apis/site/v2/sports/soccer"
 # no fiarse del idioma de la fuente.
 PARAMS_ESPN: dict = {}
 
+# LIGAS DONDE LA FUENTE NO PUBLICA ALINEACIONES (medido el 13 sep 2026).
+#
+# En `crc.1` ESPN no tiene el once. No es que tarde: un partido YA TERMINADO
+# (Belén–Herediano, jornada 8) devuelve `rosters` con **0 jugadores**, y otro
+# de la misma fecha (Inter de San Carlos–Puntarenas) devuelve 16 y 12 nombres
+# **sin dorsal, sin formación y todos con posición "SUB"** — es la lista de
+# quienes aparecieron en algún evento del partido, no una alineación. Para
+# comparar: la misma petición en `esp.1`, `eng.1` y `uefa.champions` devuelve
+# 11 titulares por equipo con formación ("4-3-3").
+#
+# Solo cambia LO QUE SE DICE cuando no hay once. Si algún día ESPN empieza a
+# publicarlas, la alineación se dibuja igual: manda el dato, no esta lista.
+LIGAS_SIN_ALINEACIONES = frozenset({"crc.1"})
+
+# Un once son ONCE. Por debajo de eso no es una alineación.
+TITULARES_DE_UN_ONCE = 11
+
 # Cuánto vale una respuesta antes de volver a pedirla. Un partido en curso
 # cambia todo el tiempo; uno terminado ya no cambia nunca.
 TTL_EN_CURSO = 60
@@ -97,7 +114,14 @@ def _alineaciones(summary: dict) -> Optional[list]:
         titulares = [_jugador(j) for j in jugadores if j.get("starter")]
         # Sin once no hay alineación que mostrar: ESPN devuelve el plantel
         # completo con `starter: false` hasta que publica el equipo.
-        if not titulares:
+        #
+        # Y se exigen ONCE, no "al menos uno": en la liga tica ESPN marca como
+        # titulares a los 10 y 8 jugadores que aparecieron en algún evento del
+        # partido, sin dorsal, sin formación y todos con posición "SUB". Con el
+        # corte viejo eso se dibujaba en la cancha como si fuera el once que
+        # anunció el equipo. Enseñar una alineación inventada es peor que no
+        # enseñar ninguna: alguien predice con eso.
+        if len(titulares) < TITULARES_DE_UN_ONCE:
             continue
         salida.append({
             "equipo": (eq.get("team") or {}).get("displayName"),
@@ -192,7 +216,7 @@ def _historial(summary: dict) -> Optional[dict]:
     return None
 
 
-def recortar(summary: dict) -> dict:
+def recortar(summary: dict, liga: Optional[str] = None) -> dict:
     """Deja solo lo que la pantalla dibuja."""
     gi = summary.get("gameInfo") or {}
     venue = gi.get("venue") or {}
@@ -201,6 +225,10 @@ def recortar(summary: dict) -> dict:
         "estadio": venue.get("fullName"),
         "ciudad": ((venue.get("address") or {}).get("city")),
         "alineaciones": _alineaciones(summary),
+        # Para que la pantalla no prometa un once que no va a llegar. `None`
+        # (una respuesta guardada antes de que esto existiera) se lee como
+        # "no sabemos", que es el comportamiento de siempre.
+        "fuente_con_alineaciones": None if liga is None else liga not in LIGAS_SIN_ALINEACIONES,
         "estadisticas": _estadisticas(summary),
         "forma": _forma(summary),
         "historial": _historial(summary),
@@ -216,4 +244,4 @@ async def traer_detalle(liga: str, external_id: str) -> dict:
             params={"event": external_id, **PARAMS_ESPN},
         )
         r.raise_for_status()
-        return recortar(r.json())
+        return recortar(r.json(), liga)

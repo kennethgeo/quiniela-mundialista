@@ -235,3 +235,55 @@ def test_se_traducen_las_dos_formas_de_escribirlo():
     raro = {'lastFiveGames': [{'team': {'displayName': 'X'}, 'events': [
         {'gameDate': '2026-09-01', 'gameResult': 'ZZ', 'score': '1-0'}]}]}
     assert recortar(raro)['forma'][0]['partidos'][0]['resultado'] is None
+
+
+# ─── La liga tica: la fuente NO tiene alineaciones ──────────────────────────
+# Medido el 13 sep 2026 contra la API, no supuesto:
+#   · Belén–Herediano (jornada 8, YA TERMINADO) -> `rosters` con 0 jugadores.
+#   · Inter de San Carlos–Puntarenas (misma fecha) -> 16 y 12 nombres SIN
+#     dorsal, SIN formación y todos con posición "SUB". Es la lista de quienes
+#     aparecieron en algún evento, no un once anunciado. Ese es este fixture.
+#   · La misma petición en esp.1, eng.1 y uefa.champions -> 11 titulares por
+#     equipo y formación ("4-3-3").
+# O sea: no es que tarde, es que no está.
+
+@pytest.fixture(scope='module')
+def liga_tica():
+    return recortar(cargar('liga_tica'), 'crc.1')
+
+
+def test_la_liga_tica_no_dibuja_una_alineacion_inventada(liga_tica):
+    """10 y 8 jugadores marcados «titular» NO son un once.
+
+    Con el corte viejo (`if not titulares`) esto pasaba el filtro y se
+    dibujaba en la cancha como si el equipo lo hubiera anunciado, sin dorsales
+    y con todos de "SUB". Enseñar una alineación inventada es peor que no
+    enseñar ninguna: alguien predice con eso.
+    """
+    assert liga_tica['alineaciones'] is None
+
+
+def test_se_dice_que_la_fuente_no_publica_alineaciones_de_ese_torneo(liga_tica):
+    """La pantalla tiene que poder distinguir «todavía no» de «nunca».
+
+    Sin esto decía «en cuanto salgan aparecen acá» en un torneo donde no van a
+    salir, y alguien se queda recargando hasta el saque.
+    """
+    assert liga_tica['fuente_con_alineaciones'] is False
+
+
+def test_en_un_torneo_con_alineaciones_no_se_dice_lo_contrario(once_publicado):
+    assert recortar(cargar('once_publicado'), 'uefa.champions')['fuente_con_alineaciones'] is True
+
+
+def test_sin_saber_la_liga_no_se_afirma_nada(once_publicado):
+    """Una respuesta guardada en la caché antes de que esto existiera no trae
+    el campo. `None` = «no sabemos», y la pantalla dice lo de siempre: nunca
+    hay que convertir un hueco en una afirmación."""
+    assert once_publicado['fuente_con_alineaciones'] is None
+
+
+def test_un_once_de_verdad_sigue_llegando_entero(once_publicado):
+    """El corte de 11 no puede llevarse por delante el caso bueno."""
+    for equipo in once_publicado['alineaciones']:
+        assert len(equipo['titulares']) == 11
