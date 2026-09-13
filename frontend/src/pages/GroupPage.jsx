@@ -149,7 +149,7 @@ export default function GroupPage() {
 
   // Créditos de ×2 arrastrados de partidos cancelados (uso extra en la próxima
   // jornada/fase), otorgados por void_cancelled_match. { "fase|jornada": cantidad }
-  const { data: powerupCredits = {} } = useConsultaDelUsuario({
+  const { data: powerupCredits = {}, isError: creditosFallaron } = useConsultaDelUsuario({
     queryKey: ['powerup_credits', id],
     queryFn: () => fetchMyPowerupCredits(id),
     enabled: !!id,
@@ -439,6 +439,17 @@ export default function GroupPage() {
                 con 0 partidos no se dibujan, así que nunca lleva a una lista
                 vacía. */}
             <FiltroPartidos valor={filtroAplicado} conteos={conteosFiltro} onChange={setFiltroSel} />
+            {/* Si esta consulta falla, el cupo de ×2 que se pinta es MENOR que
+                el que aplica la base: los créditos arrastrados no se suman. Se
+                dice, no se esconde. Esta misma RPC devolvió 400 a 23 de 24
+                personas durante meses —llamaba por dentro a una función de
+                admin— y nadie lo vio porque el fallo caía en un `{}` mudo. */}
+            {creditosFallaron && (
+              <p className="mb-3 text-[11.5px] text-[#B45309] dark:text-[#F59E0B]">
+                No se pudieron cargar tus comodines ×2 arrastrados. El cupo que ves puede
+                ser menor que el que tenés de verdad.
+              </p>
+            )}
             <MatchList
               matches={shownMatches}
               predictions={predictions}

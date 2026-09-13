@@ -305,3 +305,41 @@ WHERE COALESCE(u.total_points, 0) IS DISTINCT FROM (
              WHERE tp.user_id = u.id GROUP BY tp.tournament_id) y), 0)
          + COALESCE(u.points_adjustment, 0)
        )::integer;
+
+\echo '=== 11. RPC del frontend que por dentro llaman a una función de admin (400 mudo) ==='
+-- CÓMO SE VE ESTE FALLO: la RPC la puede ejecutar `authenticated`, así que
+-- parece abierta, pero adentro llama a una función que hace
+-- `RAISE EXCEPTION` si quien llama no es el backend ni el admin GLOBAL.
+-- SECURITY DEFINER no cambia `auth.uid()`, así que el portero ve al jugador y
+-- lo rechaza; plpgsql lo manda como SQLSTATE P0001 y PostgREST lo traduce a
+-- **HTTP 400**. O sea: la consulta entera falla para todo el mundo menos para
+-- el admin, y si la pantalla se come el error (un `{}` por defecto) el síntoma
+-- no es un cartel rojo sino un número de menos.
+--
+-- Pasó con `my_powerup_credits`, que arrastraba desde la migración 50 un
+-- `PERFORM resolve_pending_powerup_credits(...)` —de cuando esa función no
+-- comprobaba nada— y se lo comió la 61 al ponerle portero. Lo arregló la 80.
+--
+-- Medido al escribir esta sección: con estos filtros salen 2 «porteras» y UN
+-- solo hallazgo, el de arriba. Pedir las tres cosas a la vez es lo que la hace
+-- callada: con solo `es_backend()` también salía `league_table`, que rechaza a
+-- quien no es MIEMBRO —otra cosa distinta y perfectamente normal—, y una
+-- comprobación que avisa de lo normal se termina ignorando.
+WITH porteras AS (
+  SELECT p.oid, p.proname
+  FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+  WHERE n.nspname = 'public'
+    AND p.prosrc ILIKE '%raise exception%'
+    AND p.prosrc ILIKE '%es_backend()%'
+    AND p.prosrc ILIKE '%is_admin%'
+), del_frontend AS (
+  SELECT p.oid, p.proname, p.prosrc
+  FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+  WHERE n.nspname = 'public'
+    AND has_function_privilege('authenticated', p.oid, 'EXECUTE')
+)
+SELECT DISTINCT f.proname AS rpc_que_llama_el_cliente,
+                q.proname AS portero_que_la_hace_fallar
+FROM del_frontend f
+JOIN porteras q ON q.proname <> f.proname AND f.prosrc ILIKE '%' || q.proname || '%'
+ORDER BY 1, 2;
