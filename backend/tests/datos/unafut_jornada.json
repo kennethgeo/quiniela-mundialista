@@ -1,0 +1,77 @@
+[
+ {
+  "matchId": 396192,
+  "matchStatus": "COMPLETE",
+  "matchTimeUTC": "2026-09-12 02:00:00",
+  "competitors": [
+   {
+    "competitorId": 14103,
+    "competitorName": "Municipal Pérez Zeledón "
+   },
+   {
+    "competitorId": 14124,
+    "competitorName": "A.D. San Carlos"
+   }
+  ]
+ },
+ {
+  "matchId": 396188,
+  "matchStatus": "COMPLETE",
+  "matchTimeUTC": "2026-09-12 23:00:00",
+  "competitors": [
+   {
+    "competitorId": 15374,
+    "competitorName": "Inter San Carlos"
+   },
+   {
+    "competitorId": 14050,
+    "competitorName": "Puntarenas F.C."
+   }
+  ]
+ },
+ {
+  "matchId": 396174,
+  "matchStatus": "COMPLETE",
+  "matchTimeUTC": "2026-09-13 02:00:00",
+  "competitors": [
+   {
+    "competitorId": 15370,
+    "competitorName": "Escorpiones F.C."
+   },
+   {
+    "competitorId": 14078,
+    "competitorName": "C.S. Herediano"
+   }
+  ]
+ },
+ {
+  "matchId": 396157,
+  "matchStatus": "SCHEDULED",
+  "matchTimeUTC": "2026-09-13 22:00:00",
+  "competitors": [
+   {
+    "competitorId": 14049,
+    "competitorName": "Sporting F.C."
+   },
+   {
+    "competitorId": 14044,
+    "competitorName": "Deportivo Saprissa"
+   }
+  ]
+ },
+ {
+  "matchId": 396229,
+  "matchStatus": "SCHEDULED",
+  "matchTimeUTC": "2026-09-14 00:00:00",
+  "competitors": [
+   {
+    "competitorId": 14057,
+    "competitorName": "C.S. Cartaginés"
+   },
+   {
+    "competitorId": 14098,
+    "competitorName": "L.D. Alajuelense"
+   }
+  ]
+ }
+]

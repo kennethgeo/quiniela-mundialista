@@ -29,9 +29,16 @@ function lineasDe (formacion, cuantos = 11) {
 }
 
 /* Reparte a los once en sus líneas. Se respeta el orden en que vienen: ESPN
-   los manda por `formationPlace`, o sea arquero primero y delanteros al final. */
-function porLineas (titulares, formacion) {
-  const lineas = lineasDe(formacion, titulares.length)
+   los manda por `formationPlace`, o sea arquero primero y delanteros al final.
+
+   `lineas` gana sobre la formación cuando viene: la UNAFUT —la fuente de la
+   liga tica— no declara formación pero sí la posición de cada jugador, y con
+   eso las líneas son las de verdad. Sin esto caían todas en el 4-4-2 de
+   respaldo, así que un equipo con tres centrales se dibujaba con cuatro: una
+   cancha que contradice a sus propios jugadores. */
+function porLineas (titulares, formacion, lineasDadas) {
+  const suma = (lineasDadas || []).reduce((a, b) => a + b, 0)
+  const lineas = suma === titulares.length ? lineasDadas : lineasDe(formacion, titulares.length)
   const salida = []
   let i = 0
   for (const cuantos of lineas) {
@@ -44,6 +51,10 @@ function porLineas (titulares, formacion) {
   return salida.filter((l) => l.length)
 }
 
+/* El apellido para la ficha. Se usa cuando la fuente no manda uno corto:
+   ESPN da nombres ya cortos («Lamine Yamal»), pero la UNAFUT manda los dos
+   apellidos y ahí quedarse con el último daría «Cruz» en vez de «Segura», así
+   que ese adaptador manda `corto` y este respaldo no se usa. */
 const apellido = (nombre) => {
   const partes = String(nombre || '').trim().split(/\s+/)
   return partes.length > 1 ? partes[partes.length - 1] : partes[0] || ''
@@ -71,7 +82,7 @@ function Ficha ({ jugador, indice }) {
       </div>
       <span className="max-w-[62px] truncate text-center font-['Archivo'] text-[9.5px] leading-tight text-white/90"
         style={{ textShadow: '0 1px 3px rgba(0,0,0,.9)' }}>
-        {apellido(jugador.nombre)}
+        {jugador.corto || apellido(jugador.nombre)}
       </span>
     </motion.div>
   )
@@ -79,7 +90,7 @@ function Ficha ({ jugador, indice }) {
 
 export default function CanchaAlineacion ({ equipo }) {
   const lineas = useMemo(
-    () => porLineas(equipo?.titulares || [], equipo?.formacion),
+    () => porLineas(equipo?.titulares || [], equipo?.formacion, equipo?.lineas),
     [equipo])
 
   if (!lineas.length) return null
@@ -121,7 +132,11 @@ export default function CanchaAlineacion ({ equipo }) {
         <div className="relative h-full flex flex-col-reverse justify-between py-4 px-2"
           style={{ transformStyle: 'preserve-3d' }}>
           {lineas.map((linea, i) => (
-            <div key={i} className="flex items-center justify-evenly gap-1">
+            /* `data-linea` lleva cuántos van en la línea. Es lo único que deja
+               afirmar en una prueba que la cancha dibuja el 1-5-3-2 que mandó
+               la fuente y no el 4-4-2 de respaldo: por clase o por posición en
+               el DOM, la prueba pasaría con las dos. */
+            <div key={i} data-linea={linea.length} className="flex items-center justify-evenly gap-1">
               {linea.map((j, k) => (
                 <Ficha key={`${j.dorsal}-${j.nombre}`} jugador={j}
                   indice={lineas.slice(0, i).reduce((a, l) => a + l.length, 0) + k} />

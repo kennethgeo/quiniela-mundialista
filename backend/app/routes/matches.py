@@ -695,12 +695,13 @@ async def detalle_del_partido(match_id: int, user: dict = Depends(get_current_us
     from datetime import datetime, timedelta, timezone
 
     from app.services.espn_match_detail import traer_detalle, ttl_para
+    from app.services.unafut_lineups import alineaciones as alineaciones_unafut
 
     supabase = get_supabase()
 
     partido = (
         supabase.table("matches")
-        .select("id, external_id, status, tournament_id, kickoff_at")
+        .select("id, external_id, status, tournament_id, kickoff_at, matchday, home_team, away_team")
         .eq("id", match_id)
         .maybe_single()
         .execute()
@@ -770,6 +771,17 @@ async def detalle_del_partido(match_id: int, user: dict = Depends(get_current_us
             return {"disponible": True, "detalle": guardado["payload"], "viejo": True}
         raise HTTPException(status_code=503,
                             detail="No se pudo traer el detalle del partido")
+
+    # La liga tica: ESPN no tiene su once (devuelve cero jugadores hasta en
+    # partidos terminados), así que se completa con la API de la UNAFUT. Va
+    # ANTES de cachear para que la copia guardada ya lo traiga, y solo cuando
+    # ESPN no trajo nada: el día que ESPN empiece a publicarlas, manda ESPN.
+    if not detalle.get("alineaciones"):
+        de_unafut = await alineaciones_unafut(
+            liga, partido.data.get("matchday"),
+            partido.data.get("home_team"), partido.data.get("away_team"))
+        if de_unafut:
+            detalle["alineaciones"] = de_unafut
 
     try:
         supabase.table("match_details_cache").upsert(

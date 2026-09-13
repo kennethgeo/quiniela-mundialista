@@ -39,19 +39,20 @@ ESPN_BASE = "https://site.api.espn.com/apis/site/v2/sports/soccer"
 # no fiarse del idioma de la fuente.
 PARAMS_ESPN: dict = {}
 
-# LIGAS DONDE LA FUENTE NO PUBLICA ALINEACIONES (medido el 13 sep 2026).
+# CUÁNDO PUBLICA CADA LIGA SU ALINEACIÓN (medido el 13 sep 2026).
 #
-# En `crc.1` ESPN no tiene el once. No es que tarde: un partido YA TERMINADO
-# (Belén–Herediano, jornada 8) devuelve `rosters` con **0 jugadores**, y otro
-# de la misma fecha (Inter de San Carlos–Puntarenas) devuelve 16 y 12 nombres
-# **sin dorsal, sin formación y todos con posición "SUB"** — es la lista de
-# quienes aparecieron en algún evento del partido, no una alineación. Para
-# comparar: la misma petición en `esp.1`, `eng.1` y `uefa.champions` devuelve
-# 11 titulares por equipo con formación ("4-3-3").
+# En `crc.1` ESPN no tiene el once: un partido YA TERMINADO devuelve `rosters`
+# con 0 jugadores, y otro de la misma fecha devuelve 16 y 12 nombres sin
+# dorsal, sin formación y todos con posición "SUB" —los que aparecieron en
+# algún evento, no un once—. Esa liga se sirve ahora de la API de la UNAFUT
+# (`unafut_lineups.py`), que sí lo tiene completo pero **lo publica al arrancar
+# el partido**: a 25 minutos del saque venía vacío y a un minuto de empezado
+# estaban los 22. Como las predicciones cierran 15 minutos antes, ahí la
+# alineación es información del partido en marcha, no algo con lo que corregir.
 #
-# Solo cambia LO QUE SE DICE cuando no hay once. Si algún día ESPN empieza a
-# publicarlas, la alineación se dibuja igual: manda el dato, no esta lista.
-LIGAS_SIN_ALINEACIONES = frozenset({"crc.1"})
+# Solo cambia LO QUE SE DICE mientras no hay once. Una liga que no esté acá no
+# recibe ninguna afirmación: la pantalla dice lo de siempre.
+ALINEACIONES_CUANDO = {"crc.1": "al-saque"}
 
 # Un once son ONCE. Por debajo de eso no es una alineación.
 TITULARES_DE_UN_ONCE = 11
@@ -225,10 +226,11 @@ def recortar(summary: dict, liga: Optional[str] = None) -> dict:
         "estadio": venue.get("fullName"),
         "ciudad": ((venue.get("address") or {}).get("city")),
         "alineaciones": _alineaciones(summary),
-        # Para que la pantalla no prometa un once que no va a llegar. `None`
-        # (una respuesta guardada antes de que esto existiera) se lee como
-        # "no sabemos", que es el comportamiento de siempre.
-        "fuente_con_alineaciones": None if liga is None else liga not in LIGAS_SIN_ALINEACIONES,
+        # Para que la pantalla no prometa un once «una hora antes» donde la
+        # fuente lo publica al pitazo. `None` —liga desconocida, o una
+        # respuesta guardada antes de que esto existiera— se lee como "no
+        # sabemos" y la pantalla dice lo de siempre.
+        "alineaciones_cuando": ALINEACIONES_CUANDO.get(liga),
         "estadisticas": _estadisticas(summary),
         "forma": _forma(summary),
         "historial": _historial(summary),

@@ -263,24 +263,29 @@ def test_la_liga_tica_no_dibuja_una_alineacion_inventada(liga_tica):
     assert liga_tica['alineaciones'] is None
 
 
-def test_se_dice_que_la_fuente_no_publica_alineaciones_de_ese_torneo(liga_tica):
-    """La pantalla tiene que poder distinguir «todavía no» de «nunca».
+def test_se_dice_CUANDO_publica_la_fuente_de_ese_torneo(liga_tica):
+    """La pantalla tiene que poder distinguir «en una hora» de «al pitazo».
 
-    Sin esto decía «en cuanto salgan aparecen acá» en un torneo donde no van a
-    salir, y alguien se queda recargando hasta el saque.
+    La liga tica se sirve ahora de la API de la UNAFUT, que sí tiene el once
+    pero lo publica AL ARRANCAR el partido (medido: vacío a 25 minutos del
+    saque, los 22 titulares a un minuto de empezado). Decir «en cuanto salgan
+    aparecen acá» ahí deja a alguien recargando hasta el saque por algo que no
+    va a llegar a tiempo: las predicciones cierran 15 minutos antes.
     """
-    assert liga_tica['fuente_con_alineaciones'] is False
+    assert liga_tica['alineaciones_cuando'] == 'al-saque'
 
 
-def test_en_un_torneo_con_alineaciones_no_se_dice_lo_contrario(once_publicado):
-    assert recortar(cargar('once_publicado'), 'uefa.champions')['fuente_con_alineaciones'] is True
+def test_una_liga_normal_no_recibe_ninguna_afirmacion():
+    """Champions publica ~1 h antes, que es lo que dice el texto de siempre.
+
+    No lleva entrada propia: el mapa solo marca las ligas que se salen de esa
+    norma, así que una liga desconocida tampoco recibe una afirmación
+    inventada."""
+    assert recortar(cargar('once_publicado'), 'uefa.champions')['alineaciones_cuando'] is None
 
 
-def test_sin_saber_la_liga_no_se_afirma_nada(once_publicado):
-    """Una respuesta guardada en la caché antes de que esto existiera no trae
-    el campo. `None` = «no sabemos», y la pantalla dice lo de siempre: nunca
-    hay que convertir un hueco en una afirmación."""
-    assert once_publicado['fuente_con_alineaciones'] is None
+def test_sin_saber_la_liga_tampoco_se_afirma_nada(once_publicado):
+    assert once_publicado['alineaciones_cuando'] is None
 
 
 def test_un_once_de_verdad_sigue_llegando_entero(once_publicado):
