@@ -137,9 +137,20 @@ test('sin equipos desparejos no sale esa nota', async ({ page }) => {
 
 test('la racha se lee del más viejo al más nuevo, también en celular', async ({ page }) => {
   await abrir(page)
-  const racha = fila(page, 'Cartaginés').getByLabel(/Últimos 5/)
-  await expect(racha).toBeVisible()
+  /* Hay DOS rachas por fila en el DOM —la de celular, bajo el nombre, y la de
+     la columna de escritorio—, y las esconde el CSS, no el render. Se pide la
+     VISIBLE y se exige que sea una sola: si algún día se vieran las dos, la
+     fila saldría con la racha repetida y esto lo caza. */
+  const racha = fila(page, 'Cartaginés').locator('[aria-label^="Últimos 5"]:visible')
+  await expect(racha).toHaveCount(1)
   await expect(racha).toHaveAttribute('aria-label', 'Últimos 5: G G E P G')
+})
+
+test('con pantalla ancha la racha es una columna, y tampoco se duplica', async ({ page }) => {
+  await abrir(page)
+  await page.setViewportSize({ width: 1280, height: 900 })
+  await expect(page.getByRole('columnheader', { name: 'Últimos 5' })).toBeVisible()
+  await expect(fila(page, 'Cartaginés').locator('[aria-label^="Últimos 5"]:visible')).toHaveCount(1)
 })
 
 test('un equipo sin racha no inventa resultados', async ({ page }) => {
