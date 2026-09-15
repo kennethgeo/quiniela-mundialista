@@ -10,6 +10,7 @@ import { useAuth } from '../hooks/useAuth'
 import { useToast } from '../components/ui/Toast'
 import { friendlySaveError } from '../lib/saveError'
 import { llaveDeCupo } from '../lib/powerups'
+import { zonaDe, zonasDe, esFinDeZona } from '../lib/zonasDeTabla'
 import { kickoffDate } from '../lib/matchStatus'
 import { aplicarFiltro, contarFiltros, filtroEfectivo } from '../lib/filtroPartidos'
 import { fetchCuposPorJornada, fetchMyGroups, fetchGroupStandings, fetchTeamStandings, acceptGroupRules, setGroupRules, setGroupScoring, deleteGroup, proposeRuleChange, castRuleVote, cancelRuleProposal, fetchLeagueProposals, fetchMyPowerupCredits, setGroupExtras } from '../lib/groups'
@@ -149,7 +150,7 @@ export default function GroupPage() {
 
   // Créditos de ×2 arrastrados de partidos cancelados (uso extra en la próxima
   // jornada/fase), otorgados por void_cancelled_match. { "fase|jornada": cantidad }
-  const { data: powerupCredits = {} } = useConsultaDelUsuario({
+  const { data: powerupCredits = {}, isError: creditosFallaron } = useConsultaDelUsuario({
     queryKey: ['powerup_credits', id],
     queryFn: () => fetchMyPowerupCredits(id),
     enabled: !!id,
@@ -439,6 +440,17 @@ export default function GroupPage() {
                 con 0 partidos no se dibujan, así que nunca lleva a una lista
                 vacía. */}
             <FiltroPartidos valor={filtroAplicado} conteos={conteosFiltro} onChange={setFiltroSel} />
+            {/* Si esta consulta falla, el cupo de ×2 que se pinta es MENOR que
+                el que aplica la base: los créditos arrastrados no se suman. Se
+                dice, no se esconde. Esta misma RPC devolvió 400 a 23 de 24
+                personas durante meses —llamaba por dentro a una función de
+                admin— y nadie lo vio porque el fallo caía en un `{}` mudo. */}
+            {creditosFallaron && (
+              <p className="mb-3 text-[11.5px] text-[#B45309] dark:text-[#F59E0B]">
+                No se pudieron cargar tus comodines ×2 arrastrados. El cupo que ves puede
+                ser menor que el que tenés de verdad.
+              </p>
+            )}
             <MatchList
               matches={shownMatches}
               predictions={predictions}
@@ -478,7 +490,7 @@ export default function GroupPage() {
           <HistorialTab leagueId={group.id} matches={resolved} nombreQuiniela={group.name} />
         </>
       )}
-      {tab === 'teams' && <TeamStandingsTab tournamentId={tid} />}
+      {tab === 'teams' && <TeamStandingsTab tournamentId={tid} torneoRef={group.tournament_ref} />}
       {tab === 'bracket' && tid === 1 && <BracketView />}
       {tab === 'global' && (
         <>
@@ -1153,7 +1165,35 @@ function EmptyMatches({ kind }) {
   )
 }
 
-function TeamStandingsTab({ tournamentId }) {
+/* Los últimos cinco, del más viejo al más nuevo. Un valor que no sea G/E/P
+   no se dibuja en vez de inventarle un color. */
+const TONO_RESULTADO = {
+  G: { fondo: 'rgba(46,211,183,.16)', color: '#0E8F7B', oscuro: '#2ED3B7', nombre: 'Ganó' },
+  E: { fondo: 'rgba(232,183,90,.18)', color: '#8A6A17', oscuro: '#E8B75A', nombre: 'Empató' },
+  P: { fondo: 'rgba(255,122,89,.16)', color: '#B4472C', oscuro: '#FF7A59', nombre: 'Perdió' },
+}
+
+function Racha ({ form }) {
+  if (!form?.length) return <span className="text-slate-300 dark:text-slate-600">—</span>
+  return (
+    <span className="inline-flex items-center gap-[3px]" aria-label={`Últimos ${form.length}: ${form.join(' ')}`}>
+      {form.map((r, i) => {
+        const t = TONO_RESULTADO[r]
+        if (!t) return <span key={i} className="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600" />
+        return (
+          <span key={i} title={t.nombre}
+            className="w-[15px] h-[15px] rounded-[4px] grid place-items-center font-['JetBrains_Mono'] text-[8.5px] font-bold"
+            style={{ background: t.fondo }}>
+            <span className="dark:hidden" style={{ color: t.color }}>{r}</span>
+            <span className="hidden dark:inline" style={{ color: t.oscuro }}>{r}</span>
+          </span>
+        )
+      })}
+    </span>
+  )
+}
+
+function TeamStandingsTab({ tournamentId, torneoRef }) {
   const { data, isLoading, isError } = useQuery({
     queryKey: ['team_standings', tournamentId],
     queryFn: () => fetchTeamStandings(tournamentId),
@@ -1164,6 +1204,13 @@ function TeamStandingsTab({ tournamentId }) {
   if (isError || !data?.groups?.length) {
     return <p className="text-sm text-slate-400 italic text-center py-8">Todavía no hay partidos jugados en este torneo.</p>
   }
+
+  const zonas = zonasDe(torneoRef)
+  /* Con jornadas a medias —o con un partido cancelado, como el San Carlos–
+     Escorpiones de la jornada 1— hay equipos con menos PJ que el resto, y la
+     tabla parece mal calculada. Solo se explica cuando de verdad pasa. */
+  const desparejo = data.groups.some((g) => new Set(g.rows.map((r) => r.played)).size > 1)
+
   return (
     <div className="space-y-5">
       {data.groups.map((g, gi) => (
@@ -1175,40 +1222,92 @@ function TeamStandingsTab({ tournamentId }) {
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-[10px] uppercase tracking-wide text-slate-400 border-b border-slate-100 dark:border-white/5">
-                  <th className="text-left font-semibold py-2 pl-3">#</th>
-                  <th className="text-left font-semibold py-2">Equipo</th>
-                  <th className="font-semibold py-2 px-1.5">PJ</th>
-                  <th className="font-semibold py-2 px-1.5 hidden xs:table-cell">G</th>
-                  <th className="font-semibold py-2 px-1.5 hidden xs:table-cell">E</th>
-                  <th className="font-semibold py-2 px-1.5 hidden xs:table-cell">P</th>
-                  <th className="font-semibold py-2 px-1.5">DG</th>
-                  <th className="font-extrabold py-2 px-2.5 text-right">Pts</th>
+                  <th scope="col" className="text-left font-semibold py-2 pl-3">#</th>
+                  <th scope="col" className="text-left font-semibold py-2">Equipo</th>
+                  <th scope="col" className="font-semibold py-2 px-1.5">PJ</th>
+                  {/* G-E-P en UNA columna: tres sueltas no entran en un celular
+                      y «4-2-2» se lee igual de bien. */}
+                  <th scope="col" className="font-semibold py-2 px-1.5 whitespace-nowrap" title="Ganados-Empatados-Perdidos">G-E-P</th>
+                  <th scope="col" className="font-semibold py-2 px-1.5 hidden sm:table-cell" title="Goles a favor y en contra">GF:GC</th>
+                  <th scope="col" className="font-semibold py-2 px-1.5">DG</th>
+                  <th scope="col" className="font-extrabold py-2 px-2.5 text-right">Pts</th>
+                  {/* MEDIDO a 412 px: con la racha en su propia columna la
+                      tabla pide 463 y se sale de la pantalla. En celular baja
+                      a una segunda línea bajo el nombre del equipo — que es
+                      espacio que sobra, porque a esta pestaña le quedaba media
+                      pantalla en blanco. */}
+                  <th scope="col" className="font-semibold py-2 pl-2 pr-3 text-right hidden sm:table-cell">Últimos 5</th>
                 </tr>
               </thead>
               <tbody>
-                {g.rows.map((r) => (
-                  <tr key={r.team} className="border-b border-slate-50 dark:border-white/[0.03] last:border-0">
-                    <td className="py-2 pl-3 text-slate-400 tabular-nums w-6">{r.rank}</td>
-                    <td className="py-2">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <img src={r.logo || initialsDataUri(r.team, 40)} alt="" className="w-5 h-5 object-contain shrink-0" onError={crestOnError(r.team)} />
-                        <span className="font-semibold text-slate-800 dark:text-slate-100 truncate">{r.team}</span>
-                      </div>
-                    </td>
-                    <td className="text-center tabular-nums text-slate-500 px-1.5">{r.played}</td>
-                    <td className="text-center tabular-nums text-slate-500 px-1.5 hidden xs:table-cell">{r.wins}</td>
-                    <td className="text-center tabular-nums text-slate-500 px-1.5 hidden xs:table-cell">{r.draws}</td>
-                    <td className="text-center tabular-nums text-slate-500 px-1.5 hidden xs:table-cell">{r.losses}</td>
-                    <td className="text-center tabular-nums text-slate-500 px-1.5">{r.gd > 0 ? `+${r.gd}` : r.gd}</td>
-                    <td className="text-right font-extrabold font-['Unbounded'] text-slate-900 dark:text-white px-2.5 tabular-nums">{r.points}</td>
-                  </tr>
-                ))}
+                {g.rows.map((r) => {
+                  const zona = zonaDe(torneoRef, r.rank)
+                  const corte = esFinDeZona(torneoRef, r.rank, g.rows.length)
+                  /* El desempate SE VE donde se decide: dos equipos con los
+                     mismos puntos se ordenan por DG (y luego por goles a
+                     favor), y sin resaltarlo la tabla parece arbitraria. */
+                  const empatado = g.rows.some((o) => o !== r && o.points === r.points)
+                  return (
+                    <tr key={r.team}
+                      className={`border-b border-slate-50 dark:border-white/[0.03] last:border-0 ${
+                        corte ? '!border-b-2 !border-b-slate-300 dark:!border-b-white/20' : ''}`}>
+                      <td className="py-2 pl-3 tabular-nums w-7">
+                        <span className="inline-flex items-center gap-1.5">
+                          <span aria-hidden="true" className="w-[3px] h-3.5 rounded-full"
+                            style={{ background: zona ? (zona.tono === 'clasifica' ? '#2ED3B7' : '#E8B75A') : 'transparent' }} />
+                          <span className="text-slate-400">{r.rank}</span>
+                        </span>
+                      </td>
+                      <td className="py-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <img src={r.logo || initialsDataUri(r.team, 40)} alt="" className="w-5 h-5 object-contain shrink-0" onError={crestOnError(r.team)} />
+                          <span className="font-semibold text-slate-800 dark:text-slate-100 truncate">{r.team}</span>
+                        </div>
+                        {r.form?.length > 0 && (
+                          <div className="sm:hidden mt-1 ml-7"><Racha form={r.form} /></div>
+                        )}
+                      </td>
+                      <td className="text-center tabular-nums text-slate-500 px-1.5">{r.played}</td>
+                      <td className="text-center tabular-nums text-slate-500 px-1.5 whitespace-nowrap font-['JetBrains_Mono'] text-[11.5px]">
+                        {r.wins}-{r.draws}-{r.losses}
+                      </td>
+                      <td className="text-center tabular-nums text-slate-500 px-1.5 hidden sm:table-cell whitespace-nowrap font-['JetBrains_Mono'] text-[11.5px]">
+                        {r.gf}:{r.ga}
+                      </td>
+                      <td className={`text-center tabular-nums px-1.5 ${
+                        empatado ? 'font-bold text-teal-700 dark:text-accent' : 'text-slate-500'}`}
+                        title={empatado ? 'Con los mismos puntos, la diferencia de gol decide el orden' : undefined}>
+                        {r.gd > 0 ? `+${r.gd}` : r.gd}
+                      </td>
+                      <td className="text-right font-extrabold font-['Unbounded'] text-slate-900 dark:text-white px-2.5 tabular-nums">{r.points}</td>
+                      <td className="text-right pl-2 pr-3 hidden sm:table-cell"><Racha form={r.form} /></td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>
         </div>
       ))}
-      <p className="text-[11px] text-slate-400 text-center">Tabla en vivo, calculada de los marcadores de la app</p>
+
+      {/* La leyenda solo existe si el torneo tiene un corte conocido. */}
+      {zonas.length > 0 && (
+        <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 text-[11px] text-slate-500 dark:text-slate-400">
+          {zonas.map((z) => (
+            <span key={z.etiqueta} className="inline-flex items-center gap-1.5">
+              <span aria-hidden="true" className="w-[3px] h-3 rounded-full"
+                style={{ background: z.tono === 'clasifica' ? '#2ED3B7' : '#E8B75A' }} />
+              {z.etiqueta}
+            </span>
+          ))}
+        </div>
+      )}
+
+      <div className="space-y-1 text-[11px] text-slate-400 text-center px-2 pb-20 md:pb-0">
+        <p>Tabla en vivo, calculada de los marcadores de la app. Con los mismos
+          puntos manda la diferencia de gol, y después los goles a favor.</p>
+        {desparejo && <p>Los equipos con menos PJ tienen partidos pendientes o cancelados.</p>}
+      </div>
     </div>
   )
 }

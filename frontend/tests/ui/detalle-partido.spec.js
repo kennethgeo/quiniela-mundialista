@@ -138,3 +138,79 @@ test('con historial no aparece el cartel de vacío', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Entre ellos' })).toBeVisible({ timeout: 15000 })
   await expect(page.getByText(/No hay enfrentamientos previos registrados/)).toHaveCount(0)
 })
+
+/* LA LIGA TICA: la fuente (la API de la UNAFUT) publica el once AL ARRANCAR
+   el partido — medido el 13 sep 2026: vacío a 25 minutos del saque, los 22
+   titulares a un minuto de empezado. Decir «en cuanto salgan aparecen acá»
+   deja a alguien recargando hasta el saque por algo que no va a llegar a
+   tiempo: las predicciones cierran 15 minutos antes. */
+test('si el once sale al pitazo, se dice eso y no «en una hora»', async ({ page }) => {
+  const alSaque = {
+    ...PREVIA,
+    detalle: { ...PREVIA.detalle, alineaciones: null, alineaciones_cuando: 'al-saque' },
+  }
+  await abrir(page, alSaque, 'pending')
+  await expect(page.getByRole('heading', { name: 'Cómo vienen' })).toBeVisible({ timeout: 15000 })
+  await expect(page.getByText(/se publican al arrancar el partido/i)).toBeVisible()
+  await expect(page.getByText(/alrededor de una hora antes/)).toHaveCount(0)
+})
+
+/* La otra mitad: una liga normal —o una respuesta guardada antes de que el
+   campo existiera— no recibe ninguna afirmación nueva. Un hueco no se
+   convierte en una promesa distinta. */
+test('sin el campo se sigue diciendo lo de siempre', async ({ page }) => {
+  const viejo = { ...PREVIA, detalle: { ...PREVIA.detalle, alineaciones: null } }
+  delete viejo.detalle.alineaciones_cuando
+  await abrir(page, viejo, 'pending')
+  await expect(page.getByText(/alrededor de una hora antes/)).toBeVisible({ timeout: 15000 })
+})
+
+/* LAS LÍNEAS DE LA CANCHA. La UNAFUT no declara formación, pero sí la
+   posición de cada jugador; sin usarlas, la cancha caía al 4-4-2 de respaldo y
+   dibujaba cuatro defensas donde hay cinco — una cancha que contradice a sus
+   propios jugadores. */
+test('la cancha respeta las líneas que manda la fuente', async ({ page }) => {
+  const once = Array.from({ length: 11 }, (_, i) => ({
+    nombre: `Jugador ${i + 1}`, corto: `Ape${i + 1}`, dorsal: String(i + 1),
+    posicion: 'DEF', entro: false, salio: false,
+  }))
+  const conLineas = {
+    ...PREVIA,
+    detalle: {
+      ...PREVIA.detalle,
+      alineaciones: [{
+        equipo: 'Pérez Zeledón', escudo: null, esLocal: true, formacion: null,
+        lineas: [1, 5, 3, 2], titulares: once, suplentes: [],
+      }],
+    },
+  }
+  await abrir(page, conLineas, 'finished')
+  await expect(page.getByRole('heading', { name: 'Alineaciones' })).toBeVisible({ timeout: 15000 })
+
+  /* Se afirma sobre lo que se VE: los once repartidos en cuatro líneas de
+     1-5-3-2. Con el respaldo 4-4-2 saldrían 1-4-4-2 y la tercera línea
+     tendría cuatro. */
+  const filas = page.locator('[data-linea]')
+  await expect(filas).toHaveCount(4)
+  await expect(filas.nth(1)).toHaveAttribute('data-linea', '5')
+  await expect(filas.nth(2)).toHaveAttribute('data-linea', '3')
+})
+
+/* El apellido de la ficha viene de la fuente cuando lo manda: con los dos
+   apellidos juntos («Segura Cruz»), quedarse con el último daría «Cruz». */
+test('la ficha usa el apellido corto que manda el backend', async ({ page }) => {
+  const uno = {
+    ...PREVIA,
+    detalle: {
+      ...PREVIA.detalle,
+      alineaciones: [{
+        equipo: 'Pérez Zeledón', escudo: null, esLocal: true, formacion: null, lineas: null,
+        titulares: [{ nombre: 'Bryan Andres Segura Cruz', corto: 'Segura', dorsal: '1', posicion: 'POR' }],
+        suplentes: [],
+      }],
+    },
+  }
+  await abrir(page, uno, 'finished')
+  await expect(page.getByText('Segura')).toBeVisible({ timeout: 15000 })
+  await expect(page.getByText('Cruz', { exact: true })).toHaveCount(0)
+})

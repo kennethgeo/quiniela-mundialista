@@ -1,0 +1,2467 @@
+{
+ "header": {
+  "competitions": [
+   {
+    "status": {
+     "type": {
+      "id": "28",
+      "name": "STATUS_FULL_TIME",
+      "state": "post",
+      "completed": true,
+      "description": "Full Time",
+      "detail": "FT",
+      "shortDetail": "FT"
+     }
+    }
+   }
+  ]
+ },
+ "gameInfo": {
+  "venue": {
+   "id": "10788",
+   "fullName": "Estadio Carlos Ugalde Álvarez",
+   "shortName": "Estadio Carlos Ugalde Álvarez",
+   "address": {
+    "city": "Quesada",
+    "country": "Costa Rica"
+   },
+   "images": []
+  }
+ },
+ "rosters": [
+  {
+   "homeAway": "home",
+   "winner": false,
+   "team": {
+    "id": "131790",
+    "abbreviation": "ISC",
+    "displayName": "Inter de San Carlos",
+    "color": "000000",
+    "alternateColor": "C60000",
+    "logos": [
+     {
+      "href": "https://a.espncdn.com/i/teamlogos/soccer/500/131790.png",
+      "width": 500,
+      "height": 500,
+      "alt": "",
+      "rel": [
+       "full",
+       "default"
+      ],
+      "lastUpdated": "2026-09-02T15:49Z"
+     },
+     {
+      "href": "https://a.espncdn.com/i/teamlogos/soccer/500-dark/131790.png",
+      "width": 500,
+      "height": 500,
+      "alt": "",
+      "rel": [
+       "full",
+       "dark"
+      ],
+      "lastUpdated": "2026-09-02T15:48Z"
+     }
+    ]
+   },
+   "roster": [
+    {
+     "active": true,
+     "starter": true,
+     "athlete": {
+      "id": "271299",
+      "uid": "s:600~a:271299",
+      "guid": "fb3d6d68-5f31-5444-fad9-cb310e691eea",
+      "lastName": "Villegas",
+      "fullName": "Carlos Villegas",
+      "displayName": "Carlos Villegas",
+      "shortName": "C. Villegas",
+      "links": [
+       {
+        "language": "en-US",
+        "rel": [
+         "playercard",
+         "desktop",
+         "athlete"
+        ],
+        "href": "https://www.espn.com/soccer/player/_/id/271299/carlos-villegas",
+        "text": "Player Card",
+        "shortText": "Player Card",
+        "isExternal": false,
+        "isPremium": false
+       }
+      ],
+      "position": {
+       "$ref": "http://sports.core.api.espn.pvt/v2/sports/soccer/leagues/crc.1/positions/19?lang=en&region=us",
+       "id": "19",
+       "name": "Forward",
+       "displayName": "Forward",
+       "abbreviation": "F",
+       "leaf": false
+      },
+      "jerseyImages": [
+       {
+        "href": "https://stitcher.espn.com/sports/soccer/leagues/crc.1/events/401876896/athletes/271299/jersey.png?darkMode=false",
+        "rel": [
+         "full",
+         "default"
+        ],
+        "width": 1440,
+        "height": 1440
+       },
+       {
+        "href": "https://stitcher.espn.com/sports/soccer/leagues/crc.1/events/401876896/athletes/271299/jersey.png?darkMode=true",
+        "rel": [
+         "full",
+         "dark"
+        ],
+        "width": 1440,
+        "height": 1440
+       }
+      ]
+     },
+     "position": {
+      "id": "27",
+      "name": "Substitute",
+      "displayName": "Substitute",
+      "abbreviation": "SUB"
+     },
+     "subbedIn": false,
+     "subbedOut": true,
+     "media": {},
+     "subbedOutFor": {
+      "athlete": {
+       "id": "291003",
+       "displayName": "Rashid Chirino",
+       "links": [
+        {
+         "language": "en-US",
+         "rel": [
+          "playercard",
+          "desktop",
+          "athlete"
+         ],
+         "href": "https://www.espn.com/soccer/player/_/id/291003/rashid-chirino",
+         "text": "Player Card",
+         "shortText": "Player Card",
+         "isExternal": false,
+         "isPremium": false
+        }
+       ]
+      }
+     },
+     "plays": [
+      {
+       "clock": {
+        "displayValue": "56'"
+       },
+       "scoringPlay": false,
+       "substitution": true,
+       "redCard": false,
+       "yellowCard": false,
+       "penaltyKick": false,
+       "ownGoal": false
+      }
+     ]
+    },
+    {
+     "active": true,
+     "starter": false,
+     "athlete": {
+      "id": "276889",
+      "uid": "s:600~a:276889",
+      "guid": "da0ec19a-b69a-8a01-71a8-241d38353c51",
+      "lastName": "Jiménez",
+      "fullName": "Guido Jiménez",
+      "displayName": "Guido Jiménez",
+      "shortName": "G. Jiménez",
+      "links": [
+       {
+        "language": "en-US",
+        "rel": [
+         "playercard",
+         "desktop",
+         "athlete"
+        ],
+        "href": "https://www.espn.com/soccer/player/_/id/276889/guido-jimenez",
+        "text": "Player Card",
+        "shortText": "Player Card",
+        "isExternal": false,
+        "isPremium": false
+       }
+      ],
+      "position": {
+       "$ref": "http://sports.core.api.espn.pvt/v2/sports/soccer/leagues/crc.1/positions/1?lang=en&region=us",
+       "id": "1",
+       "name": "Goalkeeper",
+       "displayName": "Goalkeeper",
+       "abbreviation": "G",
+       "leaf": false
+      },
+      "jerseyImages": [
+       {
+        "href": "https://stitcher.espn.com/sports/soccer/leagues/crc.1/events/401876896/athletes/276889/jersey.png?darkMode=false",
+        "rel": [
+         "full",
+         "default"
+        ],
+        "width": 1440,
+        "height": 1440
+       },
+       {
+        "href": "https://stitcher.espn.com/sports/soccer/leagues/crc.1/events/401876896/athletes/276889/jersey.png?darkMode=true",
+        "rel": [
+         "full",
+         "dark"
+        ],
+        "width": 1440,
+        "height": 1440
+       }
+      ]
+     },
+     "position": {
+      "id": "27",
+      "name": "Substitute",
+      "displayName": "Substitute",
+      "abbreviation": "SUB"
+     },
+     "subbedIn": false,
+     "subbedOut": false,
+     "media": {}
+    },
+    {
+     "active": true,
+     "starter": false,
+     "athlete": {
+      "id": "291026",
+      "uid": "s:600~a:291026",
+      "guid": "8ebf9c1a-e454-3b71-de52-f2c1b909e27f",
+      "lastName": "Alemán",
+      "fullName": "Fabricio Alemán",
+      "displayName": "Fabricio Alemán",
+      "shortName": "F. Alemán",
+      "links": [
+       {
+        "language": "en-US",
+        "rel": [
+         "playercard",
+         "desktop",
+         "athlete"
+        ],
+        "href": "https://www.espn.com/soccer/player/_/id/291026/fabricio-aleman",
+        "text": "Player Card",
+        "shortText": "Player Card",
+        "isExternal": false,
+        "isPremium": false
+       }
+      ],
+      "position": {
+       "$ref": "http://sports.core.api.espn.pvt/v2/sports/soccer/leagues/crc.1/positions/19?lang=en&region=us",
+       "id": "19",
+       "name": "Forward",
+       "displayName": "Forward",
+       "abbreviation": "F",
+       "leaf": false
+      },
+      "jerseyImages": [
+       {
+        "href": "https://stitcher.espn.com/sports/soccer/leagues/crc.1/events/401876896/athletes/291026/jersey.png?darkMode=false",
+        "rel": [
+         "full",
+         "default"
+        ],
+        "width": 1440,
+        "height": 1440
+       },
+       {
+        "href": "https://stitcher.espn.com/sports/soccer/leagues/crc.1/events/401876896/athletes/291026/jersey.png?darkMode=true",
+        "rel": [
+         "full",
+         "dark"
+        ],
+        "width": 1440,
+        "height": 1440
+       }
+      ]
+     },
+     "position": {
+      "id": "27",
+      "name": "Substitute",
+      "displayName": "Substitute",
+      "abbreviation": "SUB"
+     },
+     "subbedIn": true,
+     "subbedOut": false,
+     "media": {},
+     "subbedInFor": {
+      "athlete": {
+       "id": "227935",
+       "displayName": "Wilmer Azofeifa",
+       "links": [
+        {
+         "language": "en-US",
+         "rel": [
+          "playercard",
+          "desktop",
+          "athlete"
+         ],
+         "href": "https://www.espn.com/soccer/player/_/id/227935/wilmer-azofeifa",
+         "text": "Player Card",
+         "shortText": "Player Card",
+         "isExternal": false,
+         "isPremium": false
+        }
+       ]
+      }
+     },
+     "plays": [
+      {
+       "clock": {
+        "displayValue": "61'"
+       },
+       "scoringPlay": false,
+       "substitution": true,
+       "redCard": false,
+       "yellowCard": false,
+       "penaltyKick": false,
+       "ownGoal": false
+      }
+     ]
+    },
+    {
+     "active": true,
+     "starter": true,
+     "athlete": {
+      "id": "141089",
+      "uid": "s:600~a:141089",
+      "guid": "b772c330-3842-022d-8291-741df5c6966a",
+      "lastName": "Chacón",
+      "fullName": "Jonathan Chacón",
+      "displayName": "Jonathan Chacón",
+      "shortName": "J. Chacón",
+      "links": [
+       {
+        "language": "en-US",
+        "rel": [
+         "playercard",
+         "desktop",
+         "athlete"
+        ],
+        "href": "https://www.espn.com/soccer/player/_/id/141089/jonathan-chacon",
+        "text": "Player Card",
+        "shortText": "Player Card",
+        "isExternal": false,
+        "isPremium": false
+       }
+      ],
+      "position": {
+       "$ref": "http://sports.core.api.espn.pvt/v2/sports/soccer/leagues/crc.1/positions/2?lang=en&region=us",
+       "id": "2",
+       "name": "Defender",
+       "displayName": "Defender",
+       "abbreviation": "D",
+       "leaf": false
+      },
+      "jerseyImages": [
+       {
+        "href": "https://stitcher.espn.com/sports/soccer/leagues/crc.1/events/401876896/athletes/141089/jersey.png?darkMode=false",
+        "rel": [
+         "full",
+         "default"
+        ],
+        "width": 1440,
+        "height": 1440
+       },
+       {
+        "href": "https://stitcher.espn.com/sports/soccer/leagues/crc.1/events/401876896/athletes/141089/jersey.png?darkMode=true",
+        "rel": [
+         "full",
+         "dark"
+        ],
+        "width": 1440,
+        "height": 1440
+       }
+      ]
+     },
+     "position": {
+      "id": "27",
+      "name": "Substitute",
+      "displayName": "Substitute",
+      "abbreviation": "SUB"
+     },
+     "subbedIn": false,
+     "subbedOut": false,
+     "media": {}
+    },
+    {
+     "active": true,
+     "starter": true,
+     "athlete": {
+      "id": "166669",
+      "uid": "s:600~a:166669",
+      "guid": "627225f4-d269-4259-baa0-fd9a848fff72",
+      "lastName": "Campbell",
+      "fullName": "Joel Campbell",
+      "displayName": "Joel Campbell",
+      "shortName": "J. Campbell",
+      "links": [
+       {
+        "language": "en-US",
+        "rel": [
+         "playercard",
+         "desktop",
+         "athlete"
+        ],
+        "href": "https://www.espn.com/soccer/player/_/id/166669/joel-campbell",
+        "text": "Player Card",
+        "shortText": "Player Card",
+        "isExternal": false,
+        "isPremium": false
+       }
+      ],
+      "position": {
+       "$ref": "http://sports.core.api.espn.pvt/v2/sports/soccer/leagues/crc.1/positions/19?lang=en&region=us",
+       "id": "19",
+       "name": "Forward",
+       "displayName": "Forward",
+       "abbreviation": "F",
+       "leaf": false
+      },
+      "jerseyImages": [
+       {
+        "href": "https://stitcher.espn.com/sports/soccer/leagues/crc.1/events/401876896/athletes/166669/jersey.png?darkMode=false",
+        "rel": [
+         "full",
+         "default"
+        ],
+        "width": 1440,
+        "height": 1440
+       },
+       {
+        "href": "https://stitcher.espn.com/sports/soccer/leagues/crc.1/events/401876896/athletes/166669/jersey.png?darkMode=true",
+        "rel": [
+         "full",
+         "dark"
+        ],
+        "width": 1440,
+        "height": 1440
+       }
+      ]
+     },
+     "position": {
+      "id": "27",
+      "name": "Substitute",
+      "displayName": "Substitute",
+      "abbreviation": "SUB"
+     },
+     "subbedIn": false,
+     "subbedOut": false,
+     "media": {}
+    },
+    {
+     "active": true,
+     "starter": false,
+     "athlete": {
+      "id": "378884",
+      "uid": "s:600~a:378884",
+      "guid": "84e12aa1-d263-35e9-9f4c-b876bcebee61",
+      "lastName": "Bolaños",
+      "fullName": "Joseph Bolaños",
+      "displayName": "Joseph Bolaños",
+      "shortName": "J. Bolaños",
+      "links": [
+       {
+        "language": "en-US",
+        "rel": [
+         "playercard",
+         "desktop",
+         "athlete"
+        ],
+        "href": "https://www.espn.com/soccer/player/_/id/378884/joseph-bolanos",
+        "text": "Player Card",
+        "shortText": "Player Card",
+        "isExternal": false,
+        "isPremium": false
+       }
+      ],
+      "position": {
+       "$ref": "http://sports.core.api.espn.pvt/v2/sports/soccer/leagues/crc.1/positions/19?lang=en&region=us",
+       "id": "19",
+       "name": "Forward",
+       "displayName": "Forward",
+       "abbreviation": "F",
+       "leaf": false
+      },
+      "jerseyImages": [
+       {
+        "href": "https://stitcher.espn.com/sports/soccer/leagues/crc.1/events/401876896/athletes/378884/jersey.png?darkMode=false",
+        "rel": [
+         "full",
+         "default"
+        ],
+        "width": 1440,
+        "height": 1440
+       },
+       {
+        "href": "https://stitcher.espn.com/sports/soccer/leagues/crc.1/events/401876896/athletes/378884/jersey.png?darkMode=true",
+        "rel": [
+         "full",
+         "dark"
+        ],
+        "width": 1440,
+        "height": 1440
+       }
+      ]
+     },
+     "position": {
+      "id": "27",
+      "name": "Substitute",
+      "displayName": "Substitute",
+      "abbreviation": "SUB"
+     },
+     "subbedIn": false,
+     "subbedOut": false,
+     "media": {}
+    },
+    {
+     "active": true,
+     "starter": true,
+     "athlete": {
+      "id": "112866",
+      "uid": "s:600~a:112866",
+      "guid": "65408e74-a19a-7abe-55e3-3b6dae2dab32",
+      "lastName": "Martinez",
+      "fullName": "Carlos Martinez",
+      "displayName": "Carlos Martinez",
+      "shortName": "C. Martinez",
+      "links": [
+       {
+        "language": "en-US",
+        "rel": [
+         "playercard",
+         "desktop",
+         "athlete"
+        ],
+        "href": "https://www.espn.com/soccer/player/_/id/112866/carlos-martinez",
+        "text": "Player Card",
+        "shortText": "Player Card",
+        "isExternal": false,
+        "isPremium": false
+       }
+      ],
+      "position": {
+       "$ref": "http://sports.core.api.espn.pvt/v2/sports/soccer/leagues/crc.1/positions/2?lang=en&region=us",
+       "id": "2",
+       "name": "Defender",
+       "displayName": "Defender",
+       "abbreviation": "D",
+       "leaf": false
+      },
+      "jerseyImages": [
+       {
+        "href": "https://stitcher.espn.com/sports/soccer/leagues/crc.1/events/401876896/athletes/112866/jersey.png?darkMode=false",
+        "rel": [
+         "full",
+         "default"
+        ],
+        "width": 1440,
+        "height": 1440
+       },
+       {
+        "href": "https://stitcher.espn.com/sports/soccer/leagues/crc.1/events/401876896/athletes/112866/jersey.png?darkMode=true",
+        "rel": [
+         "full",
+         "dark"
+        ],
+        "width": 1440,
+        "height": 1440
+       }
+      ]
+     },
+     "position": {
+      "id": "27",
+      "name": "Substitute",
+      "displayName": "Substitute",
+      "abbreviation": "SUB"
+     },
+     "subbedIn": false,
+     "subbedOut": false,
+     "media": {}
+    },
+    {
+     "active": true,
+     "starter": true,
+     "athlete": {
+      "id": "153727",
+      "uid": "s:600~a:153727",
+      "guid": "621a1de8-6bf2-3460-16e5-045db4c3aa72",
+      "lastName": "Torres",
+      "fullName": "Erick Torres",
+      "displayName": "Erick Torres",
+      "shortName": "E. Torres",
+      "links": [
+       {
+        "language": "en-US",
+        "rel": [
+         "playercard",
+         "desktop",
+         "athlete"
+        ],
+        "href": "https://www.espn.com/soccer/player/_/id/153727/erick-torres",
+        "text": "Player Card",
+        "shortText": "Player Card",
+        "isExternal": false,
+        "isPremium": false
+       }
+      ],
+      "headshot": {
+       "href": "https://a.espncdn.com/i/headshots/soccer/players/full/153727.png",
+       "alt": "Erick Torres"
+      },
+      "position": {
+       "$ref": "http://sports.core.api.espn.pvt/v2/sports/soccer/leagues/crc.1/positions/19?lang=en&region=us",
+       "id": "19",
+       "name": "Forward",
+       "displayName": "Forward",
+       "abbreviation": "F",
+       "leaf": false
+      },
+      "jerseyImages": [
+       {
+        "href": "https://stitcher.espn.com/sports/soccer/leagues/crc.1/events/401876896/athletes/153727/jersey.png?darkMode=false",
+        "rel": [
+         "full",
+         "default"
+        ],
+        "width": 1440,
+        "height": 1440
+       },
+       {
+        "href": "https://stitcher.espn.com/sports/soccer/leagues/crc.1/events/401876896/athletes/153727/jersey.png?darkMode=true",
+        "rel": [
+         "full",
+         "dark"
+        ],
+        "width": 1440,
+        "height": 1440
+       }
+      ]
+     },
+     "position": {
+      "id": "27",
+      "name": "Substitute",
+      "displayName": "Substitute",
+      "abbreviation": "SUB"
+     },
+     "subbedIn": false,
+     "subbedOut": true,
+     "media": {},
+     "subbedOutFor": {
+      "athlete": {
+       "id": "384797",
+       "displayName": "Kendall Porras",
+       "links": [
+        {
+         "language": "en-US",
+         "rel": [
+          "playercard",
+          "desktop",
+          "athlete"
+         ],
+         "href": "https://www.espn.com/soccer/player/_/id/384797/kendall-porras",
+         "text": "Player Card",
+         "shortText": "Player Card",
+         "isExternal": false,
+         "isPremium": false
+        }
+       ]
+      }
+     },
+     "plays": [
+      {
+       "clock": {
+        "displayValue": "46'"
+       },
+       "scoringPlay": false,
+       "substitution": true,
+       "redCard": false,
+       "yellowCard": false,
+       "penaltyKick": false,
+       "ownGoal": false
+      }
+     ]
+    },
+    {
+     "active": true,
+     "starter": false,
+     "athlete": {
+      "id": "291003",
+      "uid": "s:600~a:291003",
+      "guid": "f099baf2-fbd4-8070-893f-60c0e4cf1c04",
+      "lastName": "Chirino",
+      "fullName": "Rashid Chirino",
+      "displayName": "Rashid Chirino",
+      "shortName": "R. Chirino",
+      "links": [
+       {
+        "language": "en-US",
+        "rel": [
+         "playercard",
+         "desktop",
+         "athlete"
+        ],
+        "href": "https://www.espn.com/soccer/player/_/id/291003/rashid-chirino",
+        "text": "Player Card",
+        "shortText": "Player Card",
+        "isExternal": false,
+        "isPremium": false
+       }
+      ],
+      "position": {
+       "$ref": "http://sports.core.api.espn.pvt/v2/sports/soccer/leagues/crc.1/positions/19?lang=en&region=us",
+       "id": "19",
+       "name": "Forward",
+       "displayName": "Forward",
+       "abbreviation": "F",
+       "leaf": false
+      },
+      "jerseyImages": [
+       {
+        "href": "https://stitcher.espn.com/sports/soccer/leagues/crc.1/events/401876896/athletes/291003/jersey.png?darkMode=false",
+        "rel": [
+         "full",
+         "default"
+        ],
+        "width": 1440,
+        "height": 1440
+       },
+       {
+        "href": "https://stitcher.espn.com/sports/soccer/leagues/crc.1/events/401876896/athletes/291003/jersey.png?darkMode=true",
+        "rel": [
+         "full",
+         "dark"
+        ],
+        "width": 1440,
+        "height": 1440
+       }
+      ]
+     },
+     "position": {
+      "id": "27",
+      "name": "Substitute",
+      "displayName": "Substitute",
+      "abbreviation": "SUB"
+     },
+     "subbedIn": true,
+     "subbedOut": false,
+     "media": {},
+     "subbedInFor": {
+      "athlete": {
+       "id": "271299",
+       "displayName": "Carlos Villegas",
+       "links": [
+        {
+         "language": "en-US",
+         "rel": [
+          "playercard",
+          "desktop",
+          "athlete"
+         ],
+         "href": "https://www.espn.com/soccer/player/_/id/271299/carlos-villegas",
+         "text": "Player Card",
+         "shortText": "Player Card",
+         "isExternal": false,
+         "isPremium": false
+        }
+       ]
+      }
+     },
+     "plays": [
+      {
+       "clock": {
+        "displayValue": "56'"
+       },
+       "scoringPlay": false,
+       "substitution": true,
+       "redCard": false,
+       "yellowCard": false,
+       "penaltyKick": false,
+       "ownGoal": false
+      }
+     ]
+    },
+    {
+     "active": true,
+     "starter": true,
+     "athlete": {
+      "id": "3099962",
+      "uid": "s:600~a:3099962",
+      "guid": "7f9347fa-72eb-36e7-bd0e-575e9927b0da",
+      "lastName": "Arias Jiménez",
+      "fullName": "José Andrés Arias Jiménez",
+      "displayName": "José Andrés Arias Jiménez",
+      "shortName": "J. Arias Jiménez",
+      "links": [
+       {
+        "language": "en-US",
+        "rel": [
+         "playercard",
+         "desktop",
+         "athlete"
+        ],
+        "href": "https://www.espn.com/soccer/player/_/id/3099962/jose-andres-arias-jimenez",
+        "text": "Player Card",
+        "shortText": "Player Card",
+        "isExternal": false,
+        "isPremium": false
+       }
+      ],
+      "position": {
+       "$ref": "http://sports.core.api.espn.pvt/v2/sports/soccer/leagues/crc.1/positions/2?lang=en&region=us",
+       "id": "2",
+       "name": "Defender",
+       "displayName": "Defender",
+       "abbreviation": "D",
+       "leaf": false
+      },
+      "jerseyImages": [
+       {
+        "href": "https://stitcher.espn.com/sports/soccer/leagues/crc.1/events/401876896/athletes/3099962/jersey.png?darkMode=false",
+        "rel": [
+         "full",
+         "default"
+        ],
+        "width": 1440,
+        "height": 1440
+       },
+       {
+        "href": "https://stitcher.espn.com/sports/soccer/leagues/crc.1/events/401876896/athletes/3099962/jersey.png?darkMode=true",
+        "rel": [
+         "full",
+         "dark"
+        ],
+        "width": 1440,
+        "height": 1440
+       }
+      ]
+     },
+     "position": {
+      "id": "27",
+      "name": "Substitute",
+      "displayName": "Substitute",
+      "abbreviation": "SUB"
+     },
+     "subbedIn": false,
+     "subbedOut": true,
+     "media": {},
+     "subbedOutFor": {
+      "athlete": {
+       "id": "3099973",
+       "displayName": "José Armando Rodríguez Elizondo",
+       "links": [
+        {
+         "language": "en-US",
+         "rel": [
+          "playercard",
+          "desktop",
+          "athlete"
+         ],
+         "href": "https://www.espn.com/soccer/player/_/id/3099973/jose-armando-rodriguez-elizondo",
+         "text": "Player Card",
+         "shortText": "Player Card",
+         "isExternal": false,
+         "isPremium": false
+        }
+       ]
+      }
+     },
+     "plays": [
+      {
+       "clock": {
+        "displayValue": "46'"
+       },
+       "scoringPlay": false,
+       "substitution": true,
+       "redCard": false,
+       "yellowCard": false,
+       "penaltyKick": false,
+       "ownGoal": false
+      }
+     ]
+    },
+    {
+     "active": true,
+     "starter": true,
+     "athlete": {
+      "id": "227935",
+      "uid": "s:600~a:227935",
+      "guid": "4f0e7493-3eee-62d0-fe2c-e3ee1e8400f9",
+      "lastName": "Azofeifa",
+      "fullName": "Wilmer Azofeifa",
+      "displayName": "Wilmer Azofeifa",
+      "shortName": "W. Azofeifa",
+      "links": [
+       {
+        "language": "en-US",
+        "rel": [
+         "playercard",
+         "desktop",
+         "athlete"
+        ],
+        "href": "https://www.espn.com/soccer/player/_/id/227935/wilmer-azofeifa",
+        "text": "Player Card",
+        "shortText": "Player Card",
+        "isExternal": false,
+        "isPremium": false
+       }
+      ],
+      "position": {
+       "$ref": "http://sports.core.api.espn.pvt/v2/sports/soccer/leagues/crc.1/positions/10?lang=en&region=us",
+       "id": "10",
+       "name": "Midfielder",
+       "displayName": "Midfielder",
+       "abbreviation": "M",
+       "leaf": false
+      },
+      "jerseyImages": [
+       {
+        "href": "https://stitcher.espn.com/sports/soccer/leagues/crc.1/events/401876896/athletes/227935/jersey.png?darkMode=false",
+        "rel": [
+         "full",
+         "default"
+        ],
+        "width": 1440,
+        "height": 1440
+       },
+       {
+        "href": "https://stitcher.espn.com/sports/soccer/leagues/crc.1/events/401876896/athletes/227935/jersey.png?darkMode=true",
+        "rel": [
+         "full",
+         "dark"
+        ],
+        "width": 1440,
+        "height": 1440
+       }
+      ]
+     },
+     "position": {
+      "id": "27",
+      "name": "Substitute",
+      "displayName": "Substitute",
+      "abbreviation": "SUB"
+     },
+     "subbedIn": false,
+     "subbedOut": true,
+     "media": {},
+     "subbedOutFor": {
+      "athlete": {
+       "id": "291026",
+       "displayName": "Fabricio Alemán",
+       "links": [
+        {
+         "language": "en-US",
+         "rel": [
+          "playercard",
+          "desktop",
+          "athlete"
+         ],
+         "href": "https://www.espn.com/soccer/player/_/id/291026/fabricio-aleman",
+         "text": "Player Card",
+         "shortText": "Player Card",
+         "isExternal": false,
+         "isPremium": false
+        }
+       ]
+      }
+     },
+     "plays": [
+      {
+       "clock": {
+        "displayValue": "60'"
+       },
+       "scoringPlay": false,
+       "substitution": false,
+       "redCard": false,
+       "yellowCard": true,
+       "penaltyKick": false,
+       "ownGoal": false
+      },
+      {
+       "clock": {
+        "displayValue": "61'"
+       },
+       "scoringPlay": false,
+       "substitution": true,
+       "redCard": false,
+       "yellowCard": false,
+       "penaltyKick": false,
+       "ownGoal": false
+      }
+     ]
+    },
+    {
+     "active": true,
+     "starter": true,
+     "athlete": {
+      "id": "305948",
+      "uid": "s:600~a:305948",
+      "guid": "c004ea5d-4970-343d-9d5b-bde75b37f369",
+      "lastName": "Peréz Rodriguez",
+      "fullName": "Juan Rodriguez",
+      "displayName": "Juan Rodriguez",
+      "shortName": "Juan Rodriguez",
+      "links": [
+       {
+        "language": "en-US",
+        "rel": [
+         "playercard",
+         "desktop",
+         "athlete"
+        ],
+        "href": "https://www.espn.com/soccer/player/_/id/305948/juan-rodriguez",
+        "text": "Player Card",
+        "shortText": "Player Card",
+        "isExternal": false,
+        "isPremium": false
+       }
+      ],
+      "position": {
+       "$ref": "http://sports.core.api.espn.pvt/v2/sports/soccer/leagues/crc.1/positions/2?lang=en&region=us",
+       "id": "2",
+       "name": "Defender",
+       "displayName": "Defender",
+       "abbreviation": "D",
+       "leaf": false
+      },
+      "jerseyImages": [
+       {
+        "href": "https://stitcher.espn.com/sports/soccer/leagues/crc.1/events/401876896/athletes/305948/jersey.png?darkMode=false",
+        "rel": [
+         "full",
+         "default"
+        ],
+        "width": 1440,
+        "height": 1440
+       },
+       {
+        "href": "https://stitcher.espn.com/sports/soccer/leagues/crc.1/events/401876896/athletes/305948/jersey.png?darkMode=true",
+        "rel": [
+         "full",
+         "dark"
+        ],
+        "width": 1440,
+        "height": 1440
+       }
+      ]
+     },
+     "position": {
+      "id": "27",
+      "name": "Substitute",
+      "displayName": "Substitute",
+      "abbreviation": "SUB"
+     },
+     "subbedIn": false,
+     "subbedOut": false,
+     "media": {},
+     "plays": [
+      {
+       "clock": {
+        "displayValue": "90'"
+       },
+       "scoringPlay": true,
+       "substitution": false,
+       "redCard": false,
+       "yellowCard": false,
+       "penaltyKick": false,
+       "ownGoal": false,
+       "didScore": true
+      }
+     ]
+    },
+    {
+     "active": true,
+     "starter": false,
+     "athlete": {
+      "id": "110069",
+      "uid": "s:600~a:110069",
+      "guid": "ff937159-08dc-eccc-06c9-a331c4f9f3c9",
+      "lastName": "Castro",
+      "fullName": "Sebastian Castro",
+      "displayName": "Sebastian Castro",
+      "shortName": "S. Castro",
+      "links": [
+       {
+        "language": "en-US",
+        "rel": [
+         "playercard",
+         "desktop",
+         "athlete"
+        ],
+        "href": "https://www.espn.com/soccer/player/_/id/110069/sebastian-castro",
+        "text": "Player Card",
+        "shortText": "Player Card",
+        "isExternal": false,
+        "isPremium": false
+       }
+      ],
+      "position": {
+       "$ref": "http://sports.core.api.espn.pvt/v2/sports/soccer/leagues/crc.1/positions/10?lang=en&region=us",
+       "id": "10",
+       "name": "Midfielder",
+       "displayName": "Midfielder",
+       "abbreviation": "M",
+       "leaf": false
+      },
+      "jerseyImages": [
+       {
+        "href": "https://stitcher.espn.com/sports/soccer/leagues/crc.1/events/401876896/athletes/110069/jersey.png?darkMode=false",
+        "rel": [
+         "full",
+         "default"
+        ],
+        "width": 1440,
+        "height": 1440
+       },
+       {
+        "href": "https://stitcher.espn.com/sports/soccer/leagues/crc.1/events/401876896/athletes/110069/jersey.png?darkMode=true",
+        "rel": [
+         "full",
+         "dark"
+        ],
+        "width": 1440,
+        "height": 1440
+       }
+      ]
+     },
+     "position": {
+      "id": "27",
+      "name": "Substitute",
+      "displayName": "Substitute",
+      "abbreviation": "SUB"
+     },
+     "subbedIn": false,
+     "subbedOut": false,
+     "media": {}
+    },
+    {
+     "active": true,
+     "starter": true,
+     "athlete": {
+      "id": "225469",
+      "uid": "s:600~a:225469",
+      "guid": "155179ee-672c-9b78-b148-1e131d81d73d",
+      "lastName": "Monreal",
+      "fullName": "Antonny Monreal",
+      "displayName": "Antonny Monreal",
+      "shortName": "A. Monreal",
+      "links": [
+       {
+        "language": "en-US",
+        "rel": [
+         "playercard",
+         "desktop",
+         "athlete"
+        ],
+        "href": "https://www.espn.com/soccer/player/_/id/225469/antonny-monreal",
+        "text": "Player Card",
+        "shortText": "Player Card",
+        "isExternal": false,
+        "isPremium": false
+       }
+      ],
+      "position": {
+       "$ref": "http://sports.core.api.espn.pvt/v2/sports/soccer/leagues/crc.1/positions/1?lang=en&region=us",
+       "id": "1",
+       "name": "Goalkeeper",
+       "displayName": "Goalkeeper",
+       "abbreviation": "G",
+       "leaf": false
+      },
+      "jerseyImages": [
+       {
+        "href": "https://stitcher.espn.com/sports/soccer/leagues/crc.1/events/401876896/athletes/225469/jersey.png?darkMode=false",
+        "rel": [
+         "full",
+         "default"
+        ],
+        "width": 1440,
+        "height": 1440
+       },
+       {
+        "href": "https://stitcher.espn.com/sports/soccer/leagues/crc.1/events/401876896/athletes/225469/jersey.png?darkMode=true",
+        "rel": [
+         "full",
+         "dark"
+        ],
+        "width": 1440,
+        "height": 1440
+       }
+      ]
+     },
+     "position": {
+      "id": "27",
+      "name": "Substitute",
+      "displayName": "Substitute",
+      "abbreviation": "SUB"
+     },
+     "subbedIn": false,
+     "subbedOut": false,
+     "media": {}
+    },
+    {
+     "active": true,
+     "starter": true,
+     "athlete": {
+      "id": "399115",
+      "uid": "s:600~a:399115",
+      "guid": "365ddc43-7178-322e-8c40-273b9a237858",
+      "lastName": "Vega",
+      "fullName": "Randy Vega",
+      "displayName": "Randy Vega",
+      "shortName": "R. Vega",
+      "links": [
+       {
+        "language": "en-US",
+        "rel": [
+         "playercard",
+         "desktop",
+         "athlete"
+        ],
+        "href": "https://www.espn.com/soccer/player/_/id/399115/randy-vega",
+        "text": "Player Card",
+        "shortText": "Player Card",
+        "isExternal": false,
+        "isPremium": false
+       }
+      ],
+      "position": {
+       "$ref": "http://sports.core.api.espn.pvt/v2/sports/soccer/leagues/crc.1/positions/19?lang=en&region=us",
+       "id": "19",
+       "name": "Forward",
+       "displayName": "Forward",
+       "abbreviation": "F",
+       "leaf": false
+      },
+      "jerseyImages": [
+       {
+        "href": "https://stitcher.espn.com/sports/soccer/leagues/crc.1/events/401876896/athletes/399115/jersey.png?darkMode=false",
+        "rel": [
+         "full",
+         "default"
+        ],
+        "width": 1440,
+        "height": 1440
+       },
+       {
+        "href": "https://stitcher.espn.com/sports/soccer/leagues/crc.1/events/401876896/athletes/399115/jersey.png?darkMode=true",
+        "rel": [
+         "full",
+         "dark"
+        ],
+        "width": 1440,
+        "height": 1440
+       }
+      ]
+     },
+     "position": {
+      "id": "27",
+      "name": "Substitute",
+      "displayName": "Substitute",
+      "abbreviation": "SUB"
+     },
+     "subbedIn": false,
+     "subbedOut": true,
+     "media": {},
+     "subbedOutFor": {
+      "athlete": {
+       "id": "3099986",
+       "displayName": "Jefferson Steven Sánchez Galloway",
+       "links": [
+        {
+         "language": "en-US",
+         "rel": [
+          "playercard",
+          "desktop",
+          "athlete"
+         ],
+         "href": "https://www.espn.com/soccer/player/_/id/3099986/jefferson-steven-sanchez-galloway",
+         "text": "Player Card",
+         "shortText": "Player Card",
+         "isExternal": false,
+         "isPremium": false
+        }
+       ]
+      }
+     },
+     "plays": [
+      {
+       "clock": {
+        "displayValue": "70'"
+       },
+       "scoringPlay": false,
+       "substitution": true,
+       "redCard": false,
+       "yellowCard": false,
+       "penaltyKick": false,
+       "ownGoal": false
+      }
+     ]
+    },
+    {
+     "active": true,
+     "starter": false,
+     "athlete": {
+      "id": "384797",
+      "uid": "s:600~a:384797",
+      "guid": "1f05979e-402f-376f-b8fe-732bec1272c2",
+      "lastName": "Porras",
+      "fullName": "Kendall Porras",
+      "displayName": "Kendall Porras",
+      "shortName": "K. Porras",
+      "links": [
+       {
+        "language": "en-US",
+        "rel": [
+         "playercard",
+         "desktop",
+         "athlete"
+        ],
+        "href": "https://www.espn.com/soccer/player/_/id/384797/kendall-porras",
+        "text": "Player Card",
+        "shortText": "Player Card",
+        "isExternal": false,
+        "isPremium": false
+       }
+      ],
+      "position": {
+       "$ref": "http://sports.core.api.espn.pvt/v2/sports/soccer/leagues/crc.1/positions/10?lang=en&region=us",
+       "id": "10",
+       "name": "Midfielder",
+       "displayName": "Midfielder",
+       "abbreviation": "M",
+       "leaf": false
+      },
+      "jerseyImages": [
+       {
+        "href": "https://stitcher.espn.com/sports/soccer/leagues/crc.1/events/401876896/athletes/384797/jersey.png?darkMode=false",
+        "rel": [
+         "full",
+         "default"
+        ],
+        "width": 1440,
+        "height": 1440
+       },
+       {
+        "href": "https://stitcher.espn.com/sports/soccer/leagues/crc.1/events/401876896/athletes/384797/jersey.png?darkMode=true",
+        "rel": [
+         "full",
+         "dark"
+        ],
+        "width": 1440,
+        "height": 1440
+       }
+      ]
+     },
+     "position": {
+      "id": "27",
+      "name": "Substitute",
+      "displayName": "Substitute",
+      "abbreviation": "SUB"
+     },
+     "subbedIn": true,
+     "subbedOut": false,
+     "media": {},
+     "subbedInFor": {
+      "athlete": {
+       "id": "153727",
+       "displayName": "Erick Torres",
+       "links": [
+        {
+         "language": "en-US",
+         "rel": [
+          "playercard",
+          "desktop",
+          "athlete"
+         ],
+         "href": "https://www.espn.com/soccer/player/_/id/153727/erick-torres",
+         "text": "Player Card",
+         "shortText": "Player Card",
+         "isExternal": false,
+         "isPremium": false
+        }
+       ]
+      }
+     },
+     "plays": [
+      {
+       "clock": {
+        "displayValue": "46'"
+       },
+       "scoringPlay": false,
+       "substitution": true,
+       "redCard": false,
+       "yellowCard": false,
+       "penaltyKick": false,
+       "ownGoal": false
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "homeAway": "away",
+   "winner": false,
+   "team": {
+    "id": "7237",
+    "abbreviation": "PUN",
+    "displayName": "Puntarenas FC",
+    "color": "000000",
+    "alternateColor": "C60000",
+    "logos": [
+     {
+      "href": "https://a.espncdn.com/i/teamlogos/soccer/500/7237.png",
+      "width": 500,
+      "height": 500,
+      "alt": "",
+      "rel": [
+       "full",
+       "default"
+      ],
+      "lastUpdated": "2019-05-08T16:07Z"
+     },
+     {
+      "href": "https://a.espncdn.com/i/teamlogos/soccer/500-dark/7237.png",
+      "width": 500,
+      "height": 500,
+      "alt": "",
+      "rel": [
+       "full",
+       "dark"
+      ],
+      "lastUpdated": "2019-05-08T16:07Z"
+     }
+    ]
+   },
+   "roster": [
+    {
+     "active": true,
+     "starter": false,
+     "athlete": {
+      "id": "302977",
+      "uid": "s:600~a:302977",
+      "guid": "3ecc2df8-612c-396d-8beb-018abf2980f9",
+      "lastName": "Cole Martinez",
+      "fullName": "Raheem Giusseppe Cole Martinez",
+      "displayName": "Raheem Giusseppe Cole Martinez",
+      "shortName": "R. Cole Martinez",
+      "links": [
+       {
+        "language": "en-US",
+        "rel": [
+         "playercard",
+         "desktop",
+         "athlete"
+        ],
+        "href": "https://www.espn.com/soccer/player/_/id/302977/raheem-giusseppe-cole-martinez",
+        "text": "Player Card",
+        "shortText": "Player Card",
+        "isExternal": false,
+        "isPremium": false
+       }
+      ],
+      "position": {
+       "$ref": "http://sports.core.api.espn.pvt/v2/sports/soccer/leagues/crc.1/positions/19?lang=en&region=us",
+       "id": "19",
+       "name": "Forward",
+       "displayName": "Forward",
+       "abbreviation": "F",
+       "leaf": false
+      },
+      "jerseyImages": [
+       {
+        "href": "https://stitcher.espn.com/sports/soccer/leagues/crc.1/events/401876896/athletes/302977/jersey.png?darkMode=false",
+        "rel": [
+         "full",
+         "default"
+        ],
+        "width": 1440,
+        "height": 1440
+       },
+       {
+        "href": "https://stitcher.espn.com/sports/soccer/leagues/crc.1/events/401876896/athletes/302977/jersey.png?darkMode=true",
+        "rel": [
+         "full",
+         "dark"
+        ],
+        "width": 1440,
+        "height": 1440
+       }
+      ]
+     },
+     "position": {
+      "id": "27",
+      "name": "Substitute",
+      "displayName": "Substitute",
+      "abbreviation": "SUB"
+     },
+     "subbedIn": true,
+     "subbedOut": false,
+     "media": {},
+     "subbedInFor": {
+      "athlete": {
+       "id": "328392",
+       "displayName": "Doryan Rodriguez",
+       "links": [
+        {
+         "language": "en-US",
+         "rel": [
+          "playercard",
+          "desktop",
+          "athlete"
+         ],
+         "href": "https://www.espn.com/soccer/player/_/id/328392/doryan-rodriguez",
+         "text": "Player Card",
+         "shortText": "Player Card",
+         "isExternal": false,
+         "isPremium": false
+        }
+       ]
+      }
+     },
+     "plays": [
+      {
+       "clock": {
+        "displayValue": "67'"
+       },
+       "scoringPlay": false,
+       "substitution": true,
+       "redCard": false,
+       "yellowCard": false,
+       "penaltyKick": false,
+       "ownGoal": false
+      },
+      {
+       "clock": {
+        "displayValue": "78'"
+       },
+       "scoringPlay": false,
+       "substitution": false,
+       "redCard": false,
+       "yellowCard": true,
+       "penaltyKick": false,
+       "ownGoal": false
+      }
+     ]
+    },
+    {
+     "active": true,
+     "starter": false,
+     "athlete": {
+      "id": "310826",
+      "uid": "s:600~a:310826",
+      "guid": "299daaba-d855-37af-87e2-74b9c424cc75",
+      "lastName": "Hernández",
+      "fullName": "Jordy Hernández",
+      "displayName": "Jordy Hernández",
+      "shortName": "J. Hernández",
+      "links": [
+       {
+        "language": "en-US",
+        "rel": [
+         "playercard",
+         "desktop",
+         "athlete"
+        ],
+        "href": "https://www.espn.com/soccer/player/_/id/310826/jordy-hernandez",
+        "text": "Player Card",
+        "shortText": "Player Card",
+        "isExternal": false,
+        "isPremium": false
+       }
+      ],
+      "position": {
+       "$ref": "http://sports.core.api.espn.pvt/v2/sports/soccer/leagues/crc.1/positions/19?lang=en&region=us",
+       "id": "19",
+       "name": "Forward",
+       "displayName": "Forward",
+       "abbreviation": "F",
+       "leaf": false
+      },
+      "jerseyImages": [
+       {
+        "href": "https://stitcher.espn.com/sports/soccer/leagues/crc.1/events/401876896/athletes/310826/jersey.png?darkMode=false",
+        "rel": [
+         "full",
+         "default"
+        ],
+        "width": 1440,
+        "height": 1440
+       },
+       {
+        "href": "https://stitcher.espn.com/sports/soccer/leagues/crc.1/events/401876896/athletes/310826/jersey.png?darkMode=true",
+        "rel": [
+         "full",
+         "dark"
+        ],
+        "width": 1440,
+        "height": 1440
+       }
+      ]
+     },
+     "position": {
+      "id": "27",
+      "name": "Substitute",
+      "displayName": "Substitute",
+      "abbreviation": "SUB"
+     },
+     "subbedIn": false,
+     "subbedOut": false,
+     "media": {}
+    },
+    {
+     "active": true,
+     "starter": false,
+     "athlete": {
+      "id": "241957",
+      "uid": "s:600~a:241957",
+      "guid": "37d5b4d1-9b22-bdb5-374f-994009b5fa0d",
+      "lastName": "Segura",
+      "fullName": "Ulises Segura",
+      "displayName": "Ulises Segura",
+      "shortName": "U. Segura",
+      "links": [
+       {
+        "language": "en-US",
+        "rel": [
+         "playercard",
+         "desktop",
+         "athlete"
+        ],
+        "href": "https://www.espn.com/soccer/player/_/id/241957/ulises-segura",
+        "text": "Player Card",
+        "shortText": "Player Card",
+        "isExternal": false,
+        "isPremium": false
+       }
+      ],
+      "headshot": {
+       "href": "https://a.espncdn.com/i/headshots/soccer/players/full/241957.png",
+       "alt": "Ulises Segura"
+      },
+      "position": {
+       "$ref": "http://sports.core.api.espn.pvt/v2/sports/soccer/leagues/crc.1/positions/10?lang=en&region=us",
+       "id": "10",
+       "name": "Midfielder",
+       "displayName": "Midfielder",
+       "abbreviation": "M",
+       "leaf": false
+      },
+      "jerseyImages": [
+       {
+        "href": "https://stitcher.espn.com/sports/soccer/leagues/crc.1/events/401876896/athletes/241957/jersey.png?darkMode=false",
+        "rel": [
+         "full",
+         "default"
+        ],
+        "width": 1440,
+        "height": 1440
+       },
+       {
+        "href": "https://stitcher.espn.com/sports/soccer/leagues/crc.1/events/401876896/athletes/241957/jersey.png?darkMode=true",
+        "rel": [
+         "full",
+         "dark"
+        ],
+        "width": 1440,
+        "height": 1440
+       }
+      ]
+     },
+     "position": {
+      "id": "27",
+      "name": "Substitute",
+      "displayName": "Substitute",
+      "abbreviation": "SUB"
+     },
+     "subbedIn": false,
+     "subbedOut": false,
+     "media": {}
+    },
+    {
+     "active": true,
+     "starter": false,
+     "athlete": {
+      "id": "236058",
+      "uid": "s:600~a:236058",
+      "guid": "46f67aba-87b3-321a-da00-5f5c72f07ad0",
+      "lastName": "Comachi",
+      "fullName": "Lucas Comachi",
+      "displayName": "Lucas Comachi",
+      "shortName": "L. Comachi",
+      "links": [
+       {
+        "language": "en-US",
+        "rel": [
+         "playercard",
+         "desktop",
+         "athlete"
+        ],
+        "href": "https://www.espn.com/soccer/player/_/id/236058/lucas-comachi",
+        "text": "Player Card",
+        "shortText": "Player Card",
+        "isExternal": false,
+        "isPremium": false
+       }
+      ],
+      "position": {
+       "$ref": "http://sports.core.api.espn.pvt/v2/sports/soccer/leagues/crc.1/positions/10?lang=en&region=us",
+       "id": "10",
+       "name": "Midfielder",
+       "displayName": "Midfielder",
+       "abbreviation": "M",
+       "leaf": false
+      },
+      "jerseyImages": [
+       {
+        "href": "https://stitcher.espn.com/sports/soccer/leagues/crc.1/events/401876896/athletes/236058/jersey.png?darkMode=false",
+        "rel": [
+         "full",
+         "default"
+        ],
+        "width": 1440,
+        "height": 1440
+       },
+       {
+        "href": "https://stitcher.espn.com/sports/soccer/leagues/crc.1/events/401876896/athletes/236058/jersey.png?darkMode=true",
+        "rel": [
+         "full",
+         "dark"
+        ],
+        "width": 1440,
+        "height": 1440
+       }
+      ]
+     },
+     "position": {
+      "id": "27",
+      "name": "Substitute",
+      "displayName": "Substitute",
+      "abbreviation": "SUB"
+     },
+     "subbedIn": false,
+     "subbedOut": false,
+     "media": {}
+    },
+    {
+     "active": true,
+     "starter": true,
+     "athlete": {
+      "id": "378892",
+      "uid": "s:600~a:378892",
+      "guid": "c0114e39-2304-3715-98cb-fde4b64b0f58",
+      "lastName": "Gómez",
+      "fullName": "Kliver Gómez",
+      "displayName": "Kliver Gómez",
+      "shortName": "K. Gómez",
+      "links": [
+       {
+        "language": "en-US",
+        "rel": [
+         "playercard",
+         "desktop",
+         "athlete"
+        ],
+        "href": "https://www.espn.com/soccer/player/_/id/378892/kliver-gomez",
+        "text": "Player Card",
+        "shortText": "Player Card",
+        "isExternal": false,
+        "isPremium": false
+       }
+      ],
+      "position": {
+       "$ref": "http://sports.core.api.espn.pvt/v2/sports/soccer/leagues/crc.1/positions/2?lang=en&region=us",
+       "id": "2",
+       "name": "Defender",
+       "displayName": "Defender",
+       "abbreviation": "D",
+       "leaf": false
+      },
+      "jerseyImages": [
+       {
+        "href": "https://stitcher.espn.com/sports/soccer/leagues/crc.1/events/401876896/athletes/378892/jersey.png?darkMode=false",
+        "rel": [
+         "full",
+         "default"
+        ],
+        "width": 1440,
+        "height": 1440
+       },
+       {
+        "href": "https://stitcher.espn.com/sports/soccer/leagues/crc.1/events/401876896/athletes/378892/jersey.png?darkMode=true",
+        "rel": [
+         "full",
+         "dark"
+        ],
+        "width": 1440,
+        "height": 1440
+       }
+      ]
+     },
+     "position": {
+      "id": "27",
+      "name": "Substitute",
+      "displayName": "Substitute",
+      "abbreviation": "SUB"
+     },
+     "subbedIn": false,
+     "subbedOut": false,
+     "media": {}
+    },
+    {
+     "active": true,
+     "starter": true,
+     "athlete": {
+      "id": "265900",
+      "uid": "s:600~a:265900",
+      "guid": "cf2f971e-110f-6263-d683-866b1482a527",
+      "lastName": "Arias",
+      "fullName": "Amferny Arias",
+      "displayName": "Amferny Arias",
+      "shortName": "A. Arias",
+      "links": [
+       {
+        "language": "en-US",
+        "rel": [
+         "playercard",
+         "desktop",
+         "athlete"
+        ],
+        "href": "https://www.espn.com/soccer/player/_/id/265900/amferny-arias",
+        "text": "Player Card",
+        "shortText": "Player Card",
+        "isExternal": false,
+        "isPremium": false
+       }
+      ],
+      "position": {
+       "$ref": "http://sports.core.api.espn.pvt/v2/sports/soccer/leagues/crc.1/positions/10?lang=en&region=us",
+       "id": "10",
+       "name": "Midfielder",
+       "displayName": "Midfielder",
+       "abbreviation": "M",
+       "leaf": false
+      },
+      "jerseyImages": [
+       {
+        "href": "https://stitcher.espn.com/sports/soccer/leagues/crc.1/events/401876896/athletes/265900/jersey.png?darkMode=false",
+        "rel": [
+         "full",
+         "default"
+        ],
+        "width": 1440,
+        "height": 1440
+       },
+       {
+        "href": "https://stitcher.espn.com/sports/soccer/leagues/crc.1/events/401876896/athletes/265900/jersey.png?darkMode=true",
+        "rel": [
+         "full",
+         "dark"
+        ],
+        "width": 1440,
+        "height": 1440
+       }
+      ]
+     },
+     "position": {
+      "id": "27",
+      "name": "Substitute",
+      "displayName": "Substitute",
+      "abbreviation": "SUB"
+     },
+     "subbedIn": false,
+     "subbedOut": false,
+     "media": {},
+     "plays": [
+      {
+       "clock": {
+        "displayValue": "64'"
+       },
+       "scoringPlay": false,
+       "substitution": false,
+       "redCard": true,
+       "yellowCard": false,
+       "penaltyKick": false,
+       "ownGoal": false
+      }
+     ]
+    },
+    {
+     "active": true,
+     "starter": true,
+     "athlete": {
+      "id": "407914",
+      "uid": "s:600~a:407914",
+      "guid": "8c2995ee-cb8f-3b41-9547-947ddda8e3f1",
+      "lastName": "Castrillo",
+      "fullName": "Dariel Castrillo",
+      "displayName": "Dariel Castrillo",
+      "shortName": "D. Castrillo",
+      "links": [
+       {
+        "language": "en-US",
+        "rel": [
+         "playercard",
+         "desktop",
+         "athlete"
+        ],
+        "href": "https://www.espn.com/soccer/player/_/id/407914/dariel-castrillo",
+        "text": "Player Card",
+        "shortText": "Player Card",
+        "isExternal": false,
+        "isPremium": false
+       }
+      ],
+      "position": {
+       "$ref": "http://sports.core.api.espn.pvt/v2/sports/soccer/leagues/crc.1/positions/19?lang=en&region=us",
+       "id": "19",
+       "name": "Forward",
+       "displayName": "Forward",
+       "abbreviation": "F",
+       "leaf": false
+      },
+      "jerseyImages": [
+       {
+        "href": "https://stitcher.espn.com/sports/soccer/leagues/crc.1/events/401876896/athletes/407914/jersey.png?darkMode=false",
+        "rel": [
+         "full",
+         "default"
+        ],
+        "width": 1440,
+        "height": 1440
+       },
+       {
+        "href": "https://stitcher.espn.com/sports/soccer/leagues/crc.1/events/401876896/athletes/407914/jersey.png?darkMode=true",
+        "rel": [
+         "full",
+         "dark"
+        ],
+        "width": 1440,
+        "height": 1440
+       }
+      ]
+     },
+     "position": {
+      "id": "27",
+      "name": "Substitute",
+      "displayName": "Substitute",
+      "abbreviation": "SUB"
+     },
+     "subbedIn": false,
+     "subbedOut": true,
+     "media": {},
+     "subbedOutFor": {
+      "athlete": {
+       "id": "3100048",
+       "displayName": "Vladimir Carlton Edghill Serrano",
+       "links": [
+        {
+         "language": "en-US",
+         "rel": [
+          "playercard",
+          "desktop",
+          "athlete"
+         ],
+         "href": "https://www.espn.com/soccer/player/_/id/3100048/vladimir-carlton-edghill-serrano",
+         "text": "Player Card",
+         "shortText": "Player Card",
+         "isExternal": false,
+         "isPremium": false
+        }
+       ]
+      }
+     },
+     "plays": [
+      {
+       "clock": {
+        "displayValue": "11'"
+       },
+       "scoringPlay": true,
+       "substitution": false,
+       "redCard": false,
+       "yellowCard": false,
+       "penaltyKick": false,
+       "ownGoal": false,
+       "didScore": true
+      },
+      {
+       "clock": {
+        "displayValue": "67'"
+       },
+       "scoringPlay": false,
+       "substitution": true,
+       "redCard": false,
+       "yellowCard": false,
+       "penaltyKick": false,
+       "ownGoal": false
+      }
+     ]
+    },
+    {
+     "active": true,
+     "starter": true,
+     "athlete": {
+      "id": "151369",
+      "uid": "s:600~a:151369",
+      "guid": "f705c77b-4a25-66da-7fdb-469f89661012",
+      "lastName": "Tejeda",
+      "fullName": "Yeltsin Tejeda",
+      "displayName": "Yeltsin Tejeda",
+      "shortName": "Y. Tejeda",
+      "links": [
+       {
+        "language": "en-US",
+        "rel": [
+         "playercard",
+         "desktop",
+         "athlete"
+        ],
+        "href": "https://www.espn.com/soccer/player/_/id/151369/yeltsin-tejeda",
+        "text": "Player Card",
+        "shortText": "Player Card",
+        "isExternal": false,
+        "isPremium": false
+       }
+      ],
+      "position": {
+       "$ref": "http://sports.core.api.espn.pvt/v2/sports/soccer/leagues/crc.1/positions/10?lang=en&region=us",
+       "id": "10",
+       "name": "Midfielder",
+       "displayName": "Midfielder",
+       "abbreviation": "M",
+       "leaf": false
+      },
+      "jerseyImages": [
+       {
+        "href": "https://stitcher.espn.com/sports/soccer/leagues/crc.1/events/401876896/athletes/151369/jersey.png?darkMode=false",
+        "rel": [
+         "full",
+         "default"
+        ],
+        "width": 1440,
+        "height": 1440
+       },
+       {
+        "href": "https://stitcher.espn.com/sports/soccer/leagues/crc.1/events/401876896/athletes/151369/jersey.png?darkMode=true",
+        "rel": [
+         "full",
+         "dark"
+        ],
+        "width": 1440,
+        "height": 1440
+       }
+      ]
+     },
+     "position": {
+      "id": "27",
+      "name": "Substitute",
+      "displayName": "Substitute",
+      "abbreviation": "SUB"
+     },
+     "subbedIn": false,
+     "subbedOut": true,
+     "media": {},
+     "subbedOutFor": {
+      "athlete": {
+       "id": "3136517",
+       "displayName": "Wilson Alberto Hernández González",
+       "links": [
+        {
+         "language": "en-US",
+         "rel": [
+          "playercard",
+          "desktop",
+          "athlete"
+         ],
+         "href": "https://www.espn.com/soccer/player/_/id/3136517/wilson-alberto-hernandez-gonzalez",
+         "text": "Player Card",
+         "shortText": "Player Card",
+         "isExternal": false,
+         "isPremium": false
+        }
+       ]
+      }
+     },
+     "plays": [
+      {
+       "clock": {
+        "displayValue": "81'"
+       },
+       "scoringPlay": false,
+       "substitution": true,
+       "redCard": false,
+       "yellowCard": false,
+       "penaltyKick": false,
+       "ownGoal": false
+      }
+     ]
+    },
+    {
+     "active": true,
+     "starter": true,
+     "athlete": {
+      "id": "328392",
+      "uid": "s:600~a:328392",
+      "guid": "139b0299-28dc-3a7a-86d3-b407cabeb775",
+      "lastName": "Rodriguez",
+      "fullName": "Doryan Rodriguez",
+      "displayName": "Doryan Rodriguez",
+      "shortName": "D. Rodriguez",
+      "links": [
+       {
+        "language": "en-US",
+        "rel": [
+         "playercard",
+         "desktop",
+         "athlete"
+        ],
+        "href": "https://www.espn.com/soccer/player/_/id/328392/doryan-rodriguez",
+        "text": "Player Card",
+        "shortText": "Player Card",
+        "isExternal": false,
+        "isPremium": false
+       }
+      ],
+      "position": {
+       "$ref": "http://sports.core.api.espn.pvt/v2/sports/soccer/leagues/crc.1/positions/19?lang=en&region=us",
+       "id": "19",
+       "name": "Forward",
+       "displayName": "Forward",
+       "abbreviation": "F",
+       "leaf": false
+      },
+      "jerseyImages": [
+       {
+        "href": "https://stitcher.espn.com/sports/soccer/leagues/crc.1/events/401876896/athletes/328392/jersey.png?darkMode=false",
+        "rel": [
+         "full",
+         "default"
+        ],
+        "width": 1440,
+        "height": 1440
+       },
+       {
+        "href": "https://stitcher.espn.com/sports/soccer/leagues/crc.1/events/401876896/athletes/328392/jersey.png?darkMode=true",
+        "rel": [
+         "full",
+         "dark"
+        ],
+        "width": 1440,
+        "height": 1440
+       }
+      ]
+     },
+     "position": {
+      "id": "27",
+      "name": "Substitute",
+      "displayName": "Substitute",
+      "abbreviation": "SUB"
+     },
+     "subbedIn": false,
+     "subbedOut": true,
+     "media": {},
+     "subbedOutFor": {
+      "athlete": {
+       "id": "302977",
+       "displayName": "Raheem Giusseppe Cole Martinez",
+       "links": [
+        {
+         "language": "en-US",
+         "rel": [
+          "playercard",
+          "desktop",
+          "athlete"
+         ],
+         "href": "https://www.espn.com/soccer/player/_/id/302977/raheem-giusseppe-cole-martinez",
+         "text": "Player Card",
+         "shortText": "Player Card",
+         "isExternal": false,
+         "isPremium": false
+        }
+       ]
+      }
+     },
+     "plays": [
+      {
+       "clock": {
+        "displayValue": "67'"
+       },
+       "scoringPlay": false,
+       "substitution": true,
+       "redCard": false,
+       "yellowCard": false,
+       "penaltyKick": false,
+       "ownGoal": false
+      }
+     ]
+    },
+    {
+     "active": true,
+     "starter": true,
+     "athlete": {
+      "id": "228366",
+      "uid": "s:600~a:228366",
+      "guid": "800223f9-05ff-c9d9-0bcb-67d857790821",
+      "lastName": "Decas",
+      "fullName": "Wesly Decas",
+      "displayName": "Wesly Decas",
+      "shortName": "W. Decas",
+      "links": [
+       {
+        "language": "en-US",
+        "rel": [
+         "playercard",
+         "desktop",
+         "athlete"
+        ],
+        "href": "https://www.espn.com/soccer/player/_/id/228366/wesly-decas",
+        "text": "Player Card",
+        "shortText": "Player Card",
+        "isExternal": false,
+        "isPremium": false
+       }
+      ],
+      "position": {
+       "$ref": "http://sports.core.api.espn.pvt/v2/sports/soccer/leagues/crc.1/positions/2?lang=en&region=us",
+       "id": "2",
+       "name": "Defender",
+       "displayName": "Defender",
+       "abbreviation": "D",
+       "leaf": false
+      },
+      "jerseyImages": [
+       {
+        "href": "https://stitcher.espn.com/sports/soccer/leagues/crc.1/events/401876896/athletes/228366/jersey.png?darkMode=false",
+        "rel": [
+         "full",
+         "default"
+        ],
+        "width": 1440,
+        "height": 1440
+       },
+       {
+        "href": "https://stitcher.espn.com/sports/soccer/leagues/crc.1/events/401876896/athletes/228366/jersey.png?darkMode=true",
+        "rel": [
+         "full",
+         "dark"
+        ],
+        "width": 1440,
+        "height": 1440
+       }
+      ]
+     },
+     "position": {
+      "id": "27",
+      "name": "Substitute",
+      "displayName": "Substitute",
+      "abbreviation": "SUB"
+     },
+     "subbedIn": false,
+     "subbedOut": false,
+     "media": {},
+     "plays": [
+      {
+       "clock": {
+        "displayValue": "89'"
+       },
+       "scoringPlay": false,
+       "substitution": false,
+       "redCard": false,
+       "yellowCard": true,
+       "penaltyKick": false,
+       "ownGoal": false
+      }
+     ]
+    },
+    {
+     "active": true,
+     "starter": true,
+     "athlete": {
+      "id": "381346",
+      "uid": "s:600~a:381346",
+      "guid": "96a28de6-3826-31b9-8bf8-18aa20214809",
+      "lastName": "Cabezas",
+      "fullName": "Kevin Cabezas",
+      "displayName": "Kevin Cabezas",
+      "shortName": "K. Cabezas",
+      "links": [
+       {
+        "language": "en-US",
+        "rel": [
+         "playercard",
+         "desktop",
+         "athlete"
+        ],
+        "href": "https://www.espn.com/soccer/player/_/id/381346/kevin-cabezas",
+        "text": "Player Card",
+        "shortText": "Player Card",
+        "isExternal": false,
+        "isPremium": false
+       }
+      ],
+      "position": {
+       "$ref": "http://sports.core.api.espn.pvt/v2/sports/soccer/leagues/crc.1/positions/10?lang=en&region=us",
+       "id": "10",
+       "name": "Midfielder",
+       "displayName": "Midfielder",
+       "abbreviation": "M",
+       "leaf": false
+      },
+      "jerseyImages": [
+       {
+        "href": "https://stitcher.espn.com/sports/soccer/leagues/crc.1/events/401876896/athletes/381346/jersey.png?darkMode=false",
+        "rel": [
+         "full",
+         "default"
+        ],
+        "width": 1440,
+        "height": 1440
+       },
+       {
+        "href": "https://stitcher.espn.com/sports/soccer/leagues/crc.1/events/401876896/athletes/381346/jersey.png?darkMode=true",
+        "rel": [
+         "full",
+         "dark"
+        ],
+        "width": 1440,
+        "height": 1440
+       }
+      ]
+     },
+     "position": {
+      "id": "27",
+      "name": "Substitute",
+      "displayName": "Substitute",
+      "abbreviation": "SUB"
+     },
+     "subbedIn": false,
+     "subbedOut": true,
+     "media": {},
+     "subbedOutFor": {
+      "athlete": {
+       "id": "3103669",
+       "displayName": "Randy Alexander Taylor Dosman",
+       "links": [
+        {
+         "language": "en-US",
+         "rel": [
+          "playercard",
+          "desktop",
+          "athlete"
+         ],
+         "href": "https://www.espn.com/soccer/player/_/id/3103669/randy-alexander-taylor-dosman",
+         "text": "Player Card",
+         "shortText": "Player Card",
+         "isExternal": false,
+         "isPremium": false
+        }
+       ]
+      }
+     },
+     "plays": [
+      {
+       "clock": {
+        "displayValue": "58'"
+       },
+       "scoringPlay": false,
+       "substitution": true,
+       "redCard": false,
+       "yellowCard": false,
+       "penaltyKick": false,
+       "ownGoal": false
+      }
+     ]
+    },
+    {
+     "active": true,
+     "starter": true,
+     "athlete": {
+      "id": "256554",
+      "uid": "s:600~a:256554",
+      "guid": "8bbaf713-2346-7308-7a2e-c7ff32623f20",
+      "lastName": "Pineda",
+      "fullName": "Erick Pineda",
+      "displayName": "Erick Pineda",
+      "shortName": "E. Pineda",
+      "links": [
+       {
+        "language": "en-US",
+        "rel": [
+         "playercard",
+         "desktop",
+         "athlete"
+        ],
+        "href": "https://www.espn.com/soccer/player/_/id/256554/erick-pineda",
+        "text": "Player Card",
+        "shortText": "Player Card",
+        "isExternal": false,
+        "isPremium": false
+       }
+      ],
+      "position": {
+       "$ref": "http://sports.core.api.espn.pvt/v2/sports/soccer/leagues/crc.1/positions/1?lang=en&region=us",
+       "id": "1",
+       "name": "Goalkeeper",
+       "displayName": "Goalkeeper",
+       "abbreviation": "G",
+       "leaf": false
+      },
+      "jerseyImages": [
+       {
+        "href": "https://stitcher.espn.com/sports/soccer/leagues/crc.1/events/401876896/athletes/256554/jersey.png?darkMode=false",
+        "rel": [
+         "full",
+         "default"
+        ],
+        "width": 1440,
+        "height": 1440
+       },
+       {
+        "href": "https://stitcher.espn.com/sports/soccer/leagues/crc.1/events/401876896/athletes/256554/jersey.png?darkMode=true",
+        "rel": [
+         "full",
+         "dark"
+        ],
+        "width": 1440,
+        "height": 1440
+       }
+      ]
+     },
+     "position": {
+      "id": "27",
+      "name": "Substitute",
+      "displayName": "Substitute",
+      "abbreviation": "SUB"
+     },
+     "subbedIn": false,
+     "subbedOut": false,
+     "media": {},
+     "plays": [
+      {
+       "clock": {
+        "displayValue": "85'"
+       },
+       "scoringPlay": false,
+       "substitution": false,
+       "redCard": false,
+       "yellowCard": true,
+       "penaltyKick": false,
+       "ownGoal": false
+      }
+     ]
+    }
+   ]
+  }
+ ],
+ "boxscore": {
+  "teams": []
+ }
+}

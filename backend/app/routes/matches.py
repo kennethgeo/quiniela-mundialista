@@ -492,63 +492,24 @@ async def refresh_live(user: dict = Depends(get_current_user)):
 
 @router.get("/tournament-standings")
 async def tournament_standings(tournament_id: int, user: dict = Depends(get_current_user)):
-    """Tabla de posiciones (equipos) de un torneo: puntos, PJ, G/E/P, DG.
+    """Tabla de posiciones (equipos) de un torneo: puntos, PJ, G/E/P, DG, racha.
 
-    Se calcula desde NUESTRA tabla `matches` (no proxy a ESPN) para que se vea
-    en vivo: los partidos 'in_progress' ya tienen marcador actualizado por el
-    sync (cada ~5 min) y entran en la tabla con ese marcador parcial, en vez
-    de esperar a que ESPN publique la tabla oficial (que solo se actualiza
-    cuando el partido termina)."""
+    La cuenta vive en `services/tabla_posiciones.py` para poder probarla sin
+    red; acá solo se traen los partidos, ORDENADOS POR FECHA porque la racha
+    se queda con los últimos cinco.
+    """
+    from app.services.tabla_posiciones import armar_tabla
+
     supabase = get_supabase()
     matches = (supabase.table("matches")
                .select("group_name, home_team, away_team, home_flag_url, away_flag_url, "
-                       "home_goals_actual, away_goals_actual, status")
+                       "home_goals_actual, away_goals_actual, status, kickoff_at")
                .eq("tournament_id", tournament_id).eq("phase", "groups")
                .in_("status", ["finished", "in_progress"])
+               .order("kickoff_at")
                .execute().data or [])
 
-    groups = {}
-    for m in matches:
-        hg, ag = m.get("home_goals_actual"), m.get("away_goals_actual")
-        if hg is None or ag is None:
-            continue
-        gname = m.get("group_name")
-        table = groups.setdefault(gname, {})
-
-        def _team(name, flag):
-            if name not in table:
-                table[name] = {"team": name, "logo": flag, "played": 0, "wins": 0,
-                                "draws": 0, "losses": 0, "gf": 0, "ga": 0}
-            elif flag and not table[name]["logo"]:
-                table[name]["logo"] = flag
-            return table[name]
-
-        home = _team(m["home_team"], m.get("home_flag_url"))
-        away = _team(m["away_team"], m.get("away_flag_url"))
-        home["played"] += 1; away["played"] += 1
-        home["gf"] += hg; home["ga"] += ag
-        away["gf"] += ag; away["ga"] += hg
-        if hg > ag:
-            home["wins"] += 1; away["losses"] += 1
-        elif hg < ag:
-            away["wins"] += 1; home["losses"] += 1
-        else:
-            home["draws"] += 1; away["draws"] += 1
-
-    out_groups = []
-    # None (liga sin grupos) al final si conviviera con grupos reales, aunque
-    # en la práctica un torneo tiene uno u otro, no ambos.
-    for gname in sorted(groups.keys(), key=lambda k: (k is None, k or "")):
-        rows = list(groups[gname].values())
-        for r in rows:
-            r["points"] = r["wins"] * 3 + r["draws"]
-            r["gd"] = r["gf"] - r["ga"]
-        rows.sort(key=lambda r: (-r["points"], -r["gd"], -r["gf"], r["team"]))
-        for i, r in enumerate(rows, start=1):
-            r["rank"] = i
-        out_groups.append({"name": gname, "rows": rows})
-
-    return {"tournament_id": tournament_id, "groups": out_groups}
+    return {"tournament_id": tournament_id, "groups": armar_tabla(matches)}
 
 
 @router.get("/player-stats")
@@ -695,12 +656,13 @@ async def detalle_del_partido(match_id: int, user: dict = Depends(get_current_us
     from datetime import datetime, timedelta, timezone
 
     from app.services.espn_match_detail import traer_detalle, ttl_para
+    from app.services.unafut_lineups import alineaciones as alineaciones_unafut
 
     supabase = get_supabase()
 
     partido = (
         supabase.table("matches")
-        .select("id, external_id, status, tournament_id, kickoff_at")
+        .select("id, external_id, status, tournament_id, kickoff_at, matchday, home_team, away_team")
         .eq("id", match_id)
         .maybe_single()
         .execute()
@@ -770,6 +732,17 @@ async def detalle_del_partido(match_id: int, user: dict = Depends(get_current_us
             return {"disponible": True, "detalle": guardado["payload"], "viejo": True}
         raise HTTPException(status_code=503,
                             detail="No se pudo traer el detalle del partido")
+
+    # La liga tica: ESPN no tiene su once (devuelve cero jugadores hasta en
+    # partidos terminados), así que se completa con la API de la UNAFUT. Va
+    # ANTES de cachear para que la copia guardada ya lo traiga, y solo cuando
+    # ESPN no trajo nada: el día que ESPN empiece a publicarlas, manda ESPN.
+    if not detalle.get("alineaciones"):
+        de_unafut = await alineaciones_unafut(
+            liga, partido.data.get("matchday"),
+            partido.data.get("home_team"), partido.data.get("away_team"))
+        if de_unafut:
+            detalle["alineaciones"] = de_unafut
 
     try:
         supabase.table("match_details_cache").upsert(

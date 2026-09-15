@@ -150,15 +150,27 @@ function Suplentes ({ equipo }) {
 }
 
 /* Cuando todavía no hay once, se DICE por qué y cuándo. Una tarjeta ausente se
-   lee como «esta app no tiene alineaciones»; el dato es que aún no salieron. */
-function SinAlineacion ({ status }) {
+   lee como «esta app no tiene alineaciones»; el dato es que aún no salieron.
+
+   Y NO TODAS LAS LIGAS LO PUBLICAN A LA MISMA HORA, así que no se puede decir
+   con la misma frase. En Champions o LaLiga el once sale alrededor de una hora
+   antes, a tiempo para corregir la predicción. En la liga tica la fuente lo
+   publica AL ARRANCAR el partido (medido: a 25 minutos del saque venía vacío y
+   a un minuto de empezado estaban los 22), así que ahí decir «en cuanto salgan
+   aparecen acá» deja a alguien recargando la pantalla hasta el saque para algo
+   que no va a llegar a tiempo. El backend manda `alineaciones_cuando`; si no
+   viene —liga desconocida, o una respuesta guardada de antes— se dice lo de
+   siempre. */
+function SinAlineacion ({ status, cuando }) {
+  const alSaque = cuando === 'al-saque'
   if (['finished', 'cancelled', 'postponed'].includes(status)) return null
   return (
     <Tarjeta>
       <Titulo icono={Users}>Alineaciones</Titulo>
       <p className="text-[11.5px] text-slate-600 dark:text-slate-300">
-        Todavía no se publicaron. Los equipos suelen anunciarse alrededor de una
-        hora antes del saque; en cuanto salgan aparecen acá.
+        {alSaque
+          ? 'En este torneo las alineaciones se publican al arrancar el partido, no antes: aparecen acá con el pitazo inicial.'
+          : 'Todavía no se publicaron. Los equipos suelen anunciarse alrededor de una hora antes del saque; en cuanto salgan aparecen acá.'}
       </p>
     </Tarjeta>
   )
@@ -208,7 +220,7 @@ export default function DetalleDelPartido ({ matchId, status }) {
 
       {d.alineaciones
         ? <Alineaciones equipos={d.alineaciones} />
-        : <SinAlineacion status={status} />}
+        : <SinAlineacion status={status} cuando={d.alineaciones_cuando} />}
 
       {local && visita && (
         <Tarjeta>

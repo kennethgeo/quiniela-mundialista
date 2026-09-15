@@ -1,0 +1,650 @@
+{
+ "matchId": 396192,
+ "matchStatus": "COMPLETE",
+ "actions": [
+  {
+   "actionNumber": 148,
+   "previousAction": 147,
+   "clock": "45",
+   "period": 2,
+   "action": "substitution",
+   "autogoal": false,
+   "teamId": 14103,
+   "teamName": "Municipal Pérez Zeledón ",
+   "teamCode": "MPZ",
+   "personId": 1006252,
+   "shirtNumber": "17",
+   "personName": "K.Carvajal",
+   "nickName": "K. Carvajal Mondragon",
+   "subType": "in",
+   "periodType": "REGULAR",
+   "inout": {
+    "in": "K.Carvajal",
+    "out": "S.Hernandez"
+   }
+  },
+  {
+   "actionNumber": 150,
+   "previousAction": 149,
+   "clock": "45",
+   "period": 2,
+   "action": "substitution",
+   "autogoal": false,
+   "teamId": 14103,
+   "teamName": "Municipal Pérez Zeledón ",
+   "teamCode": "MPZ",
+   "personId": 1005811,
+   "shirtNumber": "11",
+   "personName": "B.Sequeira",
+   "nickName": "B. Sequeira Sibaja",
+   "subType": "in",
+   "periodType": "REGULAR",
+   "inout": {
+    "in": "B.Sequeira",
+    "out": "E.Quesada"
+   }
+  },
+  {
+   "actionNumber": 152,
+   "previousAction": 151,
+   "clock": "45",
+   "period": 2,
+   "action": "substitution",
+   "autogoal": false,
+   "teamId": 14103,
+   "teamName": "Municipal Pérez Zeledón ",
+   "teamCode": "MPZ",
+   "personId": 1006297,
+   "shirtNumber": "90",
+   "personName": "J.Cordoba",
+   "nickName": "J. Cordoba Perez",
+   "subType": "in",
+   "periodType": "REGULAR",
+   "inout": {
+    "in": "J.Cordoba",
+    "out": "K.Gonzalez"
+   }
+  },
+  {
+   "actionNumber": 212,
+   "previousAction": 211,
+   "clock": "63",
+   "period": 2,
+   "action": "substitution",
+   "autogoal": false,
+   "teamId": 14124,
+   "teamName": "A.D. San Carlos",
+   "teamCode": "ASC",
+   "personId": 1005840,
+   "shirtNumber": "4",
+   "personName": "P.Fonseca",
+   "nickName": "P. Fonseca Brenes",
+   "subType": "in",
+   "periodType": "REGULAR",
+   "inout": {
+    "in": "P.Fonseca",
+    "out": "J.Pilarte"
+   }
+  },
+  {
+   "actionNumber": 214,
+   "previousAction": 213,
+   "clock": "63",
+   "period": 2,
+   "action": "substitution",
+   "autogoal": false,
+   "teamId": 14124,
+   "teamName": "A.D. San Carlos",
+   "teamCode": "ASC",
+   "personId": 1005650,
+   "shirtNumber": "5",
+   "personName": "C.Martinez",
+   "nickName": "C. Martinez Mena",
+   "subType": "in",
+   "periodType": "REGULAR",
+   "inout": {
+    "in": "C.Martinez",
+    "out": "B.Martínez"
+   }
+  },
+  {
+   "actionNumber": 234,
+   "previousAction": 233,
+   "clock": "71",
+   "period": 2,
+   "action": "substitution",
+   "autogoal": false,
+   "teamId": 14103,
+   "teamName": "Municipal Pérez Zeledón ",
+   "teamCode": "MPZ",
+   "personId": 1007358,
+   "shirtNumber": "23",
+   "personName": "H.Aguirre",
+   "nickName": "H. Aguirre Santellan",
+   "subType": "in",
+   "periodType": "REGULAR",
+   "inout": {
+    "in": "H.Aguirre",
+    "out": "L.Hernandez"
+   }
+  },
+  {
+   "actionNumber": 236,
+   "previousAction": 235,
+   "clock": "71",
+   "period": 2,
+   "action": "substitution",
+   "autogoal": false,
+   "teamId": 14103,
+   "teamName": "Municipal Pérez Zeledón ",
+   "teamCode": "MPZ",
+   "personId": 1006838,
+   "shirtNumber": "32",
+   "personName": "J.Canales",
+   "nickName": "J. Canales Hernandez",
+   "subType": "in",
+   "periodType": "REGULAR",
+   "inout": {
+    "in": "J.Canales",
+    "out": "M.Angulo"
+   }
+  },
+  {
+   "actionNumber": 276,
+   "previousAction": 275,
+   "clock": "81",
+   "period": 2,
+   "action": "substitution",
+   "autogoal": false,
+   "teamId": 14124,
+   "teamName": "A.D. San Carlos",
+   "teamCode": "ASC",
+   "personId": 1006107,
+   "shirtNumber": "11",
+   "personName": "R.Cordoba",
+   "nickName": "R. Cordoba Duran",
+   "subType": "in",
+   "periodType": "REGULAR",
+   "inout": {
+    "in": "R.Cordoba",
+    "out": "K.Cerdas"
+   }
+  },
+  {
+   "actionNumber": 277,
+   "previousAction": 278,
+   "clock": "81",
+   "period": 2,
+   "action": "substitution",
+   "autogoal": false,
+   "teamId": 14124,
+   "teamName": "A.D. San Carlos",
+   "teamCode": "ASC",
+   "personId": 1005509,
+   "shirtNumber": "21",
+   "personName": "J.Mc",
+   "nickName": "J. Venegas Mc Carthy",
+   "subType": "in",
+   "periodType": "REGULAR",
+   "inout": {
+    "in": "J.Mc",
+    "out": "J.Agualimpia"
+   }
+  },
+  {
+   "actionNumber": 290,
+   "previousAction": 289,
+   "clock": "86",
+   "period": 2,
+   "action": "substitution",
+   "autogoal": false,
+   "teamId": 14124,
+   "teamName": "A.D. San Carlos",
+   "teamCode": "ASC",
+   "personId": 1008109,
+   "shirtNumber": "88",
+   "personName": "R.Vidal",
+   "nickName": "R. Vidal Moreno",
+   "subType": "in",
+   "periodType": "REGULAR",
+   "inout": {
+    "in": "R.Vidal",
+    "out": "J.Valverde"
+   }
+  }
+ ],
+ "competitors": [
+  {
+   "competitorId": 14103,
+   "competitorName": "Municipal Pérez Zeledón ",
+   "players": [
+    {
+     "personId": 1005510,
+     "personName": "Bryan Andres Segura Cruz",
+     "nickName": "BRYAN ANDRES SEGURA CRUZ",
+     "firstName": "Bryan Andres",
+     "familyName": "Segura Cruz",
+     "shirtNumber": "1",
+     "playingPosition": "GOALKEEPER",
+     "isStarter": 1
+    },
+    {
+     "personId": 1005639,
+     "personName": "William Alban Fernandez Gonzalez",
+     "nickName": "WILLIAM ALBAN FERNANDEZ GONZALEZ",
+     "firstName": "William Alban",
+     "familyName": "Fernandez Gonzalez",
+     "shirtNumber": "5",
+     "playingPosition": "DEFENDER",
+     "isStarter": 1
+    },
+    {
+     "personId": 1005944,
+     "personName": "Kenneth David Gonzalez Solano",
+     "nickName": "KENNETH DAVID GONZALEZ SOLANO",
+     "firstName": "Kenneth David",
+     "familyName": "Gonzalez Solano",
+     "shirtNumber": "38",
+     "playingPosition": "DEFENDER",
+     "isStarter": 1
+    },
+    {
+     "personId": 1010032,
+     "personName": "Sebastian Hernandez Ibarra",
+     "nickName": "Sebastian Hernandez Ibarra",
+     "firstName": "Sebastian",
+     "familyName": "Hernandez Ibarra",
+     "shirtNumber": "33",
+     "playingPosition": "DEFENDER",
+     "isStarter": 1
+    },
+    {
+     "personId": 1356762,
+     "personName": "Manuel Trinidad Aguilar Peña",
+     "nickName": "Manuel Trinidad Aguilar Peña",
+     "firstName": "Manuel Trinidad",
+     "familyName": "Aguilar Peña",
+     "shirtNumber": "12",
+     "playingPosition": "DEFENDER",
+     "isStarter": 1
+    },
+    {
+     "personId": 1005652,
+     "personName": "Marvin Jesus Angulo Borbon",
+     "nickName": "MARVIN JESUS ANGULO BORBON",
+     "firstName": "Marvin Jesus",
+     "familyName": "Angulo Borbon",
+     "shirtNumber": "10",
+     "playingPosition": "MIDFIELDER",
+     "isStarter": 1
+    },
+    {
+     "personId": 1005710,
+     "personName": "Jose Alejandro Porras Montero",
+     "nickName": "Jose Alejandro Porras Montero",
+     "firstName": "Jose Alejandro",
+     "familyName": "Porras Montero",
+     "shirtNumber": "15",
+     "playingPosition": "MIDFIELDER",
+     "isStarter": 1
+    },
+    {
+     "personId": 1005890,
+     "personName": "Axel Amador Rojas",
+     "nickName": "AXEL AMADOR ROJAS",
+     "firstName": "Axel",
+     "familyName": "Amador Rojas",
+     "shirtNumber": "62",
+     "playingPosition": "MIDFIELDER",
+     "isStarter": 1
+    },
+    {
+     "personId": 1006243,
+     "personName": "Luis Jose Hernandez Paniagua",
+     "nickName": "LUIS JOSE HERNANDEZ PANIAGUA",
+     "firstName": "Luis Jose",
+     "familyName": "Hernandez Paniagua",
+     "shirtNumber": "6",
+     "playingPosition": "MIDFIELDER",
+     "isStarter": 1
+    },
+    {
+     "personId": 1169688,
+     "personName": "Elian Quesada Thorn",
+     "nickName": "Elian Quesada Thorn",
+     "firstName": "Elian",
+     "familyName": "Quesada Thorn",
+     "shirtNumber": "18",
+     "playingPosition": "MIDFIELDER",
+     "isStarter": 1
+    },
+    {
+     "personId": 1023961,
+     "personName": "Jose Ricardo Alvarado Rodriguez",
+     "nickName": "Jose Ricardo Alvarado Rodriguez",
+     "firstName": "Jose Ricardo",
+     "familyName": "Alvarado Rodriguez",
+     "shirtNumber": "9",
+     "playingPosition": "FORWARD",
+     "isStarter": 1
+    },
+    {
+     "personId": 1005513,
+     "personName": "Mauricio De Jesus Nuñez Morales",
+     "nickName": "MAURICIO DE JESUS NUÑEZ MORALES",
+     "firstName": "Mauricio De Jesus",
+     "familyName": "Nuñez Morales",
+     "shirtNumber": "28",
+     "playingPosition": "",
+     "isStarter": 0
+    },
+    {
+     "personId": 1005753,
+     "personName": "Rawy Jafet Rodriguez Osorio",
+     "nickName": "RAWY JAFET RODRIGUEZ OSORIO",
+     "firstName": "Rawy Jafet",
+     "familyName": "Rodriguez Osorio",
+     "shirtNumber": "4",
+     "playingPosition": "",
+     "isStarter": 0
+    },
+    {
+     "personId": 1005811,
+     "personName": "Barlon Andres Sequeira Sibaja",
+     "nickName": "Barlon Andres Sequeira Sibaja",
+     "firstName": "Barlon Andres",
+     "familyName": "Sequeira Sibaja",
+     "shirtNumber": "11",
+     "playingPosition": "",
+     "isStarter": 0
+    },
+    {
+     "personId": 1006252,
+     "personName": "Kenneth Carvajal Mondragon",
+     "nickName": "KENNETH CARVAJAL MONDRAGON",
+     "firstName": "Kenneth",
+     "familyName": "Carvajal Mondragon",
+     "shirtNumber": "17",
+     "playingPosition": "",
+     "isStarter": 0
+    },
+    {
+     "personId": 1006297,
+     "personName": "Jose Pablo Cordoba Perez",
+     "nickName": "JOSE PABLO CORDOBA PEREZ",
+     "firstName": "Jose Pablo",
+     "familyName": "Cordoba Perez",
+     "shirtNumber": "90",
+     "playingPosition": "",
+     "isStarter": 0
+    },
+    {
+     "personId": 1006304,
+     "personName": "Kenneth Geovanni Guzman Sanchez",
+     "nickName": "Kenneth Geovanni Guzman Sanchez",
+     "firstName": "Kenneth Geovanni",
+     "familyName": "Guzman Sanchez",
+     "shirtNumber": "14",
+     "playingPosition": "",
+     "isStarter": 0
+    },
+    {
+     "personId": 1006838,
+     "personName": "Joshua Antonio Canales Hernandez",
+     "nickName": "JOSHUA ANTONIO CANALES HERNANDEZ",
+     "firstName": "Joshua Antonio",
+     "familyName": "Canales Hernandez",
+     "shirtNumber": "32",
+     "playingPosition": "",
+     "isStarter": 0
+    },
+    {
+     "personId": 1007149,
+     "personName": "Silvio Rodriguez Rojas",
+     "nickName": "Silvio Rodriguez Rojas",
+     "firstName": "Silvio",
+     "familyName": "Rodriguez Rojas",
+     "shirtNumber": "20",
+     "playingPosition": "",
+     "isStarter": 0
+    },
+    {
+     "personId": 1007358,
+     "personName": "Horacio Joaquin Aguirre Santellan",
+     "nickName": "Horacio Joaquin Aguirre Santellan",
+     "firstName": "Horacio Joaquin",
+     "familyName": "Aguirre Santellan",
+     "shirtNumber": "23",
+     "playingPosition": "",
+     "isStarter": 0
+    },
+    {
+     "personId": 1018930,
+     "personName": "Miguel Andres Aju Alfaro",
+     "nickName": "Miguel Andres Aju Alfaro",
+     "firstName": "Miguel Andres",
+     "familyName": "Aju Alfaro",
+     "shirtNumber": "99",
+     "playingPosition": "",
+     "isStarter": 0
+    }
+   ]
+  },
+  {
+   "competitorId": 14124,
+   "competitorName": "A.D. San Carlos",
+   "players": [
+    {
+     "personId": 1006136,
+     "personName": "Jose David Vega Garcia",
+     "nickName": "Jose David Vega Garcia",
+     "firstName": "Jose David",
+     "familyName": "Vega Garcia",
+     "shirtNumber": "23",
+     "playingPosition": "GOALKEEPER",
+     "isStarter": 1
+    },
+    {
+     "personId": 1005967,
+     "personName": "Jordy Jafeth Evans Solano",
+     "nickName": "JORDY JAFETH EVANS SOLANO",
+     "firstName": "Jordy Jafeth",
+     "familyName": "Evans Solano",
+     "shirtNumber": "17",
+     "playingPosition": "DEFENDER",
+     "isStarter": 1
+    },
+    {
+     "personId": 1005992,
+     "personName": "Jose Pablo Aguero Casanova",
+     "nickName": "JOSE PABLO AGUERO CASANOVA",
+     "firstName": "Jose Pablo",
+     "familyName": "Aguero Casanova",
+     "shirtNumber": "22",
+     "playingPosition": "DEFENDER",
+     "isStarter": 1
+    },
+    {
+     "personId": 1006057,
+     "personName": "Jefry Antonio Valverde Rojas",
+     "nickName": "JEFRY ANTONIO VALVERDE ROJAS",
+     "firstName": "Jefry Antonio",
+     "familyName": "Valverde Rojas",
+     "shirtNumber": "2",
+     "playingPosition": "DEFENDER",
+     "isStarter": 1
+    },
+    {
+     "personId": 1007361,
+     "personName": "Jefferson Ronaldo Rivera Stuart",
+     "nickName": "JEFFERSON RONALDO RIVERA STUART",
+     "firstName": "Jefferson Ronaldo",
+     "familyName": "Rivera Stuart",
+     "shirtNumber": "24",
+     "playingPosition": "DEFENDER",
+     "isStarter": 1
+    },
+    {
+     "personId": 1008672,
+     "personName": "Yosel Piedra Guillen",
+     "nickName": "Yosel Piedra Guillen",
+     "firstName": "Yosel",
+     "familyName": "Piedra Guillen",
+     "shirtNumber": "6",
+     "playingPosition": "DEFENDER",
+     "isStarter": 1
+    },
+    {
+     "personId": 1006053,
+     "personName": "Kenneth Josue Cerdas Barrantes",
+     "nickName": "Kenneth Josue Cerdas Barrantes",
+     "firstName": "Kenneth Josue",
+     "familyName": "Cerdas Barrantes",
+     "shirtNumber": "10",
+     "playingPosition": "MIDFIELDER",
+     "isStarter": 1
+    },
+    {
+     "personId": 1007143,
+     "personName": "Jorshuad Pilarte Arias",
+     "nickName": "Jorshuad Pilarte Arias",
+     "firstName": "Jorshuad",
+     "familyName": "Pilarte Arias",
+     "shirtNumber": "41",
+     "playingPosition": "MIDFIELDER",
+     "isStarter": 1
+    },
+    {
+     "personId": 1008697,
+     "personName": "Emmanuel Hernández Porras",
+     "nickName": "Emmanuel Hernández Porras",
+     "firstName": "Emmanuel",
+     "familyName": "Hernández Porras",
+     "shirtNumber": "8",
+     "playingPosition": "MIDFIELDER",
+     "isStarter": 1
+    },
+    {
+     "personId": 1008670,
+     "personName": "Brian Aaron Martínez Nava",
+     "nickName": "Brian Aaron Martínez Nava",
+     "firstName": "Brian Aaron",
+     "familyName": "Martínez Nava",
+     "shirtNumber": "9",
+     "playingPosition": "FORWARD",
+     "isStarter": 1
+    },
+    {
+     "personId": 1370089,
+     "personName": "Juan Camilo Agualimpia Valencia",
+     "nickName": "Juan Camilo Agualimpia Valencia",
+     "firstName": "Juan Camilo",
+     "familyName": "Agualimpia Valencia",
+     "shirtNumber": "20",
+     "playingPosition": "FORWARD",
+     "isStarter": 1
+    },
+    {
+     "personId": 1005509,
+     "personName": "Jeikel Venegas Mc Carthy",
+     "nickName": "JEIKEL VENEGAS MC CARTHY",
+     "firstName": "Jeikel",
+     "familyName": "Venegas Mc Carthy",
+     "shirtNumber": "21",
+     "playingPosition": "",
+     "isStarter": 0
+    },
+    {
+     "personId": 1005520,
+     "personName": "Allen Guevara Zuñiga",
+     "nickName": "Allen Guevara Zuñiga",
+     "firstName": "Allen",
+     "familyName": "Guevara Zuñiga",
+     "shirtNumber": "7",
+     "playingPosition": "",
+     "isStarter": 0
+    },
+    {
+     "personId": 1005650,
+     "personName": "Christian Alonso Martinez Mena",
+     "nickName": "CHRISTIAN ALONSO MARTINEZ MENA",
+     "firstName": "Christian Alonso",
+     "familyName": "Martinez Mena",
+     "shirtNumber": "5",
+     "playingPosition": "",
+     "isStarter": 0
+    },
+    {
+     "personId": 1005840,
+     "personName": "Pablo Fonseca Brenes",
+     "nickName": "Pablo Fonseca Brenes",
+     "firstName": "Pablo",
+     "familyName": "Fonseca Brenes",
+     "shirtNumber": "4",
+     "playingPosition": "",
+     "isStarter": 0
+    },
+    {
+     "personId": 1006048,
+     "personName": "Jean Carlo Agüero Duarte",
+     "nickName": "Jean Carlo Agüero Duarte",
+     "firstName": "Jean Carlo",
+     "familyName": "Agüero Duarte",
+     "shirtNumber": "30",
+     "playingPosition": "",
+     "isStarter": 0
+    },
+    {
+     "personId": 1006107,
+     "personName": "Roberto Jose Cordoba Duran",
+     "nickName": "Roberto Jose Cordoba Duran",
+     "firstName": "Roberto Jose",
+     "familyName": "Cordoba Duran",
+     "shirtNumber": "11",
+     "playingPosition": "",
+     "isStarter": 0
+    },
+    {
+     "personId": 1006253,
+     "personName": "Jason Alonso Vega Carmona",
+     "nickName": "JASON ALONSO VEGA CARMONA",
+     "firstName": "Jason Alonso",
+     "familyName": "Vega Carmona",
+     "shirtNumber": "77",
+     "playingPosition": "",
+     "isStarter": 0
+    },
+    {
+     "personId": 1008109,
+     "personName": "Raul Antonio Vidal Moreno",
+     "nickName": "RAUL ANTONIO VIDAL MORENO",
+     "firstName": "Raul Antonio",
+     "familyName": "Vidal Moreno",
+     "shirtNumber": "88",
+     "playingPosition": "",
+     "isStarter": 0
+    },
+    {
+     "personId": 1102309,
+     "personName": "Gerardo Castillo Céspedes",
+     "nickName": "GERARDO CASTILLO CÉSPEDES",
+     "firstName": "Gerardo",
+     "familyName": "Castillo Céspedes",
+     "shirtNumber": "16",
+     "playingPosition": "",
+     "isStarter": 0
+    },
+    {
+     "personId": 1163488,
+     "personName": "Jorman Israel Aguilar Bustamante",
+     "nickName": "JORMAN ISRAEL AGUILAR BUSTAMANTE",
+     "firstName": "Jorman Israel",
+     "familyName": "Aguilar Bustamante",
+     "shirtNumber": "18",
+     "playingPosition": "",
+     "isStarter": 0
+    }
+   ]
+  }
+ ]
+}
