@@ -105,7 +105,7 @@ export default function PartidosDeHoy({ matches = [], nombreQuiniela = '' }) {
           </button>
         )}
         <motion.button whileTap={{ scale: 0.94 }} onClick={compartir} disabled={generando}
-          className={`${hoy.length > CUANTOS_SIN_PLEGAR ? '' : 'ml-auto '}flex items-center gap-1 font-['JetBrains_Mono'] font-bold text-[9px] px-2 py-1 rounded-[20px] text-accent disabled:opacity-60`}
+          className={`${hoy.length > CUANTOS_SIN_PLEGAR ? '' : 'ml-auto '}flex items-center gap-1 font-['JetBrains_Mono'] font-bold text-[9px] px-2.5 py-1.5 rounded-[20px] text-accent disabled:opacity-60`}
           style={{ background: 'rgba(46,211,183,.12)' }}
           title="Mandar la imagen de los partidos de hoy al grupo">
           {generando ? <Loader2 size={10} className="animate-spin" />

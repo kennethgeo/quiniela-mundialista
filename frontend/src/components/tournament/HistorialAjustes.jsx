@@ -61,7 +61,7 @@ export default function HistorialAjustes({ tournamentId }) {
       <div className="space-y-2">
         {filas.map((f) => (
           <div key={f.id} className="flex items-start gap-2.5 pb-2 border-b border-slate-100 dark:border-white/5 last:border-0 last:pb-0">
-            <span className="shrink-0 mt-0.5 font-['JetBrains_Mono'] font-bold text-[8.5px] px-1.5 py-0.5 rounded-[20px] uppercase tracking-wide"
+            <span className="shrink-0 mt-0.5 font-['JetBrains_Mono'] font-bold text-[10px] px-1.5 py-0.5 rounded-[20px] uppercase tracking-wide"
               style={{ color: COLOR[f.campo] || '#8A8A8A', background: `${COLOR[f.campo] || '#8A8A8A'}1f` }}>
               {ETIQUETA[f.campo] || f.campo}
             </span>

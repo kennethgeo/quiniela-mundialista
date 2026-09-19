@@ -191,7 +191,7 @@ function Dato({ etiqueta, valor, color }) {
   return (
     <div className="rounded-xl bg-slate-50 dark:bg-[#0C0C0C] border border-slate-200 dark:border-[#262626] p-2 text-center">
       <div className="font-['JetBrains_Mono'] font-bold text-[15px]" style={color ? { color } : undefined}>{valor}</div>
-      <div className="font-['Archivo'] text-[8.5px] uppercase tracking-wide text-[var(--text-muted,#8A8A8A)] mt-0.5">{etiqueta}</div>
+      <div className="font-['Archivo'] text-[10px] uppercase tracking-wide text-[var(--text-muted,#8A8A8A)] mt-0.5">{etiqueta}</div>
     </div>
   )
 }

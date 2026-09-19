@@ -264,19 +264,19 @@ export default function ProfilePage() {
             {/* PTS TOTALES */}
             <div className="rounded-xl p-3 text-center bg-white dark:bg-[#161616] border border-slate-200 dark:border-[#262626]">
               <div className="font-['JetBrains_Mono'] font-extrabold text-[20px] text-accent">{profile?.total_points || 0}</div>
-              <div className="font-['Archivo'] font-semibold text-[8.5px] text-[var(--text-muted,#8A8A8A)] mt-0.5 uppercase">Pts Totales</div>
+              <div className="font-['Archivo'] font-semibold text-[10px] text-[var(--text-muted,#8A8A8A)] mt-0.5 uppercase">Pts Totales</div>
             </div>
             {/* EFECTIVIDAD */}
             <div className="rounded-xl p-3 text-center bg-white dark:bg-[#161616] border border-slate-200 dark:border-[#262626]">
               <div className="font-['JetBrains_Mono'] font-extrabold text-[20px] text-slate-900 dark:text-[#F3F1EA]">
                 {stats.totalFinished > 0 ? Math.round(((stats.exact + stats.correct) / stats.totalFinished) * 100) : 0}%
               </div>
-              <div className="font-['Archivo'] font-semibold text-[8.5px] text-[var(--text-muted,#8A8A8A)] mt-0.5 uppercase">Efectividad</div>
+              <div className="font-['Archivo'] font-semibold text-[10px] text-[var(--text-muted,#8A8A8A)] mt-0.5 uppercase">Efectividad</div>
             </div>
             {/* EXACTOS */}
             <div className="rounded-xl p-3 text-center bg-white dark:bg-[#161616] border border-slate-200 dark:border-[#262626]">
               <div className="font-['JetBrains_Mono'] font-extrabold text-[20px] text-[#FF7A59]">{stats.exact}</div>
-              <div className="font-['Archivo'] font-semibold text-[8.5px] text-[var(--text-muted,#8A8A8A)] mt-0.5 uppercase">Exactos</div>
+              <div className="font-['Archivo'] font-semibold text-[10px] text-[var(--text-muted,#8A8A8A)] mt-0.5 uppercase">Exactos</div>
             </div>
 
             {/* Barra Inferior de Métricas Secundarias e Históricas */}

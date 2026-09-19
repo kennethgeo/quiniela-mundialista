@@ -225,7 +225,7 @@ export default function HistorialTab({ leagueId, matches = [], nombreQuiniela = 
             {/* Cabecera: el partido y su marcador real */}
             <div className="grid border-b border-slate-200 dark:border-[#262626]" style={{ gridTemplateColumns: plantilla }}>
               <div className="sticky left-0 z-10 bg-white dark:bg-[#161616] px-2.5 py-2">
-                <span className="font-['JetBrains_Mono'] text-[8.5px] uppercase tracking-[0.12em] text-[var(--text-muted,#8A8A8A)]">Jugador</span>
+                <span className="font-['JetBrains_Mono'] text-[10px] uppercase tracking-[0.12em] text-[var(--text-muted,#8A8A8A)]">Jugador</span>
               </div>
               {jornada.partidos.map((m) => (
                 <div key={m.id} className="px-1 py-2 text-center min-w-0">
@@ -282,10 +282,10 @@ export default function HistorialTab({ leagueId, matches = [], nombreQuiniela = 
         <Ref color="rgba(46,211,183,.22)" texto="Exacto" />
         <Ref color="rgba(232,183,90,.18)" texto="Acierto" />
         <Ref color="transparent" texto="Fallo" borde />
-        <span className="flex items-center gap-1 font-['JetBrains_Mono'] text-[8.5px] text-[var(--text-muted,#8A8A8A)]">
+        <span className="flex items-center gap-1 font-['JetBrains_Mono'] text-[10px] text-[var(--text-muted,#8A8A8A)]">
           <Zap size={9} className="fill-current" style={{ color: '#2ED3B7' }} /> ×2 que pegó
         </span>
-        <span className="flex items-center gap-1 font-['JetBrains_Mono'] text-[8.5px] text-[var(--text-muted,#8A8A8A)]">
+        <span className="flex items-center gap-1 font-['JetBrains_Mono'] text-[10px] text-[var(--text-muted,#8A8A8A)]">
           <Zap size={9} style={{ color: '#FF5A5A' }} /> ×2 quemado
         </span>
       </div>
@@ -372,7 +372,7 @@ function NavBtn({ disabled, onClick, children }) {
 
 function Ref({ color, texto, borde }) {
   return (
-    <span className="flex items-center gap-1 font-['JetBrains_Mono'] text-[8.5px] text-[var(--text-muted,#8A8A8A)]">
+    <span className="flex items-center gap-1 font-['JetBrains_Mono'] text-[10px] text-[var(--text-muted,#8A8A8A)]">
       <span className="w-2.5 h-2.5 rounded-[3px] inline-block"
         style={{ background: color, border: borde ? '1px solid rgba(127,127,127,.35)' : undefined }} />
       {texto}

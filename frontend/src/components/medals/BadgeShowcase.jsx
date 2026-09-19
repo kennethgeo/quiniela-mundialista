@@ -55,7 +55,7 @@ function BadgeTile({ badgeKey, data }) {
       style={unlocked ? { boxShadow: `inset 0 0 0 1px ${color}22` } : undefined}
     >
       {unlocked && tier > 0 && (
-        <span className="absolute top-2 right-2 font-['JetBrains_Mono'] font-bold text-[8px] px-1.5 py-0.5 rounded-full"
+        <span className="absolute top-2 right-2 font-['JetBrains_Mono'] font-bold text-[9px] px-1.5 py-0.5 rounded-full"
           style={{ color, background: `${color}1f` }}>{TIER_LABEL[tier]}</span>
       )}
       <div className={`text-[26px] leading-none mb-1.5 ${unlocked ? '' : 'grayscale opacity-40'}`}>{b.emoji}</div>
@@ -71,15 +71,15 @@ function BadgeTile({ badgeKey, data }) {
               <div className="h-1 rounded-full bg-slate-200 dark:bg-[#262626] overflow-hidden">
                 <div className="h-full rounded-full" style={{ width: `${Math.min(100, (prog.count / prog.next) * 100)}%`, background: color }} />
               </div>
-              <div className="font-['JetBrains_Mono'] text-[8.5px] text-[var(--text-muted,#8A8A8A)] mt-1">{prog.count}/{prog.next} · próx. nivel</div>
+              <div className="font-['JetBrains_Mono'] text-[10px] text-[var(--text-muted,#8A8A8A)] mt-1">{prog.count}/{prog.next} · próx. nivel</div>
             </>
           ) : (
-            <div className="font-['JetBrains_Mono'] text-[8.5px] font-bold" style={{ color }}>
+            <div className="font-['JetBrains_Mono'] text-[10px] font-bold" style={{ color }}>
               {prog ? '¡Nivel máximo!' : (data?.count ? `×${data.count}` : 'Desbloqueada')}
             </div>
           )}
           {data?.leagues?.length > 1 && (
-            <div className="text-[8.5px] text-slate-400 mt-0.5 truncate">en {data.leagues.length} quinielas</div>
+            <div className="text-[10px] text-slate-400 mt-0.5 truncate">en {data.leagues.length} quinielas</div>
           )}
         </div>
       ) : (

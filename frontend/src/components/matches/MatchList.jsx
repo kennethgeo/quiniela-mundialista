@@ -100,7 +100,9 @@ export default function MatchList({ matches, predictions, onSavePrediction, isLo
                     // pueden editar (cerrados): cuentan para el cupo igual.
                     usadosFuera: powerupsUsed - editables.filter((m) => findPrediction(m.id)?.use_powerup_x2).length,
                   })}
-                  className="shrink-0 flex items-center gap-1 font-['JetBrains_Mono'] font-bold text-[9px] px-2 py-0.5 rounded-[20px] text-accent"
+                  /* `py-1.5` y no `py-0.5`: medido en 68×18, por debajo de
+                     los 24 px de alto que pide WCAG 2.2 §2.5.8. */
+                  className="shrink-0 flex items-center gap-1 font-['JetBrains_Mono'] font-bold text-[10px] px-2.5 py-1.5 rounded-[20px] text-accent"
                   style={{ background: 'rgba(46,211,183,.12)' }}>
                   <ListChecks size={10} /> LLENAR
                 </button>
