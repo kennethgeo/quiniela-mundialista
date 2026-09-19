@@ -1,5 +1,11 @@
 export const PREDICTION_CLOSE_MINUTES = 15
 
+/* Cuánto puede durar un partido antes de que «sigue en juego» deje de ser
+   creíble: 90 minutos + descanso + añadido + prórroga y penales, con margen.
+   Por encima de esto, si la base sigue en `pending` es que no nos llegó el
+   dato. */
+export const MINUTOS_MAXIMOS_DE_PARTIDO = 240
+
 export function kickoffDate(value) {
   if (!value) return null
   if (typeof value !== 'string') return null
@@ -37,7 +43,20 @@ function estadoNormal(match, now, status) {
   if (!kickoff) return { key: 'unknown', label: 'Por confirmar', tone: 'muted', canPredict: false }
 
   const minutesUntilKickoff = (kickoff.getTime() - now.getTime()) / 60000
-  if (minutesUntilKickoff <= 0) return { key: 'started', label: 'En juego', tone: 'live', canPredict: false }
+  if (minutesUntilKickoff <= 0) {
+    /* «En juego» acá es una DEDUCCIÓN del reloj, no un dato: la base sigue
+       diciendo `pending` y lo único que sabemos es que pasó la hora del saque.
+       Sin tope, un partido que el sync nunca actualizó se queda «en juego»
+       para siempre — pasó de verdad el 19 sep 2026: Pérez Zeledón–Sporting
+       llevaba doce horas terminado (ESPN lo daba FT 1-2) y la app lo seguía
+       mostrando en vivo, porque el sync traía cero eventos en cada corrida.
+       Pasado el tiempo que puede durar un partido, lo honesto es decir que no
+       tenemos el dato, no inventar que se está jugando. */
+    if (-minutesUntilKickoff > MINUTOS_MAXIMOS_DE_PARTIDO) {
+      return { key: 'stale', label: 'Sin datos', tone: 'muted', canPredict: false }
+    }
+    return { key: 'started', label: 'En juego', tone: 'live', canPredict: false }
+  }
   if (minutesUntilKickoff <= PREDICTION_CLOSE_MINUTES) return { key: 'locked', label: 'Cerrado', tone: 'warning', canPredict: false }
   if (minutesUntilKickoff <= 60) return { key: 'closing', label: 'Cierra pronto', tone: 'warning', canPredict: true }
   return { key: 'open', label: 'Abierto', tone: 'success', canPredict: true }

@@ -216,23 +216,35 @@ def _assign_stages(parsed, history=None):
     return parsed
 
 
-def _date_ranges(now, full):
-    """Ventanas de fechas a consultar. full=True → toda la temporada (por trozos);
-    full=False → ventana móvil (reciente + próximas 3 semanas)."""
+def _ventanas(now, full):
+    """Los MESES (YYYYMM) que hay que consultarle al scoreboard.
+
+    NUNCA UN RANGO `YYYYMMDD-YYYYMMDD`: ESPN devuelve **cero eventos** para
+    cualquier rango, y sin un solo error — la respuesta es un 200 con
+    `events: []`. Medido el 19 sep 2026 en crc.1, uefa.champions, esp.1 y
+    eng.1, y hasta con un rango de un solo día (`20260918-20260918`). El mismo
+    mes pedido como `202609` devuelve 15, 18, 39 y 30 eventos.
+
+    Así estaba escrito el sync, así que **cada corrida del cron traía una lista
+    vacía y no escribía nada**: el partido Pérez Zeledón–Sporting del 18 de
+    septiembre siguió en `pending` doce horas después de terminar, mientras
+    ESPN lo daba por FT 1-2. Lo reportó el dueño («¿por qué sigue en proceso?»).
+
+    Un mes por petición es además menos tráfico que la ventana anterior: la
+    móvil (3 días atrás, 21 adelante) toca uno o dos meses.
+    """
     if not full:
-        return [((now - timedelta(days=3)), (now + timedelta(days=21)))]
-    # Temporada completa: de ~10 meses atrás a ~5 adelante, en trozos de 30 días.
-    # (Fallback si ESPN no expone los límites de la temporada actual.)
-    return _chunks(now - timedelta(days=300), now + timedelta(days=150))
+        return _meses(now - timedelta(days=3), now + timedelta(days=21))
+    # Temporada completa: de ~10 meses atrás a ~5 adelante.
+    return _meses(now - timedelta(days=300), now + timedelta(days=150))
 
 
-def _chunks(lo, hi):
-    """Divide [lo, hi] en ventanas de 30 días para consultar el scoreboard."""
-    out, cur = [], lo
-    while cur < hi:
-        nxt = min(cur + timedelta(days=30), hi)
-        out.append((cur, nxt))
-        cur = nxt + timedelta(days=1)
+def _meses(lo, hi):
+    """Los meses YYYYMM entre dos fechas, inclusive."""
+    out, y, m = [], lo.year, lo.month
+    while (y, m) <= (hi.year, hi.month):
+        out.append(f"{y:04d}{m:02d}")
+        y, m = (y + 1, 1) if m == 12 else (y, m + 1)
     return out
 
 
@@ -285,16 +297,16 @@ async def sync_espn_tournament(supabase, tournament, full=False) -> dict:
         if full:
             win = await _season_window(client, league, now)
             if win:
-                season_start, ranges = win[0], _chunks(win[0], win[1])
+                season_start, meses = win[0], _meses(win[0], win[1])
             else:
-                ranges = _date_ranges(now, True)
+                meses = _ventanas(now, True)
         else:
-            ranges = _date_ranges(now, False)
-        for (s, e) in ranges:
+            meses = _ventanas(now, False)
+        for mes in meses:
             try:
                 r = await client.get(
                     f"{ESPN_BASE}/{league}/scoreboard",
-                    params={"dates": f"{s.strftime('%Y%m%d')}-{e.strftime('%Y%m%d')}", "lang": "es", "region": "es"},
+                    params={"dates": mes, "lang": "es", "region": "es"},
                 )
                 r.raise_for_status()
                 for ev in r.json().get("events", []):

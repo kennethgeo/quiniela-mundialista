@@ -107,3 +107,53 @@ describe('predictions_force_open', () => {
     expect(matchStatus({ ...futuro, predictions_force_open: true }).key).toBe('open')
   })
 })
+
+/* EL CASO QUE LLEGÓ DE PRODUCCIÓN (19 sep 2026): Pérez Zeledón–Sporting
+   terminó a las 02:00Z del viernes y la app lo seguía mostrando «EN JUEGO» a
+   la mañana siguiente. La base decía `pending` —el sync no lo había tocado en
+   doce horas, porque le pedía a ESPN por rangos de fecha y ESPN devuelve cero
+   eventos a cualquier rango— y la pantalla deducía «en juego» solo de que la
+   hora del saque ya había pasado, sin ningún tope. */
+describe('un partido que el sync nunca actualizó', () => {
+  const saque = '2026-09-19T02:00:00Z'
+
+  it('se ve EN JUEGO mientras podría estar jugándose', () => {
+    expect(matchStatus(game(saque), new Date('2026-09-19T02:30:00Z')).key).toBe('started')
+    expect(matchStatus(game(saque), new Date('2026-09-19T05:00:00Z')).key).toBe('started')
+  })
+
+  it('pero NO doce horas después: ahí se dice que no hay dato', () => {
+    const tarde = matchStatus(game(saque), new Date('2026-09-19T14:00:00Z'))
+    expect(tarde.key).toBe('stale')
+    expect(tarde.label).toBe('Sin datos')
+    expect(tarde.canPredict).toBe(false)
+  })
+
+  it('el corte está donde deja de ser creíble, no antes', () => {
+    // 240 minutos: 90 + descanso + añadido + prórroga y penales, con margen.
+    expect(matchStatus(game(saque), new Date('2026-09-19T05:59:00Z')).key).toBe('started')
+    expect(matchStatus(game(saque), new Date('2026-09-19T06:01:00Z')).key).toBe('stale')
+  })
+
+  it('un partido que la base SÍ da por terminado no se toca', () => {
+    const fin = matchStatus(game(saque, 'finished'), new Date('2026-09-19T14:00:00Z'))
+    expect(fin.key).toBe('finished')
+  })
+
+  it('ni uno que la base da EN CURSO, por largo que se haga', () => {
+    /* Acá el «en vivo» es un dato de la fuente, no una deducción del reloj:
+       un partido suspendido y reanudado puede durar horas y la base lo sabe. */
+    expect(matchStatus(game(saque, 'in_progress'), new Date('2026-09-19T14:00:00Z')).key).toBe('live')
+  })
+
+  it('si el admin lo reabrió a propósito, se sigue pudiendo corregir', () => {
+    /* La reapertura (migración 77) existe justo para cuando el cierre fue un
+       error de los datos, que es exactamente este caso. «Sin datos» no la
+       pisa: quien la encendió sabe lo que hace, y la política RLS permite lo
+       mismo. */
+    const reabierto = { kickoff_at: saque, status: 'pending', predictions_force_open: true }
+    const estado = matchStatus(reabierto, new Date('2026-09-19T14:00:00Z'))
+    expect(estado.key).toBe('reopened')
+    expect(estado.canPredict).toBe(true)
+  })
+})
