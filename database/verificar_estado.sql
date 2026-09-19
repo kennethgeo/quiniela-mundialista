@@ -11,8 +11,27 @@
 -- Este archivo NO CAMBIA NADA. Solo consulta y compara. Correlo cuando dudes,
 -- después de aplicar migraciones, o antes de abrir al público.
 --
--- Generado desde el repo el 2026-08-26
--- (57 funciones, 33 con permiso esperado).
+-- Regenerado desde el repo el 2026-09-19
+-- (73 funciones esperadas · 38 con EXECUTE para authenticated, que son las 33
+--  que el frontend llama con supabase.rpc() más las 5 que se evalúan dentro de
+--  políticas RLS: es_admin_liga, es_backend, is_league_member,
+--  puede_ver_quiniela y tournament_predictions_open).
+--
+-- TRES FUNCIONES QUE EL REPO DEFINE Y QUE A PROPÓSITO NO VAN EN EL INVENTARIO,
+-- porque en producción no existen y no deben existir. Listarlas haría que la
+-- sección 1 gritara todas las veces, y una comprobación que avisa de lo normal
+-- se termina ignorando:
+--   · seed_default_predictions / trg_seed_default_predictions
+--     (17_default_prediction_0_0.sql) — el default 0-0 se probó y se quitó
+--     "a partir de ahora" en junio de 2026;
+--   · check_single_powerup_per_matchday (powerup_trigger.sql) — la reemplazó
+--     check_powerup_limit, que valida contra el cupo Y los créditos.
+--
+-- Y UNA AL REVÉS, que existe en la base y ningún archivo de database/ crea:
+--   · _recompute_league_badges_inner — misma familia que
+--     predictions_update_admin / predictions_insert_admin: nació a mano en el
+--     dashboard. Va en el inventario para que la sección 2 no la marque, pero
+--     es deriva de verdad y sigue sin estar escrita en ningún lado.
 -- =============================================================================
 
 \echo '=== 1. Funciones que el repo define y NO existen en la base ==='
@@ -84,7 +103,15 @@ FROM unnest(ARRAY[
   'clave_fase',
   'llave_cupo',
   'fase_ya_empezo',
-  'powerup_limits_valido'
+  'powerup_limits_valido',
+  -- Migraciones 79 y 81 (el cron vive en la base, no en GitHub Actions)
+  'hay_partidos_en_ventana',
+  'llamar_backend',
+  'cron_sync_en_vivo',
+  'cron_recordatorio_saque',
+  'cron_resumen_diario',
+  'hay_resultados_sin_escribir',
+  'cron_rescate_resultados'
 ]::text[]) x
 WHERE NOT EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
                   WHERE n.nspname = 'public' AND p.proname = x);
@@ -164,7 +191,15 @@ WHERE n.nspname = 'public'
   'clave_fase',
   'llave_cupo',
   'fase_ya_empezo',
-  'powerup_limits_valido'
+  'powerup_limits_valido',
+  -- Migraciones 79 y 81 (el cron vive en la base, no en GitHub Actions)
+  'hay_partidos_en_ventana',
+  'llamar_backend',
+  'cron_sync_en_vivo',
+  'cron_recordatorio_saque',
+  'cron_resumen_diario',
+  'hay_resultados_sin_escribir',
+  'cron_rescate_resultados'
 ]::text[])
 ORDER BY p.proname;
 
@@ -264,12 +299,36 @@ WHERE schemaname = 'public' AND tablename = 'predictions'
 ORDER BY cmd, policyname;
 
 \echo '=== 9. Columnas sensibles de users que el cliente puede tocar ==='
-SELECT grantee, privilege_type, column_name
-FROM information_schema.column_privileges
-WHERE table_schema = 'public' AND table_name = 'users'
-  AND grantee IN ('anon', 'authenticated')
-  AND column_name IN ('is_admin', 'total_points', 'points_adjustment', 'email')
-ORDER BY grantee, privilege_type, column_name;
+-- UN GRANT NO ES UN AGUJERO SI LA RLS NO LO DEJA PASAR, y la versión anterior
+-- de esta sección no hacía esa distinción: soltaba once filas entre las que
+-- estaba «authenticated INSERT is_admin», que leído así parece que cualquiera
+-- puede hacerse administrador. Hicieron falta tres consultas más para concluir
+-- que no: `users` tiene la RLS activa y su ÚNICA política de INSERT es
+-- `users_insert_via_trigger`, solo para `service_role` (las filas las crea
+-- `handle_new_user`). El grant de columna está, pero no hay por dónde usarlo.
+--
+-- Una comprobación que obliga a investigar a mano cada vez que se corre es una
+-- que se termina ignorando — la misma lección de la sección 11. Ahora cada
+-- fila dice si es ALCANZABLE de verdad. Lo único que hay que mirar son esas.
+--
+-- Comprobado a la contra: `display_name` sale ALCANZABLE en UPDATE (política
+-- `users_update_own`) e inerte en INSERT, así que la clasificación distingue.
+SELECT cp.grantee, cp.privilege_type, cp.column_name,
+       CASE
+         WHEN cp.privilege_type IN ('SELECT', 'REFERENCES')
+           THEN 'no es escritura'
+         WHEN EXISTS (SELECT 1 FROM pg_policies pol
+                      WHERE pol.schemaname = 'public' AND pol.tablename = 'users'
+                        AND pol.cmd IN (cp.privilege_type, 'ALL')
+                        AND pol.roles::text[] && ARRAY[cp.grantee::text, 'public'::text])
+           THEN 'ALCANZABLE: hay politica RLS que lo admite'
+         ELSE 'inerte: el grant existe, ninguna politica RLS lo admite'
+       END AS de_verdad
+FROM information_schema.column_privileges cp
+WHERE cp.table_schema = 'public' AND cp.table_name = 'users'
+  AND cp.grantee IN ('anon', 'authenticated')
+  AND cp.column_name IN ('is_admin', 'total_points', 'points_adjustment', 'email')
+ORDER BY 4 DESC, 1, 2, 3;
 
 \echo '=== 10. Totales globales descuadrados (debe salir vacío) ==='
 -- La fórmula va expandida y NO llama a user_total_calculado(): esa función está
@@ -343,3 +402,57 @@ SELECT DISTINCT f.proname AS rpc_que_llama_el_cliente,
 FROM del_frontend f
 JOIN porteras q ON q.proname <> f.proname AND f.prosrc ILIKE '%' || q.proname || '%'
 ORDER BY 1, 2;
+
+\echo '=== 12. Las tareas de pg_cron: ¿están agendadas y corriendo? ==='
+-- ESTE ARCHIVO NO MIRABA EL CRON, y desde la migración 79 el cron ES la base:
+-- el sync de marcadores, el recordatorio del saque y el resumen de las 6 am los
+-- dispara pg_cron, no GitHub Actions. Una tarea apagada o atrasada no da ningún
+-- error: simplemente la app deja de enterarse de los partidos.
+--
+-- EL MARGEN SALE DEL PROPIO `schedule`, no es un número fijo. Con un umbral
+-- plano de 2 horas, `resumen-diario` (que corre una vez al día) salía marcada
+-- como atrasada SIEMPRE — y una comprobación que avisa de lo normal se termina
+-- ignorando, que es la lección ya escrita para la sección 11. Se tolera 3x el
+-- intervalo nominal, y 5 minutos para la de cada minuto.
+--
+-- «nunca corrió» es un HECHO, no una acusación: una tarea recién agendada
+-- todavía no tuvo su turno. Quien lee sabe si la acaba de crear.
+SELECT j.jobname, j.schedule, j.active,
+       u.ultima_corrida AT TIME ZONE 'UTC' AS ultima_corrida_utc,
+       u.ultimo_estado,
+       CASE
+         WHEN NOT j.active                          THEN 'APAGADA'
+         WHEN u.ultima_corrida IS NULL              THEN 'nunca corrio (recien agendada?)'
+         WHEN u.ultimo_estado <> 'succeeded'        THEN 'ULTIMA CORRIDA FALLO'
+         WHEN now() - u.ultima_corrida > tol.margen THEN 'ATRASADA: no corre hace rato'
+         ELSE 'ok'
+       END AS senal
+FROM cron.job j
+LEFT JOIN LATERAL (
+  SELECT r.start_time AS ultima_corrida, r.status AS ultimo_estado
+  FROM cron.job_run_details r
+  WHERE r.jobid = j.jobid ORDER BY r.start_time DESC LIMIT 1
+) u ON true
+CROSS JOIN LATERAL (
+  SELECT CASE
+    WHEN j.schedule = '* * * * *' THEN interval '5 minutes'
+    WHEN j.schedule ~ '^\*/[0-9]+ \* \* \* \*$'
+      THEN (substring(j.schedule from '^\*/([0-9]+)')::int * 3) * interval '1 minute'
+    ELSE interval '25 hours'
+  END AS margen
+) tol
+ORDER BY j.jobname;
+
+\echo '=== 13. Secretos del cron en Vault (debe salir vacío) ==='
+-- EL MODO DE FALLO MÁS CALLADO QUE TIENE HOY LA APP. `llamar_backend` saca de
+-- Vault la URL y el CRON_SECRET; si falta cualquiera de los dos, la función
+-- registra un WARNING y **devuelve sin llamar a nadie**. La tarea de pg_cron
+-- queda marcada `succeeded`, la sección 12 dice «ok», y sin embargo no se está
+-- sincronizando nada. Sin esta comprobación, la agenda entera puede verse sana
+-- con el teléfono descolgado.
+--
+-- Solo se mira el NOMBRE. El valor no se selecciona nunca: este archivo se
+-- corre y se pega en un chat.
+SELECT x AS secreto_que_falta
+FROM unnest(ARRAY['cron_secret', 'backend_base_url']::text[]) x
+WHERE NOT EXISTS (SELECT 1 FROM vault.decrypted_secrets v WHERE v.name = x);
