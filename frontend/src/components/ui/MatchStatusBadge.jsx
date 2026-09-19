@@ -10,7 +10,7 @@ const STYLE = {
 export default function MatchStatusBadge({ match, now, className = '' }) {
   const state = matchStatus(match, now)
   return (
-    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-1 font-['JetBrains_Mono'] text-[8.5px] font-bold uppercase tracking-[0.06em] ${STYLE[state.tone]} ${className}`}>
+    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-1 font-['JetBrains_Mono'] text-[10px] font-bold uppercase tracking-[0.06em] ${STYLE[state.tone]} ${className}`}>
       {state.tone === 'live' && <span className="h-1.5 w-1.5 rounded-full bg-current animate-pulse" aria-hidden="true" />}
       {state.label}
     </span>

@@ -156,6 +156,8 @@ async def sync_live(authorization: Optional[str] = Header(default=None)):
     if authorization != f"Bearer {expected}":
         raise HTTPException(status_code=401, detail="No autorizado")
 
+    from app.services.score_check import vigilar_resultados
+
     supabase = get_supabase()
 
     # El sync del Mundial y el de los demás torneos ESPN son independientes: si uno
@@ -171,6 +173,22 @@ async def sync_live(authorization: Optional[str] = Header(default=None)):
         result["espn_tournaments"] = await sync_all_espn_tournaments(supabase)
     except Exception as exc:  # noqa: BLE001
         result["espn_tournaments_error"] = str(exc)
+
+    # VIGILANTE: ¿la fuente oficial tiene resultados que a nosotros nos faltan?
+    #
+    # El sync puede quedarse mudo sin dar un solo error —pasó: durante días le
+    # pidió a ESPN por rangos de fecha y ESPN devolvía listas vacías con un
+    # 200—, y nadie se entera hasta que alguien mira un partido terminado y lo
+    # ve «en juego». Esto lo hace ruidoso.
+    #
+    # Solo llama a UNAFUT si NUESTROS datos ya huelen a hueco (una consulta a
+    # nuestra propia base), así que en una pasada normal no cuesta ninguna
+    # petición de más. Y no corrige nada: avisa.
+    try:
+        result["vigilante"] = await vigilar_resultados(supabase)
+    except Exception as exc:  # noqa: BLE001 - vigilar nunca rompe el sync
+        result["vigilante_error"] = str(exc)
+
     return result
 
 

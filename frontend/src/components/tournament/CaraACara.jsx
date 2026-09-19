@@ -123,7 +123,7 @@ export default function CaraACara({ leagueId, matches = [], yo, rival, onClose }
                 {duelos.a}<span className="text-[var(--text-muted,#8A8A8A)] mx-1">-</span>{duelos.b}
               </div>
               {duelos.empate > 0 && (
-                <div className="font-['JetBrains_Mono'] text-[8.5px] text-[var(--text-muted,#8A8A8A)]">{duelos.empate} iguales</div>
+                <div className="font-['JetBrains_Mono'] text-[10px] text-[var(--text-muted,#8A8A8A)]">{duelos.empate} iguales</div>
               )}
             </div>
             <Lado persona={rival} pts={b.pts} gana={gano === 'b'} derecha />

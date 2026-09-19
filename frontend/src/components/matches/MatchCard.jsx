@@ -52,7 +52,7 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
      y corría el partido seis horas. */
   const kickoff = kickoffDate(match.kickoff_at)
   const state = matchStatus(match)
-  const isLocked = state.key === 'locked' || state.key === 'started'
+  const isLocked = state.key === 'locked' || state.key === 'started' || state.key === 'stale'
   const isFinished = match.status === 'finished'
   const isInProgress = match.status === 'in_progress' || match.status === 'live'
   /* REABIERTO (migración 77): el admin global devolvió la posibilidad de
@@ -66,6 +66,10 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
   // el sync todavía no lo actualizó. Evita el "Cierra en En curso" / "Cierra pronto".
   const started = kickoff ? kickoff.getTime() <= Date.now() : false
   const awaitingData = started && !isFinished && !isInProgress && !isCancelled
+  /* Y si lleva MÁS de lo que dura un partido así, ya no se puede decir que se
+     está jugando: no nos llegó el resultado. Decirlo es lo único honesto —
+     «en juego» doce horas después es lo que hizo que el dueño lo reportara. */
+  const sinDatos = state.key === 'stale'
   const isKnockout = match.phase !== 'groups'
   const isTiePredicted = homeGoals === awayGoals && homeGoals !== null
   const editable = state.canPredict
@@ -166,7 +170,7 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
         {isInProgress ? (
           <span className="flex items-center gap-1.5">
             <span className="w-1.5 h-1.5 rounded-full bg-[#FF4D6D] animate-pulse" />
-            <span className="font-['JetBrains_Mono'] font-bold text-[8.5px] tracking-[0.1em] text-[#FF4D6D]">EN VIVO</span>
+            <span className="font-['JetBrains_Mono'] font-bold text-[10px] tracking-[0.1em] text-[#FF4D6D]">EN VIVO</span>
           </span>
         ) : (
           <span className="font-['JetBrains_Mono'] font-medium text-[9px] tracking-[0.06em] text-[var(--text-muted,#8A8A8A)] truncate">
@@ -177,12 +181,16 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
         <div className="shrink-0 flex items-center gap-1.5">
           {!isInProgress && <MatchStatusBadge match={match} />}
           {(isFinished || isInProgress) && match.goes_to_penalties && (
-            <span className="font-['Archivo'] font-bold text-[8.5px] px-2 py-[3px] rounded-[20px]" style={{ color: '#E8B75A', background: 'rgba(232,183,90,.14)' }}>PENALES</span>
+            <span className="font-['Archivo'] font-bold text-[10px] px-2 py-[3px] rounded-[20px]" style={{ color: '#E8B75A', background: 'rgba(232,183,90,.14)' }}>PENALES</span>
           )}
           <button
             onClick={(e) => { e.stopPropagation(); navigate(`/match/${match.id}`) }}
-            className="text-slate-400 hover:text-accent transition-colors"
+            /* El ICONO sigue siendo de 13 px, pero el área que responde al
+               dedo es de 28: medido, este botón caía en 13×13 y WCAG 2.2
+               §2.5.8 pide 24×24 mínimo. Fallar el toque acá abre otra cosa. */
+            className="-m-2 p-2 grid place-items-center text-slate-400 hover:text-accent transition-colors"
             title="Ver detalles y predicciones de la liga"
+            aria-label="Ver detalles del partido"
           >
             <Info size={13} />
           </button>
@@ -283,7 +291,7 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
             </span>
             <span className="font-['Archivo'] font-bold text-[9.5px] text-slate-700 dark:text-[#F3F1EA]">×2</span>
             {powerupLimit > 0 && (
-              <span className="font-['JetBrains_Mono'] font-bold text-[8.5px] tabular-nums leading-none px-1 py-0.5 rounded-md"
+              <span className="font-['JetBrains_Mono'] font-bold text-[10px] tabular-nums leading-none px-1 py-0.5 rounded-md"
                 style={{ color: remaining > 0 ? '#2ED3B7' : '#FF7A59', background: remaining > 0 ? 'rgba(46,211,183,.12)' : 'rgba(255,122,89,.14)' }}
                 title={`${remaining} comodines ×2 disponibles en la jornada`}>
                 {remaining}
@@ -299,7 +307,7 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
             {isLoading ? '…' : prediction ? 'Actualizar predicción' : 'Guardar predicción'}
           </button>
 
-          {countdown && <span className="shrink-0 font-['JetBrains_Mono'] font-bold text-[8px] text-[var(--text-muted,#8A8A8A)]">cierra en {countdown}</span>}
+          {countdown && <span className="shrink-0 font-['JetBrains_Mono'] font-bold text-[9px] text-[var(--text-muted,#8A8A8A)]">cierra en {countdown}</span>}
         </div>
       )}
 
@@ -319,7 +327,9 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
       {isLocked && !isFinished && !isInProgress && !isCancelled && (
         <div className="relative z-10 mt-3 pt-2.5 border-t border-slate-200 dark:border-[#262626] flex items-center justify-between">
           <span className="font-['Archivo'] font-semibold text-[9.5px] text-[var(--text-muted,#8A8A8A)]">
-            {awaitingData ? '🔒 En juego · el marcador se actualiza solo' : '🔒 Predicciones cerradas'}
+            {sinDatos
+              ? '🔒 Todavía no nos llegó el resultado de este partido'
+              : awaitingData ? '🔒 En juego · el marcador se actualiza solo' : '🔒 Predicciones cerradas'}
           </span>
           {prediction && (
             <span className="font-['Archivo'] font-semibold text-[9.5px] text-slate-700 dark:text-[#F3F1EA] flex items-center gap-1">

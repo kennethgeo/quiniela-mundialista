@@ -256,6 +256,34 @@ export default function GroupPage() {
     chipActivo.current.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' })
   }, [jornadaSel, tab])
 
+  /* Y lo mismo con la FILA DE PESTAÑAS, que es donde faltaba.
+
+     Son nueve pestañas en 412 px: medido, al abrir `?tab=admin` la pestaña
+     activa cae en x=719 con la fila sin desplazar, o sea completamente fuera
+     de pantalla. Pasa cada vez que se vuelve de Detalles del Partido —ahí
+     `GroupPage` se desmonta y la pestaña se restaura de la URL—, al recargar y
+     en cualquier enlace directo: se ve el contenido de una pestaña y arriba
+     ninguna marcada, que se lee como que la app se rompió.
+
+     `block: 'nearest'` por lo mismo que arriba: sin eso también mueve la
+     página verticalmente. La primera vez va sin animación, para no arrastrar
+     la fila delante de los ojos al entrar. */
+  const pestanaActiva = useRef(null)
+  const yaSeCentro = useRef(false)
+  /* `group?.id` en las dependencias NO es decorativo: mientras la quiniela
+     carga, la pantalla devuelve un spinner y la fila de pestañas todavía no
+     existe, así que la primera pasada de este efecto encuentra la ref vacía y
+     no hace nada. Como `tab` ya no vuelve a cambiar, sin esto no se centraba
+     NUNCA al abrir por URL — que es justo el caso que se quería arreglar.
+     Comprobado: con solo `[tab]` la prueba sigue viendo la pestaña en x=711. */
+  useEffect(() => {
+    if (!pestanaActiva.current) return
+    pestanaActiva.current.scrollIntoView({
+      block: 'nearest', inline: 'center', behavior: yaSeCentro.current ? 'smooth' : 'auto',
+    })
+    yaSeCentro.current = true
+  }, [tab, group?.id])
+
   const deLaJornada = useMemo(
     () => (jornadaSel && jornadaSel !== '__all__' ? resolved.filter((m) => jornadaKeyOf(m) === jornadaSel) : resolved),
     [resolved, jornadaSel],
@@ -343,7 +371,7 @@ export default function GroupPage() {
           <div className="flex-1 min-w-0">
             <h1 className="font-['Archivo'] font-bold text-[15.5px] truncate text-slate-900 dark:text-[#F3F1EA]">{group.name}</h1>
             <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="font-['JetBrains_Mono'] font-bold text-[8.5px] px-[7px] py-0.5 rounded-[20px]"
+              <span className="font-['JetBrains_Mono'] font-bold text-[10px] px-[7px] py-0.5 rounded-[20px]"
                 style={{ color: isCup ? '#FF7A59' : '#2ED3B7', background: isCup ? 'rgba(255,122,89,.12)' : 'rgba(46,211,183,.12)' }}>
                 {isCup ? 'COPA' : 'LIGA'}
               </span>
@@ -369,20 +397,20 @@ export default function GroupPage() {
 
       {/* Tabs — Partidos y Tabla siempre; Bracket y Torneo solo en copas */}
       <div className="flex gap-1.5 mb-4 overflow-x-auto scrollbar-hide">
-        <TabBtn active={tab === 'home'} onClick={() => setTab('home')} icon={Home} label="Resumen" />
-        <TabBtn active={tab === 'matches'} onClick={() => setTab('matches')} icon={CalendarDays} label="Partidos" />
-        <TabBtn active={tab === 'table'} onClick={() => setTab('table')} icon={ListOrdered} label="Tabla" />
-        <TabBtn active={tab === 'historico'} onClick={() => setTab('historico')} icon={LayoutGrid} label="Histórico" />
-        {!isCup && <TabBtn active={tab === 'teams'} onClick={() => setTab('teams')} icon={Shield} label="Posiciones" />}
+        <TabBtn active={tab === 'home'} onClick={() => setTab('home')} icon={Home} label="Resumen" innerRef={tab === 'home' ? pestanaActiva : null} />
+        <TabBtn active={tab === 'matches'} onClick={() => setTab('matches')} icon={CalendarDays} label="Partidos" innerRef={tab === 'matches' ? pestanaActiva : null} />
+        <TabBtn active={tab === 'table'} onClick={() => setTab('table')} icon={ListOrdered} label="Tabla" innerRef={tab === 'table' ? pestanaActiva : null} />
+        <TabBtn active={tab === 'historico'} onClick={() => setTab('historico')} icon={LayoutGrid} label="Histórico" innerRef={tab === 'historico' ? pestanaActiva : null} />
+        {!isCup && <TabBtn active={tab === 'teams'} onClick={() => setTab('teams')} icon={Shield} label="Posiciones" innerRef={tab === 'teams' ? pestanaActiva : null} />}
         {/* Solo el Mundial tiene bracket dedicado; el resto ve sus fases en Partidos */}
-        {tid === 1 && <TabBtn active={tab === 'bracket'} onClick={() => setTab('bracket')} icon={GitBranch} label="Bracket" />}
-        <TabBtn active={tab === 'global'} onClick={() => setTab('global')} icon={BarChart3} label="Campeón/Gol" />
-        <TabBtn active={tab === 'rules'} onClick={() => setTab('rules')} icon={ScrollText} label="Reglas" dot={!!group.open_proposal} />
+        {tid === 1 && <TabBtn active={tab === 'bracket'} onClick={() => setTab('bracket')} icon={GitBranch} label="Bracket" innerRef={tab === 'bracket' ? pestanaActiva : null} />}
+        <TabBtn active={tab === 'global'} onClick={() => setTab('global')} icon={BarChart3} label="Campeón/Gol" innerRef={tab === 'global' ? pestanaActiva : null} />
+        <TabBtn active={tab === 'rules'} onClick={() => setTab('rules')} icon={ScrollText} label="Reglas" dot={!!group.open_proposal} innerRef={tab === 'rules' ? pestanaActiva : null} />
         {/* Solo para admins. group.is_admin ya contempla creador y co-admins
             (es_admin_liga, migración 59); el admin global de la app entra
             siempre, aunque no sea admin de esta quiniela. */}
         {puedeAdministrar && (
-          <TabBtn active={tab === 'admin'} onClick={() => setTab('admin')} icon={ShieldCheck} label="Admin" />
+          <TabBtn active={tab === 'admin'} onClick={() => setTab('admin')} icon={ShieldCheck} label="Admin" innerRef={tab === 'admin' ? pestanaActiva : null} />
         )}
       </div>
       {/* Ver una quiniela de la que no formás parte es fácil de olvidar: el
@@ -1140,9 +1168,9 @@ function JornadaChip({ active, onClick, label, innerRef = null }) {
   )
 }
 
-function TabBtn({ active, onClick, icon: Icon, label, dot }) {
+function TabBtn({ active, onClick, icon: Icon, label, dot, innerRef }) {
   return (
-    <button onClick={onClick}
+    <button onClick={onClick} ref={innerRef} aria-current={active ? 'page' : undefined}
       className={`relative shrink-0 flex items-center gap-1.5 px-3.5 py-2 rounded-[10px] font-['Archivo'] font-bold text-[11.5px] whitespace-nowrap transition-all ${
         active
           ? 'bg-accent text-[#06231d]'
@@ -1182,7 +1210,7 @@ function Racha ({ form }) {
         if (!t) return <span key={i} className="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600" />
         return (
           <span key={i} title={t.nombre}
-            className="w-[15px] h-[15px] rounded-[4px] grid place-items-center font-['JetBrains_Mono'] text-[8.5px] font-bold"
+            className="w-[15px] h-[15px] rounded-[4px] grid place-items-center font-['JetBrains_Mono'] text-[10px] font-bold"
             style={{ background: t.fondo }}>
             <span className="dark:hidden" style={{ color: t.color }}>{r}</span>
             <span className="hidden dark:inline" style={{ color: t.oscuro }}>{r}</span>
@@ -1377,8 +1405,8 @@ function SummaryTab({ group, matches, predictions, leagueId, profileId, loading,
               <TeamMini name={m.away_team} flag={m.away_flag_url} code={m.away_team_code} right />
               <div className="shrink-0 text-right ml-1">
                 <div className="text-[9px] font-['JetBrains_Mono'] text-[var(--text-muted,#8A8A8A)] whitespace-nowrap">{kickoffLabel(m.kickoff_at)}</div>
-                {p ? <span className="text-[8.5px] font-bold text-accent">✓ {p.home_goals_pred}-{p.away_goals_pred}</span>
-                   : <span className="text-[8.5px] font-bold text-[#FF7A59]">falta tu pick</span>}
+                {p ? <span className="text-[10px] font-bold text-accent">✓ {p.home_goals_pred}-{p.away_goals_pred}</span>
+                   : <span className="text-[10px] font-bold text-[#FF7A59]">falta tu pick</span>}
               </div>
             </button>
           )
@@ -1410,7 +1438,7 @@ function SummaryTab({ group, matches, predictions, leagueId, profileId, loading,
       <Section title="Torneo" icon={Trophy}>
         <div className="flex items-center justify-between mb-2">
           <span className="text-[13px] font-semibold text-slate-800 dark:text-[#F3F1EA] truncate">{group.tournament_name}</span>
-          <span className="shrink-0 font-['JetBrains_Mono'] font-bold text-[8.5px] px-[7px] py-0.5 rounded-[20px]"
+          <span className="shrink-0 font-['JetBrains_Mono'] font-bold text-[10px] px-[7px] py-0.5 rounded-[20px]"
             style={{ color: group.tournament_kind === 'cup' ? '#FF7A59' : '#2ED3B7', background: group.tournament_kind === 'cup' ? 'rgba(255,122,89,.12)' : 'rgba(46,211,183,.12)' }}>
             {group.tournament_kind === 'cup' ? 'COPA' : 'LIGA'}
           </span>
@@ -1462,7 +1490,7 @@ function StatTile({ label, value, sub, color }) {
     <div className="rounded-2xl bg-white dark:bg-[#161616] border border-slate-200 dark:border-[#262626] p-3 text-center">
       <div className="font-['Unbounded'] font-bold text-[20px] leading-none" style={{ color }}>{value}</div>
       {sub && <div className="font-['Archivo'] text-[9px] text-[var(--text-muted,#8A8A8A)] mt-0.5">{sub}</div>}
-      <div className="font-['Archivo'] font-semibold text-[8.5px] text-[var(--text-muted,#8A8A8A)] mt-1 uppercase tracking-wide">{label}</div>
+      <div className="font-['Archivo'] font-semibold text-[10px] text-[var(--text-muted,#8A8A8A)] mt-1 uppercase tracking-wide">{label}</div>
     </div>
   )
 }
@@ -1471,7 +1499,7 @@ function MiniStat({ label, value }) {
   return (
     <div className="text-center">
       <div className="font-['JetBrains_Mono'] font-bold text-[16px] text-slate-900 dark:text-[#F3F1EA]">{value}</div>
-      <div className="font-['Archivo'] font-semibold text-[8.5px] text-[var(--text-muted,#8A8A8A)] uppercase tracking-wide">{label}</div>
+      <div className="font-['Archivo'] font-semibold text-[10px] text-[var(--text-muted,#8A8A8A)] uppercase tracking-wide">{label}</div>
     </div>
   )
 }
@@ -1485,7 +1513,9 @@ function Section({ title, icon: Icon, actionLabel, onAction, children }) {
           <h3 className="font-bold font-['Archivo'] text-[13px] text-slate-900 dark:text-[#F3F1EA]">{title}</h3>
         </div>
         {actionLabel && (
-          <button onClick={onAction} className="flex items-center gap-0.5 text-[11px] font-bold text-accent">{actionLabel} <ChevronRight size={13} /></button>
+          /* `-my-1.5 py-1.5`: el alto de toque sube a 24 px sin mover ni un
+             píxel del texto, que es lo que pide WCAG 2.2 §2.5.8. */
+          <button onClick={onAction} className="flex items-center gap-0.5 -my-1.5 py-1.5 text-[11px] font-bold text-accent">{actionLabel} <ChevronRight size={13} /></button>
         )}
       </div>
       {children}

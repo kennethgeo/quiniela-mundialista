@@ -74,7 +74,11 @@ export default function InstallPrompt() {
         exit={{ opacity: 0, y: 50, scale: 0.9 }}
         className="fixed bottom-24 left-4 right-4 md:bottom-6 md:left-auto md:right-6 z-[100] flex justify-center md:justify-end pointer-events-none"
       >
-        <div className="bg-white/90 dark:glass-strong shadow-[0_10px_40px_rgba(0,0,0,0.2)] dark:shadow-[0_10px_40px_rgba(0,0,0,0.5)] w-full max-w-sm p-4 relative overflow-hidden pointer-events-auto border border-slate-200 dark:border-white/10 rounded-2xl backdrop-blur-md">
+        <div /* `dark:glass-strong` no existía: `glass-strong` es una clase propia
+           del CSS y Tailwind no le genera la variante `dark:`, así que esa
+           clase no producía ninguna regla. El fondo oscuro se pide con el
+           color de siempre. */
+        className="bg-white/90 dark:bg-[#161616] shadow-[0_10px_40px_rgba(0,0,0,0.2)] dark:shadow-[0_10px_40px_rgba(0,0,0,0.5)] w-full max-w-sm p-4 relative overflow-hidden pointer-events-auto border border-slate-200 dark:border-white/10 rounded-2xl backdrop-blur-md">
           
           {/* Brillo de fondo — amber glow sutil */}
           <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
