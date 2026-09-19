@@ -72,3 +72,47 @@ def test_meses_cruza_el_cambio_de_año():
     justo en la jornada de Navidad."""
     assert _meses(datetime(2026, 12, 20, tzinfo=timezone.utc),
                   datetime(2027, 1, 10, tzinfo=timezone.utc)) == ["202612", "202701"]
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# LA PUERTA POR LA QUE EL ARREGLO NO PODÍA PASAR (19 sep 2026)
+#
+# El sync ya pedía meses y corría cada minuto sin fallar, y el partido del
+# viernes seguía sin resultado. La causa no era el sync: `cron_sync_en_vivo`
+# solo llama al backend si hay un partido en la ventana [-4 h, +15 min], y ese
+# saque había sido 13 horas antes. Comprobado en producción —
+# `hay_partidos_en_ventana('-4 hours','15 minutes')` devolvía **false** y
+# `net._http_response` no tenía ni una llamada al sync en tres horas.
+#
+# La migración 81 agrega la puerta de vuelta (`rescate-de-resultados`), y sus
+# dos números NO son libres: salen de acá y de `score_check`. Esta prueba lee
+# el SQL, como `fasesDeTorneo.test.js` lee el Python: copiarlos sería tener la
+# misma decisión escrita dos veces, que es como se perdieron los puntos de
+# asistidor durante meses.
+# ─────────────────────────────────────────────────────────────────────────────
+from app.services.espn_tournament_sync import DIAS_HACIA_ATRAS  # noqa: E402
+from app.services.score_check import HORAS_PARA_SOSPECHAR  # noqa: E402
+
+MIGRACION_81 = (Path(__file__).resolve().parents[2]
+                / "database" / "81_rescate_de_resultados.sql").read_text()
+
+
+def test_el_rescate_insiste_justo_mientras_el_sync_puede_ver_el_partido():
+    """Más atrás de la ventana móvil no le preguntamos a ESPN, así que seguir
+    llamando no rescataría nada: eso ya es trabajo del admin."""
+    assert f"'{DIAS_HACIA_ATRAS} days'" in MIGRACION_81
+
+
+def test_el_rescate_arranca_donde_la_app_admite_que_no_sabe():
+    """Si la pantalla deja de decir «en juego» a las 4 horas, el backend sale a
+    buscar el dato a las 4 horas. Dos números distintos dejarían una franja en
+    la que la app dice «sin datos» y nadie está mirando."""
+    assert f"'{HORAS_PARA_SOSPECHAR} hours'" in MIGRACION_81
+
+
+def test_la_ventana_del_minuto_a_minuto_no_se_ensancho():
+    """El arreglo NO es abrir la puerta de cada minuto: eso pondría al job que
+    corre 1.440 veces al día a llamar a ESPN por partidos viejos."""
+    assert "-4 hours" in MIGRACION_81, "se perdió la mención a la ventana de siempre"
+    assert "'3 days'" in MIGRACION_81
+    assert "*/30 * * * *" in MIGRACION_81, "el rescate no puede ir cada minuto"
