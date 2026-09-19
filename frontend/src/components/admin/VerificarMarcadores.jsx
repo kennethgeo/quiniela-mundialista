@@ -91,6 +91,27 @@ function BloqueTorneo({ tournamentId, nombreTorneo }) {
             {res.sin_pareja?.length ? ` · ${res.sin_pareja.length} sin pareja` : ''}
           </p>
 
+          {/* FALTANTES: no es un desacuerdo entre fuentes, es un HUECO NUESTRO
+              — la liga ya dio el partido por terminado y nosotros seguimos sin
+              el resultado. Va primero y en rojo porque es lo único de esta
+              pantalla sobre lo que hay que actuar hoy: pasó tres días seguidos
+              sin que nadie se enterara. */}
+          {res.faltantes?.length > 0 && (
+            <div className="rounded-xl p-2.5 space-y-1.5" style={{ background: 'rgba(255,122,89,.12)' }}>
+              <p className="font-bold text-[11px] text-[#B4472C] dark:text-[#FF7A59]">
+                {res.faltantes.length} partido(s) que la liga ya cerró y nosotros no tenemos
+              </p>
+              {res.faltantes.map((f) => (
+                <p key={f.match_id} className="font-['JetBrains_Mono'] text-[10px] text-slate-600 dark:text-slate-300">
+                  {f.partido} · acá: {f.nuestro_estado} · UNAFUT: {f.unafut}
+                </p>
+              ))}
+              <p className="text-[10px] text-slate-500">
+                Suele querer decir que el sync no está escribiendo. Revisá el panel de resultados.
+              </p>
+            </div>
+          )}
+
           {reales.length === 0 ? (
             <div className="flex items-center gap-2 rounded-xl p-2.5" style={{ background: 'rgba(46,211,183,.10)' }}>
               <Check size={14} className="text-accent shrink-0" />

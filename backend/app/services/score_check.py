@@ -18,13 +18,21 @@ eso se empareja el PARTIDO COMPLETO: tienen que calzar LOS DOS equipos y la
 fecha. Con un solo equipo, "San Carlos" es ambiguo; con el cruce entero, el
 otro equipo lo desambigua.
 """
+import logging
 import re
 import unicodedata
 from datetime import datetime, timedelta, timezone
 
 import httpx
 
+logger = logging.getLogger(__name__)
+
 UNAFUT_BASE = "https://gapi.pixeles.club/ligas"
+
+# Cuánto puede tardar un partido en tener resultado antes de que la falta
+# sea sospechosa. Es el mismo umbral que usa la pantalla para dejar de
+# decir «en juego» (`MINUTOS_MAXIMOS_DE_PARTIDO`).
+HORAS_PARA_SOSPECHAR = 4
 
 # Ruido que aparece en una fuente y no en la otra. Se saca de los dos lados por
 # igual, así que nunca inclina el emparejamiento hacia un equipo u otro.
@@ -121,40 +129,45 @@ def emparejar(nuestro, candidatos, umbral=0.6):
     return (mejor, mejor_puntaje) if mejor_puntaje >= umbral else (None, mejor_puntaje)
 
 
-async def comparar_con_unafut(supabase, tournament_id: int) -> dict:
-    """Compara nuestros marcadores finalizados contra los de UNAFUT."""
-    t = (supabase.table("tournaments")
-         .select("unafut_league_slug, unafut_competition_id")
-         .eq("id", tournament_id).single().execute().data) or {}
-    slug, comp_id = t.get("unafut_league_slug"), t.get("unafut_competition_id")
-    if not slug or not comp_id:
-        return {"tournament_id": tournament_id, "fuente": None,
-                "mensaje": "El torneo no tiene configurada la fuente de UNAFUT",
-                "discrepancias": [], "comparados": 0}
+def clasificar(nuestros, candidatos):
+    """Cruza nuestros partidos con los de UNAFUT y los reparte en tres montones.
 
-    nuestros = (supabase.table("matches")
-                .select("id, home_team, away_team, home_goals_actual, away_goals_actual, "
-                        "status, matchday, kickoff_at, score_locked")
-                .eq("tournament_id", tournament_id)
-                .eq("status", "finished").execute().data or [])
-    if not nuestros:
-        return {"tournament_id": tournament_id, "fuente": "unafut",
-                "discrepancias": [], "comparados": 0, "sin_pareja": []}
+    Va aparte de la petición para poder fijarlo en una prueba sin red ni base,
+    como el resto de la lógica del backend.
 
-    rondas = {m["matchday"] for m in nuestros if m.get("matchday")}
-    async with httpx.AsyncClient(timeout=20.0) as client:
-        candidatos = await _traer_rondas(client, slug, comp_id, rondas)
-
-    discrepancias, sin_pareja, comparados = [], [], 0
+    `faltantes` es el montón que ESTE archivo no tenía y que costó tres días de
+    silencio: partidos que la fuente oficial YA DIO POR TERMINADOS y que
+    nosotros seguimos teniendo en `pending`. No es un desacuerdo entre fuentes
+    —no hay dos marcadores que comparar—, es un HUECO nuestro. Antes la
+    consulta pedía solo `status = 'finished'`, así que un partido que el sync
+    nunca escribió ni entraba en la comparación: la alarma existía y miraba
+    justo al lado del incendio.
+    """
+    discrepancias, faltantes, sin_pareja, comparados = [], [], [], 0
     for m in nuestros:
         pareja, _ = emparejar(m, candidatos)
         if not pareja:
             sin_pareja.append({"match_id": m["id"], "partido": f"{m['home_team']} vs {m['away_team']}"})
             continue
+
         gl, gv = _a_int(pareja["goles_local"]), _a_int(pareja["goles_visita"])
-        # Si UNAFUT todavía no lo cerró, su marcador no es comparable.
-        if gl is None or gv is None or pareja["estado"] != "COMPLETE":
+        cerrado_alla = pareja["estado"] == "COMPLETE" and gl is not None and gv is not None
+        cerrado_aca = m.get("status") == "finished" and m.get("home_goals_actual") is not None
+
+        if not cerrado_alla:
+            # Si UNAFUT todavía no lo cerró, su marcador no es comparable.
             continue
+
+        if not cerrado_aca:
+            faltantes.append({
+                "match_id": m["id"],
+                "partido": f"{m['home_team']} vs {m['away_team']}",
+                "jornada": m.get("matchday"),
+                "nuestro_estado": m.get("status"),
+                "unafut": f"{gl}-{gv}",
+            })
+            continue
+
         comparados += 1
         if gl != m["home_goals_actual"] or gv != m["away_goals_actual"]:
             discrepancias.append({
@@ -168,10 +181,109 @@ async def comparar_con_unafut(supabase, tournament_id: int) -> dict:
                 "esperado": bool(m.get("score_locked")),
             })
 
+    return discrepancias, faltantes, sin_pareja, comparados
+
+
+async def comparar_con_unafut(supabase, tournament_id: int) -> dict:
+    """Compara nuestros marcadores contra los de UNAFUT.
+
+    Mira los terminados (¿coincide el marcador?) Y los que deberían estarlo
+    (¿nos falta el resultado?)."""
+    t = (supabase.table("tournaments")
+         .select("unafut_league_slug, unafut_competition_id")
+         .eq("id", tournament_id).single().execute().data) or {}
+    slug, comp_id = t.get("unafut_league_slug"), t.get("unafut_competition_id")
+    if not slug or not comp_id:
+        return {"tournament_id": tournament_id, "fuente": None,
+                "mensaje": "El torneo no tiene configurada la fuente de UNAFUT",
+                "discrepancias": [], "faltantes": [], "comparados": 0}
+
+    # Los TERMINADOS y también los que ya deberían haberse jugado: sin estos
+    # últimos, un partido que el sync nunca escribió no entra en la comparación
+    # y el hueco pasa desapercibido. Cancelados y pospuestos quedan fuera a
+    # propósito: son decisiones del admin, no huecos.
+    limite = (datetime.now(timezone.utc) - timedelta(hours=HORAS_PARA_SOSPECHAR)).isoformat()
+    nuestros = (supabase.table("matches")
+                .select("id, home_team, away_team, home_goals_actual, away_goals_actual, "
+                        "status, matchday, kickoff_at, score_locked")
+                .eq("tournament_id", tournament_id)
+                .in_("status", ["finished", "pending", "in_progress"])
+                .lt("kickoff_at", limite).execute().data or [])
+    if not nuestros:
+        return {"tournament_id": tournament_id, "fuente": "unafut",
+                "discrepancias": [], "faltantes": [], "comparados": 0, "sin_pareja": []}
+
+    rondas = {m["matchday"] for m in nuestros if m.get("matchday")}
+    async with httpx.AsyncClient(timeout=20.0) as client:
+        candidatos = await _traer_rondas(client, slug, comp_id, rondas)
+
+    discrepancias, faltantes, sin_pareja, comparados = clasificar(nuestros, candidatos)
     return {
         "tournament_id": tournament_id,
         "fuente": "unafut",
         "comparados": comparados,
         "discrepancias": discrepancias,
+        "faltantes": faltantes,
         "sin_pareja": sin_pareja,
     }
+
+
+def sospechosos(supabase, ahora=None) -> dict:
+    """Torneos con partidos que ya deberían tener resultado y no lo tienen.
+
+    Es una consulta a NUESTRA base, sin red: sirve para no llamar a UNAFUT en
+    cada pasada del cron. El vigilante solo descuelga el teléfono cuando
+    nuestros propios datos ya huelen a hueco.
+
+    El umbral es el mismo que usa la pantalla para dejar de decir «en juego»
+    (`MINUTOS_MAXIMOS_DE_PARTIDO`, 4 horas): si allá se admite que no tenemos
+    el dato, acá se sale a buscarlo.
+    """
+    ahora = ahora or datetime.now(timezone.utc)
+    limite = (ahora - timedelta(hours=HORAS_PARA_SOSPECHAR)).isoformat()
+    filas = (supabase.table("matches")
+             .select("tournament_id")
+             .in_("status", ["pending", "in_progress"])
+             .lt("kickoff_at", limite).execute().data or [])
+    cuenta = {}
+    for f in filas:
+        cuenta[f["tournament_id"]] = cuenta.get(f["tournament_id"], 0) + 1
+    return cuenta
+
+
+async def vigilar_resultados(supabase) -> dict:
+    """Avisa si la fuente oficial tiene resultados que a nosotros nos faltan.
+
+    NO CORRIGE NADA, igual que el cruce manual: dos fuentes que se pisan entre
+    sí en cada pasada es peor que el problema. Lo que hace es que un sync mudo
+    deje de ser invisible — el caso real fueron tres días sin escribir nada y
+    ningún error en ningún log.
+    """
+    pendientes = sospechosos(supabase)
+    if not pendientes:
+        return {"revisados": 0, "faltantes": []}
+
+    torneos = (supabase.table("tournaments")
+               .select("id, name, unafut_league_slug")
+               .in_("id", list(pendientes.keys())).execute().data or [])
+
+    faltantes, revisados = [], 0
+    for t in torneos:
+        if not t.get("unafut_league_slug"):
+            continue  # sin segunda fuente no hay con qué comparar
+        revisados += 1
+        try:
+            informe = await comparar_con_unafut(supabase, t["id"])
+        except Exception as exc:  # noqa: BLE001 - vigilar nunca rompe el sync
+            logger.warning("No se pudo cruzar con UNAFUT el torneo %s: %s", t["id"], exc)
+            continue
+        for f in informe.get("faltantes") or []:
+            faltantes.append({**f, "torneo": t.get("name")})
+
+    if faltantes:
+        logger.warning(
+            "UNAFUT ya tiene %d resultado(s) que a nosotros nos faltan: %s",
+            len(faltantes),
+            "; ".join(f"{f['partido']} ({f['unafut']})" for f in faltantes[:5]),
+        )
+    return {"revisados": revisados, "faltantes": faltantes}
