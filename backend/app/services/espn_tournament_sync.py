@@ -16,6 +16,12 @@ from app.services.scoring import calculate_and_update_scores
 
 ESPN_BASE = "https://site.api.espn.com/apis/site/v2/sports/soccer"
 
+# Cuánto mira hacia atrás la ventana móvil del cron. NO es solo de acá: la
+# migración 81 usa el MISMO número para decidir hasta cuándo vale la pena
+# insistir con un resultado que nos falta. Más atrás de esto no le
+# preguntamos a ESPN, así que reintentar no rescataría nada.
+DIAS_HACIA_ATRAS = 3
+
 
 def _to_int(v):
     try:
@@ -234,7 +240,7 @@ def _ventanas(now, full):
     móvil (3 días atrás, 21 adelante) toca uno o dos meses.
     """
     if not full:
-        return _meses(now - timedelta(days=3), now + timedelta(days=21))
+        return _meses(now - timedelta(days=DIAS_HACIA_ATRAS), now + timedelta(days=21))
     # Temporada completa: de ~10 meses atrás a ~5 adelante.
     return _meses(now - timedelta(days=300), now + timedelta(days=150))
 
