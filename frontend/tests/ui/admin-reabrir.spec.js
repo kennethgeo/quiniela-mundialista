@@ -38,10 +38,23 @@ async function abrirResultados (page) {
   await expect(page.getByText('AEK Athens')).toBeVisible({ timeout: 10000 })
 }
 
-/** Entra en modo edición del partido y devuelve su tarjeta. */
+/** Entra en modo edición del partido y devuelve su tarjeta.
+ *
+ *  EL BOTÓN SE PIDE POR SU NOMBRE, no como «el primero de la tarjeta».
+ *
+ *  Con `locator('button').first()` esta prueba fallaba 1 de cada 2 o 3
+ *  corridas completas, y pasaba siempre aislada — se tomó por inestabilidad de
+ *  CI dos veces. Medido con el navegador: en el instante en que aparece el
+ *  nombre del equipo, el primer botón de la tarjeta es **«Sync partidos»**, y
+ *  solo un momento después pasa a ser «Editar». O sea que el clic caía a veces
+ *  en otro control —uno que dispara un sync— y el formulario no se abría
+ *  nunca; de ahí el «element(s) not found» esperando «Fecha y hora».
+ *
+ *  Pedirlo por su nombre dice lo que la prueba quiere decir y no depende del
+ *  orden en que se pinten las cosas. */
 async function editar (page, equipo) {
   const tarjeta = page.locator('.glass-card').filter({ hasText: equipo }).last()
-  await tarjeta.locator('button').first().click()
+  await tarjeta.getByRole('button', { name: 'Editar' }).click()
   await expect(tarjeta.getByText('Fecha y hora', { exact: false })).toBeVisible()
   return tarjeta
 }
