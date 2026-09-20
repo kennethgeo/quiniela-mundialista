@@ -21,10 +21,101 @@ import { Users, BarChart3, History, TrendingUp, Loader2, ChevronDown } from 'luc
 import { fetchDetalleDelPartido, frescuraDe } from '../../lib/detalleDelPartido'
 import CanchaAlineacion from './CanchaAlineacion'
 
+/* El COLOR va por tema (variables de index.css) y el fondo no.
+   El acento de la app sobre su propio fondo al 14% da 1.7:1 en el tema claro:
+   la G quedaba casi invisible sobre la tarjeta blanca, y el resumen «4G · 1P»
+   sobre blanco puro, peor todavía (1.9:1). Es exactamente el fallo que este
+   repo ya tenía anotado para el botón del aviso de notificaciones. */
 const RESULTADO = {
-  G: { texto: 'G', color: '#2ED3B7', fondo: 'rgba(46,211,183,.14)' },
-  E: { texto: 'E', color: '#E8B75A', fondo: 'rgba(232,183,90,.16)' },
-  P: { texto: 'P', color: '#FF7A59', fondo: 'rgba(255,122,89,.14)' },
+  G: { texto: 'G', color: 'var(--forma-g)', fondo: 'rgba(46,211,183,.14)' },
+  E: { texto: 'E', color: 'var(--forma-e)', fondo: 'rgba(232,183,90,.16)' },
+  P: { texto: 'P', color: 'var(--forma-p)', fondo: 'rgba(255,122,89,.16)' },
+}
+const SIN_DATO = { texto: '·', color: 'var(--forma-nd)', fondo: 'rgba(120,113,108,.14)' }
+
+// Para quien no ve el color: una G verde y una P naranja son el mismo carácter
+// para un lector de pantalla si no se dice qué significan.
+const LEIDO = { G: 'Ganó', E: 'Empató', P: 'Perdió' }
+const LISTA_RACHA = ['G', 'E', 'P']
+const PLURAL = {
+  G: (n) => (n === 1 ? 'ganado' : 'ganados'),
+  E: (n) => (n === 1 ? 'empatado' : 'empatados'),
+  P: (n) => (n === 1 ? 'perdido' : 'perdidos'),
+}
+
+/* CÓMO VIENEN: el resultado, el marcador y el rival EN LA MISMA COLUMNA.
+
+   Antes iban en dos filas separadas —las cinco letras a la derecha del nombre,
+   los cinco marcadores en una línea suelta debajo— así que para saber contra
+   quién fue la P había que contar posiciones en dos sitios y esperar que
+   coincidieran. El dueño lo reportó como «es confusa».
+
+   Y encima el marcador salía al revés en las derrotas: el `score` de ESPN es
+   del GANADOR, no del equipo (ver `_forma` en el backend). Acá los goles ya
+   vienen orientados y el propio va PRIMERO siempre, que es la única forma de
+   que «1-2» debajo de una P se lea sin pensar.
+
+   Se dice también de local o de visita: en esta liga no es un detalle. */
+function FormaDeEquipo ({ equipo }) {
+  const cuenta = { G: 0, E: 0, P: 0 }
+  for (const p of equipo.partidos) if (cuenta[p.resultado] !== undefined) cuenta[p.resultado]++
+
+  return (
+    <div>
+      <div className="flex items-baseline justify-between gap-2 mb-1.5">
+        <span className="font-['Archivo'] text-[11.5px] text-slate-800 dark:text-[#F3F1EA] truncate">
+          {equipo.equipo}
+        </span>
+        {/* «4G · 1P» es legible de un vistazo y opaco para un lector de
+            pantalla, que leería «cuatro ge». El resumen va en el aria-label y
+            lo visible queda oculto para la asistencia. */}
+        <span className="font-['JetBrains_Mono'] text-[10px] shrink-0 whitespace-nowrap"
+          aria-label={`${equipo.equipo} en estos 5: ${LISTA_RACHA.map((k) => `${cuenta[k]} ${PLURAL[k](cuenta[k])}`).join(', ')}`}>
+          <span aria-hidden="true">
+            {LISTA_RACHA.filter((k) => cuenta[k]).map((k, i) => (
+              <span key={k}>
+                {i > 0 && <span className="text-[var(--text-muted,#8A8A8A)]"> · </span>}
+                <span style={{ color: RESULTADO[k].color }}>{cuenta[k]}{k}</span>
+              </span>
+            ))}
+          </span>
+        </span>
+      </div>
+
+      <div className="grid grid-cols-5 gap-1">
+        {equipo.partidos.map((p, i) => {
+          const r = RESULTADO[p.resultado] || SIN_DATO
+          /* Sin goles orientados no se inventa un marcador: puede ser una
+             respuesta vieja de la caché (el campo es nuevo) o un evento sin
+             `atVs`. Se dibuja el resultado y el rival, que sí son ciertos. */
+          const hayMarcador = p.goles != null && p.goles_rival != null
+          const donde = p.de_local == null ? '' : (p.de_local ? 'vs' : '@')
+          const comoLeerlo = [
+            LEIDO[p.resultado] || 'Sin dato',
+            hayMarcador ? `${p.goles} a ${p.goles_rival}` : null,
+            p.de_local == null ? null : (p.de_local ? 'de local' : 'de visita'),
+            `contra ${p.rival_nombre || p.rival || 'rival desconocido'}`,
+            p.fecha || null,
+          ].filter(Boolean).join(' ')
+
+          return (
+            <div key={i} className="text-center" title={comoLeerlo} aria-label={comoLeerlo}>
+              <div className="h-[22px] rounded-md grid place-items-center font-['JetBrains_Mono'] font-bold text-[11px]"
+                style={{ background: r.fondo, color: r.color }}>
+                {r.texto}
+              </div>
+              <div className="mt-0.5 font-['JetBrains_Mono'] text-[11px] text-slate-800 dark:text-[#F3F1EA]">
+                {hayMarcador ? `${p.goles}-${p.goles_rival}` : '–'}
+              </div>
+              <div className="font-['JetBrains_Mono'] text-[9.5px] text-[var(--text-muted,#8A8A8A)] truncate">
+                {donde} {p.rival}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
 }
 
 function Titulo ({ icono: Icono, children, extra }) {
@@ -238,36 +329,18 @@ export default function DetalleDelPartido ({ matchId, status }) {
             extra={<span className="text-[10px] text-[var(--text-muted,#8A8A8A)]">últimos 5</span>}>
             Cómo vienen
           </Titulo>
-          <div className="space-y-2.5">
-            {d.forma.map((eq) => (
-              <div key={eq.equipo}>
-                <div className="flex items-center justify-between gap-2 mb-1">
-                  <span className="font-['Archivo'] text-[11.5px] text-slate-800 dark:text-[#F3F1EA] truncate">
-                    {eq.equipo}
-                  </span>
-                  <div className="flex gap-1 shrink-0">
-                    {eq.partidos.map((p, i) => {
-                      const r = RESULTADO[p.resultado] || { texto: '·', color: '#8A8A8A', fondo: 'rgba(138,138,138,.14)' }
-                      return (
-                        <span key={i} title={`${p.fecha} · ${p.rival ?? ''} ${p.marcador ?? ''}`}
-                          className="w-5 h-5 rounded-md grid place-items-center font-['JetBrains_Mono'] font-bold text-[10px]"
-                          style={{ background: r.fondo, color: r.color }}>
-                          {r.texto}
-                        </span>
-                      )
-                    })}
-                  </div>
-                </div>
-                <div className="flex flex-wrap gap-x-2 gap-y-0.5">
-                  {eq.partidos.map((p, i) => (
-                    <span key={i} className="font-['JetBrains_Mono'] text-[9.5px] text-[var(--text-muted,#8A8A8A)]">
-                      {p.rival} {p.marcador}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            ))}
+          <div className="space-y-3">
+            {d.forma.map((eq) => <FormaDeEquipo key={eq.equipo} equipo={eq} />)}
           </div>
+          {/* El orden hay que DECIRLO. «Últimos 5» no dice por qué punta
+              empieza, y con la racha de un equipo eso cambia la lectura
+              entera: G G P G G se lee distinto si la P fue anteayer o hace
+              cinco fechas. */}
+          {/* A la IZQUIERDA: el botón flotante del chat vive pegado abajo a la
+              derecha y tapaba justo esta línea (se vio en la captura). */}
+          <p className="mt-2.5 text-[9.5px] text-[var(--text-muted,#8A8A8A)]">
+            ← más viejo · más reciente →
+          </p>
         </Tarjeta>
       )}
 
@@ -293,8 +366,19 @@ export default function DetalleDelPartido ({ matchId, status }) {
       {d.historial && (
         <Tarjeta>
           <Titulo icono={History}>Entre ellos</Titulo>
-          {d.historial.resumen && (
-            <p className="text-[11.5px] text-slate-800 dark:text-[#F3F1EA] mb-1.5">{d.historial.resumen}</p>
+          {/* ESTO SALÍA EN INGLÉS: «CAR leads series 4-0-1», tal cual lo manda
+              ESPN, desde que se quitó `lang=es` de la petición. `_forma` ya
+              traducía `gameResult` por ese mismo motivo; a este campo nadie lo
+              miró. Ahora el balance lo cuenta el backend sobre los partidos
+              que se muestran acá abajo, así que además no puede contradecir a
+              la lista. Una respuesta vieja de la caché no trae `balance` y se
+              queda sin la línea — mejor que volver a enseñar la inglesa. */}
+          {d.historial.balance && (
+            <p className="text-[11.5px] text-slate-800 dark:text-[#F3F1EA] mb-1.5">
+              De estos {d.historial.balance.de}:{' '}
+              {d.historial.balance.equipos.map((e) => `${e.equipo} ${e.ganados}`).join(' · ')}
+              {d.historial.balance.empates > 0 && ` · empates ${d.historial.balance.empates}`}
+            </p>
           )}
           <ul className="space-y-1">
             {d.historial.partidos.map((p, i) => (

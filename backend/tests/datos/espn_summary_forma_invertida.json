@@ -1,0 +1,303 @@
+{
+ "lastFiveGames": [
+  {
+   "team": {
+    "id": "859",
+    "displayName": "AD San Carlos",
+    "abbreviation": "ADSC"
+   },
+   "events": [
+    {
+     "gameDate": "2026-08-15T02:00Z",
+     "opponent": {
+      "id": "862",
+      "displayName": "Herediano",
+      "abbreviation": "HER"
+     },
+     "score": "1-0",
+     "gameResult": "W",
+     "homeTeamScore": "1",
+     "awayTeamScore": "0",
+     "atVs": "vs",
+     "homeAway": null,
+     "leagueAbbreviation": "Liga FPD"
+    },
+    {
+     "gameDate": "2026-08-24T00:00Z",
+     "opponent": {
+      "id": "2057",
+      "displayName": "Alajuelense",
+      "abbreviation": "ALA"
+     },
+     "score": "1-0",
+     "gameResult": "W",
+     "homeTeamScore": "0",
+     "awayTeamScore": "1",
+     "atVs": "@",
+     "homeAway": null,
+     "leagueAbbreviation": "Liga FPD"
+    },
+    {
+     "gameDate": "2026-08-30T22:00Z",
+     "opponent": {
+      "id": "7237",
+      "displayName": "Puntarenas FC",
+      "abbreviation": "PUN"
+     },
+     "score": "2-1",
+     "gameResult": "L",
+     "homeTeamScore": "1",
+     "awayTeamScore": "2",
+     "atVs": "vs",
+     "homeAway": null,
+     "leagueAbbreviation": "Liga FPD"
+    },
+    {
+     "gameDate": "2026-09-07T01:00Z",
+     "opponent": {
+      "id": "20705",
+      "displayName": "Sporting San José",
+      "abbreviation": "SSJ"
+     },
+     "score": "1-0",
+     "gameResult": "W",
+     "homeTeamScore": "1",
+     "awayTeamScore": "0",
+     "atVs": "vs",
+     "homeAway": null,
+     "leagueAbbreviation": "Liga FPD"
+    },
+    {
+     "gameDate": "2026-09-12T02:00Z",
+     "opponent": {
+      "id": "7234",
+      "displayName": "Pérez Zeledón",
+      "abbreviation": "ZEL"
+     },
+     "score": "2-0",
+     "gameResult": "W",
+     "homeTeamScore": "0",
+     "awayTeamScore": "2",
+     "atVs": "@",
+     "homeAway": null,
+     "leagueAbbreviation": "Liga FPD"
+    }
+   ]
+  },
+  {
+   "team": {
+    "id": "7239",
+    "displayName": "Cartaginés",
+    "abbreviation": "CAR"
+   },
+   "events": [
+    {
+     "gameDate": "2026-08-30T17:00Z",
+     "opponent": {
+      "id": "862",
+      "displayName": "Herediano",
+      "abbreviation": "HER"
+     },
+     "score": "1-0",
+     "gameResult": "W",
+     "homeTeamScore": "1",
+     "awayTeamScore": "0",
+     "atVs": "vs",
+     "homeAway": null,
+     "leagueAbbreviation": "Liga FPD"
+    },
+    {
+     "gameDate": "2026-09-06T22:00Z",
+     "opponent": {
+      "id": "7237",
+      "displayName": "Puntarenas FC",
+      "abbreviation": "PUN"
+     },
+     "score": "3-1",
+     "gameResult": "W",
+     "homeTeamScore": "1",
+     "awayTeamScore": "3",
+     "atVs": "@",
+     "homeAway": null,
+     "leagueAbbreviation": "Liga FPD"
+    },
+    {
+     "gameDate": "2026-09-10T01:06Z",
+     "opponent": {
+      "id": "858",
+      "displayName": "Saprissa",
+      "abbreviation": "SAP"
+     },
+     "score": "2-2",
+     "gameResult": "D",
+     "homeTeamScore": "2",
+     "awayTeamScore": "2",
+     "atVs": "@",
+     "homeAway": null,
+     "leagueAbbreviation": "Concacaf Central American Cup"
+    },
+    {
+     "gameDate": "2026-09-14T00:00Z",
+     "opponent": {
+      "id": "2057",
+      "displayName": "Alajuelense",
+      "abbreviation": "ALA"
+     },
+     "score": "3-1",
+     "gameResult": "W",
+     "homeTeamScore": "3",
+     "awayTeamScore": "1",
+     "atVs": "vs",
+     "homeAway": null,
+     "leagueAbbreviation": "Liga FPD"
+    },
+    {
+     "gameDate": "2026-09-17T00:30Z",
+     "opponent": {
+      "id": "858",
+      "displayName": "Saprissa",
+      "abbreviation": "SAP"
+     },
+     "score": "3-2",
+     "gameResult": "W",
+     "homeTeamScore": "3",
+     "awayTeamScore": "2",
+     "atVs": "vs",
+     "homeAway": null,
+     "leagueAbbreviation": "Concacaf Central American Cup"
+    }
+   ]
+  }
+ ],
+ "seasonseries": [
+  {
+   "summary": "CAR leads series 4-0-1",
+   "shortSummary": "Last 5 Matchups",
+   "seriesScore": "0-1-4",
+   "type": "head-to-head",
+   "title": "AD San Carlos vs. Cartaginés",
+   "events": [
+    {
+     "date": "2026-04-22T02:00:00Z",
+     "competitionName": "2025-26 Primera División de Costa Rica",
+     "competitors": [
+      {
+       "team": {
+        "id": "7239",
+        "displayName": "Cartaginés",
+        "abbreviation": "CAR"
+       },
+       "score": "2",
+       "winner": true
+      },
+      {
+       "team": {
+        "id": "859",
+        "displayName": "AD San Carlos",
+        "abbreviation": "ADSC"
+       },
+       "score": "1",
+       "winner": false
+      }
+     ]
+    },
+    {
+     "date": "2026-03-02T01:00:00Z",
+     "competitionName": "2025-26 Primera División de Costa Rica",
+     "competitors": [
+      {
+       "team": {
+        "id": "859",
+        "displayName": "AD San Carlos",
+        "abbreviation": "ADSC"
+       },
+       "score": "1",
+       "winner": false
+      },
+      {
+       "team": {
+        "id": "7239",
+        "displayName": "Cartaginés",
+        "abbreviation": "CAR"
+       },
+       "score": "1",
+       "winner": false
+      }
+     ]
+    },
+    {
+     "date": "2025-11-02T17:00:00Z",
+     "competitionName": "2025-26 Primera División de Costa Rica",
+     "competitors": [
+      {
+       "team": {
+        "id": "7239",
+        "displayName": "Cartaginés",
+        "abbreviation": "CAR"
+       },
+       "score": "2",
+       "winner": true
+      },
+      {
+       "team": {
+        "id": "859",
+        "displayName": "AD San Carlos",
+        "abbreviation": "ADSC"
+       },
+       "score": "1",
+       "winner": false
+      }
+     ]
+    },
+    {
+     "date": "2025-09-14T21:00:00Z",
+     "competitionName": "2025-26 Primera División de Costa Rica",
+     "competitors": [
+      {
+       "team": {
+        "id": "859",
+        "displayName": "AD San Carlos",
+        "abbreviation": "ADSC"
+       },
+       "score": "0",
+       "winner": false
+      },
+      {
+       "team": {
+        "id": "7239",
+        "displayName": "Cartaginés",
+        "abbreviation": "CAR"
+       },
+       "score": "2",
+       "winner": true
+      }
+     ]
+    },
+    {
+     "date": "2025-04-17T01:00:00Z",
+     "competitionName": "2024-25 Primera División de Costa Rica",
+     "competitors": [
+      {
+       "team": {
+        "id": "859",
+        "displayName": "AD San Carlos",
+        "abbreviation": "ADSC"
+       },
+       "score": "1",
+       "winner": false
+      },
+      {
+       "team": {
+        "id": "7239",
+        "displayName": "Cartaginés",
+        "abbreviation": "CAR"
+       },
+       "score": "2",
+       "winner": true
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

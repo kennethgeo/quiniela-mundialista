@@ -1,0 +1,231 @@
+{
+ "disponible": true,
+ "detalle": {
+  "actualizado": "2026-09-20T22:25:10.552793+00:00",
+  "estadio": null,
+  "ciudad": null,
+  "alineaciones": null,
+  "alineaciones_cuando": "al-saque",
+  "estadisticas": null,
+  "forma": [
+   {
+    "equipo": "AD San Carlos",
+    "partidos": [
+     {
+      "fecha": "2026-08-15",
+      "rival": "HER",
+      "rival_nombre": "Herediano",
+      "goles": 1,
+      "goles_rival": 0,
+      "de_local": true,
+      "resultado": "G",
+      "torneo": "Liga FPD"
+     },
+     {
+      "fecha": "2026-08-24",
+      "rival": "ALA",
+      "rival_nombre": "Alajuelense",
+      "goles": 1,
+      "goles_rival": 0,
+      "de_local": false,
+      "resultado": "G",
+      "torneo": "Liga FPD"
+     },
+     {
+      "fecha": "2026-08-30",
+      "rival": "PUN",
+      "rival_nombre": "Puntarenas FC",
+      "goles": 1,
+      "goles_rival": 2,
+      "de_local": true,
+      "resultado": "P",
+      "torneo": "Liga FPD"
+     },
+     {
+      "fecha": "2026-09-07",
+      "rival": "SSJ",
+      "rival_nombre": "Sporting San José",
+      "goles": 1,
+      "goles_rival": 0,
+      "de_local": true,
+      "resultado": "G",
+      "torneo": "Liga FPD"
+     },
+     {
+      "fecha": "2026-09-12",
+      "rival": "ZEL",
+      "rival_nombre": "Pérez Zeledón",
+      "goles": 2,
+      "goles_rival": 0,
+      "de_local": false,
+      "resultado": "G",
+      "torneo": "Liga FPD"
+     }
+    ]
+   },
+   {
+    "equipo": "Cartaginés",
+    "partidos": [
+     {
+      "fecha": "2026-08-30",
+      "rival": "HER",
+      "rival_nombre": "Herediano",
+      "goles": 1,
+      "goles_rival": 0,
+      "de_local": true,
+      "resultado": "G",
+      "torneo": "Liga FPD"
+     },
+     {
+      "fecha": "2026-09-06",
+      "rival": "PUN",
+      "rival_nombre": "Puntarenas FC",
+      "goles": 3,
+      "goles_rival": 1,
+      "de_local": false,
+      "resultado": "G",
+      "torneo": "Liga FPD"
+     },
+     {
+      "fecha": "2026-09-10",
+      "rival": "SAP",
+      "rival_nombre": "Saprissa",
+      "goles": 2,
+      "goles_rival": 2,
+      "de_local": false,
+      "resultado": "E",
+      "torneo": "Concacaf Central American Cup"
+     },
+     {
+      "fecha": "2026-09-14",
+      "rival": "ALA",
+      "rival_nombre": "Alajuelense",
+      "goles": 3,
+      "goles_rival": 1,
+      "de_local": true,
+      "resultado": "G",
+      "torneo": "Liga FPD"
+     },
+     {
+      "fecha": "2026-09-17",
+      "rival": "SAP",
+      "rival_nombre": "Saprissa",
+      "goles": 3,
+      "goles_rival": 2,
+      "de_local": true,
+      "resultado": "G",
+      "torneo": "Concacaf Central American Cup"
+     }
+    ]
+   }
+  ],
+  "historial": {
+   "balance": {
+    "equipos": [
+     {
+      "equipo": "Cartaginés",
+      "ganados": 4
+     },
+     {
+      "equipo": "AD San Carlos",
+      "ganados": 0
+     }
+    ],
+    "empates": 1,
+    "de": 5
+   },
+   "partidos": [
+    {
+     "fecha": "2026-04-22",
+     "equipos": [
+      {
+       "equipo": "CAR",
+       "nombre": "Cartaginés",
+       "goles": "2",
+       "gano": true
+      },
+      {
+       "equipo": "ADSC",
+       "nombre": "AD San Carlos",
+       "goles": "1",
+       "gano": false
+      }
+     ],
+     "torneo": "2025-26 Primera División de Costa Rica"
+    },
+    {
+     "fecha": "2026-03-02",
+     "equipos": [
+      {
+       "equipo": "ADSC",
+       "nombre": "AD San Carlos",
+       "goles": "1",
+       "gano": false
+      },
+      {
+       "equipo": "CAR",
+       "nombre": "Cartaginés",
+       "goles": "1",
+       "gano": false
+      }
+     ],
+     "torneo": "2025-26 Primera División de Costa Rica"
+    },
+    {
+     "fecha": "2025-11-02",
+     "equipos": [
+      {
+       "equipo": "CAR",
+       "nombre": "Cartaginés",
+       "goles": "2",
+       "gano": true
+      },
+      {
+       "equipo": "ADSC",
+       "nombre": "AD San Carlos",
+       "goles": "1",
+       "gano": false
+      }
+     ],
+     "torneo": "2025-26 Primera División de Costa Rica"
+    },
+    {
+     "fecha": "2025-09-14",
+     "equipos": [
+      {
+       "equipo": "ADSC",
+       "nombre": "AD San Carlos",
+       "goles": "0",
+       "gano": false
+      },
+      {
+       "equipo": "CAR",
+       "nombre": "Cartaginés",
+       "goles": "2",
+       "gano": true
+      }
+     ],
+     "torneo": "2025-26 Primera División de Costa Rica"
+    },
+    {
+     "fecha": "2025-04-17",
+     "equipos": [
+      {
+       "equipo": "ADSC",
+       "nombre": "AD San Carlos",
+       "goles": "1",
+       "gano": false
+      },
+      {
+       "equipo": "CAR",
+       "nombre": "Cartaginés",
+       "goles": "2",
+       "gano": true
+      }
+     ],
+     "torneo": "2024-25 Primera División de Costa Rica"
+    }
+   ]
+  }
+ }
+}

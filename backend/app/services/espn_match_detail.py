@@ -161,16 +161,60 @@ def _estadisticas(summary: dict) -> Optional[list]:
 _RESULTADO = {"W": "G", "L": "P", "D": "E", "G": "G", "P": "P", "E": "E"}
 
 
+# `atVs` dice si el equipo jugó de local. Es el ÚNICO campo que lo dice:
+# `homeAway` viene en None en todos los eventos de `lastFiveGames` (medido).
+_DONDE = {"vs": True, "@": False}
+
+
+def _gol(v) -> Optional[int]:
+    try:
+        return int(v)
+    except (TypeError, ValueError):
+        return None
+
+
 def _forma(summary: dict) -> Optional[list]:
+    """Los últimos 5 de cada equipo, con el marcador ORIENTADO al equipo.
+
+    EL CAMPO `score` DE ESPN NO ES DEL EQUIPO, ES DEL GANADOR. Medido el 20 sep
+    2026 sobre AD San Carlos–Cartaginés (crc.1): San Carlos PERDIÓ 1-2 con
+    Puntarenas y ese evento trae `score: "2-1"`, con `gameResult: "L"` y
+    `homeTeamScore: 1` / `awayTeamScore: 2`. La pantalla lo pintaba crudo
+    —«PUN 2-1» al lado de una P— y cualquiera lo lee como que San Carlos hizo
+    2: el marcador salía AL REVÉS justo en las derrotas, que son las filas que
+    más miran. Lo reportó el dueño («es confusa e incluso creo que está
+    fallando»).
+
+    Lo correcto sale de `homeTeamScore`/`awayTeamScore` —esos sí son los goles
+    reales de local y visita— más `atVs`, que dice de qué lado estuvo el
+    equipo. Comprobado a mano contra los 10 partidos de ese resumen: los 10
+    coinciden con su `gameResult`.
+
+    Tercera vez que un campo llamado `score` miente en este proyecto: ya pasó
+    con `seasonseries` (el marcador estaba en `competitors`) y con el endpoint
+    de rondas de la UNAFUT (`score` en null, el bueno era `scoreString`).
+
+    Si no se puede orientar el marcador no se inventa: se devuelven los goles
+    en None y la pantalla dibuja el resultado sin números.
+    """
     salida = []
     for t in summary.get("lastFiveGames") or []:
         partidos = []
         for e in (t.get("events") or [])[:5]:
+            rival = e.get("opponent") or {}
+            de_local = _DONDE.get(e.get("atVs"))
+            local, visita = _gol(e.get("homeTeamScore")), _gol(e.get("awayTeamScore"))
+            if de_local is None or local is None or visita is None:
+                propios = en_contra = None
+            else:
+                propios, en_contra = (local, visita) if de_local else (visita, local)
             partidos.append({
                 "fecha": (e.get("gameDate") or "")[:10],
-                "rival": (e.get("opponent") or {}).get("abbreviation")
-                         or (e.get("opponent") or {}).get("displayName"),
-                "marcador": e.get("score"),
+                "rival": rival.get("abbreviation") or rival.get("displayName"),
+                "rival_nombre": rival.get("displayName"),
+                "goles": propios,
+                "goles_rival": en_contra,
+                "de_local": de_local,
                 # Siempre G / P / E, venga como venga (ver _RESULTADO).
                 "resultado": _RESULTADO.get(e.get("gameResult")),
                 "torneo": e.get("leagueAbbreviation"),
@@ -199,6 +243,7 @@ def _historial(summary: dict) -> Optional[dict]:
                 t = c.get("team") or {}
                 equipos.append({
                     "equipo": t.get("abbreviation") or t.get("displayName"),
+                    "nombre": t.get("displayName"),
                     "goles": c.get("score"),
                     "gano": bool(c.get("winner")),
                 })
@@ -213,8 +258,42 @@ def _historial(summary: dict) -> Optional[dict]:
             })
         if not partidos:
             continue
-        return {"resumen": ss.get("summary"), "partidos": partidos}
+        return {"balance": _balance(partidos), "partidos": partidos}
     return None
+
+
+def _balance(partidos: list) -> Optional[dict]:
+    """Quién gana la serie, contado por nosotros.
+
+    ESPN manda esto hecho en `seasonseries.summary`, pero **en inglés**: «CAR
+    leads series 4-0-1». Viene así desde que se quitó `lang=es` de la petición
+    —sin ese parámetro ESPN no devuelve la alineación, que es lo que de verdad
+    se necesita— y esa frase quedó saliendo en crudo en la pantalla. `_forma`
+    ya traducía `gameResult` por este mismo motivo; a este campo nadie lo miró.
+
+    Tampoco es solo el idioma: ese «4-0-1» abarca lo que ESPN quiera y no tiene
+    por qué cuadrar con las cinco filas que se dibujan debajo. Contar los
+    partidos que SE MUESTRAN es lo único que no puede contradecir a la lista.
+    """
+    cuenta: dict = {}
+    empates = 0
+    for p in partidos:
+        ganador = next((e for e in p["equipos"] if e["gano"]), None)
+        if ganador is None:
+            empates += 1
+            continue
+        nombre = ganador.get("nombre") or ganador["equipo"]
+        cuenta[nombre] = cuenta.get(nombre, 0) + 1
+    # Los dos equipos salen siempre, también con cero: «CAR 4 · ADSC 0» dice
+    # bastante más que «CAR 4» y no obliga a restar de cabeza.
+    for e in partidos[0]["equipos"]:
+        cuenta.setdefault(e.get("nombre") or e["equipo"], 0)
+    return {
+        "equipos": sorted(({"equipo": k, "ganados": v} for k, v in cuenta.items()),
+                          key=lambda x: -x["ganados"]),
+        "empates": empates,
+        "de": len(partidos),
+    }
 
 
 def recortar(summary: dict, liga: Optional[str] = None) -> dict:
