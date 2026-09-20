@@ -292,3 +292,101 @@ def test_un_once_de_verdad_sigue_llegando_entero(once_publicado):
     """El corte de 11 no puede llevarse por delante el caso bueno."""
     for equipo in once_publicado['alineaciones']:
         assert len(equipo['titulares']) == 11
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# EL MARCADOR DE «CÓMO VIENEN» SALÍA AL REVÉS EN LAS DERROTAS (20 sep 2026)
+#
+# `score` de ESPN es del GANADOR, no del equipo. Medido sobre AD San Carlos–
+# Cartaginés (crc.1): San Carlos PERDIÓ 1-2 con Puntarenas y ese evento trae
+# `score: "2-1"`. La pantalla lo pintaba crudo al lado de una P, y cualquiera
+# lo lee como que San Carlos hizo 2. Justo en las filas que más se miran.
+#
+# `espn_summary_forma_invertida.json` es esa respuesta real adelgazada, y
+# conserva a propósito las dos cosas que hacen falta para probarlo: la derrota
+# con el `score` dado vuelta, y el resumen del historial en inglés.
+# ─────────────────────────────────────────────────────────────────────────────
+@pytest.fixture
+def forma_invertida():
+    return recortar(cargar('forma_invertida'), 'crc.1')
+
+
+def _por_rival(equipo, rival):
+    return next(p for p in equipo['partidos'] if p['rival'] == rival)
+
+
+class TestElMarcadorVaOrientadoAlEquipo:
+
+    def test_en_una_derrota_los_goles_propios_van_primero(self, forma_invertida):
+        """EL CASO DEL FALLO. San Carlos perdió 1-2 y ESPN manda «2-1»."""
+        p = _por_rival(forma_invertida['forma'][0], 'PUN')
+        assert p['resultado'] == 'P'
+        assert (p['goles'], p['goles_rival']) == (1, 2)
+
+    def test_el_marcador_nunca_contradice_al_resultado(self, forma_invertida):
+        """La comprobación que cierra la familia entera: con `score` crudo,
+        las tres derrotas y empates de este fixture caen."""
+        for equipo in forma_invertida['forma']:
+            for p in equipo['partidos']:
+                gp, gr = p['goles'], p['goles_rival']
+                assert gp is not None and gr is not None, p
+                if p['resultado'] == 'G':
+                    assert gp > gr, p
+                elif p['resultado'] == 'P':
+                    assert gp < gr, p
+                elif p['resultado'] == 'E':
+                    assert gp == gr, p
+
+    def test_se_dice_si_fue_de_local_o_de_visita(self, forma_invertida):
+        """Sale de `atVs`, que es el ÚNICO campo que lo dice: `homeAway` viene
+        en None en todos los eventos de `lastFiveGames`."""
+        sc = forma_invertida['forma'][0]
+        assert _por_rival(sc, 'PUN')['de_local'] is True
+        assert _por_rival(sc, 'ALA')['de_local'] is False
+
+    def test_sin_saber_de_que_lado_jugo_no_se_inventa_el_marcador(self):
+        """Sin `atVs` no hay forma de orientar los goles. Se devuelve el
+        resultado —que sí es cierto— y los goles en None, para que la pantalla
+        dibuje la letra sin números en vez de un marcador inventado."""
+        crudo = {'lastFiveGames': [{'team': {'displayName': 'X'}, 'events': [
+            {'gameResult': 'L', 'score': '2-1', 'homeTeamScore': '1',
+             'awayTeamScore': '2', 'atVs': None,
+             'opponent': {'abbreviation': 'PUN'}}]}]}
+        p = recortar(crudo)['forma'][0]['partidos'][0]
+        assert p['resultado'] == 'P'
+        assert (p['goles'], p['goles_rival']) == (None, None)
+
+    def test_tampoco_se_inventa_si_faltan_los_goles(self):
+        crudo = {'lastFiveGames': [{'team': {'displayName': 'X'}, 'events': [
+            {'gameResult': 'W', 'atVs': 'vs', 'homeTeamScore': None,
+             'awayTeamScore': '0', 'opponent': {'abbreviation': 'HER'}}]}]}
+        p = recortar(crudo)['forma'][0]['partidos'][0]
+        assert (p['goles'], p['goles_rival']) == (None, None)
+
+
+class TestElBalanceDelHistorialNoSaleEnIngles:
+    """ESPN manda «CAR leads series 4-0-1» y eso llegaba crudo a la pantalla.
+
+    Viene en inglés desde que se quitó `lang=es`; `_forma` ya traducía
+    `gameResult` por lo mismo y a este campo nadie lo miró."""
+
+    def test_no_se_reenvia_el_texto_de_espn(self, forma_invertida):
+        assert 'resumen' not in forma_invertida['historial']
+        assert 'leads series' not in json.dumps(forma_invertida, ensure_ascii=False)
+
+    def test_se_cuenta_sobre_los_partidos_que_se_muestran(self, forma_invertida):
+        """Contar lo que se dibuja es lo único que no puede contradecir a la
+        lista de abajo: el «4-0-1» de ESPN abarca lo que ESPN quiera."""
+        b = forma_invertida['historial']['balance']
+        assert b['de'] == len(forma_invertida['historial']['partidos'])
+        assert sum(e['ganados'] for e in b['equipos']) + b['empates'] == b['de']
+
+    def test_los_numeros_son_los_reales(self, forma_invertida):
+        b = forma_invertida['historial']['balance']
+        assert b['empates'] == 1
+        assert {e['equipo']: e['ganados'] for e in b['equipos']} == {
+            'Cartaginés': 4, 'AD San Carlos': 0}
+
+    def test_el_que_no_gano_ninguno_sale_igual(self, forma_invertida):
+        """«CAR 4 · ADSC 0» dice más que «CAR 4» y no obliga a restar."""
+        assert len(forma_invertida['historial']['balance']['equipos']) == 2

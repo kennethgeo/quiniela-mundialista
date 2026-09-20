@@ -56,6 +56,18 @@
   --bg-world-cup-glow-1: rgba(46, 211, 183, 0.10);
   --bg-world-cup-glow-2: rgba(255, 122, 89, 0.07);
   --bg-world-cup-glow-3: rgba(46, 211, 183, 0.05);
+
+  /* GANÓ / EMPATÓ / PERDIÓ de «Cómo vienen».
+     NO son el acento de la app. El acento sobre su propio fondo al 14% da
+     1.7:1 en el tema claro —lo mismo que ya quedó anotado como 1.74:1 para el
+     botón del aviso de notificaciones—, así que la letra quedaba casi
+     invisible sobre la tarjeta blanca, y el resumen «4G · 1P» sobre blanco
+     puro peor todavía. Medidos pintando en un canvas, no leyendo
+     getComputedStyle: por encima de 4.5:1 sobre su propio chip. */
+  --forma-g: #0F766E;
+  --forma-e: #92400E;
+  --forma-p: #B91C1C;
+  --forma-nd: #57534E;
 }
 
 .dark {
@@ -92,6 +104,12 @@
   --bg-world-cup-glow-1: rgba(46, 211, 183, 0.10);
   --bg-world-cup-glow-2: rgba(255, 122, 89, 0.07);
   --bg-world-cup-glow-3: rgba(46, 211, 183, 0.05);
+
+  /* En oscuro manda la paleta de siempre: sobre el fondo oscuro sí contrasta. */
+  --forma-g: #2ED3B7;
+  --forma-e: #E8B75A;
+  --forma-p: #FF7A59;
+  --forma-nd: #A8A29E;
 }
 
 /* Nota: el reset universal (margin/padding/box-sizing) lo hace el preflight de

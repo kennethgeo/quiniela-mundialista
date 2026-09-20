@@ -110,10 +110,23 @@ test('la cancha muestra los 11 y se cambia de equipo por pestaña', async ({ pag
 
 test('el historial muestra el MARCADOR, no solo la fecha', async ({ page }) => {
   /* La primera versión leía campos que `seasonseries` no trae, así que salía
-     la fecha y un punto suelto. */
+     la fecha y un punto suelto.
+
+     ESTA PRUEBA ERA HUECA EN SU PRIMERA MITAD, y por eso nadie vio que el
+     balance salía en inglés en producción: afirmaba `/RMA lidera/`, que es el
+     `summary` de ESPN, y este fixture se capturó CUANDO TODAVÍA SE PEDÍA
+     `lang=es`. Al quitar ese parámetro —sin él ESPN no devuelve la alineación—
+     la misma respuesta pasó a traer «RMA leads series 5-0», pero el fixture
+     guardado siguió diciéndolo en español y la prueba siguió en verde. Mismo
+     tropiezo ya anotado para `espn_summary_por_jugar.json`: un fixture
+     capturado a través del bug no prueba nada.
+
+     Ahora el balance lo cuenta el backend sobre los partidos que se muestran,
+     así que no depende del idioma de la fuente y no puede contradecir a la
+     lista de abajo. */
   await abrir(page, PREVIA, 'pending')
   await expect(page.getByRole('heading', { name: 'Entre ellos' })).toBeVisible({ timeout: 15000 })
-  await expect(page.getByText(/RMA lidera/)).toBeVisible()
+  await expect(page.getByText(/De estos 5: MAD 5 · INT 0/)).toBeVisible()
   // Alguna fila con dos equipos y sus goles.
   await expect(page.locator('li').filter({ hasText: /\d{4}-\d{2}-\d{2}/ }).first()).toContainText(/\d/)
 })
@@ -214,3 +227,177 @@ test('la ficha usa el apellido corto que manda el backend', async ({ page }) => 
   await expect(page.getByText('Segura')).toBeVisible({ timeout: 15000 })
   await expect(page.getByText('Cruz', { exact: true })).toHaveCount(0)
 })
+
+/* ─────────────────────────────────────────────────────────────────────────
+   «CÓMO VIENEN»: EL MARCADOR SALÍA AL REVÉS, Y NO SE SABÍA DE QUÉ PARTIDO ERA
+
+   Dos fallos distintos en la misma tarjeta, los dos reportados por el dueño
+   («es confusa e incluso creo que está fallando»):
+
+   1. DATO. `score` de ESPN es del GANADOR, no del equipo. San Carlos perdió
+      1-2 con Puntarenas y ese evento trae `score: "2-1"`; la pantalla lo
+      pintaba crudo al lado de una P, o sea dado vuelta justo en las derrotas.
+   2. FORMA. Las cinco letras iban a la derecha del nombre y los cinco
+      marcadores en una línea suelta debajo, así que para saber contra quién
+      fue la P había que contar posiciones en dos sitios.
+
+   El fixture es la respuesta REAL de ESPN (AD San Carlos–Cartaginés, crc.1,
+   20 sep 2026) pasada por el recorte del backend. Se afirma sobre lo que se
+   VE y sobre lo que está DENTRO de la misma columna: comprobar el texto
+   suelto pasaría igual con las dos filas separadas de antes.
+   ───────────────────────────────────────────────────────────────────────── */
+const FORMA = leer('detalle_forma.json')
+
+/* Las columnas de la forma, pedidas por lo que significan. Un localizador por
+   posición o por clase pasaría igual con la maqueta vieja de dos filas. */
+const columnas = (page) => page.locator('[aria-label*="contra"]')
+
+test('el marcador de una derrota va con los goles propios primero', async ({ page }) => {
+  await abrir(page, FORMA, 'pending')
+  await expect(page.getByRole('heading', { name: 'Cómo vienen' })).toBeVisible({ timeout: 15000 })
+
+  // La columna de la derrota, pedida por lo que significa y no por posición.
+  const derrota = page.locator('[aria-label*="Perdió"]').first()
+  await expect(derrota).toBeVisible()
+  await expect(derrota).toContainText('1-2')
+  await expect(derrota).toContainText('PUN')
+
+  // EL FALLO: «2-1» es el marcador dado vuelta que mandaba ESPN. Ninguna
+  // columna puede mostrarlo.
+  await expect(columnas(page).filter({ hasText: '2-1' })).toHaveCount(0)
+})
+
+test('el resultado, el marcador y el rival van en la misma columna', async ({ page }) => {
+  await abrir(page, FORMA, 'pending')
+  const derrota = page.locator('[aria-label*="Perdió"]').first()
+  await expect(derrota).toBeVisible({ timeout: 15000 })
+  // Los tres dentro del MISMO elemento: es lo que la versión anterior no podía
+  // cumplir, porque las letras y los marcadores vivían en filas distintas.
+  await expect(derrota).toContainText('P')
+  await expect(derrota).toContainText('1-2')
+  await expect(derrota).toContainText('PUN')
+})
+
+test('dice si el equipo jugó de local o de visita', async ({ page }) => {
+  await abrir(page, FORMA, 'pending')
+  await expect(page.getByRole('heading', { name: 'Cómo vienen' })).toBeVisible({ timeout: 15000 })
+  await expect(page.locator('[aria-label*="de local"]').first()).toBeVisible()
+  await expect(page.locator('[aria-label*="de visita"]').first()).toBeVisible()
+})
+
+test('cada columna se puede leer sin ver el color', async ({ page }) => {
+  /* Una G verde y una P naranja son el mismo carácter para un lector de
+     pantalla si no se dice qué significan. */
+  await abrir(page, FORMA, 'pending')
+  const derrota = page.locator('[aria-label*="Perdió"]').first()
+  await expect(derrota).toBeVisible({ timeout: 15000 })
+  await expect(derrota).toHaveAttribute('aria-label', /Perdió 1 a 2 de local contra Puntarenas/)
+})
+
+test('el orden se dice, no se adivina', async ({ page }) => {
+  await abrir(page, FORMA, 'pending')
+  await expect(page.getByText(/más viejo · más reciente/)).toBeVisible({ timeout: 15000 })
+})
+
+test('resume la racha de cada equipo', async ({ page }) => {
+  await abrir(page, FORMA, 'pending')
+  await expect(page.getByRole('heading', { name: 'Cómo vienen' })).toBeVisible({ timeout: 15000 })
+  /* Los dos equipos llevan 4G, así que cada afirmación se ACOTA a su fila: sin
+     eso la prueba pasaría aunque el resumen de un equipo se pintara dos veces
+     y el del otro no se pintara nunca. Lo que los distingue es la quinta
+     fecha — San Carlos perdió, Cartaginés empató. */
+  const sanCarlos = page.getByLabel(/AD San Carlos en estos 5/)
+  const cartago = page.getByLabel(/Cartaginés en estos 5/)
+
+  // Visible de un vistazo…
+  await expect(sanCarlos.getByText('4G', { exact: true })).toBeVisible()
+  await expect(sanCarlos.getByText('1P', { exact: true })).toBeVisible()
+  await expect(cartago.getByText('1E', { exact: true })).toBeVisible()
+  // Un cero no se dibuja: «4G · 0E · 1P» es ruido.
+  await expect(sanCarlos.getByText('0E', { exact: true })).toHaveCount(0)
+
+  // …y legible sin ver el color: «4G» a secas se lee «cuatro ge».
+  await expect(page.getByLabel('AD San Carlos en estos 5: 4 ganados, 0 empatados, 1 perdido')).toBeVisible()
+  await expect(page.getByLabel('Cartaginés en estos 5: 4 ganados, 1 empatado, 0 perdidos')).toBeVisible()
+})
+
+test('el balance del historial NO sale en inglés', async ({ page }) => {
+  /* ESPN manda «CAR leads series 4-0-1» y eso llegaba crudo a la pantalla
+     desde que se quitó `lang=es` de la petición. */
+  await abrir(page, FORMA, 'pending')
+  await expect(page.getByRole('heading', { name: 'Entre ellos' })).toBeVisible({ timeout: 15000 })
+  await expect(page.getByText(/leads series/)).toHaveCount(0)
+  await expect(page.getByText(/De estos 5:/)).toBeVisible()
+  await expect(page.getByText(/Cartaginés 4/)).toBeVisible()
+  await expect(page.getByText(/AD San Carlos 0/)).toBeVisible()
+})
+
+/* EL CONTRASTE SE MIDE, NO SE MIRA.
+
+   La G iba pintada con el acento de la app sobre un fondo del MISMO acento al
+   14%: en el tema claro eso da 1.7:1 — la letra casi no se ve sobre la tarjeta
+   blanca— y el resumen «4G · 1P», que va sobre blanco puro, todavía menos.
+   Es literalmente el fallo que este repo ya tenía anotado para el botón del
+   aviso de notificaciones (1.74:1), repetido en otra pantalla.
+
+   Se mide pintando el color en un canvas y leyendo el píxel: parsear
+   getComputedStyle no sirve, porque Tailwind v4 devuelve `oklch(...)` y leer
+   esos tres números como RGB da ratios inventados. */
+for (const tema of ['light', 'dark']) {
+  test(`las letras de la forma se leen en el tema ${tema}`, async ({ page }) => {
+    await page.addInitScript((t) => localStorage.setItem('qm_theme', t), tema)
+    await abrir(page, FORMA, 'pending')
+    await expect(page.getByRole('heading', { name: 'Cómo vienen' })).toBeVisible({ timeout: 15000 })
+
+    const medidas = await page.evaluate(() => {
+      const cv = document.createElement('canvas'); cv.width = cv.height = 1
+      const cx = cv.getContext('2d', { willReadFrequently: true })
+      const rgb = (color, sobre) => {
+        cx.clearRect(0, 0, 1, 1)
+        if (sobre) { cx.fillStyle = sobre; cx.fillRect(0, 0, 1, 1) }
+        cx.fillStyle = color; cx.fillRect(0, 0, 1, 1)
+        const d = cx.getImageData(0, 0, 1, 1).data
+        return [d[0], d[1], d[2]]
+      }
+      const lum = ([r, g, b]) => [r, g, b]
+        .map((v) => { const x = v / 255; return x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4 })
+        .reduce((a, v, i) => a + v * [0.2126, 0.7152, 0.0722][i], 0)
+      const ratio = (a, b) => {
+        const la = lum(a); const lb = lum(b)
+        return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05)
+      }
+      /* Se sube hasta un fondo NO transparente: leer rgba(0,0,0,0) como negro
+         da un contraste inventado. El chip tiene fondo propio, el resumen no. */
+      const fondoDe = (el) => {
+        let f = el; let c = 'rgba(0, 0, 0, 0)'
+        while (f && (c === 'rgba(0, 0, 0, 0)' || c === 'transparent')) {
+          c = getComputedStyle(f).backgroundColor; f = f.parentElement
+        }
+        return c
+      }
+      const base = getComputedStyle(document.body).backgroundColor
+      const de = (el) => {
+        if (!el) return null
+        const f = fondoDe(el)
+        return ratio(rgb(getComputedStyle(el).color, f), rgb(f, base))
+      }
+      const chip = (letra) => [...document.querySelectorAll('div')]
+        .find((e) => !e.children.length && e.textContent.trim() === letra)
+      const resumen = (texto) => [...document.querySelectorAll('span')]
+        .find((e) => !e.children.length && e.textContent.trim() === texto)
+      return {
+        chipGano: de(chip('G')),
+        chipEmpato: de(chip('E')),
+        chipPerdio: de(chip('P')),
+        resumenGanados: de(resumen('4G')),
+        resumenPerdidos: de(resumen('1P')),
+      }
+    })
+
+    // WCAG AA para texto normal: son letras de 10-11 px, no texto grande.
+    for (const [parte, valor] of Object.entries(medidas)) {
+      expect(valor, `${parte} en ${tema}`).not.toBeNull()
+      expect(valor, `${parte} en ${tema}`).toBeGreaterThanOrEqual(4.5)
+    }
+  })
+}
