@@ -36,6 +36,7 @@ import PredecirJornada from '../components/matches/PredecirJornada'
 import FiltroPartidos from '../components/matches/FiltroPartidos'
 import PartidosDeHoy from '../components/tournament/PartidosDeHoy'
 import PanelAdminQuiniela from '../components/tournament/PanelAdminQuiniela'
+import SalirDeQuiniela from '../components/tournament/SalirDeQuiniela'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
 import CuposPorFase from '../components/tournament/CuposPorFase'
 import ExportarCalendario from '../components/tournament/ExportarCalendario'
@@ -214,6 +215,8 @@ export default function GroupPage() {
 
   // ¿El torneo ya arrancó? (algún partido con kickoff <= ahora). Con eso bloqueamos
   // la edición de reglas/puntaje en el front (el backend también lo rechaza).
+  const [pidiendoSalir, setPidiendoSalir] = useState(false)
+
   const tournamentStarted = useMemo(
     () => matches.some((m) => m.kickoff_at && new Date(m.kickoff_at) <= new Date()),
     [matches],
@@ -534,6 +537,7 @@ export default function GroupPage() {
       {tab === 'rules' && (
         <>
           <RulesPanel group={group} tournamentStarted={tournamentStarted} showToast={showToast}
+          onSalir={() => setPidiendoSalir(true)}
             onDeleted={() => { queryClient.invalidateQueries({ queryKey: ['my_groups'] }); navigate('/') }} />
           {/* Van en Reglas porque es material de confianza, como las votaciones. */}
           <PozoYPagos leagueId={group.id} />
@@ -564,7 +568,22 @@ export default function GroupPage() {
       {group.rules_accepted === false && !!group.rules && (
         <RulesGate group={group}
           onAccepted={() => queryClient.invalidateQueries({ queryKey: ['my_groups'] })}
-          onLeave={() => navigate('/')} />
+          onLeave={() => setPidiendoSalir(true)} />
+      )}
+
+      {/* LA SALIDA VOLUNTARIA (migración 83). Se monta acá arriba para que
+          sirva a las dos puertas: la de reglas —donde «No acepto» antes solo
+          navegaba y dejaba a la persona dentro— y la de la pestaña Reglas,
+          para quien simplemente ya no quiere jugar. */}
+      {pidiendoSalir && (
+        <SalirDeQuiniela
+          group={group}
+          prediccionesPropias={predictions.filter((x) => x.user_id === profile?.id).length}
+          onCancel={() => setPidiendoSalir(false)}
+          onSalio={() => {
+            queryClient.invalidateQueries({ queryKey: ['my_groups'] })
+            navigate('/')
+          }} />
       )}
     </div>
   )
@@ -626,7 +645,7 @@ const SCORING_LABELS = {
 
 // Panel completo de la pestaña Reglas: votación (si hay propuesta abierta),
 // puntaje, reglas de texto, historial de propuestas y zona de peligro.
-function RulesPanel({ group, tournamentStarted, showToast, onDeleted }) {
+function RulesPanel({ group, tournamentStarted, showToast, onDeleted, onSalir }) {
   const isAdmin = !!group.is_admin
   // Borrar la quiniela sigue siendo solo de quien la creó, no de los co-admins:
   // delete_group lo rechaza igual, así que mostrarles el botón sería un engaño.
@@ -681,6 +700,31 @@ function RulesPanel({ group, tournamentStarted, showToast, onDeleted }) {
       {history.length > 0 && <ProposalHistory items={history} />}
       {isAdmin && <AdminTools group={group} showToast={showToast} onDone={() => qc.invalidateQueries({ queryKey: ['league_medals', group.id] })} />}
       {soyCreador && <DangerZone group={group} onDeleted={onDeleted} showToast={showToast} />}
+
+      {/* SALIR DE LA QUINIELA. Va en Reglas y no en Admin porque es una acción
+          de la PERSONA, no administrativa — el mismo criterio que «Ya pagué».
+          Hasta la migración 83 no existía ninguna forma de irse: había que
+          pedirle a un admin que te expulsara.
+
+          Al creador no se le ofrece: `leagues.admin_id` no se puede quitar y no
+          hay forma de traspasar la quiniela, así que si se fuera quedaría un
+          grupo sin dueño, que nadie podría administrar ni borrar. Para él la
+          salida es la Zona de peligro, de ahí arriba. */}
+      {!soyCreador && onSalir && (
+        <div className="glass-card p-5">
+          <h3 className="font-bold font-['Archivo'] text-[13px] text-slate-900 dark:text-[#F3F1EA] mb-1.5">
+            Salir de la quiniela
+          </h3>
+          <p className="text-[11.5px] text-[var(--text-muted,#8A8A8A)] mb-3">
+            Se borran tus predicciones y tus puntos de esta quiniela, y no se puede deshacer.
+            Te avisamos exactamente qué se pierde antes de confirmar.
+          </p>
+          <button onClick={onSalir}
+            className="rounded-xl px-4 py-2.5 font-['Archivo'] font-bold text-[12px] border border-[#B91C1C]/40 text-[#B91C1C] dark:text-[#FF7A59] dark:border-[#FF7A59]/40">
+            Quiero salir
+          </button>
+        </div>
+      )}
     </div>
   )
 }

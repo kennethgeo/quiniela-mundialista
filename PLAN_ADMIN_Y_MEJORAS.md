@@ -74,7 +74,7 @@ Cada uno comprobado leyendo el código o la base, no supuesto. Los marcados con
 
 | # | Qué | Dónde | Tipo |
 |---|---|---|---|
-| B1 🔶 | **«No acepto · salir» no saca a nadie**: solo navega, y la membresía ya se insertó | `GroupPage.jsx:567` · `26_groups_rpc.sql:45` | comportamiento |
+| B1 🔶 | ~~«No acepto · salir» no saca a nadie~~ · **RESUELTO** con la salida voluntaria. Sigue pendiente lo de fondo (decisión 5): no insertar hasta aceptar | `GroupPage.jsx` | ✅ parcial |
 | B2 🔶 | **`my_pending_vote` no exige membresía**: al admin global le dice «falta tu voto» y le pinta los botones; `cast_rule_vote` lo rechaza después | `quiniela_por_id` (la 76) | presentación |
 | B3 🔶 | **El admin global puede mandar el push de una quiniela ajena** | `matches.py` (acepta `es_admin_global`) | autorización |
 | B4 🔶 | **`PanelAdminQuiniela` afirma «Solo lo ven los administradores de esta quiniela»** y es falso | `PanelAdminQuiniela.jsx:85-88` | texto falso |
@@ -82,7 +82,7 @@ Cada uno comprobado leyendo el código o la base, no supuesto. Los marcados con
 | B6 🔶 | **`expulsar_miembro` no borra los votos** y la mayoría usa el conteo actual de miembros | `59_admins_por_quiniela.sql:90` · `_tally_rule_proposal` | comportamiento |
 | B7 🔶 | **`MiembrosYAdmins` e `HistorialAjustes` fallan en silencio**: un error se ve como «0 miembros» o como una tarjeta ausente | los dos componentes | presentación |
 | B8 🔶 | **El push manual no tiene deduplicación**: se puede repetir tantas veces como se pulse | `matches.py` (notify-daily-league) | comportamiento |
-| B9 | **No existe ninguna salida voluntaria de una quiniela.** El único `DELETE` de `league_members` está en `expulsar_miembro`, que solo puede llamar un admin | `59_admins_por_quiniela.sql:90` | falta una función |
+| B9 | ~~No existe ninguna salida voluntaria~~ · **RESUELTO** (migración 83, 21 sep 2026): `salir_de_quiniela` + aviso con números. B1 se resuelve de paso: «No acepto · salir» ahora sale de verdad | `83_salida_voluntaria.sql` | ✅ |
 
 ## 3. La arquitectura
 
@@ -152,7 +152,8 @@ La publicación puede ser una sola, en la ventana sin partidos hasta el 10 de
 octubre. La implementación va en tandas revisables.
 
 1. **Esquema y contratos, sin interfaz**: padrón congelado por propuesta, flag
-   de retroactividad, idempotencia del push manual, salida voluntaria. **Toda
+   de retroactividad, idempotencia del push manual. ~~salida voluntaria~~ ✅
+   hecha (migración 83, aplicada y verificada). **Toda
    RPC nueva que llame el frontend entra en `v_frontend` de la migración 61**, o
    se queda muda la próxima vez que se corra.
 2. **Backend**: autorización del push (quitar `es_admin_global`), vista previa

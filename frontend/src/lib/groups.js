@@ -204,3 +204,11 @@ export async function setPowerupLimits(leagueId, limites) {
   })
   if (error) throw error
 }
+
+// Salida voluntaria (migración 83). Devuelve qué se borró, para poder
+// confirmarlo con números ciertos en vez de con un «listo» genérico.
+export async function salirDeQuiniela(leagueId) {
+  const { data, error } = await supabase.rpc('salir_de_quiniela', { p_league_id: leagueId })
+  if (error) throw error
+  return data || { predicciones_borradas: 0, globales_borradas: 0 }
+}

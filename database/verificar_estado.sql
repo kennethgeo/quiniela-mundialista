@@ -12,7 +12,7 @@
 -- después de aplicar migraciones, o antes de abrir al público.
 --
 -- Regenerado desde el repo el 2026-09-21
--- (74 funciones esperadas · 38 con EXECUTE para authenticated, que son las 33
+-- (75 funciones esperadas · 39 con EXECUTE para authenticated, que son las 34
 --  que el frontend llama con supabase.rpc() más las 5 que se evalúan dentro de
 --  políticas RLS: es_admin_liga, es_backend, is_league_member,
 --  puede_ver_quiniela y tournament_predictions_open).
@@ -118,7 +118,9 @@ FROM unnest(ARRAY[
   'hay_resultados_sin_escribir',
   'cron_rescate_resultados',
   -- Migración 82 (deduplicación de recordatorios)
-  'claim_notification_deliveries'
+  'claim_notification_deliveries',
+  -- Migración 83 (salida voluntaria)
+  'salir_de_quiniela'
 ]::text[]) x
 WHERE NOT EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
                   WHERE n.nspname = 'public' AND p.proname = x);
@@ -208,7 +210,9 @@ WHERE n.nspname = 'public'
   'hay_resultados_sin_escribir',
   'cron_rescate_resultados',
   -- Migración 82 (deduplicación de recordatorios)
-  'claim_notification_deliveries'
+  'claim_notification_deliveries',
+  -- Migración 83 (salida voluntaria)
+  'salir_de_quiniela'
 ]::text[])
 ORDER BY p.proname;
 
@@ -253,7 +257,8 @@ FROM unnest(ARRAY[
   -- Migraciones 67 y 68 (cupo de comodines ×2)
   'cupos_por_jornada',
   'set_powerup_limits',
-  'fases_del_torneo'
+  'fases_del_torneo',
+  'salir_de_quiniela'
 ]::text[]) x
 WHERE EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
               WHERE n.nspname = 'public' AND p.proname = x)
