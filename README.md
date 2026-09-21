@@ -90,7 +90,7 @@ uvicorn app.main:app --reload # http://localhost:8000
 
 ```bash
 cd frontend
-npm test          # 333 pruebas de lógica (vitest)
+npm test          # 301 pruebas de lógica (vitest)
 npm run test:ui   # 150 pruebas de interfaz (Playwright, sin backend real)
 npm run lint
 
