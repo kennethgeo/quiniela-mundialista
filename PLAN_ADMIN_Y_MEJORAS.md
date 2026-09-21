@@ -54,15 +54,26 @@ Tres errores a la vez, comprobados:
 - **No está en el panel de la quiniela.** Está en `/admin`, el panel GLOBAL. Lo
   que sí hay en «Herramientas» de Reglas es «Recalcular **medallas**»
   (`AdminTools`, `GroupPage.jsx:1073`), que es otra cosa.
-- **Solo cubre partidos de eliminatoria**, no el puntaje entero.
+- **Solo cubre partidos de eliminatoria**, no el puntaje entero: el endpoint
+  filtra `.neq("phase", "groups")` (`admin.py:711`).
+- **Y la premisa de fondo es falsa**: `set_group_scoring` **no vuelve a puntuar
+  nada** — comprobado leyendo la función en producción. Cambiar el puntaje deja
+  lo ya jugado con los puntos de las reglas viejas, y no hay ningún botón en la
+  app que arregle la fase regular.
 
 Y desde el 21 de septiembre está **peor**: al agregar `AdminRoute`, un admin de
 quiniela que antes podía al menos abrir `/admin` y buscar el botón, ahora
 recibe una redirección. Una instrucción confusa pasó a ser imposible.
 
-**Arreglo**: decir la verdad. Un admin de quiniela **no puede** recalcular
-puntajes; eso es del admin global. El texto tiene que decir eso y a quién
-pedírselo, no mandar a nadie a una puerta cerrada.
+**ARREGLADO el 21 sep 2026.** Ahora dice lo único que es cierto: «cambiar el
+puntaje **no vuelve a puntuar** los partidos ya jugados — conservan los puntos
+que sacaron con las reglas viejas. Re-puntuarlos es cosa del admin de la app.»
+
+**Queda un hueco de producto, distinto de este texto**: no existe ninguna vía
+en la interfaz para re-puntuar la **fase regular** de una quiniela tras un
+cambio de puntaje. El endpoint que sí lo haría (`matches.py:23`, sin filtro de
+fase) está protegido con `CRON_SECRET` y no lo llama ninguna pantalla. Es
+candidato para la pestaña de Admin.
 
 ### 2. El candado del puntaje solo se le explica a quien no lo necesita
 
@@ -75,8 +86,9 @@ está detrás de `{isAdmin && propose …}`. Un miembro normal ve los números d
 puntaje **sin ninguna pista** de que están bloqueados ni de que se cambian
 votando — y es justo la persona que va a votar.
 
-**Arreglo**: el hecho («esto está bloqueado y se cambia votando») es para todos.
-La acción («proponer») es del admin.
+**ARREGLADO el 21 sep 2026.** El hecho lo lee todo el grupo; lo que cambia es
+la redacción según a quién le toca actuar («proponé el cambio» para el admin,
+«un admin tiene que proponerlo» para el resto).
 
 ## La arquitectura que propongo
 
@@ -137,8 +149,8 @@ dar el motivo:
 
 ## Orden
 
-1. **Arreglar los dos textos que mienten.** Media hora, y hoy uno manda gente a
-   una puerta cerrada.
+1. ~~**Arreglar los dos textos que mienten.**~~ ✅ **HECHO** (21 sep 2026).
+   `reglas-que-se-entienden.spec.js`, 5 pruebas, comprobadas a la contra.
 2. **La tarjeta «Tu rol»** en Admin. No depende de mover nada.
 3. **Mover los controles** a Admin dejando las afirmaciones en Reglas, **un
    bloque por PR**. Empezar por Puntaje y Cupos, que son los que más confunden.
