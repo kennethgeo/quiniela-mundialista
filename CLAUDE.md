@@ -513,7 +513,10 @@ Lo reportó el dueño («en la liga tica las alineaciones no están funcionando�
 - **Vercel** despliega frontend Y backend juntos en cada push a `main` (root `vercel.json` → `experimentalServices`, backend `@vercel/python` bajo `/_backend`).
 - Cron de marcadores, recordatorio y resumen diario: **pg_cron en la base** (migración 79). Los workflows de GitHub
   siguen existiendo pero **sin `schedule:`**, solo para dispararlos a mano.
-- Migraciones SQL: el admin las corre a mano en el SQL Editor de Supabase (archivos en `database/`).
+- Migraciones SQL: archivos en `database/`, numerados. **Desde el 21 sep 2026 las aplica el agente** con la herramienta de Supabase, por decisión explícita del dueño; antes las corría él a mano en el SQL Editor. Lo que NO cambió: **no se tocan datos de producción**, solo DDL.
+  - **Aplicar no es verificar.** Después de correr una migración hay que **leer la base** —`pg_constraint`, `has_table_privilege`, `has_function_privilege`, `pg_policies`— y pegar los resultados. Este repo ya se comió tres veces un «guarda, dice listo y no cambia nada»; el `ok` del editor es exactamente ese «listo».
+  - **El archivo del repo tiene que ser byte a byte lo aplicado.** Si se aplica desde un pegado y el archivo se escribe aparte, nace la deriva que `verificar_estado.sql` existe para cazar. Comprobarlo con un hash, no de vista.
+  - Un guarda de la migración (`RAISE EXCEPTION`) que estorba **no se ablanda para que pase**: es el punto de la migración.
 
 ## Al cambiar reglas de puntaje
 1. Cambiar `backend/app/services/scoring.py`, que es el **único** motor, y
