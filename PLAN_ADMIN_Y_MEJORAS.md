@@ -16,147 +16,163 @@ manda el `CLAUDE.md`: ahí está lo que ya se midió y lo que ya se rompió.
 
 # Parte 1 — La pestaña de Admin por quiniela
 
-## El diagnóstico
+## 0. Decisiones del dueño (21 sep 2026)
 
-La separación Admin / Reglas **ya está diseñada y documentada, y se ejecutó al
+Estas cinco estaban bloqueando todo lo demás. **No son técnicas: son de producto
+y de plata.** Las tomó el dueño y no se vuelven a discutir sin él.
+
+| # | Decisión | Estado |
+|---|---|---|
+| 1 | La **propuesta** de cambio de puntaje deja elegir si se re-puntúa lo ya jugado | aprobada, sin prisa |
+| 2 | Quien entra tarde paga **cuota completa**, con aviso previo de lo que implica | aprobada |
+| 3 | El **padrón de una votación se congela** al abrirla | aprobada |
+| 4 | El admin global **no manda el push** de una quiniela donde no es miembro | aprobada |
+| 5 | **No se crea membresía hasta que la persona acepte** las reglas | aprobada |
+
+### Lo que se midió antes de decidir
+
+- **Cero propuestas en toda la historia de la app** (0 de cualquier tipo, 0 de
+  puntaje, 0 abiertas hoy, 0 votos huérfanos). Las decisiones 1 y 3 protegen
+  contra algo que **nunca ha pasado**.
+- **Bundestica es la única con plata**: cuota ₡10.000 × 17 miembros =
+  **₡170.000**. Champions (7 miembros) y Mundial 2026 (14, terminado) tienen
+  cuota 0.
+- **El admin global es miembro de las tres quinielas**, así que la decisión 4
+  **no le quita ninguna capacidad hoy**.
+- **9 membresías sin aceptar de 38**, las nueve en Mundial 2026 —terminado— y
+  ninguna con una sola predicción. La decisión 5 arregla un flujo roto, pero
+  **hoy no hay nadie atrapado en una quiniela por plata en curso**.
+
+### Una limitación conocida y aceptada (decisión 1)
+
+Dejar elegir la retroactividad en la propuesta es la mitad fácil. La otra mitad
+—que «no retroactivo» **garantice** que un partido conserve sus reglas— exige
+versionar las reglas con fecha de vigencia, porque hoy cualquier
+re-sincronización de un partido viejo lo re-puntúa con la configuración actual
+(`scoring.py` lee `leagues.points_exact` en el momento de calcular).
+
+**Se acepta la limitación**: es el trabajo más caro de todo el plan y protege
+contra un caso que no ha ocurrido nunca. Cuando alguien proponga de verdad un
+cambio de puntaje, se retoma.
+
+## 1. El diagnóstico
+
+La separación Admin / Reglas **ya estaba diseñada y documentada, y se ejecutó al
 5%**. El `CLAUDE.md` dice por qué existe: Reglas la ve todo el grupo porque
-«reglas y pozo son material de confianza», y las **acciones** van aparte «para
-que la mayoría no vea botones que no puede usar».
-
-Lo que hay hoy, medido:
+«reglas y pozo son material de confianza», y las acciones van aparte «para que
+la mayoría no vea botones que no puede usar».
 
 - **Pestaña Admin** (`GroupPage.jsx:529-532`): monta **solo**
-  `<PanelAdminQuiniela>`, con dos acciones — mandar el push de los partidos de
-  hoy y compartir la imagen PNG del día.
-- **Pestaña Reglas** (`GroupPage.jsx:534-544`), que ve todo el grupo: el resto
-  entero de la configuración. `RulesPanel` (que dentro trae `RuleVoting`,
-  `ScoringConfig`, `CuposPorFase`, `ExtrasConfig`, `ProposalHistory`,
-  `AdminTools` y `DangerZone`), más `PozoYPagos`, `MiembrosYAdmins` e
-  `HistorialAjustes`.
+  `<PanelAdminQuiniela>` — dos acciones.
+- **Pestaña Reglas** (`GroupPage.jsx:534-543`), que ve todo el grupo: el resto
+  entero de la configuración.
 
-O sea: no falta una pestaña. **La que existe está vacía**, y toda la
-configuración quedó en la pantalla del grupo con un `isAdmin &&` metido en
-línea.
+## 2. Bugs confirmados (verificados contra producción)
 
-## Lo que hoy miente
+Cada uno comprobado leyendo el código o la base, no supuesto. Los marcados con
+🔶 salieron de la auditoría externa y se verificaron acá.
 
-### 1. Un texto que manda a un sitio al que no se puede entrar
+| # | Qué | Dónde | Tipo |
+|---|---|---|---|
+| B1 🔶 | **«No acepto · salir» no saca a nadie**: solo navega, y la membresía ya se insertó | `GroupPage.jsx:567` · `26_groups_rpc.sql:45` | comportamiento |
+| B2 🔶 | **`my_pending_vote` no exige membresía**: al admin global le dice «falta tu voto» y le pinta los botones; `cast_rule_vote` lo rechaza después | `quiniela_por_id` (la 76) | presentación |
+| B3 🔶 | **El admin global puede mandar el push de una quiniela ajena** | `matches.py` (acepta `es_admin_global`) | autorización |
+| B4 🔶 | **`PanelAdminQuiniela` afirma «Solo lo ven los administradores de esta quiniela»** y es falso | `PanelAdminQuiniela.jsx:85-88` | texto falso |
+| B5 🔶 | **El pozo desaparece** para un miembro si no hay cuota configurada, en vez de decirlo | `PozoYPagos.jsx:74-76` | presentación |
+| B6 🔶 | **`expulsar_miembro` no borra los votos** y la mayoría usa el conteo actual de miembros | `59_admins_por_quiniela.sql:90` · `_tally_rule_proposal` | comportamiento |
+| B7 🔶 | **`MiembrosYAdmins` e `HistorialAjustes` fallan en silencio**: un error se ve como «0 miembros» o como una tarjeta ausente | los dos componentes | presentación |
+| B8 🔶 | **El push manual no tiene deduplicación**: se puede repetir tantas veces como se pulse | `matches.py` (notify-daily-league) | comportamiento |
+| B9 | **No existe ninguna salida voluntaria de una quiniela.** El único `DELETE` de `league_members` está en `expulsar_miembro`, que solo puede llamar un admin | `59_admins_por_quiniela.sql:90` | falta una función |
 
-`GroupPage.jsx:913` le dice a un admin de quiniela:
+## 3. La arquitectura
 
-> «Si cambiás el puntaje con partidos ya jugados, corré "Recalcular puntajes"
-> en el Panel Admin para re-puntuar con las nuevas reglas.»
+El encuadre equivocado sería «¿qué bloques muevo a Admin?». Eso obliga a elegir
+entre transparencia y orden, y en una quiniela por plata gana la transparencia.
 
-Tres errores a la vez, comprobados:
+**La regla correcta** (corregida tras la auditoría externa, que tenía razón):
 
-- **El botón no se llama así.** Es «Recalcular puntos (eliminatoria)»
-  (`RecalcScoresAdmin.jsx:48`).
-- **No está en el panel de la quiniela.** Está en `/admin`, el panel GLOBAL. Lo
-  que sí hay en «Herramientas» de Reglas es «Recalcular **medallas**»
-  (`AdminTools`, `GroupPage.jsx:1073`), que es otra cosa.
-- **Solo cubre partidos de eliminatoria**, no el puntaje entero: el endpoint
-  filtra `.neq("phase", "groups")` (`admin.py:711`).
-- **Y la premisa de fondo es falsa**: `set_group_scoring` **no vuelve a puntuar
-  nada** — comprobado leyendo la función en producción. Cambiar el puntaje deja
-  lo ya jugado con los puntos de las reglas viejas, y no hay ningún botón en la
-  app que arregle la fase regular.
+> **Reglas** contiene el contrato compartido **y las acciones personales o
+> colectivas**. **Admin** contiene exclusivamente **controles administrativos**.
 
-Y desde el 21 de septiembre está **peor**: al agregar `AdminRoute`, un admin de
-quiniela que antes podía al menos abrir `/admin` y buscar el botón, ahora
-recibe una redirección. Una instrucción confusa pasó a ser imposible.
+El objetivo NO es «Reglas sin botones» — votar, cancelar una propuesta y avisar
+«Ya pagué» pertenecen al contexto compartido. El objetivo es **sin controles
+administrativos fuera de contexto**.
 
-**ARREGLADO el 21 sep 2026.** Ahora dice lo único que es cierto: «cambiar el
-puntaje **no vuelve a puntuar** los partidos ya jugados — conservan los puntos
-que sacaron con las reglas viejas. Re-puntuarlos es cosa del admin de la app.»
-
-**Queda un hueco de producto, distinto de este texto**: no existe ninguna vía
-en la interfaz para re-puntuar la **fase regular** de una quiniela tras un
-cambio de puntaje. El endpoint que sí lo haría (`matches.py:23`, sin filtro de
-fase) está protegido con `CRON_SECRET` y no lo llama ninguna pantalla. Es
-candidato para la pestaña de Admin.
-
-### 2. El candado del puntaje solo se le explica a quien no lo necesita
-
-En `ScoringConfig` (`GroupPage.jsx:806+`), el cartel que explica el bloqueo
-
-> «El torneo ya inició: el puntaje queda bloqueado. Para cambiarlo, proponé el
-> cambio y el grupo lo vota.»
-
-está detrás de `{isAdmin && propose …}`. Un miembro normal ve los números del
-puntaje **sin ninguna pista** de que están bloqueados ni de que se cambian
-votando — y es justo la persona que va a votar.
-
-**ARREGLADO el 21 sep 2026.** El hecho lo lee todo el grupo; lo que cambia es
-la redacción según a quién le toca actuar («proponé el cambio» para el admin,
-«un admin tiene que proponerlo» para el resto).
-
-## La arquitectura que propongo
-
-El encuadre equivocado sería preguntar «¿qué bloques muevo a Admin?». Eso
-obliga a elegir entre transparencia y orden, y en una quiniela por plata la
-transparencia gana siempre.
-
-La línea correcta es otra: **cada bloque tiene una AFIRMACIÓN y un CONTROL, y
-son dos cosas distintas**. No se mueve el bloque; se parte.
-
-| Bloque | **Reglas** (todo el grupo) | **Admin** (quien administra) |
+| Bloque | **Reglas** (todo el grupo) | **Admin** (creador / co-admin) |
 |---|---|---|
-| Puntaje | «Exacto 3 · Correcto 1 · ×2 duplica», y por qué está bloqueado | los campos editables |
-| Cupos de ×2 | «Fase de liga 3 · Final 1» | el editor por fase |
-| Pozo | cuota, quién pagó, cómo se reparte | fijar cuota, confirmar pagos |
-| Miembros | quiénes son y **quién administra** | nombrar/quitar admin, expulsar |
-| Votaciones | la votación abierta y el historial | proponer, cancelar |
-| Acciones del día | — | push del día, imagen PNG |
-| Herramientas | — | recalcular medallas |
-| Zona de peligro | — | borrar la quiniela (**solo el creador**) |
+| Puntaje | valores vigentes y por qué está bloqueado | editar antes del inicio · proponer cambio |
+| Cupos ×2 | cupo efectivo de cada fase — **hoy no existe esta lectura** | editor y propuesta |
+| Pozo | cuota, reparto, pagos y **«Ya pagué»** | configurar · confirmar pagos ajenos |
+| Miembros | lista con etiquetas de creador/co-admin | nombrar, quitar, expulsar |
+| Votación abierta | propuesta, votos, **votar y cancelar** | crear una propuesta nueva |
+| Premios / WhatsApp | visualización | edición |
+| Imagen del día | ya está en Partidos | **quitar la copia duplicada** |
+| Push manual | — | vista previa, confirmación, registro |
+| Historial de ajustes | Histórico | — |
+| Medallas | — | recalcular |
+| Borrar quiniela | — | **solo el creador** |
 
-Resultado: **Reglas queda sin un solo botón muerto** y responde «¿cuáles son
-las reglas acá?». **Admin** responde «¿qué puedo cambiar yo, y qué pasa si lo
-cambio?». Nadie pierde visibilidad de nada.
+Tres correcciones que vinieron de la auditoría y se adoptan: **«Cancelar
+propuesta» se queda junto a la propuesta** (mandarlo a Admin obligaría a
+abandonar la pantalla donde se ve qué se cancela y cuántos votaron), **«Ya
+pagué» es una acción del miembro**, y **«compartir imagen» está duplicada** en
+`PanelAdminQuiniela` y `PartidosDeHoy`.
 
-## Cómo comunicar los poderes
+## 4. La tarjeta «Tu rol»
 
-Una tarjeta **«Tu rol»** arriba de Admin. No un tooltip: tiene que verse sin
-buscarla. Tres estados reales, que salen del modelo de las migraciones 59 y 66:
+Arriba de Admin, no un tooltip. **Nada de una tabla de tres columnas en móvil**:
+un texto corto según quién sos.
 
-- **Creador** — todo, más nombrar admins y borrar la quiniela.
-- **Co-admin** — todo menos esas dos.
-- **Admin global mirando** — cartel distinto: «estás viendo como dueño de la
-  app, no como miembro de esta quiniela: ves todo, pero no votás ni pagás ni
-  aceptás reglas por nadie».
+- **Creador** — configurar, proponer, confirmar pagos ajenos, nombrar
+  co-administradores y eliminar la quiniela. No podés confirmar tu propio pago
+  ni editar resultados: los partidos se comparten con otras quinielas.
+- **Co-admin** — lo mismo, menos nombrar admins y eliminar.
+- **Admin global no miembro** — **no ve la pestaña Admin**. Conserva el cartel
+  de supervisión: «podés consultar esta quiniela, pero no actuar como miembro ni
+  como administrador del grupo».
 
-Y tres límites que hay que **explicar, no solo prohibir**. Este repo ya prefiere
-dar el motivo:
+## 5. Re-puntuación: lo que NO se hace
 
-- **No editás resultados de partidos.** Los partidos son compartidos con las
-  demás quinielas del mismo torneo, así que los toca el admin global.
-- **Una fase ya empezada no la cambiás solo.** Cambiar cuánto vale algo con la
-  tabla a la vista es hacer trampa. Se propone y el grupo vota. Una fase que
-  **no** empezó sí se configura directo (migraciones 74 y 75).
-- **No confirmás tu propio pago**, ni siendo el creador.
+El motor actual (`scoring.py`) toma **todas las predicciones del partido, de
+todas las quinielas**, aplica la configuración **actual** de cada una, y **manda
+push** a quien suba. Verificado.
 
-## Lo que NO haría
+**Un botón de «recalcular» por quiniela sobre ese motor tocaría quinielas
+ajenas y dispararía una notificación por partido.** Si alguna vez se hace, va
+con: alcance por `league_id`, vista previa sin escrituras, delta por persona y
+posiciones antes/después, registro de qué regla se aplicó y quién lo pidió,
+trabajo idempotente, snapshot para revertir, **cero pushes por partido**, y
+formar parte de lo que el grupo vota.
 
-- **No sacar el pozo de la vista del grupo.** Es lo primero que uno querría
-  «ordenar» y sería el peor cambio posible: esconder quién pagó genera
-  exactamente la desconfianza que la app existe para evitar.
-- **No construir un sistema genérico de permisos.** Son 3 roles y ~10 acciones.
-  Un mapa explícito se lee mejor que una abstracción, y `es_admin_liga` ya es la
-  fuente de verdad en el servidor.
-- **No confiar el permiso a la pantalla.** Esconder un botón es cosmética; quien
-  manda es la RPC, y ya lo comprueba. Todo esto es presentación, no seguridad —
-  y conviene decirlo así en el PR, para que nadie crea que se endureció algo.
+Las reparaciones por error técnico siguen en `/admin` global.
 
-## Orden
+## 6. Orden de ejecución
 
-1. ~~**Arreglar los dos textos que mienten.**~~ ✅ **HECHO** (21 sep 2026).
-   `reglas-que-se-entienden.spec.js`, 5 pruebas, comprobadas a la contra.
-2. **La tarjeta «Tu rol»** en Admin. No depende de mover nada.
-3. **Mover los controles** a Admin dejando las afirmaciones en Reglas, **un
-   bloque por PR**. Empezar por Puntaje y Cupos, que son los que más confunden.
-4. Pulido: blancos de toque, contraste, y que Admin abra mostrando algo útil.
+La publicación puede ser una sola, en la ventana sin partidos hasta el 10 de
+octubre. La implementación va en tandas revisables.
 
----
+1. **Esquema y contratos, sin interfaz**: padrón congelado por propuesta, flag
+   de retroactividad, idempotencia del push manual, salida voluntaria. **Toda
+   RPC nueva que llame el frontend entra en `v_frontend` de la migración 61**, o
+   se queda muda la próxima vez que se corra.
+2. **Backend**: autorización del push (quitar `es_admin_global`), vista previa
+   de invitación, ingreso atómico con aceptación.
+3. **Primitivas visuales mínimas** — solo las que usará la pantalla nueva
+   (`Card`, `Button`, `Input`, `Chip`, `StatePanel`, modal de confirmación y sus
+   tokens). **Sin barrida masiva**: no hace falta convertir 156 botones ni 947
+   colores para estrenar Admin.
+4. **La arquitectura nueva**: Admin solo con `group.is_admin`, tarjeta de rol,
+   controles administrativos; Reglas conserva contrato, voto y acciones
+   personales.
+5. **Flujo de ingreso**: vista previa, aceptación real, condiciones económicas
+   visibles.
+6. **Los bugs sueltos**: B2, B4, B5, B7.
+7. **Validación** con las cuatro identidades (creador, co-admin, miembro, global
+   no miembro), probando **visibilidad y llamada directa al servidor** — es fácil
+   esconder el botón y dejar el endpoint abierto, o al revés.
+
+**No se hace primero el rediseño y después el modelo de datos**: obligaría a
+rehacer textos, estados y controles.
 
 # Parte 2 — Mejoras visuales
 
@@ -167,12 +183,23 @@ captura. Casi todas salen de mediciones que ya están en el `CLAUDE.md`.
 
 Medido el 21 sep 2026 sobre el repo:
 
-| | |
-|---|---|
-| `<button>` escritos a mano | **160** |
-| Imports del componente `Button` | **3** |
-| Usos de `glass-card` | 34 |
-| Colores hexadecimales en el frontend | **947** |
+Medido sobre `main = 64ba004`. **El comando queda escrito para que el alcance
+sea siempre el mismo**: una auditoría externa reportó 968/114 y la diferencia
+era solo que contaba hex de 3 a 8 dígitos y cualquier archivo de `frontend/src`.
+Con el comando de abajo da 947 exacto, y quien lo repita obtiene lo mismo.
+
+| | | comando |
+|---|---|---|
+| `<button>` escritos a mano | **156** | `grep -rno '<button' frontend/src --include=*.jsx` |
+| Imports del componente `Button` | **3** | |
+| Usos de `glass-card` | 34 | |
+| Hexadecimales (ocurrencias) | **947** | `grep -rnoE '#[0-9a-fA-F]{6}\b' frontend/src --include=*.jsx --include=*.js --include=*.css` |
+| Hexadecimales (valores distintos) | **107** | el mismo, con `-h … \| sort -u` |
+| Textos a 9 y 9.5 px | **63** | `grep -rnoE 'text-\[9(\.5)?px\]' frontend/src --include=*.jsx` |
+
+**El 160 del primer borrador era correcto cuando se midió** y bajó a 156 con los
+archivos que se borraron ese mismo día. Una medición sin fecha ni comando
+envejece sola.
 
 Ya existen `Button`, `StatePanel` y `MatchStatusBadge`. Falta consolidar
 `Card`, `Modal`, `Input`, `Select`, `Chip`, `IconButton`, filas de tabla, y
@@ -192,9 +219,11 @@ Visible en las capturas del dueño: el FAB vive pegado abajo a la derecha y se
 come la esquina de la tarjeta que esté ahí. Ya obligó a mover a la izquierda el
 pie de «Cómo vienen».
 
-**Opciones**: que se encoja al hacer scroll, que se esconda mientras se baja y
-vuelva al subir, o reservarle sitio con padding al final de cada pantalla. Lo
-que no vale es seguir esquivándolo tarjeta por tarjeta.
+El botón es de 56 px y va fijo (`GlobalChatDrawer.jsx:188-207`).
+
+**El arreglo va en el armazón, no tarjeta por tarjeta ni escondiéndolo al
+bajar**: un área segura común en `App.jsx` que reciba toda pantalla. Después se
+mide a 412 px con la última acción de cada pestaña visible y pulsable.
 
 ## 2.3 El spinner es de pantalla completa
 
@@ -202,8 +231,10 @@ que no vale es seguir esquivándolo tarjeta por tarjeta.
 incluida la navegación. En una pantalla que ya está dibujada y solo refresca un
 bloque, eso se siente como si la app se reiniciara.
 
-**Propuesta**: esqueletos por bloque para las recargas, y el de pantalla
-completa solo para el arranque.
+**Dónde SÍ es correcto**: arranque, autenticación y carga de una ruta protegida.
+**Dónde no**: dentro de una pestaña ya montada — `GroupPage.jsx:447`,
+`BracketView.jsx:80`, `HistorialTab.jsx:179`. Ahí van esqueletos locales. No se
+reemplazan todos los spinners indiscriminadamente.
 
 ## 2.4 La escala tipográfica es una decisión pendiente del dueño
 
@@ -211,8 +242,10 @@ Hay **62 textos a 9 y 9.5 px**. Eso no es un fallo suelto: es la escala de la
 app. Subirla es una decisión de diseño, no un arreglo — pero conviene tomarla,
 porque el grupo son 26 personas de edades variadas.
 
-Una alternativa menos invasiva: un ajuste de «texto más grande» en el Perfil que
-escale la raíz. Cuesta poco si primero existen los tokens de 2.1.
+**Una idea que parecía barata y NO lo es**: un ajuste de «texto más grande» que
+escale la raíz no haría nada, porque los 63 tamaños están en **px** y los px no
+responden al tamaño de la raíz. Primero habría que pasarlos a tokens o `rem`.
+Lo señaló la auditoría externa y tenía razón.
 
 ## 2.5 El tema claro es ciudadano de segunda
 
@@ -308,6 +341,34 @@ defecto, y como mucho una vez por jornada.
 Al cerrar un torneo: una imagen con el campeón de la quiniela, el mejor acierto,
 la peor caída, la racha más larga y quién pagó. Es lo que se manda al grupo el
 último día y lo que hace que al año siguiente todos vuelvan.
+
+### Lo que pasa al entrar a mitad de temporada (alta)
+
+Salió de la auditoría externa y el plan no lo veía. Hoy, cuando alguien entra:
+
+- el pozo esperado sube solo (se calcula con los miembros **actuales**);
+- esa persona aparece debiendo la cuota completa;
+- arranca con 0 en todos los partidos cerrados;
+- y **si hay una votación abierta, sube la mayoría necesaria**.
+
+Nada de eso se le dice antes de entrar. Con la decisión 2 y la 5 tomadas, el
+flujo nuevo tiene que **mostrarlo y pedir aceptación explícita**.
+
+### Validar la deduplicación de recordatorios (alta, con fecha)
+
+La migración 82 está aplicada y el código mergeado, pero `notification_deliveries`
+tiene **0 filas** y no va a tener ninguna hasta el **10 de octubre**, que es el
+próximo partido de un torneo con quiniela. Cero filas no demuestra ni éxito ni
+fallo.
+
+**No se "prueba" mandando notificaciones reales ahora.** Antes del 10 de
+octubre: integración en una base aislada con dos reclamaciones concurrentes,
+entrega parcial, reclamo vencido, usuario sin detalle y caída deliberada de la
+RPC. El primer día real: una fila por `(user, league, match, tipo)`, transición
+`claimed → delivered/failed`, cero duplicados y revisión del fallback.
+
+Si algún día hay un panel de salud, **no puede decir «Correcto» con la tabla
+vacía**: tiene que decir «sin ejecuciones reales todavía».
 
 ## 3.3 Lo que NO haría
 
