@@ -905,12 +905,33 @@ function ScoringConfig({ group, isAdmin, tournamentStarted, hasOpenProposal, onS
           </div>
         </>
       )}
-      {isAdmin && propose && !editing && (
+      {/* EL CANDADO ES PARA TODO EL GRUPO, no solo para quien puede abrirlo.
+          Antes este cartel iba detrás de `isAdmin`, así que un miembro veía los
+          números del puntaje sin ninguna pista de que están bloqueados ni de
+          que se cambian VOTANDO — y es justo quien va a votar. El hecho lo lee
+          todo el mundo; lo que cambia es a quién le toca actuar. */}
+      {propose && !editing && (
         <p className="text-[11px] text-[var(--text-muted,#8A8A8A)] mt-3 flex items-start gap-1.5">
-          <Lock size={12} className="mt-0.5 shrink-0" /> El torneo ya inició: el puntaje queda bloqueado. Para cambiarlo, proponé el cambio y el grupo lo vota.
+          <Lock size={12} className="mt-0.5 shrink-0" />
+          {isAdmin
+            ? 'El torneo ya inició: el puntaje queda bloqueado. Para cambiarlo, proponé el cambio y el grupo lo vota.'
+            : 'El torneo ya inició: el puntaje queda bloqueado. Para cambiarlo, un admin tiene que proponerlo y lo vota el grupo.'}
         </p>
       )}
-      {isAdmin && !propose && <p className="text-[11px] text-[var(--text-muted,#8A8A8A)] mt-3">Si cambiás el puntaje con partidos ya jugados, corré “Recalcular puntajes” en el Panel Admin para re-puntuar con las nuevas reglas.</p>}
+      {/* ESTE TEXTO MANDABA A UNA PUERTA CERRADA. Decía «corré "Recalcular
+          puntajes" en el Panel Admin», y eso era falso de cuatro formas
+          distintas, todas comprobadas el 21 sep 2026:
+            · el botón no se llama así (es «Recalcular puntos (eliminatoria)»);
+            · no está en el panel de la quiniela sino en /admin, el GLOBAL, al
+              que un admin de quiniela ni siquiera puede entrar desde que
+              existe `AdminRoute`;
+            · solo recalcula partidos de ELIMINATORIA (`.neq("phase","groups")`),
+              así que no arreglaría la fase regular aunque se llegara a él;
+            · y `set_group_scoring` no vuelve a puntuar nada — comprobado
+              leyendo la función en producción.
+          Lo que sí es cierto es lo que dice ahora: cambiar el puntaje no toca
+          lo ya jugado. Mejor eso que una instrucción que no se puede seguir. */}
+      {isAdmin && !propose && <p className="text-[11px] text-[var(--text-muted,#8A8A8A)] mt-3">Ojo: cambiar el puntaje <strong>no vuelve a puntuar</strong> los partidos ya jugados — conservan los puntos que sacaron con las reglas viejas. Re-puntuarlos es cosa del admin de la app.</p>}
     </div>
   )
 }
