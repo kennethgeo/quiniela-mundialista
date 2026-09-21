@@ -95,7 +95,7 @@ npm run test:ui   # 150 pruebas de interfaz (Playwright, sin backend real)
 npm run lint
 
 cd ../backend
-python -m pytest  # 178 pruebas
+python -m pytest  # 212 pruebas
 ```
 
 Las de Playwright **interceptan Supabase**: no tocan ninguna base de datos real

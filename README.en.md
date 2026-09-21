@@ -96,7 +96,7 @@ npm run test:ui   # 150 interface tests (Playwright)
 npm run lint
 
 cd ../backend
-python -m pytest  # 178 tests
+python -m pytest  # 212 tests
 ```
 
 The Playwright tests **intercept every Supabase call**: they touch no real
