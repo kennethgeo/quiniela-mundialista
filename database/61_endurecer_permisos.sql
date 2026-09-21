@@ -557,7 +557,10 @@ DECLARE
     -- Estas cuatro NO las llama ningún cliente, pero viven DENTRO de políticas
     -- RLS, donde se evalúan como quien consulta. Sin EXECUTE se caen todas las
     -- lecturas que dependen de esas políticas.
-    'is_league_member', 'tournament_predictions_open', 'es_admin_liga', 'es_backend'
+    'is_league_member', 'tournament_predictions_open', 'es_admin_liga', 'es_backend',
+    -- Migración 83. La llama el frontend: sin esta línea, la próxima corrida
+    -- de esta misma migración le quita el EXECUTE y nadie puede salirse.
+    'salir_de_quiniela'
   ];
   v_backend text[] := ARRAY[
     'void_cancelled_match', 'resolve_pending_powerup_credits',

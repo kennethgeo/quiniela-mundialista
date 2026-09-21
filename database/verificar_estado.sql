@@ -11,8 +11,8 @@
 -- Este archivo NO CAMBIA NADA. Solo consulta y compara. Correlo cuando dudes,
 -- después de aplicar migraciones, o antes de abrir al público.
 --
--- Regenerado desde el repo el 2026-09-19
--- (73 funciones esperadas · 38 con EXECUTE para authenticated, que son las 33
+-- Regenerado desde el repo el 2026-09-21
+-- (75 funciones esperadas · 39 con EXECUTE para authenticated, que son las 34
 --  que el frontend llama con supabase.rpc() más las 5 que se evalúan dentro de
 --  políticas RLS: es_admin_liga, es_backend, is_league_member,
 --  puede_ver_quiniela y tournament_predictions_open).
@@ -32,6 +32,11 @@
 --     predictions_update_admin / predictions_insert_admin: nació a mano en el
 --     dashboard. Va en el inventario para que la sección 2 no la marque, pero
 --     es deriva de verdad y sigue sin estar escrita en ningún lado.
+--
+-- La 74.ª es `claim_notification_deliveries` (migración 82), que va en
+-- `v_backend` de la 61 y NO en `v_frontend`: la llama el backend con
+-- service_role. Comprobado contra producción el 21 sep 2026: 74 funciones y 38
+-- con EXECUTE para `authenticated`, o sea que la RPC nueva NO se lo ganó.
 -- =============================================================================
 
 \echo '=== 1. Funciones que el repo define y NO existen en la base ==='
@@ -113,7 +118,9 @@ FROM unnest(ARRAY[
   'hay_resultados_sin_escribir',
   'cron_rescate_resultados',
   -- Migración 82 (deduplicación de recordatorios)
-  'claim_notification_deliveries'
+  'claim_notification_deliveries',
+  -- Migración 83 (salida voluntaria)
+  'salir_de_quiniela'
 ]::text[]) x
 WHERE NOT EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
                   WHERE n.nspname = 'public' AND p.proname = x);
@@ -203,7 +210,9 @@ WHERE n.nspname = 'public'
   'hay_resultados_sin_escribir',
   'cron_rescate_resultados',
   -- Migración 82 (deduplicación de recordatorios)
-  'claim_notification_deliveries'
+  'claim_notification_deliveries',
+  -- Migración 83 (salida voluntaria)
+  'salir_de_quiniela'
 ]::text[])
 ORDER BY p.proname;
 
@@ -248,7 +257,8 @@ FROM unnest(ARRAY[
   -- Migraciones 67 y 68 (cupo de comodines ×2)
   'cupos_por_jornada',
   'set_powerup_limits',
-  'fases_del_torneo'
+  'fases_del_torneo',
+  'salir_de_quiniela'
 ]::text[]) x
 WHERE EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
               WHERE n.nspname = 'public' AND p.proname = x)

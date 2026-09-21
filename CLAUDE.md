@@ -158,6 +158,22 @@ Son **dos números distintos a propósito** y confundirlos es el error fácil:
 - **No toca resultados de partidos**: son compartidos con las demás quinielas del torneo, eso sigue siendo del panel global.
 - El endpoint `POST /api/matches/notify-daily-league` comprueba el permiso **contra las tablas, no con `es_admin_liga()`**: esa función mira `auth.uid()`, y el backend corre con `service_role`, donde es NULL — la RPC diría que no es admin siempre.
 
+## Salir de una quiniela (migración `database/83_salida_voluntaria.sql`)
+- **No existía ninguna forma de irse.** El único `DELETE FROM league_members` de toda la base vivía en `expulsar_miembro`, que exige ser admin y encima prohíbe expulsarse a uno mismo: para salirte había que pedirle a alguien que te echara.
+- Y **«No acepto · salir» de la puerta de reglas solo navegaba al inicio**: `join_group_by_code` ya había insertado la membresía, así que quien creía haber rechazado las reglas seguía dentro. Medido el 21 sep 2026: **9 membresías sin aceptar de 38**, las nueve en Mundial 2026 —terminado— y ninguna con una sola predicción. O sea, bug real sin nadie atrapado en una quiniela por plata en curso.
+- `salir_de_quiniela(league_id)` borra **las mismas tres cosas que una expulsión** —predicciones, globales y membresía— para que irse y que te echen dejen la base en el mismo estado. El bloque final de la migración lo comprueba contando los `DELETE`: si alguien agrega una tabla a una y no a la otra, la migración no pasa.
+- **Los votos NO se borran**, ni al salir ni al ser expulsado: por decisión del dueño el padrón de una votación se congela al abrirla, así que quien votó era parte de ese electorado y su voto sigue contando. Borrarlo cambiaría una mayoría ya emitida.
+- **El creador no puede salir.** `leagues.admin_id` no se puede quitar (migración 59) y no hay forma de traspasar la quiniela, así que dejarlo irse dejaría un grupo con dueño fantasma que nadie podría administrar ni borrar. Para él la salida es la Zona de peligro.
+- **No hay que recalcular nada a mano**: `predictions_recompute_total` y `tournament_predictions_recompute_total` disparan en `DELETE` (comprobado), así que el total global se corrige solo.
+- **La alerta dice lo que de verdad se pierde, con números**, no «esta acción no se puede deshacer»: cuántas predicciones, que se van campeón/goleador/asistidor, y —lo que nadie se espera— que **el total GLOBAL puede bajar**, porque cuenta cada partido una vez con el mejor puntaje entre tus quinielas (migración 62). Si la mejor era la que dejás, ese partido pasa a valer menos.
+- Se pide **escribir SALIR**: un segundo botón se pulsa por inercia, escribir una palabra no.
+- El aviso lleva `role="dialog"` y no es decorativo: sin él un lector de pantalla lo anuncia como texto suelto, y además la prueba no puede distinguir ese texto del de la tarjeta que lo abrió — repiten frases a propósito.
+
+### Una prueba que no podía fallar, otra vez
+- `al creador no se le ofrece salir` hacía `toHaveCount(0)` **justo después de `goto`**, sin esperar a que la pestaña existiera. Se evaluaba sobre una página vacía y pasaba **siempre**: con el guard `!soyCreador` quitado a propósito, seguía en verde.
+- Lo cazó la mutación, no la lectura. **Y la primera mutación tampoco valía**: el `sed` que la aplicaba no coincidía con el texto y no cambiaba nada, así que «la prueba no cae» significaba «no probaste nada». **Comprobar que la mutación SE APLICÓ es parte de la mutación.**
+- El arreglo es anclar en algo que solo ve ese rol —«Eliminar quiniela» para el creador— y afirmar la ausencia **después**. Una ausencia solo significa algo cuando consta que lo demás ya está.
+
 ## Acceso del admin global (migración `database/66_acceso_del_admin_global.sql`)
 - El admin global (`users.is_admin`) **puede entrar a cualquier quiniela y ver lo mismo que un miembro**: tabla, histórico, predicciones destapadas, pozo, medallas. Decisión explícita del dueño.
 - Se hace con `puede_ver_quiniela(league_id)` = `is_league_member OR es_admin_global`. **No se ensanchó `is_league_member`** a propósito: esa función se llama así porque responde "¿es miembro?", y hacerla mentir abriría un agujero la próxima vez que alguien la use para un permiso de escritura.
