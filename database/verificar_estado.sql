@@ -111,7 +111,9 @@ FROM unnest(ARRAY[
   'cron_recordatorio_saque',
   'cron_resumen_diario',
   'hay_resultados_sin_escribir',
-  'cron_rescate_resultados'
+  'cron_rescate_resultados',
+  -- Migración 82 (deduplicación de recordatorios)
+  'claim_notification_deliveries'
 ]::text[]) x
 WHERE NOT EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
                   WHERE n.nspname = 'public' AND p.proname = x);
@@ -199,7 +201,9 @@ WHERE n.nspname = 'public'
   'cron_recordatorio_saque',
   'cron_resumen_diario',
   'hay_resultados_sin_escribir',
-  'cron_rescate_resultados'
+  'cron_rescate_resultados',
+  -- Migración 82 (deduplicación de recordatorios)
+  'claim_notification_deliveries'
 ]::text[])
 ORDER BY p.proname;
 

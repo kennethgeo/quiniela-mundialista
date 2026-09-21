@@ -133,18 +133,20 @@ def ventana_recordatorio(ahora_utc: datetime) -> tuple[datetime, datetime]:
     return desde, hasta
 
 
-def armar_recordatorios(partidos, membresias, predicciones):
-    """Qué recordatorio le toca a cada persona.
+def entregas_recordatorio(partidos, membresias, predicciones):
+    """Una UNIDAD por (persona, quiniela, partido) pendiente.
 
-    Mismos argumentos que armar_mensajes(), pero acá SOLO se avisa a quien
-    tiene predicciones pendientes. A quien ya predijo no se le manda nada: un
-    aviso que no pide nada es el que hace que la gente apague las
-    notificaciones, y entonces tampoco le llegan los que sí importan.
+    Es la misma selección de siempre, pero desglosada en vez de agregada por
+    persona. La bitácora de la migración 82 deduplica por esa terna, así que
+    necesita verlas sueltas: si solo llegara el mensaje ya compuesto, no habría
+    forma de decir «este partido ya se avisó y este otro no».
 
-    Devuelve {user_id: {"title", "body", "url"}}.
+    Se cuenta por PAR (quiniela, partido), porque estar en dos quinielas del
+    mismo torneo y haber predicho en una sola deja el partido pendiente de
+    verdad en la otra.
     """
     if not partidos:
-        return {}
+        return []
 
     por_torneo = {}
     for p in partidos:
@@ -152,14 +154,30 @@ def armar_recordatorios(partidos, membresias, predicciones):
 
     ya_predijo = {(x["league_id"], x["match_id"], x["user_id"]) for x in predicciones}
 
-    # Igual que en el resumen: se cuenta por PAR (quiniela, partido), porque
-    # estar en dos quinielas del mismo torneo y haber predicho en una sola deja
-    # el partido pendiente de verdad.
-    pendientes = {}
+    entregas = []
     for m in membresias:
         for p in por_torneo.get(m["tournament_id"], ()):
             if (m["league_id"], p["id"], m["user_id"]) not in ya_predijo:
-                pendientes.setdefault(m["user_id"], {})[p["id"]] = p
+                entregas.append({
+                    "user_id": m["user_id"],
+                    "league_id": m["league_id"],
+                    "match_id": p["id"],
+                    "partido": p,
+                })
+    return entregas
+
+
+def mensajes_de_recordatorio(entregas):
+    """El texto de siempre, compuesto desde las unidades que SÍ se van a enviar.
+
+    Se arma después de reclamar, no antes: si una unidad se la llevó otra
+    corrida, su partido no puede aparecer en el «te faltan N por predecir».
+    Contar antes de reclamar diría un número que no corresponde con lo que la
+    persona recibe.
+    """
+    pendientes = {}
+    for e in entregas:
+        pendientes.setdefault(e["user_id"], {})[e["match_id"]] = e["partido"]
 
     mensajes = {}
     for user_id, suyos in pendientes.items():
@@ -177,3 +195,13 @@ def armar_recordatorios(partidos, membresias, predicciones):
         mensajes[user_id] = {"title": titulo, "body": cuerpo, "url": "/"}
 
     return mensajes
+
+
+def armar_recordatorios(partidos, membresias, predicciones):
+    """Lo de siempre, ahora como composición de las dos de arriba.
+
+    Se conserva porque `test_recordatorio_saque.py` la prueba entera, y eso es
+    justo lo que demuestra que partirla en dos no cambió ni un texto.
+    """
+    return mensajes_de_recordatorio(
+        entregas_recordatorio(partidos, membresias, predicciones))

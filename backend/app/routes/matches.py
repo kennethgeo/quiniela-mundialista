@@ -287,10 +287,10 @@ async def notify_kickoff(authorization: Optional[str] = Header(default=None)):
     El resumen de las 6am ya dice cuántas te faltan, pero es una vez al día: si
     el partido es a las 8pm y lo viste temprano, nada te vuelve a tocar.
 
-    OJO CON EL CRON: el ancho de la ventana tiene que coincidir con el
-    intervalo del disparador (15 min). Si el cron se hace más lento o más
-    rápido sin tocar ANCHO_VENTANA_MIN, la gente recibe el aviso dos veces o no
-    lo recibe. Está probado en test_recordatorio_saque.py.
+    La ventana tiene que coincidir con el intervalo del disparador para no
+    dejar huecos. La migración 82 deduplica atrasos, reintentos y disparos
+    manuales, y recupera reclamos fallidos o abandonados mientras el partido
+    siga abierto para predecir.
     """
     expected = settings.CRON_SECRET
     if not expected:
@@ -298,14 +298,25 @@ async def notify_kickoff(authorization: Optional[str] = Header(default=None)):
     if authorization != f"Bearer {expected}":
         raise HTTPException(status_code=401, detail="No autorizado")
 
-    from datetime import datetime, timezone
+    from datetime import datetime, timedelta, timezone
+    from app.services.notification_deliveries import (
+        cerrar_reclamos,
+        reclamar_entregas,
+        reintentos_pendientes,
+        seleccionar_candidatas,
+    )
     from app.services.notifications import enviar_push_personalizado
-    from app.services.resumen_diario import armar_recordatorios, ventana_recordatorio
+    from app.services.resumen_diario import (
+        entregas_recordatorio,
+        mensajes_de_recordatorio,
+        ventana_recordatorio,
+    )
 
     supabase = get_supabase()
-    desde, hasta = ventana_recordatorio(datetime.now(timezone.utc))
+    ahora = datetime.now(timezone.utc)
+    desde, hasta = ventana_recordatorio(ahora)
 
-    partidos = (
+    partidos_frescos = (
         supabase.table("matches")
         .select("id, tournament_id, home_team, away_team, kickoff_at, status")
         .gte("kickoff_at", desde.isoformat())
@@ -314,7 +325,44 @@ async def notify_kickoff(authorization: Optional[str] = Header(default=None)):
         .data
         or []
     )
-    partidos = [p for p in partidos if p.get("status") not in ("cancelled", "postponed")]
+    partidos_frescos = [
+        p for p in partidos_frescos if p.get("status") not in ("cancelled", "postponed")
+    ]
+    ids_frescos = {int(p["id"]) for p in partidos_frescos}
+
+    # Si la bitácora no está disponible se sigue enviando, sin deduplicar.
+    # DECISIÓN DE PRODUCTO, no un except por descuido: perder el aviso puede
+    # costar una jornada; un duplicado raro solo molesta. El fallo queda
+    # ruidoso en el log y visible en la respuesta.
+    deduplicacion_disponible = True
+    try:
+        claves_reintento = reintentos_pendientes(supabase, ahora)
+    except Exception:
+        deduplicacion_disponible = False
+        claves_reintento = set()
+        logger.exception("Recordatorios SIN deduplicación: falló notification_deliveries")
+
+    # Un fallido de una corrida anterior puede haber salido ya de la ventana,
+    # así que su partido se vuelve a traer — pero solo mientras siga abierto
+    # para predecir (15 min antes del saque), o el aviso llegaría tarde.
+    ids_reintento = {clave[2] for clave in claves_reintento} - ids_frescos
+    partidos_reintento = []
+    if ids_reintento:
+        partidos_reintento = (
+            supabase.table("matches")
+            .select("id, tournament_id, home_team, away_team, kickoff_at, status")
+            .in_("id", sorted(ids_reintento))
+            .gt("kickoff_at", (ahora + timedelta(minutes=15)).isoformat())
+            .execute()
+            .data
+            or []
+        )
+        partidos_reintento = [
+            p for p in partidos_reintento
+            if p.get("status") not in ("finished", "cancelled", "postponed")
+        ]
+
+    partidos = list({int(p["id"]): p for p in [*partidos_frescos, *partidos_reintento]}.values())
     if not partidos:
         return {"status": "ok", "partidos": 0}
 
@@ -353,10 +401,48 @@ async def notify_kickoff(authorization: Optional[str] = Header(default=None)):
         .in_("match_id", [p["id"] for p in partidos]).limit(20000).execute().data or []
     )
 
-    mensajes = armar_recordatorios(partidos, membresias, predicciones)
-    resultado = await enviar_push_personalizado(supabase, mensajes)
+    entregas = entregas_recordatorio(partidos, membresias, predicciones)
+    entregas = seleccionar_candidatas(entregas, ids_frescos, claves_reintento)
 
-    return {"status": "ok", "partidos": len(partidos), "personas": len(mensajes), **resultado}
+    async def _enviar_sin_deduplicar():
+        mensajes = mensajes_de_recordatorio(entregas)
+        resultado = await enviar_push_personalizado(supabase, mensajes)
+        return {
+            "status": "ok",
+            "partidos": len(partidos_frescos),
+            "personas": len(mensajes),
+            "deduplicacion": "fallback-sin-registro",
+            **resultado,
+        }
+
+    if not deduplicacion_disponible:
+        return await _enviar_sin_deduplicar()
+
+    try:
+        reclamadas, tokens = reclamar_entregas(supabase, entregas)
+    except Exception:
+        logger.exception("Recordatorios SIN deduplicación: falló la reclamación atómica")
+        return await _enviar_sin_deduplicar()
+
+    # El texto se compone DESPUÉS de reclamar: un partido que se llevó otra
+    # corrida no puede contarse en el «te faltan N por predecir».
+    mensajes = mensajes_de_recordatorio(reclamadas)
+    resultado = await enviar_push_personalizado(supabase, mensajes, detallado=True)
+    por_usuario = resultado.pop("por_usuario", {})
+
+    # Cerrar el reclamo NO es opcional: ver `cerrar_reclamos`, que lo hace a
+    # prueba de una persona sin detalle y del fallo de una sola fila.
+    cierre = cerrar_reclamos(supabase, tokens, por_usuario, ahora=ahora)
+
+    return {
+        **({"reclamos_sin_cerrar": cierre["sin_cerrar"]} if cierre["sin_cerrar"] else {}),
+        "status": "ok",
+        "partidos": len(partidos_frescos),
+        "personas": len(mensajes),
+        "reclamadas": len(reclamadas),
+        "omitidas_por_duplicado": len(entregas) - len(reclamadas),
+        **resultado,
+    }
 
 
 @router.post("/notify-daily-league")

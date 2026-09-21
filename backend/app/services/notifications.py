@@ -92,7 +92,7 @@ async def broadcast_push_to_users(supabase, user_ids: list, title: str, body: st
     return success_count
 
 
-async def enviar_push_personalizado(supabase, mensajes: dict):
+async def enviar_push_personalizado(supabase, mensajes: dict, detallado: bool = False):
     """Manda un push DISTINTO a cada persona.
 
     broadcast_push_to_users manda el mismo texto a todos, y para el resumen
@@ -101,9 +101,15 @@ async def enviar_push_personalizado(supabase, mensajes: dict):
     para todos, no una por persona.
 
     mensajes: {user_id: {"title": str, "body": str, "url": str}}
+
+    Con ``detallado=True`` agrega ``por_usuario``: qué le pasó a CADA persona.
+    Lo necesita la bitácora de entregas (migración 82) para cerrar el reclamo
+    con un estado cierto — el total agregado no sirve, porque un envío puede
+    haber salido para unos y no para otros.
     """
     if not mensajes:
-        return {"enviados": 0, "sin_dispositivo": 0}
+        vacio = {"enviados": 0, "sin_dispositivo": 0}
+        return {**vacio, "por_usuario": {}} if detallado else vacio
 
     ids = list(mensajes.keys())
     subs = (
@@ -117,8 +123,12 @@ async def enviar_push_personalizado(supabase, mensajes: dict):
 
     enviados = 0
     expirados = []
+    detalle = {}
     for user_id, payload in mensajes.items():
-        for sub in por_usuario.get(user_id, []):
+        suscripciones = por_usuario.get(user_id, [])
+        suyo = {"enviados": 0, "fallidos": 0, "expirados": 0,
+                "sin_dispositivo": not suscripciones}
+        for sub in suscripciones:
             info = {
                 "endpoint": sub["endpoint"],
                 "keys": {"p256dh": sub["p256dh"], "auth": sub["auth"]},
@@ -126,13 +136,21 @@ async def enviar_push_personalizado(supabase, mensajes: dict):
             resultado = send_push_notification(info, payload)
             if resultado == "expired":
                 expirados.append(sub["endpoint"])
+                suyo["expirados"] += 1
             elif resultado is True:
                 enviados += 1
+                suyo["enviados"] += 1
+            else:
+                suyo["fallidos"] += 1
+        detalle[user_id] = suyo
 
     if expirados:
         supabase.table("push_subscriptions").delete().in_("endpoint", expirados).execute()
 
-    return {
+    salida = {
         "enviados": enviados,
         "sin_dispositivo": len([u for u in ids if u not in por_usuario]),
     }
+    if detallado:
+        salida["por_usuario"] = detalle
+    return salida

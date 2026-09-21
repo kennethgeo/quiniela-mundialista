@@ -561,7 +561,12 @@ DECLARE
   ];
   v_backend text[] := ARRAY[
     'void_cancelled_match', 'resolve_pending_powerup_credits',
-    'recompute_user_total', 'recompute_league_badges'
+    'recompute_user_total', 'recompute_league_badges',
+    -- Migración 82. Va acá y NO en v_frontend: la llama el backend con
+    -- service_role, nunca el navegador. Sin esta línea, la próxima corrida de
+    -- esta misma migración le quitaría el EXECUTE y los recordatorios
+    -- dejarían de deduplicarse sin decir por qué.
+    'claim_notification_deliveries'
   ];
   v_faltan text[] := '{}';
 BEGIN
