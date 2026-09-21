@@ -345,22 +345,34 @@ async def notify_kickoff(authorization: Optional[str] = Header(default=None)):
     # Un fallido de una corrida anterior puede haber salido ya de la ventana,
     # así que su partido se vuelve a traer — pero solo mientras siga abierto
     # para predecir (15 min antes del saque), o el aviso llegaría tarde.
+    #
+    # ESTA CONSULTA VA PROTEGIDA, y no es cosmético: es la ÚNICA nueva que se
+    # añade al camino que ya funcionaba. Si fallara sin `try`, el endpoint
+    # devolvería 500 y NADIE recibiría su recordatorio en esa corrida — por
+    # recuperar los avisos de unas pocas personas se perderían los de todas,
+    # que es justo al revés de la decisión tomada para el resto del endpoint.
     ids_reintento = {clave[2] for clave in claves_reintento} - ids_frescos
     partidos_reintento = []
     if ids_reintento:
-        partidos_reintento = (
-            supabase.table("matches")
-            .select("id, tournament_id, home_team, away_team, kickoff_at, status")
-            .in_("id", sorted(ids_reintento))
-            .gt("kickoff_at", (ahora + timedelta(minutes=15)).isoformat())
-            .execute()
-            .data
-            or []
-        )
-        partidos_reintento = [
-            p for p in partidos_reintento
-            if p.get("status") not in ("finished", "cancelled", "postponed")
-        ]
+        try:
+            partidos_reintento = (
+                supabase.table("matches")
+                .select("id, tournament_id, home_team, away_team, kickoff_at, status")
+                .in_("id", sorted(ids_reintento))
+                .gt("kickoff_at", (ahora + timedelta(minutes=15)).isoformat())
+                .execute()
+                .data
+                or []
+            )
+            partidos_reintento = [
+                p for p in partidos_reintento
+                if p.get("status") not in ("finished", "cancelled", "postponed")
+            ]
+        except Exception:
+            # Se sigue con los partidos frescos: la corrida de siempre queda
+            # intacta y los reintentos vuelven a competir en la próxima.
+            partidos_reintento = []
+            logger.exception("No se pudieron recuperar los partidos a reintentar")
 
     partidos = list({int(p["id"]): p for p in [*partidos_frescos, *partidos_reintento]}.values())
     if not partidos:
