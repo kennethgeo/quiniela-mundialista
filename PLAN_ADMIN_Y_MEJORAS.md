@@ -182,8 +182,6 @@ captura. Casi todas salen de mediciones que ya están en el `CLAUDE.md`.
 
 ## 2.1 El sistema de diseño está a medias, y se nota
 
-Medido el 21 sep 2026 sobre el repo:
-
 Medido sobre `main = 64ba004`. **El comando queda escrito para que el alcance
 sea siempre el mismo**: una auditoría externa reportó 968/114 y la diferencia
 era solo que contaba hex de 3 a 8 dígitos y cualquier archivo de `frontend/src`.
@@ -239,7 +237,7 @@ reemplazan todos los spinners indiscriminadamente.
 
 ## 2.4 La escala tipográfica es una decisión pendiente del dueño
 
-Hay **62 textos a 9 y 9.5 px**. Eso no es un fallo suelto: es la escala de la
+Hay **63 textos a 9 y 9.5 px**. Eso no es un fallo suelto: es la escala de la
 app. Subirla es una decisión de diseño, no un arreglo — pero conviene tomarla,
 porque el grupo son 26 personas de edades variadas.
 
