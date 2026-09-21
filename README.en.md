@@ -91,12 +91,12 @@ uvicorn app.main:app --reload # http://localhost:8000
 
 ```bash
 cd frontend
-npm test          # 309 logic tests (vitest)
-npm run test:ui   # 110 interface tests (Playwright)
+npm test          # 333 logic tests (vitest)
+npm run test:ui   # 150 interface tests (Playwright)
 npm run lint
 
 cd ../backend
-python -m pytest  # 107 tests
+python -m pytest  # 178 tests
 ```
 
 The Playwright tests **intercept every Supabase call**: they touch no real
