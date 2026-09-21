@@ -1,6 +1,23 @@
 # Quiniela Mundialista — notas del proyecto
 
-## Reglas de puntaje (fuente de verdad: `frontend/src/lib/scoring.js` y `backend/app/services/scoring.py` — deben quedar idénticas)
+## Reglas de puntaje (fuente de verdad: `backend/app/services/scoring.py`, motor ÚNICO)
+
+> **Hubo un segundo motor en JavaScript y se borró (21 sep 2026).**
+> `frontend/src/lib/scoring.js` llevaba tiempo sin que lo importara **nadie**
+> —comprobado: cero importadores desde código de producción— pero este archivo
+> lo seguía declarando fuente de verdad y exigía mantener las dos copias
+> idénticas. Eso ya no protegía nada: no había un segundo motor corriendo con
+> el que discrepar, solo una copia que alguien podía cambiar creyendo que el
+> navegador puntúa. Es la misma familia del fallo que costó los puntos de
+> asistidor durante meses, pero al revés: allá el daño fue tener la fórmula dos
+> veces; acá, seguir manteniendo la copia muerta.
+>
+> **Lo que SÍ protege el puntaje sigue en pie**: `shared/scoring_cases.json`
+> (22 casos) lo corre `backend/tests/test_scoring.py` en cada CI. El corpus no
+> se toca. Lo que se cayó fue el espejo en JS, no la red.
+>
+> Se borraron también `lib/tournamentLock.js` y su prueba, que quedaron sin
+> consumidores al quitar el editor de globales del perfil.
 
 ### Fase de grupos / regular
 - **Marcador exacto** (goles predichos = goles reales): **3 pts**
@@ -28,7 +45,7 @@ Reglas vigentes (jun 2026, cambiadas a pedido del admin):
 
 ## Partidos cancelados/pospuestos y arrastre del comodín ×2
 - Un partido `status = 'cancelled'/'postponed'` **no cuenta para el puntaje**: `void_cancelled_match(match_id)` (SQL, `SECURITY DEFINER`, migración `database/48_powerup_carryover.sql`) anula `points_earned`, devuelve el ×2 si lo usaron, y — **decisión votada por el grupo** — le otorga a esa persona un **crédito de arrastre** (`powerup_credits`) para usar el ×2 de más en la **próxima jornada/fase cronológica del mismo torneo**, aunque ya haya gastado su cupo ahí.
-- Es la ÚNICA vía para anular un partido: tanto el backend (`scoring.py`, syncs) como el frontend (`lib/scoring.js`, usado por AdminPage) llaman a esta función en vez de tocar `predictions` directo — necesario porque cuando se escribió eso las políticas RLS de `predictions` solo dejaban escribir al propio usuario o a `service_role`. **Ojo, esto quedó desactualizado**: producción tiene además `predictions_update_admin` y `predictions_insert_admin` (`users.is_admin = true`), que NO están en ningún archivo de `database/` — se crearon a mano en el dashboard. Aun así, seguir usando `void_cancelled_match`: es la vía que además devuelve el comodín y otorga el crédito de arrastre.
+- Es la ÚNICA vía para anular un partido: la llama el backend (`scoring.py` y los syncs) — **y solo el backend**: la ruta del navegador, que pasaba por `lib/scoring.js`, ya no existe (comprobado, 21 sep 2026) en vez de tocar `predictions` directo — necesario porque cuando se escribió eso las políticas RLS de `predictions` solo dejaban escribir al propio usuario o a `service_role`. **Ojo, esto quedó desactualizado**: producción tiene además `predictions_update_admin` y `predictions_insert_admin` (`users.is_admin = true`), que NO están en ningún archivo de `database/` — se crearon a mano en el dashboard. Aun así, seguir usando `void_cancelled_match`: es la vía que además devuelve el comodín y otorga el crédito de arrastre.
 - El trigger `check_powerup_limit()` valida contra cupo base (`leagues.powerup_limit`) **+ créditos sin consumir**; al activar por encima del cupo base consume el crédito más viejo; al desactivar el ×2, lo devuelve.
 - El sync automático (`espn_tournament_sync`/`live_sync`) **no vuelve a tocar** un partido ya marcado `cancelled`/`postponed` en la BD (lo excluye del upsert), para que una corrección manual del admin no se pierda si la fuente (ESPN) sigue reportando el partido como jugado.
 
@@ -108,6 +125,18 @@ Son **dos números distintos a propósito** y confundirlos es el error fácil:
 - **Tercera mordida: la migración 27 nunca se corrió.** `tournament_predictions` conservaba el `UNIQUE (user_id)` que nació en la 05, cuando había un solo torneo. Eso limita a **una predicción global por persona en TODA la app**: al guardar campeón/goleador en una segunda quiniela salía `duplicate key value violates unique constraint "tournament_predictions_user_id_key"`. Lo arregla la migración 71.
 - **La 71 YA ESTÁ APLICADA** (7 sep 2026): comprobado leyendo `pg_constraint`, en producción queda solo `UNIQUE (user_id, league_id)` y las 15 predicciones existentes no se tocaron.
 - **La 27 pedía `UNIQUE (user_id, tournament_id)`; eso hoy sería otro bug.** Las predicciones globales son **por quiniela**, y dos quinielas pueden compartir torneo — la liga tica corre temporada tras temporada sobre el mismo `tournament_id`. La restricción correcta es `UNIQUE (user_id, league_id)` (migración 37), que es a la que apunta el `onConflict` del cliente.
+
+### Cuarta mordida: el perfil seguía pidiendo UNA global por persona
+- `ProfilePage` consultaba `tournament_predictions` con **`.maybeSingle()`**, de cuando existía `UNIQUE (user_id)`. Desde la 71 son **por quiniela**, así que quien juega dos tiene **dos filas** y `.maybeSingle()` devuelve **error**, no una fila. Medido en producción el 21 sep 2026: **21 filas y 4 personas con más de una**. A esas cuatro el perfil les decía «Sin predicciones globales» teniéndolas puestas — y son hasta 36 puntos entre campeón, goleador y asistidor.
+- En la misma pestaña había un editor (`GlobalPredictionsModal`) que **ya no podía guardar**: upsert con `onConflict: 'user_id'` —restricción que la 71 eliminó, así que Postgres responde 42P10— y **sin `league_id`**, con una lista de selecciones clavada del Mundial 2026. Un botón que promete y revienta.
+- **No se arregla cambiando la consulta del editor**: las globales son por quiniela, y su valor en puntos, su cierre y su torneo salen de ahí. Una pantalla que no sabe de qué quiniela habla no puede editarlas. Se editan donde corresponde (`TournamentGlobalCard`, que ya lo hace bien con `onConflict: 'user_id, league_id'`) y el perfil las **muestra**: una tarjeta por quiniela, con las tres.
+- El asistidor **no se dibujaba** aunque el campo viaja desde la 62. Misma familia que la regla de la 76: si el dato llega y no se usa, es trabajo pago que nadie ve.
+- `perfil-globales.spec.js` usa **DOS quinielas** a propósito: con una sola, `.maybeSingle()` funciona y la prueba pasaría con el bug puesto. Comprobado que cae al quedarse con la primera fila y al quitar el asistidor.
+
+### El panel global no comprobaba que fueras admin
+- `/admin` estaba **solo** detrás de `ProtectedRoute`, que mira sesión y correo verificado. Cualquiera de los 26 podía escribir `/admin` en la barra y le salía entero: editar resultados, sincronizar torneos, repartir los puntos de campeón y goleador.
+- **No era una escalada de privilegios** —la RLS y los endpoints siguen exigiendo `is_admin` en el servidor, que es quien manda— pero sí una pantalla que no le corresponde a nadie más, con botones que disparan syncs. La regla ya estaba escrita para la pestaña Admin **de una quiniela**; a la ruta global nunca se le aplicó.
+- `AdminRoute` comprueba `profile.is_admin` (no `user`: la bandera vive en `public.users` y el cliente no la puede tocar). **Mientras el perfil carga se espera**, no se expulsa: un `Navigate` en ese hueco sacaría al admin de su propio panel al recargar. Comprobado que dos pruebas caen al quitar la comprobación.
 
 ## Verificación de correo
 - La fuente de verdad es `auth.users` (la sesión de Supabase), **no** una columna en `public.users`: `email_confirmed_at` nunca existió ahí y la consulta fallaba, caía al `catch` y dejaba pasar a todos.
@@ -487,6 +516,9 @@ Lo reportó el dueño («en la liga tica las alineaciones no están funcionando�
 - Migraciones SQL: el admin las corre a mano en el SQL Editor de Supabase (archivos en `database/`).
 
 ## Al cambiar reglas de puntaje
-1. Cambiar **ambos** motores (`scoring.js` y `scoring.py`) para que coincidan.
+1. Cambiar `backend/app/services/scoring.py`, que es el **único** motor, y
+   agregar el caso a `shared/scoring_cases.json` — ahí es donde queda fijado.
+   **No reintroduzcas una copia en JS «para tener paridad»**: no hay con qué
+   emparejarse y la copia se desincroniza sola (ver el aviso del encabezado).
 2. Actualizar la tarjeta correspondiente en `frontend/src/pages/RulesPage.jsx`.
 3. Avisar al grupo. Si hay partidos ya puntuados con la regla vieja, recalcular (`recalc-scores`).

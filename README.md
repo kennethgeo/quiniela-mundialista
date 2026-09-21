@@ -90,12 +90,12 @@ uvicorn app.main:app --reload # http://localhost:8000
 
 ```bash
 cd frontend
-npm test          # 309 pruebas de lógica (vitest)
-npm run test:ui   # 110 pruebas de interfaz (Playwright, sin backend real)
+npm test          # 301 pruebas de lógica (vitest)
+npm run test:ui   # 150 pruebas de interfaz (Playwright, sin backend real)
 npm run lint
 
 cd ../backend
-python -m pytest  # 107 pruebas
+python -m pytest  # 178 pruebas
 ```
 
 Las de Playwright **interceptan Supabase**: no tocan ninguna base de datos real

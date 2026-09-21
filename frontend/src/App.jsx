@@ -9,6 +9,7 @@ import { useAuth } from './hooks/useAuth'
 import BottomNav from './components/ui/BottomNav'
 import QuickBar from './components/ui/QuickBar'
 import ProtectedRoute from './components/auth/ProtectedRoute'
+import AdminRoute from './components/auth/AdminRoute'
 import InstallPrompt from './components/ui/InstallPrompt'
 import CambioDeCuenta from './hooks/useCambioDeCuenta'
 import LoadingSpinner from './components/ui/LoadingSpinner'
@@ -21,6 +22,7 @@ const PrivacidadPage = lazy(() => import('./pages/PrivacidadPage'))
 const TerminosPage = lazy(() => import('./pages/TerminosPage'))
 const ProfilePage = lazy(() => import('./pages/ProfilePage'))
 const AdminPage = lazy(() => import('./pages/AdminPage'))
+
 const MatchDetailPage = lazy(() => import('./pages/MatchDetailPage'))
 const RulesPage = lazy(() => import('./pages/RulesPage'))
 const TicoGamesV2Preview = lazy(() => import('./pages/TicoGamesV2Preview'))
@@ -164,13 +166,17 @@ function AppRoutes() {
         }
       />
 
+      {/* El panel global es SOLO del admin global, y hasta ahora la ruta no lo
+          comprobaba: bastaba escribir /admin. Ver AdminRoute. */}
       <Route
         path="/admin"
         element={
           <ProtectedRoute>
-            <MainLayout>
-              <AdminPage />
-            </MainLayout>
+            <AdminRoute>
+              <MainLayout>
+                <AdminPage />
+              </MainLayout>
+            </AdminRoute>
           </ProtectedRoute>
         }
       />

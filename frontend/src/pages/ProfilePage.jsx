@@ -5,11 +5,9 @@ import { Activity, Trophy, Clock, Target, Zap, CheckCircle2, XCircle, Camera, Tr
 import { supabase } from '../lib/supabase'
 import { resizeImage } from '../lib/image'
 import { changeAvatar } from '../lib/avatar'
-import { getTournamentLocked } from '../lib/tournamentLock'
 import { useAuth } from '../hooks/useAuth'
 import { useTheme } from '../contexts/ThemeContext'
 import PushNotificationToggle from '../components/ui/PushNotificationToggle'
-import GlobalPredictionsModal from '../components/profile/GlobalPredictionsModal'
 import BadgeShowcase, { MedalStrip } from '../components/medals/BadgeShowcase'
 import { fetchMyMedals, aggregateMedals } from '../lib/medals'
 import { refreshApplication } from '../lib/appUpdate'
@@ -28,9 +26,7 @@ export default function ProfilePage() {
   const [predictions, setPredictions] = useState([])
   const [logs, setLogs] = useState([])
   const [loading, setLoading] = useState(true)
-  const [globalPrediction, setGlobalPrediction] = useState(null)
-  const [isPredictionsLocked, setIsPredictionsLocked] = useState(false)
-  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [globalPredictions, setGlobalPredictions] = useState([])
   
   const [stats, setStats] = useState({
     exact: 0,
@@ -108,7 +104,7 @@ export default function ProfilePage() {
 
       // Son fuentes independientes: arrancarlas juntas evita una cascada de
       // esperas perceptible en redes móviles lentas.
-      const [matchesResult, predictionsResult, logsResult, statsResult, globalResult, medalRows, locked] = await Promise.all([
+      const [matchesResult, predictionsResult, logsResult, statsResult, globalResult, medalRows] = await Promise.all([
         supabase.from('matches')
           .select('id,kickoff_at,status,phase,group_name,home_team,away_team,home_goals_actual,away_goals_actual'),
         supabase.from('predictions')
@@ -121,10 +117,16 @@ export default function ProfilePage() {
           .limit(50),
         supabase.from('user_stats_view')
           .select('talisman_team,maldito_team').eq('user_id', profile.id).maybeSingle(),
+        /* SIN `.maybeSingle()`: desde la migración 71 las globales son POR
+           QUINIELA (`UNIQUE (user_id, league_id)`), así que una persona en dos
+           quinielas tiene dos filas y `.maybeSingle()` devuelve ERROR. Medido
+           en producción el 21 sep 2026: 21 filas, 4 personas con más de una.
+           A esas cuatro el perfil les decía «Sin predicciones globales»
+           teniéndolas puestas. */
         supabase.from('tournament_predictions')
-          .select('champion_team,top_scorer_name').eq('user_id', profile.id).maybeSingle(),
+          .select('league_id,champion_team,top_scorer_name,top_assist_name,leagues(name)')
+          .eq('user_id', profile.id),
         fetchMyMedals().catch(() => []),
-        getTournamentLocked(),
       ])
 
       if (matchesResult.error) throw matchesResult.error
@@ -176,10 +178,9 @@ export default function ProfilePage() {
 
       setMedalsAgg(aggregateMedals(medalRows))
       setAdvancedStats(statsResult.data || null)
-      setGlobalPrediction(globalResult.data || null)
+      setGlobalPredictions(globalResult.data || [])
         
       // Bloqueo: manual (admin) o automático al iniciar el primer partido del torneo
-      setIsPredictionsLocked(locked)
 
     } catch (err) {
       console.error('Error fetching profile data', err)
@@ -510,67 +511,59 @@ export default function ProfilePage() {
                 initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
                 className="space-y-4"
               >
-                {globalPrediction ? (
-                  <div className="glass-card p-5">
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center gap-2 text-accent">
-                        <Trophy size={20} />
-                        <h3 className="font-bold text-slate-900 dark:text-white">Mis Predicciones Globales</h3>
-                      </div>
-                      {!isPredictionsLocked && (
-                        <button 
-                          onClick={() => setIsModalOpen(true)}
-                          className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 dark:bg-white/10 dark:hover:bg-white/20 text-xs font-bold rounded-lg transition-colors"
-                        >
-                          Editar
-                        </button>
-                      )}
-                    </div>
-                    
-                    <div className="space-y-4">
-                      <div className="p-4 bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl">
-                        <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Equipo Campeón</p>
-                        <p className="font-bold text-slate-900 dark:text-white text-lg flex items-center gap-2">
-                          {globalPrediction.champion_team ? (
-                            <>
-                              {globalPrediction.champion_team}
-                            </>
-                          ) : (
-                            <span className="text-slate-400 italic">No seleccionado</span>
-                          )}
-                        </p>
-                      </div>
+                {/* SOLO LECTURA, y una tarjeta POR QUINIELA.
 
-                      <div className="p-4 bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl">
-                        <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Goleador del Torneo</p>
-                        <p className="font-bold text-slate-900 dark:text-white text-lg flex items-center gap-2">
-                          {globalPrediction.top_scorer_name ? (
-                            <>
-                              <Target size={18} className="text-accent" />
-                              {globalPrediction.top_scorer_name}
-                            </>
-                          ) : (
-                            <span className="text-slate-400 italic">No seleccionado</span>
-                          )}
-                        </p>
+                    Acá vivía un editor que ya no podía guardar: hacía upsert
+                    con `onConflict: 'user_id'` —restricción que la migración 71
+                    eliminó— y mandaba la fila SIN `league_id`, con una lista de
+                    selecciones clavada del Mundial 2026. O sea que en el mejor
+                    caso reventaba con un error de Postgres y en el peor habría
+                    escrito una predicción huérfana, sin quiniela.
+
+                    Las globales son por quiniela: su valor en puntos, su cierre
+                    y su torneo salen de ahí. Editarlas desde una pantalla que no
+                    sabe de qué quiniela habla no se puede arreglar cambiando la
+                    consulta. Se edita donde corresponde —la tarjeta de la
+                    quiniela— y el perfil las MUESTRA, que es lo que aporta:
+                    verlas todas juntas. */}
+                {globalPredictions.length > 0 ? (
+                  <>
+                    {globalPredictions.map((g) => (
+                      <div key={g.league_id || 'sin-quiniela'} className="glass-card p-5">
+                        <div className="flex items-center gap-2 text-accent mb-4">
+                          <Trophy size={20} />
+                          <h3 className="font-bold text-slate-900 dark:text-white truncate">
+                            {g.leagues?.name || 'Quiniela'}
+                          </h3>
+                        </div>
+                        <div className="space-y-3">
+                          {[
+                            ['Equipo campeón', g.champion_team, Trophy],
+                            ['Goleador del torneo', g.top_scorer_name, Target],
+                            ['Asistidor del torneo', g.top_assist_name, Target],
+                          ].map(([etiqueta, valor, Icono]) => (
+                            <div key={etiqueta} className="p-4 bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl">
+                              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">{etiqueta}</p>
+                              <p className="font-bold text-slate-900 dark:text-white text-lg flex items-center gap-2">
+                                {valor ? (<><Icono size={18} className="text-accent" />{valor}</>)
+                                  : (<span className="text-slate-400 italic text-base">No seleccionado</span>)}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  </div>
+                    ))}
+                    <p className="text-xs text-slate-500 text-center px-4">
+                      Se editan dentro de cada quiniela, donde están sus puntos y su fecha de cierre.
+                    </p>
+                  </>
                 ) : (
                   <div className="text-center py-10">
                     <Trophy size={48} className="mx-auto text-slate-300 dark:text-slate-600 mb-3" />
-                    <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-1">Sin Predicciones Globales</h3>
-                    <p className="text-sm text-slate-500 mb-5">Aún no has elegido al campeón ni al goleador del torneo.</p>
-                    {!isPredictionsLocked ? (
-                      <button 
-                        onClick={() => setIsModalOpen(true)}
-                        className="px-5 py-2.5 bg-accent hover:bg-accent-light text-white font-bold rounded-xl transition-colors shadow-lg shadow-accent/20"
-                      >
-                        Hacer Predicciones
-                      </button>
-                    ) : (
-                      <p className="text-xs text-rose-500 font-bold bg-rose-500/10 inline-block px-3 py-1 rounded-full">Las predicciones ya están cerradas</p>
-                    )}
+                    <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-1">Sin predicciones globales</h3>
+                    <p className="text-sm text-slate-500 px-6">
+                      Campeón, goleador y asistidor se eligen dentro de cada quiniela.
+                    </p>
                   </div>
                 )}
               </motion.div>
@@ -637,13 +630,6 @@ export default function ProfilePage() {
         <div className="h-32 w-full shrink-0 md:hidden pointer-events-none" />
       </div>
       
-      <GlobalPredictionsModal 
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        initialData={globalPrediction}
-        userId={profile?.id}
-        onSaved={fetchData}
-      />
     </div>
   )
 }

@@ -147,7 +147,8 @@ async def reconcile_totals(
 async def sync_live(authorization: Optional[str] = Header(default=None)):
     """Sincroniza marcadores en vivo desde worldcup26.ir. Protegido con CRON_SECRET.
 
-    Pensado para ser invocado por un scheduler (GitHub Actions / Vercel Cron)
+    Lo dispara pg_cron desde la base (migración 79; los workflows de GitHub
+    quedaron sin `schedule:`, solo para dispararlos a mano)
     enviando el header ``Authorization: Bearer <CRON_SECRET>``.
     """
     expected = settings.CRON_SECRET
@@ -195,7 +196,7 @@ async def sync_live(authorization: Optional[str] = Header(default=None)):
 @router.post("/notify-daily")
 async def notify_daily(authorization: Optional[str] = Header(default=None)):
     """Resumen de los partidos del día. Pensado para dispararse a las 6am de
-    Costa Rica (12:00 UTC) desde el cron de GitHub Actions.
+    Costa Rica (12:00 UTC) desde pg_cron, en la base (migración 79).
 
     Va en el backend y no en una edge function a propósito: acá ya existe la
     autenticación por CRON_SECRET, ya está el envío de push, y se despliega
