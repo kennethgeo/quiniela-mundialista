@@ -101,7 +101,7 @@ Cada uno comprobado leyendo el código o la base, no supuesto. Los marcados con
 | B26 | `users` conserva un GRANT de INSERT sobre `is_admin`/`total_points`/`points_adjustment` que **hoy no es alcanzable** (su única política de INSERT es `TO service_role`). Privilegio muerto que se vuelve agujero si alguien agrega una política | `users` | latente |
 | B27 🔶 | ~~**La 85 rompió el guardado de predicciones**: PostgREST mete todas las columnas en el `DO UPDATE SET`~~ · **RESUELTO** (migración 87). Sin víctimas: 0 escrituras en la ventana rota | `predictions` · `tournament_predictions` | ✅ 🔴 |
 | B28 🔶 | ~~Se podía guardar un partido de OTRO torneo en tu quiniela y sumaba~~ · **RESUELTO** (migración 87). 0 filas cruzadas | políticas de INSERT/UPDATE | ✅ |
-| B29 🔶 | ~~Cambiar la cuota reescribía lo recaudado~~ · **RESUELTO** (migración 88) con monto por pago + candado. **Pendiente del dueño**: decidir si se registran los 13 pagos viejos con ₡10.000 | `league_pozo` · `leagues` | ✅ parcial |
+| B29 🔶 | ~~Cambiar la cuota reescribía lo recaudado~~ · **RESUELTO** (migración 88) con monto por pago + candado. Los 13 pagos viejos se registraron con ₡10.000 por decisión del dueño, así que la cuota ya se puede cambiar sin reescribir lo pagado | `league_pozo` · `leagues` | ✅ |
 | B30 🔶 | ~~El reintento de puntaje de la 86 buscaba NULL y la columna nace en 0: no-op~~ · **RESUELTO** con la firma del resultado (migración 88) | `scoring.py` | ✅ |
 | B31 🔶 | ~~La puerta del cron no llamaba al backend para reintentar avisos~~ · **RESUELTO** (migración 88) | `cron_recordatorio_saque` | ✅ |
 | B32 🔶 | ~~La 82 del repo no se podía ejecutar~~ · **RESUELTO** (solo el archivo; producción estaba bien) | `82_deduplicar_recordatorios.sql` | ✅ |
