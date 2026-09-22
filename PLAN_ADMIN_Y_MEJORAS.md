@@ -99,6 +99,12 @@ Cada uno comprobado leyendo el código o la base, no supuesto. Los marcados con
 | B24 | ~~Tercera copia de la fórmula del total global, **sin el asistidor**, con botón que escribe~~ · **RESUELTO**: endpoint muerto borrado | `matches.py` (reconcile-totals) | ✅ |
 | B25 | **Un DELETE directo saltaba el candado de pagos de la 84** · **RESUELTO** de paso por la 85. Lección: al proteger algo dentro de una RPC, mirar si la tabla se toca sin pasar por ella | `league_members` | ✅ |
 | B26 | `users` conserva un GRANT de INSERT sobre `is_admin`/`total_points`/`points_adjustment` que **hoy no es alcanzable** (su única política de INSERT es `TO service_role`). Privilegio muerto que se vuelve agujero si alguien agrega una política | `users` | latente |
+| B27 🔶 | ~~**La 85 rompió el guardado de predicciones**: PostgREST mete todas las columnas en el `DO UPDATE SET`~~ · **RESUELTO** (migración 87). Sin víctimas: 0 escrituras en la ventana rota | `predictions` · `tournament_predictions` | ✅ 🔴 |
+| B28 🔶 | ~~Se podía guardar un partido de OTRO torneo en tu quiniela y sumaba~~ · **RESUELTO** (migración 87). 0 filas cruzadas | políticas de INSERT/UPDATE | ✅ |
+| B29 🔶 | ~~Cambiar la cuota reescribía lo recaudado~~ · **RESUELTO** (migración 88) con monto por pago + candado. **Pendiente del dueño**: decidir si se registran los 13 pagos viejos con ₡10.000 | `league_pozo` · `leagues` | ✅ parcial |
+| B30 🔶 | ~~El reintento de puntaje de la 86 buscaba NULL y la columna nace en 0: no-op~~ · **RESUELTO** con la firma del resultado (migración 88) | `scoring.py` | ✅ |
+| B31 🔶 | ~~La puerta del cron no llamaba al backend para reintentar avisos~~ · **RESUELTO** (migración 88) | `cron_recordatorio_saque` | ✅ |
+| B32 🔶 | ~~La 82 del repo no se podía ejecutar~~ · **RESUELTO** (solo el archivo; producción estaba bien) | `82_deduplicar_recordatorios.sql` | ✅ |
 | B9 | ~~No existe ninguna salida voluntaria~~ · **RESUELTO** (migración 83, 21 sep 2026): `salir_de_quiniela` + aviso con números. B1 se resuelve de paso: «No acepto · salir» ahora sale de verdad | `83_salida_voluntaria.sql` | ✅ |
 
 ## 3. La arquitectura

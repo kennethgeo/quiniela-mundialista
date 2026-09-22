@@ -327,3 +327,37 @@ class TestDesgloseDelRecordatorio:
 
     def test_sin_unidades_no_hay_mensajes(self):
         assert mensajes_de_recordatorio([]) == {}
+
+
+# ---------------------------------------------------------------------------
+# La puerta del cron (migración 88) tiene que pensar lo mismo que el backend.
+# `hay_avisos_por_reintentar` repite en SQL el tipo de aviso y el vencimiento
+# del reclamo; si se separan de las constantes de Python, la puerta se abre
+# por avisos que el backend no reintenta, o —peor— no se abre por los que sí.
+# Misma técnica que test_sync_por_meses con la migración 81: leer el SQL.
+# ---------------------------------------------------------------------------
+def _puerta_sql():
+    import re
+    sql = (Path(__file__).resolve().parents[2] / "database"
+           / "88_pagos_puntaje_y_reintentos_que_si_se_ven.sql").read_text()
+    i = sql.index("CREATE OR REPLACE FUNCTION public.hay_avisos_por_reintentar()")
+    return sql[i:sql.index("$function$;", i)], re
+
+
+def test_la_puerta_del_cron_usa_el_mismo_tipo_de_aviso():
+    from app.services.notification_deliveries import TIPO_RECORDATORIO_SAQUE
+    cuerpo, _ = _puerta_sql()
+    assert f"nd.tipo = '{TIPO_RECORDATORIO_SAQUE}'" in cuerpo
+
+
+def test_la_puerta_del_cron_usa_el_mismo_vencimiento_de_reclamo():
+    from app.services.notification_deliveries import MINUTOS_PARA_RECLAMO_VENCIDO
+    cuerpo, _ = _puerta_sql()
+    assert f"now() - interval '{MINUTOS_PARA_RECLAMO_VENCIDO} minutes'" in cuerpo
+
+
+def test_la_puerta_del_cron_se_cierra_con_las_predicciones():
+    """Un aviso que llega con las predicciones cerradas no sirve de nada: el
+    backend exige 15 minutos, la puerta también."""
+    cuerpo, _ = _puerta_sql()
+    assert "m.kickoff_at - interval '15 minutes' > now()" in cuerpo
