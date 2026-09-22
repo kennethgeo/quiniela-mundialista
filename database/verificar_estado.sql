@@ -470,3 +470,88 @@ ORDER BY j.jobname;
 SELECT x AS secreto_que_falta
 FROM unnest(ARRAY['cron_secret', 'backend_base_url']::text[]) x
 WHERE NOT EXISTS (SELECT 1 FROM vault.decrypted_secrets v WHERE v.name = x);
+
+\echo '=== 14. Columnas que SON la autorización o el pozo, escribibles por el cliente ==='
+-- LA FAMILIA ENTERA QUE DESTAPÓ LA AUDITORÍA DEL 22 SEP 2026, y que ninguna de
+-- las trece secciones anteriores podía ver: la sección 6 solo mira a `anon`, y
+-- la 9 solo mira `users`. El agujero estaba en `authenticated`, sobre tablas
+-- que sí tienen RLS y políticas de aspecto razonable.
+--
+-- El fallo no es «la política está mal», es que la política responde «¿la fila
+-- es tuya?» cuando la pregunta era «¿quién sos?». Con `es_admin` escribible,
+-- cualquiera se auto-nombraba co-admin de una quiniela ajena; con
+-- `points_earned` escribible, cualquiera se ponía 9999 puntos (comprobado:
+-- 43 → 10042); con `pago_confirmado_at` escribible, cualquiera se daba por
+-- pagado en un pozo de ₡170.000. Lo cerró la migración 85.
+--
+-- OJO CON POSTGRES al arreglar algo de acá: un REVOKE de COLUMNA **no resta**
+-- de un GRANT de TABLA. Hay que quitar el de tabla y volver a otorgar la lista
+-- exacta de columnas, o la comprobación pasa sin haber cambiado nada.
+--
+-- Y se exige que sea ALCANZABLE, no solo que el privilegio exista: `users`
+-- conserva un GRANT de INSERT sobre estas columnas que no sirve de nada
+-- porque la única política de INSERT de esa tabla es `TO service_role`.
+-- Una comprobación que avisa de lo normal se termina ignorando — es la misma
+-- lección que la sección 11.
+SELECT c.relname AS tabla, a.attname AS columna,
+       (has_column_privilege('authenticated', c.oid, a.attname, 'INSERT') AND pol.insert_ok) AS puede_insertar,
+       (has_column_privilege('authenticated', c.oid, a.attname, 'UPDATE') AND pol.update_ok) AS puede_actualizar
+FROM pg_class c
+JOIN pg_attribute a ON a.attrelid = c.oid
+CROSS JOIN LATERAL (
+  SELECT EXISTS (SELECT 1 FROM pg_policies pp
+                  WHERE pp.schemaname='public' AND pp.tablename=c.relname
+                    AND pp.cmd IN ('INSERT','ALL')
+                    AND (pp.roles && ARRAY['authenticated','public']::name[])) AS insert_ok,
+         EXISTS (SELECT 1 FROM pg_policies pp
+                  WHERE pp.schemaname='public' AND pp.tablename=c.relname
+                    AND pp.cmd IN ('UPDATE','ALL')
+                    AND (pp.roles && ARRAY['authenticated','public']::name[])) AS update_ok
+) pol
+WHERE c.relnamespace = 'public'::regnamespace
+  AND a.attnum > 0 AND NOT a.attisdropped
+  AND (c.relname, a.attname) IN (
+        ('league_members','es_admin'),              -- = es_admin_liga()
+        ('league_members','rules_accepted_at'),     -- = aceptaste el contrato
+        ('league_members','pago_confirmado_at'),    -- = constancia del pago
+        ('league_members','pago_confirmado_por'),
+        ('predictions','points_earned'),            -- = tu puesto en la Tabla
+        ('tournament_predictions','champion_points'),
+        ('tournament_predictions','top_scorer_points'),
+        ('tournament_predictions','top_assist_points'),
+        ('users','is_admin'), ('users','total_points'), ('users','points_adjustment'))
+  AND ((has_column_privilege('authenticated', c.oid, a.attname, 'INSERT') AND pol.insert_ok)
+    OR (has_column_privilege('authenticated', c.oid, a.attname, 'UPDATE') AND pol.update_ok))
+ORDER BY c.relname, a.attname;
+
+\echo '=== 15. ¿La fórmula del total global sigue escrita una sola vez? ==='
+-- El error crónico del proyecto. `user_total_calculado` (migración 62) cuenta
+-- cada partido UNA vez con tu mejor puntaje y cada torneo UNA vez para campeón,
+-- goleador y asistidor. Ha vuelto a duplicarse dos veces:
+--   · en la base, porque volver a correr la 61 pisa a la 62 (lo arregló la 86);
+--   · en el backend, en un endpoint muerto que sumaba sin el asistidor.
+-- Cuando el repo y la base se separan acá no salta ningún error: los números
+-- coinciden mientras nadie juegue dos quinielas del mismo torneo, y el día que
+-- alguien lo haga cada partido empieza a contar doble sin aviso.
+SELECT 'recompute_user_total no delega en user_total_calculado' AS problema
+WHERE pg_get_functiondef('public.recompute_user_total(uuid)'::regprocedure)
+      NOT LIKE '%user_total_calculado%';
+
+\echo '=== 16. ¿El que AUTORIZA el ×2 y el que COBRA el crédito miran lo mismo? ==='
+-- `check_powerup_limit` deja pasar una activación por encima del cupo cuando
+-- hay un crédito de arrastre; `consume_powerup_credit` es quien lo cobra. Si no
+-- usan la MISMA llave (`llave_cupo`, migración 73) y el MISMO cupo
+-- (`cupo_powerups`), se autoriza con un crédito que nadie descuenta y el
+-- crédito se reutiliza para siempre. Pasó hasta la 86: el que cobraba agrupaba
+-- por `matches.phase` crudo y leía `leagues.powerup_limit` pelado, así que en
+-- la postemporada de la liga tica —donde toda la eliminatoria llega con
+-- `phase='knockout'`— metía Semifinal, Final y Gran final en una sola bolsa.
+SELECT p.proname AS funcion,
+       (pg_get_functiondef(p.oid) LIKE '%llave_cupo%')   AS usa_la_llave,
+       (pg_get_functiondef(p.oid) LIKE '%cupo_powerups%') AS usa_el_cupo
+FROM pg_proc p
+WHERE p.pronamespace = 'public'::regnamespace
+  AND p.proname IN ('check_powerup_limit', 'consume_powerup_credit')
+  AND (pg_get_functiondef(p.oid) NOT LIKE '%llave_cupo%'
+    OR pg_get_functiondef(p.oid) NOT LIKE '%cupo_powerups%')
+ORDER BY p.proname;
