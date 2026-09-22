@@ -12,7 +12,7 @@ from datetime import datetime, timedelta, timezone
 
 import httpx
 
-from app.services.scoring import calculate_and_update_scores
+from app.services.scoring import calculate_and_update_scores, partidos_sin_puntuar
 
 ESPN_BASE = "https://site.api.espn.com/apis/site/v2/sports/soccer"
 
@@ -399,7 +399,17 @@ async def sync_espn_tournament(supabase, tournament, full=False) -> dict:
         supabase.table("matches").select("id, external_id").eq("tournament_id", tid).execute().data or []
     ) if m.get("external_id")}
 
+    # Los terminados de esta tanda cuyas predicciones siguen SIN puntuar. Sin
+    # esto, un puntaje que falla una vez no se reintenta jamás: la pasada
+    # siguiente ve el partido ya `finished` y sin cambios, y lo salta.
+    finalizados = [idmap[p["external_id"]] for p in parsed
+                   if p["status"] == "finished"
+                   and p["external_id"] not in frozen_ids
+                   and idmap.get(p["external_id"])]
+    pendientes = partidos_sin_puntuar(supabase, finalizados)
+
     scored = 0
+    fallos = []
     for p in parsed:
         if p["external_id"] in frozen_ids:
             continue  # no disputado (marcado a mano); no se re-puntúa desde ESPN
@@ -414,6 +424,8 @@ async def sync_espn_tournament(supabase, tournament, full=False) -> dict:
                 or old.get("status") != "finished"
                 or old.get("home_goals_actual") != p["home_goals"]
                 or old.get("away_goals_actual") != p["away_goals"]
+                # …o quedó a medio puntuar en una corrida anterior.
+                or mid in pendientes
             )
         elif st == "cancelled":
             # Transición a cancelado → anular puntos del partido (idempotente).
@@ -424,8 +436,12 @@ async def sync_espn_tournament(supabase, tournament, full=False) -> dict:
             try:
                 await calculate_and_update_scores(supabase, mid)
                 scored += 1
-            except Exception:  # noqa: BLE001
-                pass
+            except Exception as exc:  # noqa: BLE001
+                # NO se traga. Tragárselo fue lo que volvió invisible el fallo
+                # durante meses; ahora sale en la respuesta del sync y el
+                # partido se reintenta solo en la pasada siguiente, porque sus
+                # predicciones siguen sin puntuar.
+                fallos.append(f"match {mid}: {exc}")
 
     # Recalcular medallas de las quinielas de este torneo si hubo puntaje nuevo.
     if scored:
@@ -451,7 +467,8 @@ async def sync_espn_tournament(supabase, tournament, full=False) -> dict:
         except Exception:  # noqa: BLE001
             pass
 
-    return {"tournament_id": tid, "matches": len(rows), "scored": scored, "removed_old": removed}
+    return {"tournament_id": tid, "matches": len(rows), "scored": scored,
+            "removed_old": removed, "scoring_errors": fallos}
 
 
 async def sync_all_espn_tournaments(supabase) -> dict:

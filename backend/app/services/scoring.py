@@ -118,6 +118,39 @@ def evaluate_prediction(
     return points
 
 
+def partidos_sin_puntuar(supabase, match_ids) -> set:
+    """De los partidos dados, los que tienen alguna predicción SIN puntuar.
+
+    EL FALLO QUE ESTO ARREGLA: el puntaje no se reintentaba NUNCA. El sync solo
+    llamaba al motor cuando el partido TRANSICIONABA a `finished` —comparando
+    contra la foto tomada antes del upsert— y envolvía la llamada en un
+    `except Exception: pass`. O sea: el upsert escribe el partido como
+    terminado, el puntaje falla por lo que sea (un corte con Supabase a mitad
+    del bucle de UPDATE), el error se traga, y en la pasada siguiente el
+    partido YA figura terminado y sin cambios → `changed = False` → esas
+    predicciones se quedan en cero para siempre. Sin un solo error en ningún
+    log.
+
+    Medido el 22 sep 2026: 62 partidos terminados con predicciones, 0 sin
+    puntuar y 0 a medias. Nunca ha mordido. Pero es la misma familia que ya
+    está anotada dos veces en CLAUDE.md —«la alarma existía y miraba al lado»—:
+    el vigilante caza «el sync no escribió el resultado» y nadie cazaba «el
+    resultado está escrito y las predicciones siguen en cero».
+
+    Vive acá y no dentro del sync para poder probarlo sin red ni base, que es
+    el mismo motivo por el que `armar` vive aparte en `unafut_lineups`.
+    """
+    ids = [m for m in (match_ids or []) if m is not None]
+    if not ids:
+        return set()
+    filas = (supabase.table("predictions")
+             .select("match_id")
+             .in_("match_id", ids)
+             .is_("points_earned", "null")
+             .execute().data or [])
+    return {f["match_id"] for f in filas if f.get("match_id") is not None}
+
+
 async def calculate_and_update_scores(supabase, match_id: int) -> dict:
     """
     Obtiene el resultado del partido, evalúa todas las predicciones

@@ -90,6 +90,15 @@ Cada uno comprobado leyendo el código o la base, no supuesto. Los marcados con
 | B15 | **Errores de red se ven como datos vacíos**: «aún no tiene partidos», «sin miembros», estadísticas en cero | `GroupPage.jsx` varios | presentación |
 | B16 | **`create_group` acepta torneos terminados** y las reglas por defecto dicen «al iniciar cada partido» cuando el cierre real es 15 min antes | `36_group_rules.sql` · `lib/groups.js:22-30` | comportamiento |
 | B17 | **`/api/leagues` no tiene consumidores** y crea quinielas sin `tournament_id` que después no salen en el Hub | `main.py:36` · `routes/leagues.py` | código muerto |
+| B18 🔶 | ~~**Cualquiera se auto-inscribía en cualquier quiniela como CO-ADMIN**, con las reglas aceptadas y su pago «confirmado»~~ · **RESUELTO** (migración 85). Explotado y revertido: `es_admin_liga = true` | `league_members` | ✅ 🔴 |
+| B19 🔶 | ~~**Cada quien podía escribirse sus propios puntos**~~ (`43 → 10042` medido) · **RESUELTO** (migración 85) | `predictions.points_earned` | ✅ 🔴 |
+| B20 🔶 | ~~**Las globales las leía `anon`**: 21 filas, 2 ligas, 17 personas, sin cuenta~~ · **RESUELTO** (migración 85) | `tournament_predictions` | ✅ 🔴 |
+| B21 🔶 | ~~`recompute_user_total` corría la fórmula sin deduplicar (deriva: la 61 pisa a la 62)~~ · **RESUELTO** (migración 86). Desviación hoy: **0** | `recompute_user_total` | ✅ |
+| B22 🔶 | ~~El crédito de ×2 se autorizaba con una bolsa y se cobraba con otra, y no se devolvía al apagarlo~~ · **RESUELTO** (migración 86) | `consume_powerup_credit` | ✅ |
+| B23 | ~~Un puntaje que falla una vez no se reintenta nunca (`except: pass` + `changed=False`)~~ · **RESUELTO**. Medido: 0 partidos afectados hasta hoy | `espn_tournament_sync.py` | ✅ |
+| B24 | ~~Tercera copia de la fórmula del total global, **sin el asistidor**, con botón que escribe~~ · **RESUELTO**: endpoint muerto borrado | `matches.py` (reconcile-totals) | ✅ |
+| B25 | **Un DELETE directo saltaba el candado de pagos de la 84** · **RESUELTO** de paso por la 85. Lección: al proteger algo dentro de una RPC, mirar si la tabla se toca sin pasar por ella | `league_members` | ✅ |
+| B26 | `users` conserva un GRANT de INSERT sobre `is_admin`/`total_points`/`points_adjustment` que **hoy no es alcanzable** (su única política de INSERT es `TO service_role`). Privilegio muerto que se vuelve agujero si alguien agrega una política | `users` | latente |
 | B9 | ~~No existe ninguna salida voluntaria~~ · **RESUELTO** (migración 83, 21 sep 2026): `salir_de_quiniela` + aviso con números. B1 se resuelve de paso: «No acepto · salir» ahora sale de verdad | `83_salida_voluntaria.sql` | ✅ |
 
 ## 3. La arquitectura
