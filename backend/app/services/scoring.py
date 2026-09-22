@@ -14,8 +14,11 @@ Modalidad Solo_Ganador:
 
 Modificador: comodín x2 → duplica los puntos ganados (1→2, 3→6).
 
-Esta lógica es idéntica a la del frontend (lib/scoring.js).
+Es el ÚNICO motor de puntaje: la copia en JS (lib/scoring.js) se borró el
+21 sep 2026. Los casos que lo fijan están en shared/scoring_cases.json.
 """
+
+import logging
 
 from app.services.notifications import broadcast_push_to_users
 
@@ -118,37 +121,78 @@ def evaluate_prediction(
     return points
 
 
+_log = logging.getLogger(__name__)
+
+
+def firma_resultado(match: dict) -> str:
+    """El resultado que se puntuó, en una cadena comparable.
+
+    Goles, si se fue a penales y quién pasó: todo lo que el motor usa para
+    decidir cuántos puntos da. Si cualquiera de las tres cosas cambia —una
+    corrección del admin, el ganador de penales que llega después—, la firma
+    guardada deja de coincidir y el partido se vuelve a puntuar.
+    """
+    return "{h}-{a}|{p}|{w}".format(
+        h=match.get("home_goals_actual"),
+        a=match.get("away_goals_actual"),
+        p=1 if match.get("goes_to_penalties") else 0,
+        w=match.get("penalties_winner_real") or "",
+    )
+
+
 def partidos_sin_puntuar(supabase, match_ids) -> set:
-    """De los partidos dados, los que tienen alguna predicción SIN puntuar.
+    """De los partidos TERMINADOS dados, los que el motor no terminó de puntuar.
 
     EL FALLO QUE ESTO ARREGLA: el puntaje no se reintentaba NUNCA. El sync solo
-    llamaba al motor cuando el partido TRANSICIONABA a `finished` —comparando
-    contra la foto tomada antes del upsert— y envolvía la llamada en un
-    `except Exception: pass`. O sea: el upsert escribe el partido como
-    terminado, el puntaje falla por lo que sea (un corte con Supabase a mitad
-    del bucle de UPDATE), el error se traga, y en la pasada siguiente el
-    partido YA figura terminado y sin cambios → `changed = False` → esas
-    predicciones se quedan en cero para siempre. Sin un solo error en ningún
-    log.
+    llamaba al motor cuando el partido TRANSICIONABA a `finished`, y envolvía
+    la llamada en un `except Exception: pass`. Si fallaba a mitad, la pasada
+    siguiente veía el partido ya terminado y sin cambios → `changed = False` →
+    esas predicciones se quedaban sin sus puntos para siempre, sin un error en
+    ningún log.
 
-    Medido el 22 sep 2026: 62 partidos terminados con predicciones, 0 sin
-    puntuar y 0 a medias. Nunca ha mordido. Pero es la misma familia que ya
-    está anotada dos veces en CLAUDE.md —«la alarma existía y miraba al lado»—:
-    el vigilante caza «el sync no escribió el resultado» y nadie cazaba «el
-    resultado está escrito y las predicciones siguen en cero».
+    LA PRIMERA VERSIÓN DE ESTE ARREGLO NO PODÍA DISPARARSE NUNCA. Buscaba
+    `points_earned IS NULL`, pero la columna nace en 0: medido el 22 sep 2026,
+    **0 NULL en toda la tabla** y las 249 predicciones de partidos por jugar en
+    0. Un puntaje que falla deja ceros que no se distinguen de un cero legítimo.
+    Sus pruebas pasaban porque los datos de prueba usaban `None`, que la base
+    real no produce — lo cazó la segunda auditoría de Astra.
 
-    Vive acá y no dentro del sync para poder probarlo sin red ni base, que es
-    el mismo motivo por el que `armar` vive aparte en `unafut_lineups`.
+    Ahora se compara la FIRMA del resultado que se puntuó (`matches.puntuado_con`,
+    migración 88) contra el resultado actual. Así el cero sigue siendo un
+    puntaje válido y la marca queda atada al resultado.
+
+    Si la columna no existe todavía (código desplegado antes que la migración)
+    no revienta: devuelve vacío y lo dice en el log. La regla del proyecto:
+    o sale la migración primero, o el código aguanta sin ella.
     """
     ids = [m for m in (match_ids or []) if m is not None]
     if not ids:
         return set()
-    filas = (supabase.table("predictions")
-             .select("match_id")
-             .in_("match_id", ids)
-             .is_("points_earned", "null")
-             .execute().data or [])
-    return {f["match_id"] for f in filas if f.get("match_id") is not None}
+    try:
+        filas = (supabase.table("matches")
+                 .select("id, status, home_goals_actual, away_goals_actual, "
+                         "goes_to_penalties, penalties_winner_real, puntuado_con")
+                 .in_("id", ids)
+                 .execute().data or [])
+    except Exception:  # noqa: BLE001
+        _log.exception("No se pudo leer puntuado_con: sin reintento de puntaje en esta pasada")
+        return set()
+    return {f["id"] for f in filas
+            if f.get("status") == "finished"
+            and f.get("puntuado_con") != firma_resultado(f)}
+
+
+def _marcar_puntuado(supabase, match: dict) -> None:
+    """Se escribe AL FINAL, cuando ya se guardaron todos los puntos: si el motor
+    se cae a mitad, la firma queda vieja y la pasada siguiente lo reintenta."""
+    try:
+        (supabase.table("matches")
+         .update({"puntuado_con": firma_resultado(match)})
+         .eq("id", match["id"]).execute())
+    except Exception:  # noqa: BLE001
+        # Sin la marca el partido se reintenta en la próxima pasada; el motor
+        # es idempotente, así que lo peor es trabajo repetido, no puntos dobles.
+        _log.exception("No se pudo marcar el partido %s como puntuado", match.get("id"))
 
 
 async def calculate_and_update_scores(supabase, match_id: int) -> dict:
@@ -201,6 +245,7 @@ async def calculate_and_update_scores(supabase, match_id: int) -> dict:
     predictions = predictions_response.data
 
     if not predictions:
+        _marcar_puntuado(supabase, match)
         return {"status": "ok", "message": "No hay predicciones para este partido"}
 
     # 2b. Config de puntaje por quiniela (cada predicción pertenece a un league).
@@ -244,6 +289,10 @@ async def calculate_and_update_scores(supabase, match_id: int) -> dict:
         supabase.table("predictions").update(
             {"points_earned": u["points_earned"]}
         ).eq("id", u["id"]).execute()
+
+    # 4b. Recién ahora, con todos los puntos escritos, se deja constancia de
+    #     qué resultado se puntuó. Si algo de arriba reventó, no se llega acá.
+    _marcar_puntuado(supabase, match)
 
     # 5. users.total_points lo mantiene SOLA la base de datos (trigger
     #    recompute_user_total). Ya no lo tocamos aquí con deltas: ese patrón
