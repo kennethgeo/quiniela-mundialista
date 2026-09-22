@@ -519,7 +519,10 @@ WHERE c.relnamespace = 'public'::regnamespace
         ('tournament_predictions','champion_points'),
         ('tournament_predictions','top_scorer_points'),
         ('tournament_predictions','top_assist_points'),
-        ('users','is_admin'), ('users','total_points'), ('users','points_adjustment'))
+        ('users','is_admin'), ('users','total_points'), ('users','points_adjustment'),
+        -- la 89: el puntaje, la cuota y el dueño de una quiniela solo por RPC
+        ('leagues','points_exact'), ('leagues','powerup_limits'), ('leagues','cuota'),
+        ('leagues','admin_id'), ('leagues','tournament_id'))
   AND ((has_column_privilege('authenticated', c.oid, a.attname, 'INSERT') AND pol.insert_ok)
     OR (has_column_privilege('authenticated', c.oid, a.attname, 'UPDATE') AND pol.update_ok))
 ORDER BY c.relname, a.attname;

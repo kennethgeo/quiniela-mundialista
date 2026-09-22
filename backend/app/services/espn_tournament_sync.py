@@ -287,6 +287,39 @@ async def _season_window(client, league, now):
         return None
 
 
+def congelados_terminados(snap: dict, frozen_ids: set) -> list:
+    """Los partidos que el admin CONGELÓ (score_locked) y ya terminaron.
+
+    Congelado significa «ESPN no los pisa», no «no se puntúan». Son justo los
+    que el admin corrigió a mano: el panel escribe el resultado y DESPUÉS pide
+    el re-puntaje en otra petición. Si esa segunda falla, sin esto nadie los
+    volvía a mirar, porque el sync salta los congelados. Medido el 22 sep 2026:
+    2 partidos terminados y congelados en la liga tica.
+    """
+    return [m["id"] for eid, m in snap.items()
+            if eid in frozen_ids and m.get("status") == "finished" and m.get("id")]
+
+
+def partidos_sin_predicciones(supabase, match_ids) -> list:
+    """De los partidos dados, los que NO tienen ni una predicción.
+
+    Se pregunta partido por partido CONTANDO, y es a propósito: pedir de una
+    vez «todas las predicciones de estos partidos» choca con el tope de 1.000
+    filas de PostgREST. Una temporada de la liga tica son ~90 partidos × 17
+    personas ≈ 1.500 predicciones: la lista vendría cortada y un partido CON
+    predicciones parecería vacío. Como `predictions` cae en CASCADA al borrar
+    un partido, ese error borraría justo lo que esta función existe para
+    proteger.
+    """
+    vacios = []
+    for mid in match_ids or []:
+        r = (supabase.table("predictions").select("id", count="exact")
+             .eq("match_id", mid).limit(1).execute())
+        if (r.count or 0) == 0:
+            vacios.append(mid)
+    return vacios
+
+
 async def sync_espn_tournament(supabase, tournament, full=False) -> dict:
     """Sincroniza un torneo ESPN (fixtures + resultados).
 
@@ -406,7 +439,8 @@ async def sync_espn_tournament(supabase, tournament, full=False) -> dict:
                    if p["status"] == "finished"
                    and p["external_id"] not in frozen_ids
                    and idmap.get(p["external_id"])]
-    pendientes = partidos_sin_puntuar(supabase, finalizados)
+    congelados = congelados_terminados(snap, frozen_ids)
+    pendientes = partidos_sin_puntuar(supabase, finalizados + congelados)
 
     scored = 0
     fallos = []
@@ -443,6 +477,15 @@ async def sync_espn_tournament(supabase, tournament, full=False) -> dict:
                 # predicciones siguen sin puntuar.
                 fallos.append(f"match {mid}: {exc}")
 
+    # Los congelados no pasan por el bucle de arriba (ESPN no los pisa), pero si
+    # su puntaje quedó a medias se completa acá, con el mismo motor.
+    for mid in sorted(set(congelados) & pendientes):
+        try:
+            await calculate_and_update_scores(supabase, mid)
+            scored += 1
+        except Exception as exc:  # noqa: BLE001
+            fallos.append(f"match {mid}: {exc}")
+
     # Recalcular medallas de las quinielas de este torneo si hubo puntaje nuevo.
     if scored:
         for lg in (supabase.table("leagues").select("id").eq("tournament_id", tid).execute().data or []):
@@ -453,22 +496,33 @@ async def sync_espn_tournament(supabase, tournament, full=False) -> dict:
 
     # Limpieza: si acotamos a la temporada actual, quitar los partidos de
     # temporadas anteriores que hubieran quedado cargados (p. ej. la Clausura pasada).
-    removed = 0
+    #
+    # SOLO LOS QUE NADIE PREDIJO (B11). Antes borraba TODO lo anterior a
+    # `season_start` y además las predicciones a mano. La liga tica corre
+    # temporada tras temporada sobre el MISMO `tournament_id`: el día que ESPN
+    # cambie de temporada (medido: la actual va de julio 2026 a julio 2027),
+    # pulsar «Sync partidos» habría borrado la temporada entera con todas sus
+    # predicciones — el historial, las medallas y los puntos de una quiniela
+    # por plata. Un partido con predicciones es historia, no basura. Hoy borraría
+    # 0 (comprobado); esto es para julio de 2027.
+    removed, kept = 0, 0
+    limpieza_error = None
     if full and season_start is not None:
         try:
             cutoff = season_start.isoformat()
             old = (supabase.table("matches").select("id")
                    .eq("tournament_id", tid).lt("kickoff_at", cutoff).execute().data or [])
             old_ids = [m["id"] for m in old]
-            if old_ids:
-                supabase.table("predictions").delete().in_("match_id", old_ids).execute()
-                supabase.table("matches").delete().in_("id", old_ids).execute()
-                removed = len(old_ids)
-        except Exception:  # noqa: BLE001
-            pass
+            borrables = partidos_sin_predicciones(supabase, old_ids)
+            if borrables:
+                supabase.table("matches").delete().in_("id", borrables).execute()
+            removed, kept = len(borrables), len(old_ids) - len(borrables)
+        except Exception as exc:  # noqa: BLE001
+            limpieza_error = str(exc)
 
     return {"tournament_id": tid, "matches": len(rows), "scored": scored,
-            "removed_old": removed, "scoring_errors": fallos}
+            "removed_old": removed, "kept_old_with_predictions": kept,
+            "cleanup_error": limpieza_error, "scoring_errors": fallos}
 
 
 async def sync_all_espn_tournaments(supabase) -> dict:
