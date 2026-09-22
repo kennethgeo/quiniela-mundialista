@@ -79,11 +79,11 @@ Cada uno comprobado leyendo el código o la base, no supuesto. Los marcados con
 | B3 🔶 | **El admin global puede mandar el push de una quiniela ajena** | `matches.py` (acepta `es_admin_global`) | autorización |
 | B4 🔶 | **`PanelAdminQuiniela` afirma «Solo lo ven los administradores de esta quiniela»** y es falso | `PanelAdminQuiniela.jsx:85-88` | texto falso |
 | B5 🔶 | **El pozo desaparece** para un miembro si no hay cuota configurada, en vez de decirlo | `PozoYPagos.jsx:74-76` | presentación |
-| B6 🔶 | **`expulsar_miembro` no borra los votos** y la mayoría usa el conteo actual de miembros | `59_admins_por_quiniela.sql:90` · `_tally_rule_proposal` | comportamiento |
+| B6 🔶 | ~~**`expulsar_miembro` no borra los votos** y la mayoría usaba el conteo actual de miembros~~ · **RESUELTO** (migración 89): padrón fijo al abrir la votación, un solo conteo (`_conteo_votacion`) y bloqueo de la fila. Los votos de quien se va siguen contando, por decisión del dueño | votaciones | ✅ |
 | B7 🔶 | **`MiembrosYAdmins` e `HistorialAjustes` fallan en silencio**: un error se ve como «0 miembros» o como una tarjeta ausente | los dos componentes | presentación |
 | B8 🔶 | **El push manual no tiene deduplicación**: se puede repetir tantas veces como se pulse | `matches.py` (notify-daily-league) | comportamiento |
 | B10 | **Salir o ser expulsado BORRA el historial de pagos** (viven en `league_members`) · mitigado en la 84 para la salida voluntaria; el arreglo de fondo —separar el pago de la membresía— sigue pendiente, y la EXPULSIÓN sigue borrándolo | `58_pozo_y_pagos.sql:31` | ⚠️ parcial |
-| B11 | **Una temporada nueva sobre el mismo `tournament_id` borra partidos Y predicciones de la anterior** (`.lt(kickoff_at, season_start)`). Solo lo dispara el botón «Sync partidos» del panel, no el cron. En juego: 755 predicciones | `espn_tournament_sync.py:444-449` | 🔴 crítico |
+| B11 | ~~**«Sync partidos» borraba partidos Y predicciones de temporadas anteriores**~~ · **RESUELTO**: solo borra los partidos que nadie predijo, contados partido por partido (el tope de 1.000 filas de PostgREST haría fallar una consulta única). Medido: hoy no habría borrado nada; mordía en julio de 2027 | `espn_tournament_sync.py` | ✅ |
 | B12 | **La efectividad del Resumen usa TODAS las predicciones como denominador** y los aciertos solo de partidos terminados. Le da distinto a **19 de 24** | `GroupPage.jsx:1426-1432` | comportamiento |
 | B13 | **El realtime refresca `['matches']`, que no consulta nadie**; `GroupPage` usa `['tournament_matches', tid]` | `useRealtime.js:16,27` | comportamiento |
 | B14 | **Sin control de concurrencia**: dos admins con la config vieja abierta se pisan en silencio (los formularios mandan el objeto entero) | `leagues` sin `version` | comportamiento |
@@ -105,6 +105,9 @@ Cada uno comprobado leyendo el código o la base, no supuesto. Los marcados con
 | B30 🔶 | ~~El reintento de puntaje de la 86 buscaba NULL y la columna nace en 0: no-op~~ · **RESUELTO** con la firma del resultado (migración 88) | `scoring.py` | ✅ |
 | B31 🔶 | ~~La puerta del cron no llamaba al backend para reintentar avisos~~ · **RESUELTO** (migración 88) | `cron_recordatorio_saque` | ✅ |
 | B32 🔶 | ~~La 82 del repo no se podía ejecutar~~ · **RESUELTO** (solo el archivo; producción estaba bien) | `82_deduplicar_recordatorios.sql` | ✅ |
+| B33 | ~~**Borrar la quiniela borraba la constancia de los 13 pagos**~~ · **RESUELTO** (migración 89): `delete_group` se niega con pagos confirmados | `delete_group` | ✅ 🔴 |
+| B34 | ~~`leagues` escribible por el creador, cerrada solo de rebote por un CHECK~~ · **RESUELTO** (migración 89) | `leagues` | ✅ |
+| B35 | ~~La firma de puntaje no cubría los partidos congelados~~ · **RESUELTO** | `espn_tournament_sync.py` | ✅ |
 | B9 | ~~No existe ninguna salida voluntaria~~ · **RESUELTO** (migración 83, 21 sep 2026): `salir_de_quiniela` + aviso con números. B1 se resuelve de paso: «No acepto · salir» ahora sale de verdad | `83_salida_voluntaria.sql` | ✅ |
 
 ## 3. La arquitectura
