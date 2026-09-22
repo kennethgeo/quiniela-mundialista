@@ -82,6 +82,14 @@ Cada uno comprobado leyendo el código o la base, no supuesto. Los marcados con
 | B6 🔶 | **`expulsar_miembro` no borra los votos** y la mayoría usa el conteo actual de miembros | `59_admins_por_quiniela.sql:90` · `_tally_rule_proposal` | comportamiento |
 | B7 🔶 | **`MiembrosYAdmins` e `HistorialAjustes` fallan en silencio**: un error se ve como «0 miembros» o como una tarjeta ausente | los dos componentes | presentación |
 | B8 🔶 | **El push manual no tiene deduplicación**: se puede repetir tantas veces como se pulse | `matches.py` (notify-daily-league) | comportamiento |
+| B10 | **Salir o ser expulsado BORRA el historial de pagos** (viven en `league_members`) · mitigado en la 84 para la salida voluntaria; el arreglo de fondo —separar el pago de la membresía— sigue pendiente, y la EXPULSIÓN sigue borrándolo | `58_pozo_y_pagos.sql:31` | ⚠️ parcial |
+| B11 | **Una temporada nueva sobre el mismo `tournament_id` borra partidos Y predicciones de la anterior** (`.lt(kickoff_at, season_start)`). Solo lo dispara el botón «Sync partidos» del panel, no el cron. En juego: 755 predicciones | `espn_tournament_sync.py:444-449` | 🔴 crítico |
+| B12 | **La efectividad del Resumen usa TODAS las predicciones como denominador** y los aciertos solo de partidos terminados. Le da distinto a **19 de 24** | `GroupPage.jsx:1426-1432` | comportamiento |
+| B13 | **El realtime refresca `['matches']`, que no consulta nadie**; `GroupPage` usa `['tournament_matches', tid]` | `useRealtime.js:16,27` | comportamiento |
+| B14 | **Sin control de concurrencia**: dos admins con la config vieja abierta se pisan en silencio (los formularios mandan el objeto entero) | `leagues` sin `version` | comportamiento |
+| B15 | **Errores de red se ven como datos vacíos**: «aún no tiene partidos», «sin miembros», estadísticas en cero | `GroupPage.jsx` varios | presentación |
+| B16 | **`create_group` acepta torneos terminados** y las reglas por defecto dicen «al iniciar cada partido» cuando el cierre real es 15 min antes | `36_group_rules.sql` · `lib/groups.js:22-30` | comportamiento |
+| B17 | **`/api/leagues` no tiene consumidores** y crea quinielas sin `tournament_id` que después no salen en el Hub | `main.py:36` · `routes/leagues.py` | código muerto |
 | B9 | ~~No existe ninguna salida voluntaria~~ · **RESUELTO** (migración 83, 21 sep 2026): `salir_de_quiniela` + aviso con números. B1 se resuelve de paso: «No acepto · salir» ahora sale de verdad | `83_salida_voluntaria.sql` | ✅ |
 
 ## 3. La arquitectura

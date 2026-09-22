@@ -57,6 +57,10 @@ async function abrir (page, { g = grupo(), tab = 'rules', salida } = {}) {
   const llamadas = []
   await page.route('**/rest/v1/rpc/salir_de_quiniela*', async (r) => {
     llamadas.push(JSON.parse(r.request().postData() || '{}'))
+    if (salida === 'pago') {
+      return r.fulfill({ status: 400, contentType: 'application/json',
+        body: JSON.stringify({ message: 'Tenés un pago confirmado en esta quiniela: si salís se borraría ese registro. Hablá con un administrador antes de salir.' }) })
+    }
     if (salida === 'error') {
       return r.fulfill({ status: 400, contentType: 'application/json',
         body: JSON.stringify({ message: 'Creaste esta quiniela, así que no podés salirte' }) })
@@ -130,6 +134,44 @@ test.describe('sale de verdad', () => {
     await page.getByRole('textbox').fill('SALIR')
     await page.getByRole('button', { name: 'Salir de la quiniela' }).click()
     await expect(page.getByRole('alert')).toBeVisible()
+    await expect(modal(page)).toBeVisible()
+  })
+})
+
+/* EL PAGO NO SE PUEDE BORRAR SOLO (migración 84).
+
+   El control de pagos son COLUMNAS de `league_members` (migración 58), así que
+   borrar la membresía borra la constancia de que alguien pagó. Eso ya pasaba al
+   expulsar —acción de admin, poco frecuente— pero la 83 lo volvió autoservicio:
+   cualquiera podía borrar su propio comprobante con un botón. Medido: 13 pagos
+   confirmados en una quiniela de ₡10.000 por cabeza. */
+test.describe('un pago confirmado no se borra saliendo', () => {
+  test('se avisa ANTES de intentarlo', async ({ page }) => {
+    await abrir(page)
+    await page.getByRole('button', { name: 'Quiero salir' }).click()
+    await expect(modal(page).getByText(/pago confirmado/i)).toBeVisible()
+    await expect(modal(page).getByText(/sin constancia que pagaste/i)).toBeVisible()
+  })
+
+  test('y si igual se intenta, la base lo niega y se DICE', async ({ page }) => {
+    /* El motivo tiene que llegar entero a la pantalla: «no se pudo» a secas
+       dejaría a la persona sin saber qué hacer, y lo que hay que hacer es
+       hablar con un admin. */
+    await abrir(page, { salida: 'pago' })
+    await page.getByRole('button', { name: 'Quiero salir' }).click()
+    await page.getByRole('textbox').fill('SALIR')
+    await page.getByRole('button', { name: 'Salir de la quiniela' }).click()
+    await expect(page.getByRole('alert')).toContainText(/pago confirmado/i)
+    await expect(page.getByRole('alert')).toContainText(/administrador/i)
+
+    /* Y SIGUE DENTRO: no se finge que salió.
+       Se afirma sobre la URL y no sobre el diálogo. `toBeVisible()` acierta en
+       un fotograma intermedio —el error se pinta y la navegación ocurre
+       después— así que pasaba igual con el cierre puesto a la fuerza.
+       Comprobado. Es la misma trampa que ya está anotada para el contraste del
+       foco: medir antes de que las cosas se asienten no prueba nada. */
+    await page.waitForTimeout(500)
+    await expect(page).toHaveURL(new RegExp(`/q/${LIGA}`))
     await expect(modal(page)).toBeVisible()
   })
 })

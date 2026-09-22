@@ -81,6 +81,8 @@ export default function SalirDeQuiniela ({ group, prediccionesPropias = 0, onSal
 
           <p className="text-[11.5px] text-[var(--text-muted,#8A8A8A)] mb-3">
             Tus votos en propuestas ya emitidas se conservan: eran parte de una votación en curso.
+            {' '}Y si tenés un <strong>pago confirmado</strong>, no vas a poder salir por tu cuenta:
+            ese registro vive en tu membresía y borrarlo dejaría sin constancia que pagaste.
           </p>
 
           <label className="block text-[11.5px] font-semibold text-slate-700 dark:text-slate-300 mb-1.5">

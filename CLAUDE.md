@@ -169,6 +169,18 @@ Son **dos números distintos a propósito** y confundirlos es el error fácil:
 - Se pide **escribir SALIR**: un segundo botón se pulsa por inercia, escribir una palabra no.
 - El aviso lleva `role="dialog"` y no es decorativo: sin él un lector de pantalla lo anuncia como texto suelto, y además la prueba no puede distinguir ese texto del de la tarjeta que lo abrió — repiten frases a propósito.
 
+### Salir no puede borrar un pago (migración `database/84_salir_no_borra_pagos.sql`)
+- **La 83 abrió esto y se vio al día siguiente.** El control de pagos son COLUMNAS de `league_members` (`pago_avisado_at`, `pago_confirmado_at`, y quién confirmó — migración 58), así que borrar la membresía borra la constancia del pago. Ya pasaba al **expulsar**, pero era acción de admin y rara; la salida voluntaria lo volvió **autoservicio**. Medido el 22 sep 2026: **13 pagos confirmados** en una quiniela con cuota de ₡10.000.
+- En una quiniela por plata, que desaparezca la constancia de un pago es el peor dato que se puede perder: deja la palabra de uno contra la del otro.
+- **Se bloquea por `pago_confirmado_at`, NO por `pago_avisado_at`**, y la diferencia importa: confirmado es que un admin dio fe de que la plata se movió; avisado es que la persona lo dice y nadie lo comprobó. Además `avisar_pago` es autoservicio, así que bloquear por el aviso dejaría que **cualquiera se encierre solo** sin poder salir nunca. El bloque final de la migración comprueba las dos mitades: que mire el confirmado **y que NO mire el aviso**.
+- **La expulsión se deja como está**, a propósito: impedir que un admin expulse a quien pagó lo dejaría sin salida para un caso real (pagó y después se portó mal). Ese camino espera al registro histórico.
+- **Esto NO es el arreglo de fondo.** El de fondo es separar el historial de pagos de la membresía activa; está en `PLAN_ADMIN_Y_MEJORAS.md`. Esto cierra hoy una puerta que se abrió ayer sin inventar una contabilidad nueva.
+
+### Medir antes de que las cosas se asienten, otra vez
+- La prueba de «si la base lo niega, sigue dentro» afirmaba `expect(modal).toBeVisible()`. **Pasaba igual con el cierre forzado**: el error se pinta y la navegación ocurre DESPUÉS, así que `toBeVisible()` acertaba en un fotograma intermedio.
+- Se arregla afirmando sobre algo **que se asienta**: la URL sigue siendo la de la quiniela. Comprobado que cae con la mutación y pasa sin ella.
+- Es la misma trampa del contraste del foco —leer un valor en mitad de una transición— aplicada a la navegación. **Y volvió a destaparla la mutación, no la lectura**: la primera vez que la probé el `sed` no coincidió y el «no cae» no significaba nada.
+
 ### Una prueba que no podía fallar, otra vez
 - `al creador no se le ofrece salir` hacía `toHaveCount(0)` **justo después de `goto`**, sin esperar a que la pestaña existiera. Se evaluaba sobre una página vacía y pasaba **siempre**: con el guard `!soyCreador` quitado a propósito, seguía en verde.
 - Lo cazó la mutación, no la lectura. **Y la primera mutación tampoco valía**: el `sed` que la aplicaba no coincidía con el texto y no cambiaba nada, así que «la prueba no cae» significaba «no probaste nada». **Comprobar que la mutación SE APLICÓ es parte de la mutación.**
