@@ -128,7 +128,9 @@ FROM unnest(ARRAY[
   'hay_avisos_por_reintentar',
   '_conteo_votacion',
   'identidad_de_prediccion_fija',
-  'aplicar_puntaje'
+  'aplicar_puntaje',
+  'hay_puntajes_pendientes',
+  'resultado_cambiado_invalida_firma'
 ]::text[]) x
 WHERE NOT EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
                   WHERE n.nspname = 'public' AND p.proname = x);
@@ -228,7 +230,9 @@ WHERE n.nspname = 'public'
   'hay_avisos_por_reintentar',
   '_conteo_votacion',
   'identidad_de_prediccion_fija',
-  'aplicar_puntaje'
+  'aplicar_puntaje',
+  'hay_puntajes_pendientes',
+  'resultado_cambiado_invalida_firma'
 ]::text[])
 ORDER BY p.proname;
 

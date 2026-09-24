@@ -185,6 +185,67 @@ def partidos_sin_puntuar(supabase, match_ids) -> set:
             and f.get("puntuado_con") != firma_resultado(f)}
 
 
+PAGINA_PREDICCIONES = 1000
+
+
+def _todas_las_predicciones(supabase, match_id: int) -> list:
+    filas, desde = [], 0
+    while True:
+        pagina = (supabase.table("predictions").select("*")
+                  .eq("match_id", match_id).order("id")
+                  .range(desde, desde + PAGINA_PREDICCIONES - 1)
+                  .execute().data or [])
+        filas.extend(pagina)
+        if len(pagina) < PAGINA_PREDICCIONES:
+            return filas
+        desde += PAGINA_PREDICCIONES
+
+
+# Los mismos 3 días que `DIAS_HACIA_ATRAS` del sync y que
+# `hay_puntajes_pendientes()` (migración 91). Más atrás es trabajo del admin.
+DIAS_DE_RECUPERACION = 3
+
+
+async def puntuar_pendientes(supabase, ahora=None) -> dict:
+    """Puntúa los partidos terminados que esperan puntaje, mirando la BASE.
+
+    EL FALLO QUE ESTO ARREGLA (quinta auditoría, hallazgo 1): el reintento por
+    firma vivía dentro del sync de ESPN, y a ese sync solo se llegaba si ESPN
+    devolvía eventos y si alguna puerta del cron se abría. Un partido YA
+    terminado cuyo puntaje falló no abría ninguna: si era el último en curso,
+    nadie volvía a llamar. Medido: desde el 21 de septiembre ningún partido
+    recibió firma porque nada volvió a llamar al sync.
+
+    Esto no depende de lo que diga la fuente: pregunta a nuestra base qué
+    partidos terminados de torneos con quiniela, de los últimos 3 días, no
+    tienen la firma de su resultado actual. Incluye los congelados. La puerta
+    del cron (`hay_puntajes_pendientes`) mira lo mismo del lado de la base.
+    """
+    from datetime import datetime, timedelta, timezone
+    ahora = ahora or datetime.now(timezone.utc)
+    torneos = {r["tournament_id"] for r in (
+        supabase.table("leagues").select("tournament_id").execute().data or [])
+        if r.get("tournament_id") is not None}
+    if not torneos:
+        return {"pendientes": 0, "puntuados": [], "errores": []}
+    candidatos = (supabase.table("matches").select("id")
+                  .eq("status", "finished")
+                  .in_("tournament_id", sorted(torneos))
+                  .gte("kickoff_at", (ahora - timedelta(days=DIAS_DE_RECUPERACION)).isoformat())
+                  .lte("kickoff_at", ahora.isoformat())
+                  .execute().data or [])
+    pendientes = sorted(partidos_sin_puntuar(supabase, [c["id"] for c in candidatos]))
+    puntuados, errores = [], []
+    for mid in pendientes:
+        try:
+            r = await calculate_and_update_scores(supabase, mid)
+            puntuados.append({"match_id": mid, "status": r.get("status")})
+        except Exception as exc:  # noqa: BLE001 - un partido no tapa a los demás
+            _log.exception("Falló el puntaje pendiente del partido %s", mid)
+            errores.append({"match_id": mid, "error": f"{type(exc).__name__}: {exc}"})
+    return {"pendientes": len(pendientes), "puntuados": puntuados, "errores": errores}
+
+
 def _aplicar_puntaje(supabase, match: dict, puntos: list) -> str:
     # `match` tiene que ser la foto con la que se CALCULARON los puntos: la base
     # compara ese resultado con el vigente. Releer el partido acá anularía todo
@@ -260,11 +321,9 @@ async def calculate_and_update_scores(supabase, match_id: int) -> dict:
     if home_actual is None or away_actual is None:
         return {"status": "error", "message": "El partido no tiene resultado válido"}
 
-    # 2. Obtener todas las predicciones para este partido
-    predictions_response = (
-        supabase.table("predictions").select("*").eq("match_id", match_id).execute()
-    )
-    predictions = predictions_response.data
+    # 2. Obtener TODAS las predicciones para este partido, paginando: PostgREST
+    #    corta en 1.000 filas y la base ahora rechaza un lote incompleto.
+    predictions = _todas_las_predicciones(supabase, match_id)
 
     if not predictions:
         # Se firma igual (por la misma vía atómica): si no, se reintentaría
@@ -307,6 +366,10 @@ async def calculate_and_update_scores(supabase, match_id: int) -> dict:
     # 4. Puntos y firma en UNA transacción, y solo si el resultado sigue siendo
     #    el que se usó para calcular (migración 90).
     resultado = _aplicar_puntaje(supabase, match, puntos)
+    if resultado != "desactualizado" and not str(resultado).startswith("ok:"):
+        # `incompleto` o `sin-partido`: no se escribió nada. Se lanza para que
+        # quien llamó lo registre; sin firma, la pasada siguiente lo reintenta.
+        raise RuntimeError(f"aplicar_puntaje({match_id}) respondió {resultado!r}")
     if resultado == "desactualizado":
         # El resultado cambió mientras se calculaba: no se escribió nada, y la
         # pasada siguiente lo recalcula con el nuevo. Tampoco se avisa a nadie.
