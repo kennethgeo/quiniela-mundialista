@@ -52,6 +52,10 @@ class _Q:
             return _R(self.base.pagos)
         if self.tabla == "leagues":
             return _R(list(getattr(self.base, "creadas", [])))
+        if self.tabla == "rule_proposals":
+            return _R(list(getattr(self.base, "propuestas", [])))
+        if self.tabla == "rule_votes":
+            return _R(list(getattr(self.base, "votos", [])))
         return _R({"display_name": "Ana", "email": "ana@x.com"})
 
 
@@ -222,3 +226,26 @@ def test_si_la_base_rechaza_la_cascada_de_auth_no_se_borra_nada(monkeypatch):
         _borrar(base, monkeypatch)
     assert e.value.status_code == 409
     assert base.borrados == []
+
+
+# ---------------------------------------------------------------------------
+# Novena auditoría: borrar una cuenta borraba decisiones del grupo
+# ---------------------------------------------------------------------------
+@pytest.mark.parametrize("campo", ["propuestas", "votos"])
+def test_a_quien_participo_en_una_votacion_no_se_lo_borra(monkeypatch, campo):
+    """Borrar al co-admin que propuso se llevaba la propuesta con todos sus
+    votos; borrar a un votante le quitaba el voto a una mayoría ya emitida."""
+    base = Base(pagos=[])
+    setattr(base, campo, [{"id": "p"}])
+    with pytest.raises(HTTPException) as e:
+        _borrar(base, monkeypatch)
+    assert e.value.status_code == 409
+    assert "votaciones" in e.value.detail
+    assert base.borrados == []
+
+
+def test_la_base_tambien_lo_impide_para_las_votaciones():
+    sql = (Path(__file__).resolve().parents[2] / "database"
+           / "95_votaciones_que_sobreviven_y_anulacion_sin_carreras.sql").read_text()
+    assert "rule_proposals_proposed_by_fkey" in sql and "rule_votes_user_id_fkey" in sql
+    assert sql.count("REFERENCES public.users(id) ON DELETE RESTRICT") == 2

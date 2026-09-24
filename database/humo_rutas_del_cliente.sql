@@ -63,6 +63,7 @@ DECLARE
   fila record; a1 int; a2 int; v_admin_global uuid;
   e_propuestas int; e_creditos int; e_medallas int; e_mis_medallas int; e_auditoria int;
   e_jugadores int; e_bitacora int; e_votos int;
+  e_puntos_global int; e_quinielas int; e_puntos_liga numeric; e_hay_jornadas boolean;
   r text := E'\n';
   ok int := 0; mal int := 0;
 BEGIN
@@ -121,6 +122,17 @@ BEGIN
   -- Desde las TABLAS, no desde las RPC que se prueban: si una RPC devolviera
   -- siempre vacío, calcular lo esperado con ella daría vacío = vacío.
   SELECT count(*) INTO e_propuestas FROM public.rule_proposals WHERE league_id = v_liga;
+  -- (novena auditoría) Los JSON se comparan contra valores, no contra NULL:
+  -- una RPC reemplazada por una que devuelve '{}' pasaba.
+  SELECT total_points INTO e_puntos_global FROM public.users WHERE id = v_socio;
+  SELECT count(*) INTO e_quinielas FROM public.league_members WHERE user_id = v_socio;
+  SELECT COALESCE((SELECT sum(COALESCE(points_earned,0)) FROM public.predictions
+                    WHERE user_id = v_socio AND league_id = v_liga), 0)
+       + COALESCE((SELECT sum(COALESCE(champion_points,0) + COALESCE(top_scorer_points,0) + COALESCE(top_assist_points,0))
+                     FROM public.tournament_predictions WHERE user_id = v_socio AND league_id = v_liga), 0)
+    INTO e_puntos_liga;
+  SELECT EXISTS (SELECT 1 FROM public.predictions p JOIN public.matches m ON m.id = p.match_id
+                  WHERE p.league_id = v_liga AND m.status = 'finished') INTO e_hay_jornadas;
   SELECT count(*) INTO e_creditos FROM (SELECT DISTINCT phase, matchday FROM public.powerup_credits
     WHERE user_id = v_socio AND league_id = v_liga AND consumed_at IS NULL AND phase IS NOT NULL) c;
   SELECT count(*) INTO e_medallas FROM public.user_badges WHERE league_id = v_liga;
@@ -196,7 +208,10 @@ BEGIN
     SELECT count(*) INTO n FROM public.my_groups();                IF n = 0 THEN RAISE EXCEPTION 'my_groups vacío'; END IF;
     SELECT count(*) INTO n FROM public.quiniela_por_id(v_liga);    IF n <> 1 THEN RAISE EXCEPTION 'quiniela_por_id devolvió %', n; END IF;
     SELECT count(*) INTO n FROM public.group_standings(v_liga);    IF n = 0 THEN RAISE EXCEPTION 'group_standings vacío'; END IF;
-    IF public.league_jornadas(v_liga) IS NULL THEN RAISE EXCEPTION 'league_jornadas vacío'; END IF;
+    j := public.league_jornadas(v_liga);
+    IF NOT (j ? 'jornadas' AND j ? 'rachas') THEN RAISE EXCEPTION 'league_jornadas sin jornadas/rachas: %', left(j::text, 80); END IF;
+    IF e_hay_jornadas AND COALESCE(jsonb_array_length(j->'jornadas'), 0) = 0 THEN
+      RAISE EXCEPTION 'league_jornadas sin jornadas y la quiniela tiene partidos jugados'; END IF;
     SELECT count(*) INTO n FROM public.league_proposals(v_liga);  IF n <> e_propuestas THEN RAISE EXCEPTION 'league_proposals da % de %', n, e_propuestas; END IF;
     j := public.league_pozo(v_liga);
     IF (j->>'recaudado')::numeric IS DISTINCT FROM v_recaudado THEN
@@ -205,11 +220,18 @@ BEGIN
     SELECT count(*) INTO n FROM public.my_powerup_credits(v_liga); IF n <> e_creditos THEN RAISE EXCEPTION 'my_powerup_credits da % de %', n, e_creditos; END IF;
     SELECT count(*) INTO n FROM public.cupos_por_jornada(v_liga);  IF n = 0 THEN RAISE EXCEPTION 'cupos_por_jornada vacío'; END IF;
     SELECT count(*) INTO n FROM public.fases_del_torneo(v_liga);   IF n = 0 THEN RAISE EXCEPTION 'fases_del_torneo vacío'; END IF;
-    IF public.perfil_en_quiniela(v_liga, v_socio) IS NULL THEN RAISE EXCEPTION 'perfil_en_quiniela vacío'; END IF;
+    j := public.perfil_en_quiniela(v_liga, v_socio);
+    IF (j->>'user_id')::uuid IS DISTINCT FROM v_socio THEN RAISE EXCEPTION 'perfil_en_quiniela de otra persona: %', j->>'user_id'; END IF;
+    IF (j->>'puntos')::numeric IS DISTINCT FROM e_puntos_liga THEN
+      RAISE EXCEPTION 'perfil_en_quiniela dice % puntos y la quiniela tiene %', j->>'puntos', e_puntos_liga; END IF;
     SELECT count(*) INTO n FROM public.league_medals(v_liga);      IF n <> e_medallas THEN RAISE EXCEPTION 'league_medals da % de %', n, e_medallas; END IF;
     SELECT count(*) INTO n FROM public.my_medals();                IF n <> e_mis_medallas THEN RAISE EXCEPTION 'my_medals da % de %', n, e_mis_medallas; END IF;
     SELECT count(*) INTO n FROM public.ranking_global(10);          IF n = 0 THEN RAISE EXCEPTION 'ranking_global vacío'; END IF;
-    IF public.mi_resumen_global() IS NULL THEN RAISE EXCEPTION 'mi_resumen_global vacío'; END IF;
+    j := public.mi_resumen_global();
+    IF (j->>'puntos')::int IS DISTINCT FROM e_puntos_global THEN
+      RAISE EXCEPTION 'mi_resumen_global dice % puntos y el total es %', j->>'puntos', e_puntos_global; END IF;
+    IF (j->>'quinielas')::int IS DISTINCT FROM e_quinielas THEN
+      RAISE EXCEPTION 'mi_resumen_global dice % quinielas y son %', j->>'quinielas', e_quinielas; END IF;
     SELECT count(*) INTO n FROM public.match_audit_log(v_tid, 10); IF n <> e_auditoria THEN RAISE EXCEPTION 'match_audit_log da % de %', n, e_auditoria; END IF;
     SELECT count(*) INTO n FROM public.predictions WHERE league_id = v_liga;    IF n = 0 THEN RAISE EXCEPTION 'no se ven predicciones'; END IF;
     SELECT count(*) INTO n FROM public.league_members WHERE league_id = v_liga; IF n <> v_miembros THEN RAISE EXCEPTION 'league_members da %', n; END IF;
@@ -231,7 +253,11 @@ BEGIN
     IF sqlerrm = 'HUMO_OK' THEN r := r || E'✓ aceptar reglas\n'; ok := ok + 1;
     ELSE r := r || '✗ aceptar reglas: ' || sqlerrm || E'\n'; mal := mal + 1; END IF; END;
 
-  BEGIN PERFORM public.avisar_pago(v_liga, true);
+  BEGIN  -- parte SIN aviso: con la fecha ya puesta, un no-op pasaba (novena auditoría)
+    RESET ROLE;
+    UPDATE public.league_members SET pago_avisado_at = NULL WHERE league_id = v_liga AND user_id = v_socio;
+    SET LOCAL ROLE authenticated;
+    PERFORM public.avisar_pago(v_liga, true);
     SELECT pago_avisado_at INTO t FROM public.league_members WHERE league_id = v_liga AND user_id = v_socio;
     IF t IS NULL THEN RAISE EXCEPTION 'no quedó el aviso'; END IF;
     RAISE EXCEPTION 'HUMO_OK';
@@ -375,6 +401,21 @@ BEGIN
     PERFORM set_config('request.jwt.claims', json_build_object('sub', v_creador, 'role','authenticated')::text, true);
   END;
 
+  BEGIN  -- (novena auditoría) borrar la CUENTA de quien votó no se lleva su voto
+    PERFORM set_config('request.jwt.claims', json_build_object('sub', v_creador, 'role','authenticated')::text, true);
+    v_prop := public.propose_rule_change(v_liga, 'rules', jsonb_build_object('rules', v_rules), 'humo');
+    PERFORM set_config('request.jwt.claims', json_build_object('sub', v_socio, 'role','authenticated')::text, true);
+    PERFORM public.cast_rule_vote(v_prop, false);
+    RESET ROLE;
+    DELETE FROM auth.users WHERE id = v_socio;
+    RAISE EXCEPTION 'HUMO_ABIERTO';
+  EXCEPTION WHEN others THEN
+    IF sqlerrm = 'HUMO_ABIERTO' THEN r := r || E'✗ ABIERTO: borrar la cuenta de quien votó borra su voto\n'; mal := mal + 1;
+    ELSIF sqlstate = '23503' AND sqlerrm LIKE '%rule_votes%' THEN r := r || E'✓ una cuenta que votó no se borra (la FK de rule_votes)\n'; ok := ok + 1;
+    ELSE r := r || '✗ borrar votante, otra causa: ' || sqlerrm || E'\n'; mal := mal + 1; END IF;
+    SET LOCAL ROLE authenticated;
+    PERFORM set_config('request.jwt.claims', json_build_object('sub', v_creador, 'role','authenticated')::text, true);
+  END;
   IF v_expulsable IS NOT NULL THEN
     BEGIN PERFORM public.expulsar_miembro(v_liga, v_expulsable);
       SELECT count(*) INTO n FROM public.league_members WHERE league_id = v_liga AND user_id = v_expulsable;
@@ -577,7 +618,9 @@ BEGIN
     RAISE EXCEPTION 'HUMO_ABIERTO';
   EXCEPTION WHEN others THEN
     IF sqlerrm = 'HUMO_ABIERTO' THEN r := r || E'✗ ABIERTO: el cliente escribe puntos por aplicar_puntaje\n'; mal := mal + 1;
-    ELSIF sqlstate = '42501' THEN r := r || E'✓ aplicar_puntaje cerrado al cliente: 42501\n'; ok := ok + 1;
+    -- El 42501 tiene que ser DE ESTA función: uno de otra tabla por dentro
+    -- significaría que el cliente sí la ejecuta (novena auditoría).
+    ELSIF sqlstate = '42501' AND sqlerrm LIKE '%function aplicar_puntaje%' THEN r := r || E'✓ aplicar_puntaje cerrado al cliente: 42501 de la función\n'; ok := ok + 1;
     ELSE r := r || '✗ aplicar_puntaje, otra causa: ' || sqlerrm || E'\n'; mal := mal + 1; END IF; END;
 
   RESET ROLE;

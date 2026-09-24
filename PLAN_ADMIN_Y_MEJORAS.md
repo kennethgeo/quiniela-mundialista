@@ -130,6 +130,8 @@ Cada uno comprobado leyendo el código o la base, no supuesto. Los marcados con
 | B55 🔶 | ~~La guarda de la 61 se saltaba con psql sin ON_ERROR_STOP~~ · **RESUELTO**: la 61 va entera en una transacción | `61_endurecer_permisos.sql` | ✅ |
 | B56 🔶 | ~~Borrar la cuenta del creador borraba su quiniela~~ · **RESUELTO** (94): FK `ON DELETE RESTRICT` + 409 en `delete-user`. Hoy riesgo cero (un solo creador, protegido por los pagos de Bundestica) | `94_…sql` · `routes/admin.py` | ✅ |
 | B58 🔶 | **Se perdieron TODAS las predicciones y globales del Mundial 2026** (jul 2026, migración 37: backfill con `ON CONFLICT DO NOTHING` bajo la restricción vieja y después DELETE). Reproducido. Solo recuperable desde un respaldo anterior al 20 jul, en un proyecto aparte | `37_per_league_rules.sql` | dueño: respaldos |
+| B59 🔶 | **Quien propuso o votó no se puede borrar** (95: FK `RESTRICT` como protección inmediata). El arreglo de fondo es separar la identidad histórica del autor/votante de la cuenta borrable, como el historial de pagos | `95_…`, `delete-user` | diseño pendiente |
+| B60 🔶 | **Ninguna alerta automática al dueño** si un puntaje sigue fallando: la recuperación lo deja en logs y `verificar_estado.sql` §17 lo lista, pero alguien tiene que mirarlo | `scoring.py`, §17 | propuesta: push al admin global |
 | B57 🔶 | ~~Votación de puntaje en temporada~~ · **Ya decidido** (decisión 1): la retroactividad se elige en la votación; la garantía de «no retroactivo» es la limitación aceptada | `_apply_rule_proposal` | decidido |
 | B9 | ~~No existe ninguna salida voluntaria~~ · **RESUELTO** (migración 83, 21 sep 2026): `salir_de_quiniela` + aviso con números. B1 se resuelve de paso: «No acepto · salir» ahora sale de verdad | `83_salida_voluntaria.sql` | ✅ |
 

@@ -18,10 +18,10 @@ const PERFIL = {
 
 /* Un service worker de mentira con o sin suscripción. Sin él, el de verdad
    puede o no registrarse según el entorno, y la prueba dependería de eso. */
-async function montar (page, { permiso = 'default', suscrito = false, iphone = false } = {}) {
+async function montar (page, { permiso = 'default', suscrito = false, iphone = false, swNunca = false, registroFalla = false } = {}) {
   await sinRedExterna(page)
   await conSesion(page)
-  await page.addInitScript(({ p, s, ios }) => {
+  await page.addInitScript(({ p, s, ios, nunca }) => {
     localStorage.setItem('tutorial_seen', 'true')
     localStorage.setItem('pwaPromptDismissed', 'true')
     if (ios) {
@@ -38,7 +38,8 @@ async function montar (page, { permiso = 'default', suscrito = false, iphone = f
     Object.defineProperty(navigator, 'serviceWorker', {
       configurable: true,
       get: () => ({
-        ready: Promise.resolve({
+        // `nunca`: un service worker que no se pone listo jamás.
+        ready: nunca ? new Promise(() => {}) : Promise.resolve({
           pushManager: {
             getSubscription: async () => (s
               ? { endpoint: 'https://ejemplo/x', options: {}, toJSON: () => ({ endpoint: 'https://ejemplo/x', keys: { p256dh: 'a', auth: 'b' } }) }
@@ -50,7 +51,7 @@ async function montar (page, { permiso = 'default', suscrito = false, iphone = f
         addEventListener: () => {},
       }),
     })
-  }, { p: permiso, s: suscrito, ios: iphone })
+  }, { p: permiso, s: suscrito, ios: iphone, nunca: swNunca })
   await interceptarSupabase(page, {
     '/rest/v1/users': PERFIL,
     '/rest/v1/matches': [],
@@ -59,6 +60,14 @@ async function montar (page, { permiso = 'default', suscrito = false, iphone = f
     'rpc/my_groups': [],
     'rpc/my_medals': [],
   })
+  if (registroFalla) {
+    // La base no tiene la fila y guardarla falla: el navegador está suscrito
+    // pero el backend no le puede escribir a esta persona.
+    await page.route('**://pruebas.supabase.co/rest/v1/push_subscriptions**', (route) =>
+      route.request().method() === 'GET'
+        ? route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
+        : route.fulfill({ status: 500, contentType: 'application/json', body: '{"message":"falló"}' }))
+  }
 }
 
 const llamado = (page) => page.getByText('Activá los avisos')
@@ -170,3 +179,24 @@ for (const tema of ['light', 'dark']) {
     }
   })
 }
+
+/* ── Novena auditoría ──────────────────────────────────────────────────────
+   «Activo» tiene que significar que el backend PUEDE escribirle a esta
+   persona: suscripción en el navegador Y fila en la base. Y ninguna espera
+   del navegador puede dejar la tarjeta trabada. */
+test('suscrito en el navegador pero SIN registro en la base: no dice «activados»', async ({ page }) => {
+  await montar(page, { permiso: 'granted', suscrito: true, registroFalla: true })
+  await page.goto('/profile')
+  await expect(page.getByText(/No pudimos registrar este dispositivo/)).toBeVisible({ timeout: 15000 })
+  await expect(page.getByText('Avisos activados', { exact: true })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Activar notificaciones' })).toBeEnabled()
+})
+
+test('un service worker que nunca responde no deja el botón trabado', async ({ page }) => {
+  await montar(page, { swNunca: true })
+  await page.goto('/profile')
+  await expect(page.getByText(/no terminó de preparar los avisos/)).toBeVisible({ timeout: 15000 })
+  const boton = page.getByRole('button', { name: 'Activar notificaciones' })
+  await expect(boton).toBeEnabled()
+  await expect(boton).toHaveText(/Activar avisos/)
+})

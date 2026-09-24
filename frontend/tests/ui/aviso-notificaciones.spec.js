@@ -38,6 +38,9 @@ async function montar (page, permiso = 'default') {
 }
 
 const aviso = (page) => page.getByText('Que no se te pase una predicción')
+// Una ausencia solo vale después de que el aviso DECIDIÓ: la decisión espera
+// una consulta a la base y afirmar antes pasaría siempre.
+const decidioNoOfrecer = (page) => page.locator('[data-aviso-push="no-se-ofrece"]')
 
 test('a quien no decidió se le ofrece activar', async ({ page }) => {
   await montar(page)
@@ -58,6 +61,7 @@ test('«Ahora no» lo retira y no vuelve al recargar', async ({ page }) => {
 
   await page.reload()
   await expect(page.getByRole('heading', { name: 'Mis quinielas' })).toBeVisible({ timeout: 10000 })
+  await expect(decidioNoOfrecer(page)).toHaveCount(1, { timeout: 10000 })
   await expect(aviso(page)).toHaveCount(0)
 })
 
@@ -74,6 +78,9 @@ test('con las notificaciones BLOQUEADAS se explica cómo, sin un botón muerto',
 
 test('a quien YA tiene avisos no se le muestra nada', async ({ page }) => {
   await montar(page, 'granted')
+  // Ya tiene avisos = suscripción en el navegador Y fila en la base.
+  await page.route('**://pruebas.supabase.co/rest/v1/push_subscriptions**', (route) =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: '[{"id":"x"}]' }))
   await page.addInitScript(() => {
     // Suscripción viva en este dispositivo.
     Object.defineProperty(navigator, 'serviceWorker', {
@@ -87,6 +94,7 @@ test('a quien YA tiene avisos no se le muestra nada', async ({ page }) => {
   })
   await page.goto('/')
   await expect(page.getByRole('heading', { name: 'Mis quinielas' })).toBeVisible({ timeout: 10000 })
+  await expect(decidioNoOfrecer(page)).toHaveCount(1, { timeout: 10000 })
   await expect(aviso(page)).toHaveCount(0)
 })
 
@@ -178,6 +186,7 @@ test('tres «Ahora no» seguidos: dos días después todavía no insiste', async
   await pospuestoHace(page, 48, 3)
   await page.goto('/')
   await expect(page.getByRole('heading', { name: 'Mis quinielas' })).toBeVisible({ timeout: 10000 })
+  await expect(decidioNoOfrecer(page)).toHaveCount(1, { timeout: 10000 })
   await expect(aviso(page)).toHaveCount(0)
 })
 
@@ -207,4 +216,62 @@ test('iPhone sin instalar: el aviso sale y explica que hay que instalar', async 
   await expect(aviso(page)).toBeVisible({ timeout: 10000 })
   await expect(page.getByText(/agregar la app a la pantalla de inicio/)).toBeVisible()
   await expect(page.getByRole('button', { name: 'Activar avisos' })).toHaveCount(0)
+})
+
+/* ── Novena auditoría: «activo» es navegador Y base ─────────────────────────
+   Con la suscripción solo en el navegador, el Hub callaba el aviso a alguien
+   a quien el backend no le puede escribir. */
+async function suscritoEnElNavegador (page) {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'serviceWorker', {
+      configurable: true,
+      get: () => ({
+        ready: Promise.resolve({
+          pushManager: {
+            getSubscription: async () => ({
+              endpoint: 'https://ejemplo/x',
+              toJSON: () => ({ endpoint: 'https://ejemplo/x', keys: { p256dh: 'a', auth: 'b' } }),
+            }),
+          },
+        }),
+      }),
+    })
+  })
+}
+
+test('suscrito en el navegador y sin fila en la base que se pueda guardar: se ofrece', async ({ page }) => {
+  await montar(page, 'granted')
+  await suscritoEnElNavegador(page)
+  await page.route('**://pruebas.supabase.co/rest/v1/push_subscriptions**', (route) =>
+    route.request().method() === 'GET'
+      ? route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
+      : route.fulfill({ status: 500, contentType: 'application/json', body: '{"message":"falló"}' }))
+  await page.goto('/')
+  await expect(aviso(page)).toBeVisible({ timeout: 10000 })
+})
+
+test('suscrito en el navegador y sin fila, pero se puede guardar: se sana solo y no insiste', async ({ page }) => {
+  await montar(page, 'granted')
+  await suscritoEnElNavegador(page)
+  let insertados = 0
+  await page.route('**://pruebas.supabase.co/rest/v1/push_subscriptions**', (route) => {
+    if (route.request().method() === 'POST') insertados++
+    return route.fulfill({ status: route.request().method() === 'POST' ? 201 : 200, contentType: 'application/json', body: '[]' })
+  })
+  await page.goto('/')
+  await expect(page.getByRole('heading', { name: 'Mis quinielas' })).toBeVisible({ timeout: 10000 })
+  await expect(decidioNoOfrecer(page)).toHaveCount(1, { timeout: 10000 })
+  expect(insertados).toBeGreaterThan(0)
+  await expect(aviso(page)).toHaveCount(0)
+})
+
+test('un service worker que nunca responde no esconde el aviso', async ({ page }) => {
+  await montar(page, 'granted')
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'serviceWorker', {
+      configurable: true, get: () => ({ ready: new Promise(() => {}) }),
+    })
+  })
+  await page.goto('/')
+  await expect(aviso(page)).toBeVisible({ timeout: 15000 })
 })
