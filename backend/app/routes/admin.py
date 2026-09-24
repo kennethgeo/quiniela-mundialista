@@ -140,10 +140,9 @@ async def delete_user(
     # Un pago confirmado no se borra (sexta auditoría). La cascada
     # auth.users → users → league_members se llevaba la constancia que salir y
     # borrar la quiniela sí protegen. La base lo rechaza igual (trigger
-    # `pago_confirmado_no_se_borra`, migración 92), pero hay que comprobarlo
-    # ACÁ y ANTES de tocar nada: más abajo se borran las globales y las
-    # suscripciones, y eso no se revierte si Auth falla después.
-    # Si la consulta falla, NO se borra: ante la duda, se conserva.
+    # `pago_confirmado_no_se_borra`, migración 92); esto es para responder un
+    # 409 claro en el caso normal. Si la consulta falla, NO se borra: ante la
+    # duda, se conserva.
     try:
         pagos = (supabase.table("league_members").select("league_id")
                  .eq("user_id", user_id).not_.is_("pago_confirmado_at", "null")
@@ -167,6 +166,33 @@ async def delete_user(
     except Exception:  # noqa: BLE001
         pass
 
+    # NO se borra nada por adelantado (séptima auditoría). Antes se limpiaban
+    # `tournament_predictions` y `push_subscriptions` aparte «porque apuntan a
+    # auth.users»; no es así: las dos referencian `public.users` con
+    # ON DELETE CASCADE (comprobado en pg_constraint). Borrarlas antes dejaba
+    # un borrado a medias si después el trigger de pagos rechazaba la cuenta:
+    # la cuenta y el pago quedaban, las globales no. Ahora todo cae en UNA
+    # cascada, que el trigger aprueba o rechaza entera.
+    # Borrar de Auth → cascada a public.users y dependientes
+    deleted_via = "auth"
+    try:
+        supabase.auth.admin.delete_user(user_id)
+    except Exception:  # noqa: BLE001 - p.ej. el usuario ya no existe en Auth
+        # Respaldo: borrar la fila de public.users (también cascada)
+        try:
+            res = supabase.table("users").delete().eq("id", user_id).execute()
+        except Exception as exc:  # noqa: BLE001
+            if "pago confirmado" in str(exc):
+                # Un pago se confirmó después de la comprobación de arriba: el
+                # trigger rechazó la cascada ENTERA y no se borró nada.
+                raise HTTPException(status_code=409, detail="Tiene un pago confirmado: no se borró nada.")
+            raise
+        if not res.data:
+            raise HTTPException(status_code=404, detail="Usuario no encontrado")
+        deleted_via = "users_table"
+
+    # El veto del correo va DESPUÉS del borrado: antes, un borrado rechazado
+    # dejaba una cuenta viva con su correo vetado.
     banned_email = None
     if ban and email:
         try:
@@ -179,25 +205,6 @@ async def delete_user(
         except Exception:  # noqa: BLE001 - no bloquear el borrado si falla el ban
             pass
 
-    # Limpieza explícita de tablas que apuntan a auth.users (NO se borran al
-    # eliminar solo la fila de public.users): evita predicciones globales
-    # "huérfanas" que quedaban en la portada como "Jugador".
-    for tbl in ("tournament_predictions", "push_subscriptions"):
-        try:
-            supabase.table(tbl).delete().eq("user_id", user_id).execute()
-        except Exception:  # noqa: BLE001
-            pass
-
-    # Borrar de Auth → cascada a public.users y dependientes
-    deleted_via = "auth"
-    try:
-        supabase.auth.admin.delete_user(user_id)
-    except Exception:  # noqa: BLE001 - p.ej. el usuario ya no existe en Auth
-        # Respaldo: borrar la fila de public.users (también cascada)
-        res = supabase.table("users").delete().eq("id", user_id).execute()
-        if not res.data:
-            raise HTTPException(status_code=404, detail="Usuario no encontrado")
-        deleted_via = "users_table"
 
     return {
         "status": "ok",

@@ -100,3 +100,51 @@ def test_la_base_tambien_lo_impide():
            / "92_pagos_que_sobreviven_y_puntaje_que_no_se_pierde.sql").read_text()
     assert "BEFORE DELETE ON public.league_members" in sql
     assert "OLD.pago_confirmado_at IS NOT NULL" in sql
+
+
+# ---------------------------------------------------------------------------
+# Séptima auditoría: nada se borra ANTES de que la cascada sea aprobada
+# ---------------------------------------------------------------------------
+class _AuthQueFalla(_Auth):
+    def delete_user(self, uid):
+        raise RuntimeError("Database error deleting user")
+
+
+class _QConCandado(_Q):
+    """El trigger de la 92: la cascada desde users choca con un pago que se
+    confirmó DESPUÉS de la comprobación inicial."""
+    def execute(self):
+        if self.borrar and self.tabla == "users":
+            raise RuntimeError("Esta membresía tiene un pago confirmado: borrarla borraría la constancia del pago.")
+        return super().execute()
+
+
+class BaseConCarrera(Base):
+    def __init__(self):
+        super().__init__(pagos=[])
+        self.auth = _AuthQueFalla(self)
+
+    def table(self, t): return _QConCandado(self, t)
+
+
+def test_si_el_pago_se_confirma_en_medio_no_queda_un_borrado_a_medias(monkeypatch):
+    """La comprobación inicial ve cero pagos; se confirma uno; Auth falla por el
+    trigger y el respaldo también. Antes ya se habían borrado las globales y
+    las suscripciones, y se había vetado el correo."""
+    base = BaseConCarrera()
+    monkeypatch.setattr(admin_mod, "get_supabase", lambda: base)
+    with pytest.raises(HTTPException) as e:
+        asyncio.run(admin_mod.delete_user(user_id="u1", ban=True, admin={"sub": "admin"}))
+    assert e.value.status_code == 409
+    assert base.borrados == [], f"quedó un borrado a medias: {base.borrados}"
+
+
+def test_el_endpoint_no_borra_tablas_por_su_cuenta():
+    """Las globales y las suscripciones caen en la MISMA cascada (FK a
+    public.users con ON DELETE CASCADE, comprobado en producción)."""
+    fuente = (Path(__file__).resolve().parents[1] / "app" / "routes" / "admin.py").read_text()
+    cuerpo = fuente[fuente.index("async def delete_user"):]
+    cuerpo = cuerpo[:cuerpo.index("\n@router")] if "\n@router" in cuerpo else cuerpo
+    assert 'for tbl in ("tournament_predictions", "push_subscriptions")' not in cuerpo
+    assert cuerpo.index("delete_user(user_id)") < cuerpo.index('table("banned_emails")'), \
+        "el veto del correo vuelve a ir antes del borrado"

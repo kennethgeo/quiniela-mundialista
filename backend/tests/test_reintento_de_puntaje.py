@@ -160,13 +160,13 @@ class FalsaBase:
                 or any(not isinstance(x.get("puntos"), int) or x["puntos"] < 0 for x in p_puntos)):
             return "incompleto"
         # Migración 92: cada predicción con el marcador que se usó.
-        if any(not all(k in x for k in ("h", "a", "pw", "x2")) for x in p_puntos):
+        if any(not all(k in x for k in ("h", "a", "pw", "x2", "t")) for x in p_puntos):
             return "incompleto"
         por_id = {pr["id"]: pr for pr in self.tablas["predictions"]}
         for x in p_puntos:
             pr = por_id[x["id"]]
             if (pr.get("home_goals_pred"), pr.get("away_goals_pred"), pr.get("penalties_winner_pred"),
-                    bool(pr.get("use_powerup_x2"))) != (x["h"], x["a"], x["pw"], bool(x["x2"])):
+                    bool(pr.get("use_powerup_x2")), pr.get("prediction_type")) != (x["h"], x["a"], x["pw"], bool(x["x2"]), x["t"]):
                 return "desactualizado"
         n = 0
         for x in p_puntos:
@@ -471,7 +471,7 @@ def test_el_lote_lleva_el_marcador_con_el_que_se_calculo():
         return original(**k)
     db.aplicar_puntaje = espia
     _correr(calculate_and_update_scores(db, 7))
-    assert enviados == [{"id": 1, "puntos": 6, "h": 2, "a": 1, "pw": "X", "x2": True}]
+    assert enviados == [{"id": 1, "puntos": 6, "h": 2, "a": 1, "pw": "X", "x2": True, "t": None}]
 
 
 def test_una_prediccion_corregida_durante_el_calculo_no_se_firma():
@@ -510,3 +510,20 @@ def test_el_endpoint_del_cron_corre_la_recuperacion():
     cuerpo = fuente[fuente.index("async def sync_live"):fuente.index('@router.post("/notify-daily")')]
     # La LLAMADA, no el nombre: el import solo también lo contiene.
     assert "await puntuar_pendientes(supabase)" in cuerpo
+
+
+
+def test_el_lote_lleva_el_tipo_de_prediccion():
+    """Séptima auditoría: `prediction_type` cambia los puntos (Marcador 3,
+    Solo_Ganador 1 para el mismo 2-1) y la base tiene que poder comprobarlo."""
+    enviados = []
+    db = FalsaBase([_partido()], [_prediccion(1, 2, 1, prediction_type="Marcador")],
+                   [{"id": "L", "points_exact": 3, "points_correct": 1}])
+    original = db.aplicar_puntaje
+
+    def espia(**k):
+        enviados.extend(k["p_puntos"])
+        return original(**k)
+    db.aplicar_puntaje = espia
+    _correr(calculate_and_update_scores(db, 7))
+    assert enviados[0]["t"] == "Marcador"
