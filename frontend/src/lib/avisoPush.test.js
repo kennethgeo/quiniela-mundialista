@@ -147,4 +147,24 @@ describe('posponer', () => {
     expect(() => posponerAviso()).not.toThrow()
     expect(() => olvidarPospuesto()).not.toThrow()
   })
+
+  it('los «Ahora no» son de CADA cuenta, no del dispositivo', () => {
+    /* Celular compartido: que Ana diga que no tres veces no puede dejar a
+       Beto esperando una semana. */
+    const t = Date.UTC(2026, 8, 8)
+    posponerAviso(t, 'ana'); posponerAviso(t, 'ana'); posponerAviso(t, 'ana')
+    expect(avisoPospuesto(t + 2 * dia, 'ana')).toBe(true)
+    expect(avisoPospuesto(t + 2 * dia, 'beto')).toBe(false)
+    posponerAviso(t, 'beto')
+    expect(avisoPospuesto(t + 21 * hora, 'beto')).toBe(false)
+    expect(avisoPospuesto(t + 21 * hora, 'ana')).toBe(true)
+  })
+
+  it('lo guardado ANTES de ser por cuenta se sigue leyendo', () => {
+    const t = Date.UTC(2026, 8, 8)
+    almacen[CLAVE_POSPUESTO] = JSON.stringify({ cuando: t, veces: 1 })
+    expect(avisoPospuesto(t + 2 * hora, 'ana')).toBe(true)
+    olvidarPospuesto('ana')
+    expect(avisoPospuesto(t + 2 * hora, 'ana')).toBe(false)
+  })
 })

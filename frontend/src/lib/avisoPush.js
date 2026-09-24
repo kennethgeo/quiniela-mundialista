@@ -36,12 +36,21 @@ export function situacionAvisos ({ soporta, iosSinInstalar, permiso, suscrito })
    debería quedarse sin avisos toda la temporada. Activar los avisos borra la
    cuenta, así que si un día se pierden, se empieza de nuevo por el principio. */
 export const CLAVE_POSPUESTO = 'avisoPushPospuesto'
+
+/* POR CUENTA, no por dispositivo (décima auditoría): en un celular compartido,
+   los «Ahora no» de una persona alargaban la espera de la otra. Se lee primero
+   la clave de la cuenta y, si no hay, la vieja sin cuenta (lo guardado antes
+   de este cambio); se escribe siempre la de la cuenta. */
+const claveDe = (userId) => (userId ? `${CLAVE_POSPUESTO}:${userId}` : CLAVE_POSPUESTO)
 const HORA = 60 * 60 * 1000
 export const ESPERAS_HORAS = [20, 3 * 24, 7 * 24, 14 * 24]
 
-function leer () {
+function leer (userId) {
   let guardado
-  try { guardado = localStorage.getItem(CLAVE_POSPUESTO) } catch { return null }
+  try {
+    guardado = localStorage.getItem(claveDe(userId))
+    if (guardado == null && userId) guardado = localStorage.getItem(CLAVE_POSPUESTO)
+  } catch { return null }
   if (guardado == null) return null
   // Formato viejo (hasta sep 2026): solo el instante, con 14 días fijos.
   // Se cuenta como un único «Ahora no»: a esa persona se le vuelve a ofrecer
@@ -61,21 +70,24 @@ export function esperaTras (veces) {
   return ESPERAS_HORAS[i] * HORA
 }
 
-export function posponerAviso (ahora = Date.now()) {
-  const previo = leer()
+export function posponerAviso (ahora = Date.now(), userId) {
+  const previo = leer(userId)
   const veces = (previo?.veces || 0) + 1
-  try { localStorage.setItem(CLAVE_POSPUESTO, JSON.stringify({ cuando: ahora, veces })) } catch { /* modo privado */ }
+  try { localStorage.setItem(claveDe(userId), JSON.stringify({ cuando: ahora, veces })) } catch { /* modo privado */ }
 }
 
 /** Al activar los avisos: la insistencia vuelve a empezar desde cero. */
-export function olvidarPospuesto () {
-  try { localStorage.removeItem(CLAVE_POSPUESTO) } catch { /* modo privado */ }
+export function olvidarPospuesto (userId) {
+  try {
+    localStorage.removeItem(claveDe(userId))
+    localStorage.removeItem(CLAVE_POSPUESTO)
+  } catch { /* modo privado */ }
 }
 
-export function avisoPospuesto (ahora = Date.now()) {
+export function avisoPospuesto (ahora = Date.now(), userId) {
   // Sin dato, o con un dato ilegible, se ofrece: preferimos ofrecer de más
   // que perder a alguien por una excepción del navegador.
-  const d = leer()
+  const d = leer(userId)
   if (!d) return false
   return (ahora - d.cuando) < esperaTras(d.veces)
 }

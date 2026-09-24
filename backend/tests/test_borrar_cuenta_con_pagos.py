@@ -26,10 +26,13 @@ class _R:
 
 class _Q:
     def __init__(self, base, tabla):
-        self.base, self.tabla, self.borrar = base, tabla, False
+        self.base, self.tabla, self.borrar, self.filtro = base, tabla, False, None
 
     def select(self, *_a, **_k): return self
-    def eq(self, *_a, **_k): return self
+    def eq(self, col=None, *_a, **_k):
+        if col == "pago_confirmado_por":
+            self.filtro = col
+        return self
     def single(self): return self
     def upsert(self, *_a, **_k): return self
 
@@ -49,6 +52,8 @@ class _Q:
         if self.tabla == "league_members":
             if self.base.falla_consulta:
                 raise RuntimeError("se cortó")
+            if self.filtro == "pago_confirmado_por":
+                return _R(list(getattr(self.base, "confirmados", [])))
             return _R(self.base.pagos)
         if self.tabla == "leagues":
             return _R(list(getattr(self.base, "creadas", [])))
@@ -249,3 +254,23 @@ def test_la_base_tambien_lo_impide_para_las_votaciones():
            / "95_votaciones_que_sobreviven_y_anulacion_sin_carreras.sql").read_text()
     assert "rule_proposals_proposed_by_fkey" in sql and "rule_votes_user_id_fkey" in sql
     assert sql.count("REFERENCES public.users(id) ON DELETE RESTRICT") == 2
+
+
+# ---------------------------------------------------------------------------
+# Décima auditoría: borrar a quien confirmó pagos dejaba el pago sin confirmador
+# ---------------------------------------------------------------------------
+def test_a_quien_confirmo_pagos_de_otros_no_se_lo_borra(monkeypatch):
+    base = Base(pagos=[])
+    base.confirmados = [{"user_id": "x"}, {"user_id": "y"}]
+    with pytest.raises(HTTPException) as e:
+        _borrar(base, monkeypatch)
+    assert e.value.status_code == 409
+    assert "Confirmó 2 pago(s)" in e.value.detail
+    assert base.borrados == []
+
+
+def test_la_base_tambien_lo_impide_para_quien_confirmo():
+    sql = (Path(__file__).resolve().parents[2] / "database"
+           / "96_un_x2_anulado_se_compensa_una_vez.sql").read_text()
+    assert "league_members_pago_confirmado_por_fkey" in sql
+    assert "REFERENCES public.users(id) ON DELETE RESTRICT" in sql

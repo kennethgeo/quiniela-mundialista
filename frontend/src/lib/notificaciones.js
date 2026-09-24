@@ -169,6 +169,28 @@ export async function activarPush (userId) {
   return sub
 }
 
+/* Al CERRAR SESIÓN (décima auditoría): este dispositivo deja de recibir los
+   avisos de esa cuenta. Antes `signOut` no tocaba nada y la fila seguía a su
+   nombre: en un celular prestado o compartido, los avisos de quien se fue
+   —«te faltan 2 por predecir en Bundestica»— le seguían llegando a quien lo
+   usara después. Se borra solo la FILA (la RLS deja borrar la propia): la
+   suscripción del navegador queda, y si la misma persona vuelve a entrar se
+   registra sola (`avisosActivos` se sana). NUNCA frena el cierre de sesión:
+   con límite y sin lanzar. */
+export async function olvidarDispositivo (userId) {
+  if (!userId) return
+  try {
+    const sub = await suscripcionLocal()
+    if (!sub) return
+    await Promise.race([
+      supabase.from('push_subscriptions').delete().eq('user_id', userId).eq('endpoint', sub.endpoint),
+      new Promise((resolve) => setTimeout(resolve, LIMITE_SW_MS)),
+    ])
+  } catch {
+    // Cerrar sesión importa más que esto.
+  }
+}
+
 /** Baja en este dispositivo. */
 export async function desactivarPush () {
   if (!soportaPush()) return
