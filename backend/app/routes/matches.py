@@ -113,6 +113,15 @@ async def sync_live(authorization: Optional[str] = Header(default=None)):
     except Exception as exc:  # noqa: BLE001
         result["espn_tournaments_error"] = str(exc)
 
+    # PUNTAJES PENDIENTES, desde la base y no desde la fuente (migración 91):
+    # un partido terminado cuyo puntaje falló no depende de que ESPN devuelva
+    # eventos ni de que haya otro partido en curso.
+    try:
+        from app.services.scoring import puntuar_pendientes
+        result["puntajes_pendientes"] = await puntuar_pendientes(supabase)
+    except Exception as exc:  # noqa: BLE001
+        result["puntajes_pendientes_error"] = str(exc)
+
     # VIGILANTE: ¿la fuente oficial tiene resultados que a nosotros nos faltan?
     #
     # El sync puede quedarse mudo sin dar un solo error —pasó: durante días le

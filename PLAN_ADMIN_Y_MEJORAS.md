@@ -113,8 +113,13 @@ Cada uno comprobado leyendo el código o la base, no supuesto. Los marcados con
 | B38 🔶 | ~~Dos recálculos cruzados dejaban puntos viejos con firma nueva~~ · **RESUELTO**: `aplicar_puntaje` atómico (migración 90) | `scoring.py` | ✅ |
 | B39 🔶 | ~~Los push vencidos (404/410) nunca se reconocían~~ · **RESUELTO** | `notifications.py` | ✅ |
 | B40 🔶 | ~~La prueba de humo podía dar verde sin probar~~ · **RESUELTO**: versión 2, 29 rutas con afirmaciones | `humo_rutas_del_cliente.sql` | ✅ |
-| B41 🔶 | **El reintento de puntaje no es universal**: `live_sync.py` sigue dependiendo de cambios del resultado, y el sync de ESPN sale antes de revisar pendientes si recibe cero partidos. Leído, no reproducido | `live_sync.py:269-297` · `espn_tournament_sync.py:362` | latente |
+| B41 🔶 | ~~El reintento de puntaje no es universal~~ · **RESUELTO** (migración 91): `puntuar_pendientes` recorre la BASE (terminados de los últimos 3 días sin firma de su resultado), sin depender de ESPN ni de otro partido en curso; la firma se borra sola al cambiar el resultado y `hay_puntajes_pendientes()` abre la puerta del rescate. Reproducido por Astra, cerrado con pruebas | `scoring.py` · `routes/matches.py` · `91_…sql` | ✅ |
 | B42 🔶 | **El 9 de octubre (20:00 CR) hay 8 miembros sin predicción y NINGUNO con push**: el recordatorio no les va a llegar. No es un fallo del código: hay que invitarlos a activar las notificaciones | push_subscriptions | producto |
+| B43 🔶 | ~~`aplicar_puntaje` firmaba lotes incompletos~~ · **RESUELTO** (91): exige exactamente las predicciones del partido, ids únicos y puntos enteros ≥ 0; si no, `incompleto` sin escribir. Lectura paginada en el backend | `91_…sql` · `scoring.py` | ✅ |
+| B44 🔶 | ~~Confirmar un pago se podía cruzar con salir o borrar la quiniela~~ · **RESUELTO** (91): protocolo de bloqueos. Reproducido con dos conexiones en Postgres local: antes el pago confirmado desaparecía, ahora se rechaza la salida/el borrado | `91_…sql` | ✅ |
+| B45 🔶 | ~~Limpiar un push vencido podía reenviar el aviso a quien ya lo recibió~~ · **RESUELTO**: la limpieza ya no tumba el resultado del envío | `notifications.py` | ✅ |
+| B46 🔶 | ~~El anuncio global NO se podía guardar nunca~~ · **RESUELTO** (91): faltaba la política de INSERT que exige el upsert. Lo destapó la humo v3, no la auditoría | `91_…sql` | ✅ |
+| B47 🔶 | ~~La humo v2 daba verde con escrituras que no hacían nada~~ · **RESUELTO**: versión 3, 34 rutas; valores distintos y afirmados, `RETURNING *`, lecturas contra lo esperado, tablas directas y admin global. Comprobado que cae con `set_group_extras`/`set_powerup_limits` vacías | `humo_rutas_del_cliente.sql` | ✅ |
 | B9 | ~~No existe ninguna salida voluntaria~~ · **RESUELTO** (migración 83, 21 sep 2026): `salir_de_quiniela` + aviso con números. B1 se resuelve de paso: «No acepto · salir» ahora sale de verdad | `83_salida_voluntaria.sql` | ✅ |
 
 ## 3. La arquitectura

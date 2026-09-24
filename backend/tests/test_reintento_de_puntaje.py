@@ -63,6 +63,22 @@ class _Q:
         self.unica = True
         return self
 
+    def gte(self, col, val):
+        self.filtros.append(lambda f, c=col, v=val: f.get(c) is not None and f.get(c) >= v)
+        return self
+
+    def lte(self, col, val):
+        self.filtros.append(lambda f, c=col, v=val: f.get(c) is not None and f.get(c) <= v)
+        return self
+
+    def order(self, col, **_k):
+        self.orden = col
+        return self
+
+    def range(self, desde, hasta):
+        self.rango = (desde, hasta)
+        return self
+
     def update(self, valores):
         self.modo, self.valores = "update", valores
         return self
@@ -80,6 +96,13 @@ class _Q:
             # Una COPIA, como PostgREST: devolver la fila misma haría que un
             # cambio posterior en la «base» apareciera en lo que ya se leyó.
             return _R(dict(filas[0]) if filas else None)
+        orden = getattr(self, "orden", None)
+        if orden:
+            filas = sorted(filas, key=lambda f: str(f.get(orden)))
+        desde, hasta = getattr(self, "rango", (0, len(filas)))
+        # El tope de PostgREST: nunca más de 1.000 filas por respuesta. Un doble
+        # sin tope dejaría pasar el lote cortado que la base ahora rechaza.
+        filas = filas[desde:hasta + 1][:1000]
         return _R([dict(f) for f in filas])
 
 
@@ -124,6 +147,13 @@ class FalsaBase:
                    bool(m.get("goes_to_penalties")), m.get("penalties_winner_real"))
         if m.get("status") != "finished" or vigente != (p_home, p_away, bool(p_penales), p_ganador_penales):
             return "desactualizado"
+        # Migración 91: EXACTAMENTE las predicciones del partido, ids únicos y
+        # puntos enteros no negativos; si no, no escribe nada.
+        ids = [x.get("id") for x in p_puntos]
+        del_partido = {pr["id"] for pr in self.tablas["predictions"] if pr["match_id"] == p_match_id}
+        if (len(ids) != len(set(ids)) or set(ids) != del_partido
+                or any(not isinstance(x.get("puntos"), int) or x["puntos"] < 0 for x in p_puntos)):
+            return "incompleto"
         n = 0
         for x in p_puntos:
             for pr in self.tablas["predictions"]:
@@ -301,3 +331,106 @@ def test_el_sync_reintenta_los_pendientes_y_no_se_traga_el_error():
     cuerpo = fuente[fuente.index("    scored = 0"):fuente.index("# Recalcular medallas")]
     assert "except Exception:  # noqa: BLE001\n                pass" not in cuerpo, \
         "el fallo de puntaje se vuelve a tragar en silencio"
+
+
+# ---------------------------------------------------------------------------
+# Quinta auditoría: lote completo y recuperación desde la base (migración 91)
+# ---------------------------------------------------------------------------
+def test_con_mas_de_mil_predicciones_el_lote_va_entero():
+    """PostgREST corta en 1.000 filas y la base ahora rechaza un lote
+    incompleto: sin paginar, un partido con 1.500 predicciones no se puntuaría
+    nunca. El doble impone el mismo tope."""
+    preds = [_prediccion(f"p{i:05d}", 2, 1) for i in range(1500)]
+    db = FalsaBase([_partido()], preds, [{"id": "L", "points_exact": 3, "points_correct": 1}])
+    r = _correr(calculate_and_update_scores(db, 7))
+    assert r["status"] == "ok"
+    assert all(p["points_earned"] == 3 for p in db.tablas["predictions"])
+    assert partidos_sin_puntuar(db, [7]) == set()
+
+
+def test_si_la_base_rechaza_el_lote_no_se_da_por_puntuado(monkeypatch):
+    """`incompleto` no es un «ok»: se lanza, no se avisa a nadie y el partido
+    queda pendiente para la pasada siguiente."""
+    db = FalsaBase([_partido()], [_prediccion(1, 2, 1)], [{"id": "L", "points_exact": 3, "points_correct": 1}])
+    avisos = []
+
+    async def push(*a, **k):
+        avisos.append(a)
+    monkeypatch.setattr(scoring, "broadcast_push_to_users", push)
+    db.aplicar_puntaje = lambda **_k: "incompleto"
+    with pytest.raises(RuntimeError, match="incompleto"):
+        _correr(calculate_and_update_scores(db, 7))
+    assert avisos == []
+    assert partidos_sin_puntuar(db, [7]) == {7}
+
+
+def _base_para_recuperar():
+    from datetime import datetime, timezone
+    ahora = datetime(2026, 10, 10, 6, 0, tzinfo=timezone.utc)
+    partidos = [
+        # El del viernes 9: terminó, el puntaje falló, ESPN ya no lo devuelve.
+        _partido(id=297, tournament_id=5, kickoff_at="2026-10-10T02:00:00+00:00"),
+        # Congelado por el admin: también se puntúa.
+        _partido(id=298, tournament_id=5, kickoff_at="2026-10-09T02:00:00+00:00", score_locked=True),
+        # Viejo, sin firma (anterior a la 88): fuera de la ventana, no se toca.
+        _partido(id=251, tournament_id=5, kickoff_at="2026-09-21T01:00:00+00:00"),
+        # Torneo sin quiniela: no se toca.
+        _partido(id=900, tournament_id=9, kickoff_at="2026-10-10T01:00:00+00:00"),
+    ]
+    preds = [_prediccion(1, 2, 1, match_id=297), _prediccion(2, 2, 1, match_id=298),
+             _prediccion(3, 2, 1, match_id=251)]
+    ligas = [{"id": "L", "tournament_id": 5, "points_exact": 3, "points_correct": 1}]
+    return FalsaBase(partidos, preds, ligas), ahora
+
+
+def test_la_recuperacion_puntua_desde_la_base_sin_preguntarle_a_la_fuente():
+    """EL CASO DE LA QUINTA AUDITORÍA: el último partido en curso termina, el
+    puntaje falla, y ya no hay otro partido que abra la puerta del sync ni
+    eventos de ESPN que lo traigan. La recuperación lo encuentra en la base."""
+    db, ahora = _base_para_recuperar()
+    r = _correr(scoring.puntuar_pendientes(db, ahora=ahora))
+    assert sorted(x["match_id"] for x in r["puntuados"]) == [297, 298]
+    assert r["errores"] == []
+    puntos = {p["match_id"]: p["points_earned"] for p in db.tablas["predictions"]}
+    assert puntos == {297: 3, 298: 3, 251: 0}
+    firmas = {m["id"]: m["puntuado_con"] for m in db.tablas["matches"]}
+    assert firmas[251] is None, "tocó un partido viejo fuera de la ventana"
+    assert firmas[900] is None, "tocó un torneo sin quiniela"
+
+
+def test_la_recuperacion_es_idempotente_y_un_fallo_no_tapa_a_los_demas():
+    db, ahora = _base_para_recuperar()
+    original = db.aplicar_puntaje
+
+    def falla_el_297(**k):
+        if k["p_match_id"] == 297:
+            raise RuntimeError("se cortó")
+        return original(**k)
+    db.aplicar_puntaje = falla_el_297
+    r = _correr(scoring.puntuar_pendientes(db, ahora=ahora))
+    assert [e["match_id"] for e in r["errores"]] == [297]
+    assert [x["match_id"] for x in r["puntuados"]] == [298]
+
+    db.aplicar_puntaje = original
+    r = _correr(scoring.puntuar_pendientes(db, ahora=ahora))
+    assert [x["match_id"] for x in r["puntuados"]] == [297]
+    assert _correr(scoring.puntuar_pendientes(db, ahora=ahora))["pendientes"] == 0
+
+
+def test_la_ventana_de_recuperacion_es_la_de_la_base_y_la_del_sync():
+    """Tres números que tienen que ser el mismo: la ventana del backend, la
+    puerta del cron (SQL) y la ventana móvil del sync."""
+    from app.services.espn_tournament_sync import DIAS_HACIA_ATRAS
+    sql = (Path(__file__).resolve().parents[2] / "database"
+           / "91_puntaje_que_se_recupera_y_pagos_sin_carreras.sql").read_text()
+    puerta = sql[sql.index("FUNCTION public.hay_puntajes_pendientes"):sql.index("REVOKE ALL ON FUNCTION public.hay_puntajes_pendientes")]
+    assert f"interval '{scoring.DIAS_DE_RECUPERACION} days'" in puerta
+    assert scoring.DIAS_DE_RECUPERACION == DIAS_HACIA_ATRAS
+    assert "t.status" not in puerta, "filtrar por torneo terminado deja afuera su último partido"
+
+
+def test_el_endpoint_del_cron_corre_la_recuperacion():
+    fuente = (Path(__file__).resolve().parents[1] / "app" / "routes" / "matches.py").read_text()
+    cuerpo = fuente[fuente.index("async def sync_live"):fuente.index('@router.post("/notify-daily")')]
+    # La LLAMADA, no el nombre: el import solo también lo contiene.
+    assert "await puntuar_pendientes(supabase)" in cuerpo

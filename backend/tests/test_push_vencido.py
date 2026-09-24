@@ -68,3 +68,35 @@ def test_sin_respuesta_no_revienta(monkeypatch):
     monkeypatch.setattr(notif, "webpush", webpush_falso)
     monkeypatch.setattr(notif, "_get_vapid_private_key", lambda: "clave")
     assert notif.send_push_notification({"endpoint": "https://x", "keys": {}}, {}) is False
+
+
+def test_si_falla_borrar_un_endpoint_muerto_igual_se_devuelve_el_detalle(monkeypatch):
+    """Quinta auditoría, hallazgo 4. A recibe el aviso, el endpoint de B está
+    muerto y el DELETE de limpieza falla. Antes la excepción se llevaba el
+    detalle, el endpoint no cerraba los reclamos y a los 5 minutos A recibía
+    el aviso OTRA VEZ. La limpieza no puede tumbar el resultado del envío."""
+    subs = [{"user_id": "A", "endpoint": "https://a", "p256dh": "k", "auth": "k"},
+            {"user_id": "B", "endpoint": "https://b", "p256dh": "k", "auth": "k"}]
+
+    class Q:
+        def __init__(self): self.borrar = False
+        def select(self, *_a, **_k): return self
+        def in_(self, *_a, **_k): return self
+        def eq(self, *_a, **_k): return self
+        def delete(self):
+            self.borrar = True
+            return self
+        def execute(self):
+            if self.borrar:
+                raise RuntimeError("se cortó la base al limpiar")
+            return type("R", (), {"data": subs})()
+
+    class Base:
+        def table(self, _n): return Q()
+
+    monkeypatch.setattr(notif, "send_push_notification",
+                        lambda info, _p: True if info["endpoint"] == "https://a" else "expired")
+    import asyncio
+    r = asyncio.run(notif.enviar_push_personalizado(Base(), {"A": {"title": "t"}, "B": {"title": "t"}}, detallado=True))
+    assert r["por_usuario"]["A"]["enviados"] == 1
+    assert r["por_usuario"]["B"]["expirados"] == 1

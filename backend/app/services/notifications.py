@@ -148,8 +148,16 @@ async def enviar_push_personalizado(supabase, mensajes: dict, detallado: bool = 
                 suyo["fallidos"] += 1
         detalle[user_id] = suyo
 
+    # La limpieza de endpoints muertos es MANTENIMIENTO, no parte del envío.
+    # Si fallaba, la excepción se llevaba puesto `por_usuario` y el endpoint no
+    # llegaba a cerrar los reclamos: a los 5 minutos se reenviaba el aviso
+    # también a quien SÍ lo recibió (quinta auditoría, hallazgo 4). Se deja
+    # rastro y se sigue; la próxima vez que falle ese endpoint se reintenta.
     if expirados:
-        supabase.table("push_subscriptions").delete().in_("endpoint", expirados).execute()
+        try:
+            supabase.table("push_subscriptions").delete().in_("endpoint", expirados).execute()
+        except Exception:  # noqa: BLE001
+            logger.exception("No se pudieron borrar %d suscripciones vencidas", len(expirados))
 
     salida = {
         "enviados": enviados,
