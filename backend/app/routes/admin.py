@@ -194,14 +194,24 @@ async def delete_user(
     deleted_via = "auth"
     try:
         supabase.auth.admin.delete_user(user_id)
-    except Exception:  # noqa: BLE001 - p.ej. el usuario ya no existe en Auth
-        # Respaldo: borrar la fila de public.users (también cascada)
+    except Exception as exc_auth:  # noqa: BLE001
+        texto = str(exc_auth).lower()
+        if "not found" not in texto:
+            # Auth NO dijo «no existe»: falló por otra cosa. Antes se caía al
+            # respaldo y se borraba solo el perfil: la cuenta de Auth quedaba
+            # viva, sin perfil, y la persona podía seguir entrando. Así quedaron
+            # 2 cuentas en producción (junio 2026). Ahora no se borra nada.
+            if "database error" in texto:
+                # La base rechazó la cascada: un pago confirmado o una quiniela
+                # creada que la comprobación de arriba no vio (carrera).
+                raise HTTPException(status_code=409, detail="La base rechazó el borrado (un pago confirmado o una quiniela creada): no se borró nada.")
+            raise HTTPException(status_code=502, detail="No se pudo borrar la cuenta en Auth: no se borró nada. Intentá de nuevo.")
+        # Respaldo SOLO si la cuenta ya no existe en Auth: queda un perfil
+        # huérfano que sí hay que borrar (también cae en cascada).
         try:
             res = supabase.table("users").delete().eq("id", user_id).execute()
         except Exception as exc:  # noqa: BLE001
             if "pago confirmado" in str(exc):
-                # Un pago se confirmó después de la comprobación de arriba: el
-                # trigger rechazó la cascada ENTERA y no se borró nada.
                 raise HTTPException(status_code=409, detail="Tiene un pago confirmado: no se borró nada.")
             raise
         if not res.data:

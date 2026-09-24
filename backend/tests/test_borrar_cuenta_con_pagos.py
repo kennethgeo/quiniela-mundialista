@@ -109,7 +109,7 @@ def test_la_base_tambien_lo_impide():
 # ---------------------------------------------------------------------------
 class _AuthQueFalla(_Auth):
     def delete_user(self, uid):
-        raise RuntimeError("Database error deleting user")
+        raise RuntimeError("User not found")
 
 
 class _QConCandado(_Q):
@@ -173,3 +173,52 @@ def test_la_base_tambien_lo_impide_para_el_creador():
     sql = (Path(__file__).resolve().parents[2] / "database"
            / "94_borrar_al_creador_no_borra_la_quiniela.sql").read_text()
     assert "REFERENCES public.users(id) ON DELETE RESTRICT" in sql
+
+
+
+# ---------------------------------------------------------------------------
+# Cuentas sin perfil: el respaldo borraba solo el perfil si Auth fallaba
+# ---------------------------------------------------------------------------
+class _AuthCaida(_Auth):
+    def delete_user(self, uid):
+        raise RuntimeError("Connection reset by peer")
+
+
+class _AuthSinUsuario(_Auth):
+    def delete_user(self, uid):
+        raise RuntimeError("User not found")
+
+
+def test_si_auth_falla_por_otra_cosa_no_se_borra_el_perfil(monkeypatch):
+    """Así quedaron 2 cuentas en producción: Auth falló, el respaldo borró el
+    perfil y respondió «eliminado». La cuenta seguía pudiendo entrar."""
+    base = Base(pagos=[])
+    base.auth = _AuthCaida(base)
+    with pytest.raises(HTTPException) as e:
+        _borrar(base, monkeypatch)
+    assert e.value.status_code == 502
+    assert base.borrados == []
+
+
+def test_si_auth_ya_no_tiene_la_cuenta_se_borra_el_perfil_huerfano(monkeypatch):
+    base = Base(pagos=[])
+    base.auth = _AuthSinUsuario(base)
+    r = _borrar(base, monkeypatch)
+    assert r["via"] == "users_table"
+    assert base.borrados == ["users"]
+
+
+class _AuthRechazadaPorLaBase(_Auth):
+    def delete_user(self, uid):
+        raise RuntimeError("Database error deleting user")
+
+
+def test_si_la_base_rechaza_la_cascada_de_auth_no_se_borra_nada(monkeypatch):
+    """El trigger de pagos (92) o la FK del creador (94) rechazan la cascada
+    que dispara Auth: GoTrue responde «Database error». Nada se borra."""
+    base = Base(pagos=[])
+    base.auth = _AuthRechazadaPorLaBase(base)
+    with pytest.raises(HTTPException) as e:
+        _borrar(base, monkeypatch)
+    assert e.value.status_code == 409
+    assert base.borrados == []
