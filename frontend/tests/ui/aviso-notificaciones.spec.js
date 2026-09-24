@@ -153,3 +153,58 @@ for (const tema of ['light', 'dark']) {
     }
   })
 }
+
+/* ── Insistir la próxima vez que entra, sin ser spam ─────────────────────────
+   Pedido del dueño: que el aviso vuelva cuando la persona vuelva a entrar.
+   El «no vuelve al recargar» de arriba sigue valiendo (recargar no es volver
+   a entrar); estas dos fijan el resto: al día siguiente sí vuelve, y a quien
+   ya dijo que no varias veces se le espera más. */
+async function pospuestoHace (page, horas, veces) {
+  await page.addInitScript(({ h, v }) => {
+    localStorage.setItem('avisoPushPospuesto',
+      JSON.stringify({ cuando: Date.now() - h * 60 * 60 * 1000, veces: v }))
+  }, { h: horas, v: veces })
+}
+
+test('pospuesto ayer: al volver a entrar se ofrece otra vez', async ({ page }) => {
+  await montar(page)
+  await pospuestoHace(page, 25, 1)
+  await page.goto('/')
+  await expect(aviso(page)).toBeVisible({ timeout: 10000 })
+})
+
+test('tres «Ahora no» seguidos: dos días después todavía no insiste', async ({ page }) => {
+  await montar(page)
+  await pospuestoHace(page, 48, 3)
+  await page.goto('/')
+  await expect(page.getByRole('heading', { name: 'Mis quinielas' })).toBeVisible({ timeout: 10000 })
+  await expect(aviso(page)).toHaveCount(0)
+})
+
+test('iPhone sin instalar: el aviso sale y explica que hay que instalar', async ({ page }) => {
+  /* Safari sin instalar no expone Notification: el aviso se callaba y el
+     texto para iPhone, que ya existía, no se veía nunca. */
+  await sinRedExterna(page)
+  await conSesion(page)
+  await page.addInitScript(() => {
+    localStorage.setItem('tutorial_seen', 'true')
+    localStorage.setItem('pwaPromptDismissed', 'true')
+    Object.defineProperty(navigator, 'userAgent', {
+      configurable: true,
+      get: () => 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 Version/17.5 Mobile/15E148 Safari/604.1',
+    })
+    delete window.PushManager
+    delete window.Notification
+  })
+  await interceptarSupabase(page, {
+    '/rest/v1/users': { id: USUARIO.id, display_name: 'Prueba', avatar_url: null, is_admin: false },
+    '/rest/v1/rpc/my_groups': grupos,
+    '/rest/v1/rpc/mi_resumen_global': { partidos: 0 },
+    '/rest/v1/matches': [],
+    '/rest/v1/predictions': [],
+  })
+  await page.goto('/')
+  await expect(aviso(page)).toBeVisible({ timeout: 10000 })
+  await expect(page.getByText(/agregar la app a la pantalla de inicio/)).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Activar avisos' })).toHaveCount(0)
+})
