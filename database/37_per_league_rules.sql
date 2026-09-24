@@ -1,4 +1,27 @@
 -- =============================================================================
+-- ⚠️  ESTA MIGRACIÓN BORRÓ TODAS LAS PREDICCIONES DEL MUNDIAL 2026 (jul 2026)
+-- =============================================================================
+-- Descubierto el 24 sep 2026, cuando el dueño entró a la quiniela del Mundial
+-- y no había nada. Reproducido en un Postgres local con la secuencia exacta:
+-- 3 predicciones → 0 copias → 0 predicciones.
+--
+-- El error es de ORDEN. El backfill copia cada predicción vieja a la quiniela
+-- del usuario con `ON CONFLICT DO NOTHING`, pero en ese momento sigue viva la
+-- restricción vieja `UNIQUE (user_id, match_id)`: cada copia choca con SU
+-- PROPIA original y se descarta en silencio. Después `DELETE … WHERE league_id
+-- IS NULL` borra todas las originales, y recién al final se cambia la
+-- restricción. Lo mismo pasó con `tournament_predictions` (campeón/goleador).
+--
+-- Pruebas en producción: las 14 personas de «Mundial 2026» recibieron la
+-- medalla «fantasma» (cero predicciones) el 24 jul a las 02:35; la predicción
+-- más vieja que queda en toda la base es del 23 jul; la bitácora
+-- (`prediction_logs`) se borra en cascada con cada predicción, así que no
+-- quedó rastro. Hoy ya no puede repetirse: `league_id` es NOT NULL y el
+-- backfill no encuentra nada. NO copiar este patrón: para mover filas bajo una
+-- restricción nueva, primero se cambia la restricción, después se copia,
+-- se COMPRUEBA que la cuenta cierre, y recién entonces se borra.
+-- =============================================================================
+-- =============================================================================
 -- 37_per_league_rules.sql  ·  Reglas y predicciones INDEPENDIENTES por quiniela
 -- =============================================================================
 -- Antes: las predicciones eran por (usuario, partido) → compartidas entre todas
