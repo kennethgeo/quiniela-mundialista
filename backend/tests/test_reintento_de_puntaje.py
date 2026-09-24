@@ -77,8 +77,21 @@ class _Q:
             self.db.escrituras.append((self.tabla, dict(self.valores), [f.get("id") for f in filas]))
             return _R(filas)
         if self.unica:
-            return _R(filas[0] if filas else None)
+            # Una COPIA, como PostgREST: devolver la fila misma haría que un
+            # cambio posterior en la «base» apareciera en lo que ya se leyó.
+            return _R(dict(filas[0]) if filas else None)
         return _R([dict(f) for f in filas])
+
+
+class _RPC:
+    def __init__(self, db, nombre, params):
+        self.db, self.nombre, self.params = db, nombre, params
+
+    def execute(self):
+        assert self.nombre == "aplicar_puntaje", self.nombre
+        if self.db.fallar_rpc:
+            raise RuntimeError("se cortó la conexión con la base")
+        return _R(self.db.aplicar_puntaje(**self.params))
 
 
 class FalsaBase:
@@ -86,11 +99,38 @@ class FalsaBase:
         self.tablas = {"matches": matches, "predictions": predictions, "leagues": list(leagues)}
         self.escrituras = []
         self.fallar_si = None
+        self.fallar_rpc = False
+        self.durante_el_calculo = None  # para intercalar otra ejecución
         self.consultas = 0
 
     def table(self, nombre):
         self.consultas += 1
+        if nombre == "leagues" and self.durante_el_calculo:
+            # A ya leyó el partido y sus predicciones; lo que pase ahora ocurre
+            # MIENTRAS calcula en memoria, antes de escribir. Es la ventana real.
+            gancho, self.durante_el_calculo = self.durante_el_calculo, None
+            gancho()
         return _Q(self, nombre)
+
+    def rpc(self, nombre, params):
+        return _RPC(self, nombre, params)
+
+    def aplicar_puntaje(self, p_match_id, p_home, p_away, p_penales, p_ganador_penales, p_firma, p_puntos):
+        """La MISMA regla que la función SQL de la migración 90 (probada contra
+        producción): si el resultado del partido ya no es el usado para
+        calcular, no escribe NADA; si lo es, escribe puntos y firma juntos."""
+        m = next(x for x in self.tablas["matches"] if x["id"] == p_match_id)
+        vigente = (m.get("home_goals_actual"), m.get("away_goals_actual"),
+                   bool(m.get("goes_to_penalties")), m.get("penalties_winner_real"))
+        if m.get("status") != "finished" or vigente != (p_home, p_away, bool(p_penales), p_ganador_penales):
+            return "desactualizado"
+        n = 0
+        for x in p_puntos:
+            for pr in self.tablas["predictions"]:
+                if pr["id"] == x["id"] and pr["match_id"] == p_match_id and pr.get("points_earned") != x["puntos"]:
+                    pr["points_earned"] = x["puntos"]; n += 1
+        m["puntuado_con"] = p_firma
+        return f"ok:{n}"
 
 
 def _partido(**k):
@@ -119,6 +159,15 @@ def _sin_push(monkeypatch):
 
 def _correr(coro):
     return asyncio.run(coro)
+
+
+def _correr_en_otro_hilo(coro):
+    """B corre mientras A está a medio camino: otro hilo, otro bucle."""
+    import threading
+    fuera = {}
+    h = threading.Thread(target=lambda: fuera.setdefault("r", asyncio.run(coro)))
+    h.start(); h.join()
+    return fuera.get("r")
 
 
 # ---------------------------------------------------------------------------
@@ -193,29 +242,43 @@ def test_un_puntaje_completo_deja_la_firma():
     assert partidos_sin_puntuar(db, [7]) == set()
 
 
-def test_un_puntaje_que_se_cae_a_mitad_NO_deja_la_firma_y_se_reintenta():
-    """El caso de verdad: predicciones nacidas en 0, el lote de UPDATE se corta
-    en la segunda fila. Sin firma, la pasada siguiente lo completa."""
+def test_si_la_escritura_falla_no_queda_NADA_y_se_reintenta():
+    """Desde la migración 90 puntos y firma van en UNA transacción: si se corta,
+    no quedan puntos a medias ni firma. La pasada siguiente lo completa."""
     db = FalsaBase([_partido()], [_prediccion(1, 2, 1), _prediccion(2, 2, 1)],
                    [{"id": "L", "points_exact": 3, "points_correct": 1}])
-    escritas = []
-
-    def corte(q):
-        if q.tabla == "predictions" and q.modo == "update":
-            escritas.append(1)
-            return len(escritas) == 2
-        return False
-
-    db.fallar_si = corte
+    db.fallar_rpc = True
     with pytest.raises(RuntimeError):
         _correr(calculate_and_update_scores(db, 7))
+    assert [p["points_earned"] for p in db.tablas["predictions"]] == [0, 0]
     assert db.tablas["matches"][0]["puntuado_con"] is None
-    assert partidos_sin_puntuar(db, [7]) == {7}, "el partido a medias tiene que reintentarse"
+    assert partidos_sin_puntuar(db, [7]) == {7}, "el partido tiene que reintentarse"
 
-    # La pasada siguiente, sin corte, lo termina.
-    db.fallar_si = None
+    db.fallar_rpc = False
     _correr(calculate_and_update_scores(db, 7))
     assert [p["points_earned"] for p in db.tablas["predictions"]] == [3, 3]
+    assert partidos_sin_puntuar(db, [7]) == set()
+
+
+def test_dos_recalculos_cruzados_no_dejan_puntos_viejos_con_firma_nueva():
+    """EL CASO DE LA CUARTA AUDITORÍA. A calcula con 2-1; mientras tanto el
+    resultado pasa a 0-1 y B puntúa entero con el nuevo; recién entonces A
+    intenta escribir. Antes A dejaba sus 3 puntos bajo la firma de B («0-1») y
+    el reintento ya no lo veía. Ahora la base rechaza a A por desactualizado."""
+    db = FalsaBase([_partido()], [_prediccion(1, 2, 1)],
+                   [{"id": "L", "points_exact": 3, "points_correct": 1}])
+
+    def llega_el_resultado_corregido_y_puntua_b():
+        m = db.tablas["matches"][0]
+        m["home_goals_actual"], m["away_goals_actual"] = 0, 1
+        _correr_en_otro_hilo(calculate_and_update_scores(db, 7))   # B
+
+    db.durante_el_calculo = llega_el_resultado_corregido_y_puntua_b
+    resultado_a = _correr(calculate_and_update_scores(db, 7))      # A
+
+    assert resultado_a["status"] == "stale"
+    assert db.tablas["predictions"][0]["points_earned"] == 0, "quedaron los puntos del resultado viejo"
+    assert db.tablas["matches"][0]["puntuado_con"] == firma_resultado(db.tablas["matches"][0])
     assert partidos_sin_puntuar(db, [7]) == set()
 
 
