@@ -256,6 +256,9 @@ export default function ProfilePage() {
           </p>
         </div>
 
+        {/* Arriba y no al fondo: abajo de las medallas nadie lo veía. */}
+        <PushNotificationToggle />
+
         {/* Métricas / Dashboard */}
         {!loading && (
           <motion.div
@@ -370,8 +373,6 @@ export default function ProfilePage() {
             <span className="text-xs text-slate-400 italic">Aún no desbloqueaste medallas</span>
           )}
         </motion.div>
-
-        <PushNotificationToggle />
 
         {/* Ajustes / acciones (movidos aquí al quitar la barra superior) */}
         <div className="mt-6 space-y-2">

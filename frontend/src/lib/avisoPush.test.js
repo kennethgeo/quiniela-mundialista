@@ -7,36 +7,53 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import {
   debeOfrecerse, posponerAviso, avisoPospuesto, CLAVE_POSPUESTO,
+  situacionAvisos, olvidarPospuesto,
 } from './avisoPush'
 
-describe('debeOfrecerse', () => {
-  it('no se ofrece si el navegador no admite push', () => {
-    expect(debeOfrecerse({ permiso: null, suscrito: false, pospuesto: false })).toBe(false)
+describe('situacionAvisos', () => {
+  const base = { soporta: true, iosSinInstalar: false, permiso: 'default', suscrito: false }
+
+  it('iPhone sin instalar pide instalar, AUNQUE parezca que no hay soporte', () => {
+    /* Safari en iPhone sin instalar no expone Notification ni PushManager.
+       Preguntando primero por el soporte, a esa persona no se le decía nunca
+       que tenía que instalar la app: el texto existía y no se podía ver. */
+    expect(situacionAvisos({ ...base, soporta: false, iosSinInstalar: true, permiso: null })).toBe('ios-instalar')
   })
 
-  it('no se ofrece a quien YA tiene avisos en este dispositivo', () => {
-    expect(debeOfrecerse({ permiso: 'granted', suscrito: true, pospuesto: false })).toBe(false)
+  it('sin soporte (y sin iOS) no hay nada que ofrecer', () => {
+    expect(situacionAvisos({ ...base, soporta: false, permiso: null })).toBe('sin-soporte')
   })
 
-  it('SÍ se ofrece con permiso concedido pero sin suscripción', () => {
+  it('bloqueado, activo y pendiente', () => {
+    expect(situacionAvisos({ ...base, permiso: 'denied' })).toBe('bloqueado')
+    expect(situacionAvisos({ ...base, permiso: 'granted', suscrito: true })).toBe('activo')
+    expect(situacionAvisos({ ...base, permiso: 'default' })).toBe('pendiente')
+  })
+
+  it('permiso concedido pero SIN suscripción es pendiente, no activo', () => {
     /* Pasa al actualizar la app o el service worker: el permiso sigue, la
        suscripción se perdió. Esa persona cree tener avisos y no le llega
        ninguno, así que es justamente a quien hay que ofrecerle. */
-    expect(debeOfrecerse({ permiso: 'granted', suscrito: false, pospuesto: false })).toBe(true)
+    expect(situacionAvisos({ ...base, permiso: 'granted', suscrito: false })).toBe('pendiente')
+  })
+})
+
+describe('debeOfrecerse', () => {
+  it('no se ofrece sin soporte ni a quien YA tiene avisos', () => {
+    expect(debeOfrecerse({ situacion: 'sin-soporte', pospuesto: false })).toBe(false)
+    expect(debeOfrecerse({ situacion: 'activo', pospuesto: false })).toBe(false)
   })
 
-  it('se ofrece a quien nunca decidió', () => {
-    expect(debeOfrecerse({ permiso: 'default', suscrito: false, pospuesto: false })).toBe(true)
-  })
-
-  it('se ofrece a quien los tiene bloqueados, pero para explicarle cómo', () => {
-    // El componente muestra las instrucciones y NO un botón que no puede
+  it('se ofrece a quien nunca decidió, a quien debe instalar y a quien los bloqueó', () => {
+    // Al bloqueado el componente le explica cómo, sin un botón que no puede
     // funcionar: el navegador ya no vuelve a preguntar.
-    expect(debeOfrecerse({ permiso: 'denied', suscrito: false, pospuesto: false })).toBe(true)
+    for (const situacion of ['pendiente', 'ios-instalar', 'bloqueado']) {
+      expect(debeOfrecerse({ situacion, pospuesto: false }), situacion).toBe(true)
+    }
   })
 
   it('no se insiste a quien lo pospuso', () => {
-    expect(debeOfrecerse({ permiso: 'default', suscrito: false, pospuesto: true })).toBe(false)
+    expect(debeOfrecerse({ situacion: 'pendiente', pospuesto: true })).toBe(false)
   })
 })
 
@@ -46,6 +63,7 @@ describe('posponer', () => {
     vi.stubGlobal('localStorage', {
       getItem: (k) => (k in almacen ? almacen[k] : null),
       setItem: (k, v) => { almacen[k] = String(v) },
+      removeItem: (k) => { delete almacen[k] },
     })
     for (const k of Object.keys(almacen)) delete almacen[k]
   })
@@ -61,20 +79,59 @@ describe('posponer', () => {
     expect(avisoPospuesto(ahora + 1000)).toBe(true)
   })
 
-  it('a los 13 días sigue pospuesto; a los 15 vuelve', () => {
-    /* Vuelve a propósito: alguien que lo cerró sin pensar no debería quedarse
-       sin avisos toda la temporada. Pero no antes de dos semanas, porque un
-       aviso que reaparece siempre hace que se apaguen TODAS las
-       notificaciones. */
+  const dia = 24 * 60 * 60 * 1000
+  const hora = 60 * 60 * 1000
+
+  it('vuelve la PRÓXIMA vez que entra, no en la misma visita', () => {
+    /* Pedido del dueño: insistir cuando la persona vuelva a entrar. Pero
+       recargar o volver de un partido no es «volver a entrar»: a las 2 horas
+       sigue pospuesto y al día siguiente se ofrece. */
     const ahora = Date.UTC(2026, 8, 8)
-    const dia = 24 * 60 * 60 * 1000
     posponerAviso(ahora)
-    expect(avisoPospuesto(ahora + 13 * dia)).toBe(true)
-    expect(avisoPospuesto(ahora + 15 * dia)).toBe(false)
+    expect(avisoPospuesto(ahora + 2 * hora)).toBe(true)
+    expect(avisoPospuesto(ahora + 19 * hora)).toBe(true)
+    expect(avisoPospuesto(ahora + 21 * hora)).toBe(false)
+  })
+
+  it('cada «Ahora no» seguido espera más: 1, 3, 7 y 14 días, y ahí se queda', () => {
+    /* Quien dijo que no varias veces no quiere que le insistan cada día: eso
+       es lo que hace que la gente apague TODAS las notificaciones. Pero
+       tampoco se le borra para siempre. */
+    let t = Date.UTC(2026, 8, 8)
+    const esperas = [1, 3, 7, 14, 14, 14]
+    for (const dias of esperas) {
+      posponerAviso(t)
+      expect(avisoPospuesto(t + (dias - 0.5) * dia), `antes de ${dias} días`).toBe(true)
+      t += dias * dia + hora
+      expect(avisoPospuesto(t), `después de ${dias} días`).toBe(false)
+    }
+  })
+
+  it('activar los avisos reinicia la insistencia desde el principio', () => {
+    const t = Date.UTC(2026, 8, 8)
+    posponerAviso(t); posponerAviso(t); posponerAviso(t)
+    olvidarPospuesto()
+    expect(avisoPospuesto(t)).toBe(false)
+    posponerAviso(t)
+    // Si no se hubiera olvidado, este sería el 4.º «Ahora no»: 14 días.
+    expect(avisoPospuesto(t + 21 * hora)).toBe(false)
+  })
+
+  it('el formato viejo (solo el instante) cuenta como un «Ahora no»', () => {
+    /* Hasta sep 2026 se guardaba el número pelado con 14 días fijos. A esa
+       gente se le vuelve a ofrecer al día siguiente, que es lo que se quiere. */
+    const t = Date.UTC(2026, 8, 8)
+    almacen[CLAVE_POSPUESTO] = String(t)
+    expect(avisoPospuesto(t + 2 * hora)).toBe(true)
+    expect(avisoPospuesto(t + 21 * hora)).toBe(false)
+    posponerAviso(t + 21 * hora)
+    expect(JSON.parse(almacen[CLAVE_POSPUESTO]).veces).toBe(2)
   })
 
   it('un valor corrupto no deja a nadie sin aviso para siempre', () => {
     almacen[CLAVE_POSPUESTO] = 'cualquier cosa'
+    expect(avisoPospuesto()).toBe(false)
+    almacen[CLAVE_POSPUESTO] = JSON.stringify({ cuando: 'x', veces: 2 })
     expect(avisoPospuesto()).toBe(false)
   })
 
@@ -84,8 +141,10 @@ describe('posponer', () => {
     vi.stubGlobal('localStorage', {
       getItem: () => { throw new Error('bloqueado') },
       setItem: () => { throw new Error('bloqueado') },
+      removeItem: () => { throw new Error('bloqueado') },
     })
     expect(avisoPospuesto()).toBe(false)
     expect(() => posponerAviso()).not.toThrow()
+    expect(() => olvidarPospuesto()).not.toThrow()
   })
 })

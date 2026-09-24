@@ -9,22 +9,26 @@
    justo lo que el aviso sirve para no olvidar. Un modal al entrar se cierra
    por reflejo.
 
-   NO INSISTE: se puede posponer, y no vuelve en dos semanas. Un aviso que
-   reaparece siempre es el que hace que la gente apague TODAS las
-   notificaciones, y ahí se pierden también las que importan. */
+   INSISTE, PERO NO ES SPAM: tras «Ahora no» vuelve la PRÓXIMA VEZ que la
+   persona entre (no en la misma visita), y cada «Ahora no» seguido alarga la
+   espera hasta dos semanas (`lib/avisoPush`). Un aviso que reaparece en cada
+   pantalla es el que hace que la gente apague TODAS las notificaciones, y ahí
+   se pierden también las que importan. */
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 import { Bell, X, Loader2, Check } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
 import {
-  activarPush, estadoPermiso, tieneSuscripcion, necesitaInstalarPrimero,
+  activarPush, estadoPermiso, tieneSuscripcion, necesitaInstalarPrimero, soportaPush,
 } from '../../lib/notificaciones'
-import { posponerAviso, avisoPospuesto, debeOfrecerse } from '../../lib/avisoPush'
+import {
+  posponerAviso, avisoPospuesto, debeOfrecerse, olvidarPospuesto, situacionAvisos,
+} from '../../lib/avisoPush'
 
 export default function AvisoNotificaciones () {
   const { profile } = useAuth()
   const [visible, setVisible] = useState(false)
-  const [permiso, setPermiso] = useState(null)
+  const [situacion, setSituacion] = useState('pendiente')
   const [activando, setActivando] = useState(false)
   const [listo, setListo] = useState(false)
   const [fallo, setFallo] = useState(null)
@@ -35,8 +39,11 @@ export default function AvisoNotificaciones () {
       const p = estadoPermiso()
       const suscrito = p === 'granted' ? await tieneSuscripcion() : false
       if (!vigente) return
-      setPermiso(p)
-      setVisible(debeOfrecerse({ permiso: p, suscrito, pospuesto: avisoPospuesto() }))
+      const s = situacionAvisos({
+        soporta: soportaPush(), iosSinInstalar: necesitaInstalarPrimero(), permiso: p, suscrito,
+      })
+      setSituacion(s)
+      setVisible(debeOfrecerse({ situacion: s, pospuesto: avisoPospuesto() }))
     }
     decidir()
     return () => { vigente = false }
@@ -46,13 +53,14 @@ export default function AvisoNotificaciones () {
     setActivando(true); setFallo(null)
     try {
       await activarPush(profile?.id)
+      olvidarPospuesto()
       setListo(true)
       // Se deja ver la confirmación antes de retirarlo: si desaparece de golpe
       // no queda claro si funcionó.
       setTimeout(() => setVisible(false), 2000)
     } catch (e) {
       setFallo(e?.message || 'No se pudo activar')
-      setPermiso(estadoPermiso())
+      if (estadoPermiso() === 'denied') setSituacion('bloqueado')
     } finally {
       setActivando(false)
     }
@@ -68,8 +76,8 @@ export default function AvisoNotificaciones () {
                       ajustes del sitio, así que no se ofrece un botón muerto.
        · iOS sin instalar -> primero hay que agregarla a la pantalla de inicio.
        · el resto  -> se puede activar acá mismo. */
-  const denegado = permiso === 'denied'
-  const faltaInstalar = necesitaInstalarPrimero()
+  const denegado = situacion === 'bloqueado'
+  const faltaInstalar = situacion === 'ios-instalar'
 
   return (
     <AnimatePresence>
