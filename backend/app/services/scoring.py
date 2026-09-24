@@ -159,7 +159,10 @@ def partidos_sin_puntuar(supabase, match_ids) -> set:
 
     Ahora se compara la FIRMA del resultado que se puntuó (`matches.puntuado_con`,
     migración 88) contra el resultado actual. Así el cero sigue siendo un
-    puntaje válido y la marca queda atada al resultado.
+    puntaje válido y la marca queda atada al resultado. Desde la migración 90
+    la firma se escribe en la MISMA transacción que los puntos
+    (`aplicar_puntaje`), así que no puede certificar una mezcla de dos
+    recálculos.
 
     Si la columna no existe todavía (código desplegado antes que la migración)
     no revienta: devuelve vacío y lo dice en el log. La regla del proyecto:
@@ -182,17 +185,33 @@ def partidos_sin_puntuar(supabase, match_ids) -> set:
             and f.get("puntuado_con") != firma_resultado(f)}
 
 
-def _marcar_puntuado(supabase, match: dict) -> None:
-    """Se escribe AL FINAL, cuando ya se guardaron todos los puntos: si el motor
-    se cae a mitad, la firma queda vieja y la pasada siguiente lo reintenta."""
-    try:
-        (supabase.table("matches")
-         .update({"puntuado_con": firma_resultado(match)})
-         .eq("id", match["id"]).execute())
-    except Exception:  # noqa: BLE001
-        # Sin la marca el partido se reintenta en la próxima pasada; el motor
-        # es idempotente, así que lo peor es trabajo repetido, no puntos dobles.
-        _log.exception("No se pudo marcar el partido %s como puntuado", match.get("id"))
+def _aplicar_puntaje(supabase, match: dict, puntos: list) -> str:
+    # `match` tiene que ser la foto con la que se CALCULARON los puntos: la base
+    # compara ese resultado con el vigente. Releer el partido acá anularía todo
+    # el control (hay una prueba que lo afirma).
+    """Escribe los puntos Y la firma en UNA transacción (migración 90).
+
+    Antes eran pasos sueltos —un UPDATE por predicción y después la firma— y
+    dos recálculos cruzados podían dejar puntos calculados con un resultado
+    viejo bajo la firma del nuevo: la firma certificaba una mezcla y el
+    reintento dejaba de verla (cuarta auditoría, hallazgo 3).
+
+    `aplicar_puntaje` bloquea el partido y SOLO escribe si el resultado con el
+    que se calculó sigue siendo el suyo. Si no, responde «desactualizado» y no
+    toca nada: sin firma, la pasada siguiente lo recalcula con el resultado
+    nuevo. La firma se arma acá y la base compara columnas, para no escribir
+    la misma fórmula dos veces.
+    """
+    r = supabase.rpc("aplicar_puntaje", {
+        "p_match_id": match["id"],
+        "p_home": match.get("home_goals_actual"),
+        "p_away": match.get("away_goals_actual"),
+        "p_penales": bool(match.get("goes_to_penalties")),
+        "p_ganador_penales": match.get("penalties_winner_real"),
+        "p_firma": firma_resultado(match),
+        "p_puntos": puntos,
+    }).execute()
+    return r.data if isinstance(r.data, str) else str(r.data)
 
 
 async def calculate_and_update_scores(supabase, match_id: int) -> dict:
@@ -230,6 +249,9 @@ async def calculate_and_update_scores(supabase, match_id: int) -> dict:
     if match.get("status") != "finished":
         return {"status": "error", "message": "Partido no finalizado o no encontrado"}
 
+    # La FOTO del resultado con la que se calcula, y la MISMA que se manda a la
+    # base para comprobar que no cambió mientras tanto (migración 90).
+    match = dict(match)
     home_actual = match["home_goals_actual"]
     away_actual = match["away_goals_actual"]
     goes_to_penalties = match.get("goes_to_penalties", False)
@@ -245,7 +267,9 @@ async def calculate_and_update_scores(supabase, match_id: int) -> dict:
     predictions = predictions_response.data
 
     if not predictions:
-        _marcar_puntuado(supabase, match)
+        # Se firma igual (por la misma vía atómica): si no, se reintentaría
+        # en cada pasada del cron para siempre.
+        _aplicar_puntaje(supabase, match, [])
         return {"status": "ok", "message": "No hay predicciones para este partido"}
 
     # 2b. Config de puntaje por quiniela (cada predicción pertenece a un league).
@@ -257,10 +281,12 @@ async def calculate_and_update_scores(supabase, match_id: int) -> dict:
                  .in_("id", league_ids).execute().data or [])
         configs = {r["id"]: r for r in lrows}
 
-    updates = []
+    puntos = []
     user_points_delta = {}
 
-    # 3. Evaluar cada predicción con la config de su quiniela
+    # 3. Evaluar cada predicción con la config de su quiniela. Se mandan TODOS
+    #    los puntos (absolutos, no diferencias): así no depende de lo que otra
+    #    ejecución haya escrito mientras tanto. La base solo toca los que cambian.
     for pred in predictions:
         pts = evaluate_prediction(
             pred,
@@ -272,27 +298,23 @@ async def calculate_and_update_scores(supabase, match_id: int) -> dict:
             match.get("away_team"),
             config=configs.get(pred.get("league_id")),
         )
-        
-        # Calcular la diferencia si ya tenía puntos calculados antes
-        old_points = pred.get("points_earned") or 0
-        delta = pts - old_points
-
+        puntos.append({"id": pred["id"], "puntos": pts})
+        delta = pts - (pred.get("points_earned") or 0)
         if delta != 0:
-            updates.append({"id": pred["id"], "points_earned": pts})
             user_id = pred["user_id"]
             user_points_delta[user_id] = user_points_delta.get(user_id, 0) + delta
 
-    # 4. Guardar los nuevos puntos en la tabla predictions.
-    #    Se usa UPDATE por id (no upsert): el upsert parcial intentaba INSERTAR
-    #    filas sin user_id y violaba el NOT NULL, dejando los partidos sin puntuar.
-    for u in updates:
-        supabase.table("predictions").update(
-            {"points_earned": u["points_earned"]}
-        ).eq("id", u["id"]).execute()
-
-    # 4b. Recién ahora, con todos los puntos escritos, se deja constancia de
-    #     qué resultado se puntuó. Si algo de arriba reventó, no se llega acá.
-    _marcar_puntuado(supabase, match)
+    # 4. Puntos y firma en UNA transacción, y solo si el resultado sigue siendo
+    #    el que se usó para calcular (migración 90).
+    resultado = _aplicar_puntaje(supabase, match, puntos)
+    if resultado == "desactualizado":
+        # El resultado cambió mientras se calculaba: no se escribió nada, y la
+        # pasada siguiente lo recalcula con el nuevo. Tampoco se avisa a nadie.
+        return {"status": "stale", "message": "El resultado cambió durante el cálculo; se recalcula en la próxima pasada"}
+    try:
+        actualizadas = int(str(resultado).split(":", 1)[1])
+    except (IndexError, ValueError):
+        actualizadas = 0
 
     # 5. users.total_points lo mantiene SOLA la base de datos (trigger
     #    recompute_user_total). Ya no lo tocamos aquí con deltas: ese patrón
@@ -317,6 +339,6 @@ async def calculate_and_update_scores(supabase, match_id: int) -> dict:
     return {
         "status": "ok",
         "predictions_evaluated": len(predictions),
-        "predictions_updated": len(updates),
+        "predictions_updated": actualizadas,
         "users_updated": updated_users,
     }

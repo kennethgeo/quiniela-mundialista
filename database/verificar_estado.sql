@@ -120,7 +120,15 @@ FROM unnest(ARRAY[
   -- Migración 82 (deduplicación de recordatorios)
   'claim_notification_deliveries',
   -- Migración 83 (salida voluntaria)
-  'salir_de_quiniela'
+  'salir_de_quiniela',
+  -- Migraciones 88, 89 y 90. Faltaban acá y la sección 2 las marcaba como
+  -- deriva en falso: lo cazó la cuarta auditoría. Ninguna la llama el
+  -- navegador, así que NO van en la sección 3.
+  'cuota_no_reescribe_pagos',
+  'hay_avisos_por_reintentar',
+  '_conteo_votacion',
+  'identidad_de_prediccion_fija',
+  'aplicar_puntaje'
 ]::text[]) x
 WHERE NOT EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
                   WHERE n.nspname = 'public' AND p.proname = x);
@@ -212,7 +220,15 @@ WHERE n.nspname = 'public'
   -- Migración 82 (deduplicación de recordatorios)
   'claim_notification_deliveries',
   -- Migración 83 (salida voluntaria)
-  'salir_de_quiniela'
+  'salir_de_quiniela',
+  -- Migraciones 88, 89 y 90. Faltaban acá y la sección 2 las marcaba como
+  -- deriva en falso: lo cazó la cuarta auditoría. Ninguna la llama el
+  -- navegador, así que NO van en la sección 3.
+  'cuota_no_reescribe_pagos',
+  'hay_avisos_por_reintentar',
+  '_conteo_votacion',
+  'identidad_de_prediccion_fija',
+  'aplicar_puntaje'
 ]::text[])
 ORDER BY p.proname;
 

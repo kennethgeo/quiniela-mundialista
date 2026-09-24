@@ -42,7 +42,11 @@ def send_push_notification(subscription_info, payload_data):
     except WebPushException as ex:
         # Si el endpoint ya no existe (410) o no está autorizado (404), deberíamos borrarlo
         logger.error(f"WebPush Error: {repr(ex)}")
-        if ex.response and ex.response.status_code in [404, 410]:
+        # `is not None`, NUNCA la verdad de la respuesta: una requests.Response
+        # es FALSA cuando su estado es de error, así que `if ex.response and…`
+        # no reconocía jamás un 404 ni un 410 y los endpoints muertos se
+        # quedaban para siempre (cuarta auditoría, hallazgo 4).
+        if ex.response is not None and ex.response.status_code in (404, 410):
             return "expired"
         return False
     except Exception as e:

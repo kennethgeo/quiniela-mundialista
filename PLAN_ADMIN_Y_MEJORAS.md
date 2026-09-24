@@ -108,6 +108,13 @@ Cada uno comprobado leyendo el código o la base, no supuesto. Los marcados con
 | B33 | ~~**Borrar la quiniela borraba la constancia de los 13 pagos**~~ · **RESUELTO** (migración 89): `delete_group` se niega con pagos confirmados | `delete_group` | ✅ 🔴 |
 | B34 | ~~`leagues` escribible por el creador, cerrada solo de rebote por un CHECK~~ · **RESUELTO** (migración 89) | `leagues` | ✅ |
 | B35 | ~~La firma de puntaje no cubría los partidos congelados~~ · **RESUELTO** | `espn_tournament_sync.py` | ✅ |
+| B36 🔶 | ~~Una predicción cerrada se podía mudar de partido con sus puntos~~ · **RESUELTO** (migración 90, trigger de identidad) | `predictions` | ✅ 🔴 |
+| B37 🔶 | ~~Reconfirmar un pago lo reescribía con la cuota nueva~~ · **RESUELTO** (migración 90) | `confirmar_pago` | ✅ 🔴 |
+| B38 🔶 | ~~Dos recálculos cruzados dejaban puntos viejos con firma nueva~~ · **RESUELTO**: `aplicar_puntaje` atómico (migración 90) | `scoring.py` | ✅ |
+| B39 🔶 | ~~Los push vencidos (404/410) nunca se reconocían~~ · **RESUELTO** | `notifications.py` | ✅ |
+| B40 🔶 | ~~La prueba de humo podía dar verde sin probar~~ · **RESUELTO**: versión 2, 29 rutas con afirmaciones | `humo_rutas_del_cliente.sql` | ✅ |
+| B41 🔶 | **El reintento de puntaje no es universal**: `live_sync.py` sigue dependiendo de cambios del resultado, y el sync de ESPN sale antes de revisar pendientes si recibe cero partidos. Leído, no reproducido | `live_sync.py:269-297` · `espn_tournament_sync.py:362` | latente |
+| B42 🔶 | **El 9 de octubre (20:00 CR) hay 8 miembros sin predicción y NINGUNO con push**: el recordatorio no les va a llegar. No es un fallo del código: hay que invitarlos a activar las notificaciones | push_subscriptions | producto |
 | B9 | ~~No existe ninguna salida voluntaria~~ · **RESUELTO** (migración 83, 21 sep 2026): `salir_de_quiniela` + aviso con números. B1 se resuelve de paso: «No acepto · salir» ahora sale de verdad | `83_salida_voluntaria.sql` | ✅ |
 
 ## 3. La arquitectura

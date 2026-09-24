@@ -569,7 +569,9 @@ DECLARE
     -- service_role, nunca el navegador. Sin esta línea, la próxima corrida de
     -- esta misma migración le quitaría el EXECUTE y los recordatorios
     -- dejarían de deduplicarse sin decir por qué.
-    'claim_notification_deliveries'
+    'claim_notification_deliveries',
+    -- Migración 90: la escritura atómica del puntaje. Solo backend.
+    'aplicar_puntaje'
   ];
   v_faltan text[] := '{}';
 BEGIN
