@@ -47,6 +47,13 @@
 -- Idempotente.
 -- =============================================================================
 
+-- La guarda y todo lo que sigue van en UNA transacción (octava auditoría): sin
+-- ella, `psql` sin ON_ERROR_STOP imprime el error de la guarda y SIGUE, y el
+-- resto del archivo pisaba las funciones igual. Dentro de la transacción, tras
+-- el error todo lo demás falla con «current transaction is aborted» y el COMMIT
+-- final se vuelve ROLLBACK.
+BEGIN;
+
 -- -----------------------------------------------------------------------------
 -- GUARDA (séptima auditoría, 24 sep 2026): ESTA MIGRACIÓN ES HISTÓRICA.
 -- Redefine siete funciones que migraciones posteriores reemplazaron
@@ -680,3 +687,5 @@ BEGIN
 END $red$;
 
 NOTIFY pgrst, 'reload schema';
+
+COMMIT;
