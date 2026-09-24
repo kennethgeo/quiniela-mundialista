@@ -127,6 +127,9 @@ Cada uno comprobado leyendo el código o la base, no supuesto. Los marcados con
 | B52 🔶 | **26 cuentas en `auth.users`, 24 perfiles en `public.users`**: dos cuentas sin perfil, sin explicar | auth.users | por mirar |
 | B53 🔶 | ~~Predicciones históricas corregidas, inserciones concurrentes y cambios de tipo escapaban al detector~~ · **RESUELTO** (93): marca `puntaje_pendiente` por fila; el lote lleva el tipo. Carrera reproducida con dos conexiones | `93_…sql` · `scoring.py` | ✅ |
 | B54 🔶 | ~~Borrar una cuenta podía quedar a medias (globales y veto antes de la cascada)~~ · **RESUELTO**: una sola cascada; el veto después | `routes/admin.py` | ✅ |
+| B55 🔶 | ~~La guarda de la 61 se saltaba con psql sin ON_ERROR_STOP~~ · **RESUELTO**: la 61 va entera en una transacción | `61_endurecer_permisos.sql` | ✅ |
+| B56 🔶 | ~~Borrar la cuenta del creador borraba su quiniela~~ · **RESUELTO** (94): FK `ON DELETE RESTRICT` + 409 en `delete-user`. Hoy riesgo cero (un solo creador, protegido por los pagos de Bundestica) | `94_…sql` · `routes/admin.py` | ✅ |
+| B57 🔶 | **Una votación de puntaje en plena temporada deja la tabla con dos reglas mezcladas.** Decisión del dueño: ¿el cambio votado vale hacia atrás o de acá en adelante? | `_apply_rule_proposal` | decisión |
 | B9 | ~~No existe ninguna salida voluntaria~~ · **RESUELTO** (migración 83, 21 sep 2026): `salir_de_quiniela` + aviso con números. B1 se resuelve de paso: «No acepto · salir» ahora sale de verdad | `83_salida_voluntaria.sql` | ✅ |
 
 ## 3. La arquitectura

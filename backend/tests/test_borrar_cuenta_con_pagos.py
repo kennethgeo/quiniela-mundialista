@@ -50,6 +50,8 @@ class _Q:
             if self.base.falla_consulta:
                 raise RuntimeError("se cortó")
             return _R(self.base.pagos)
+        if self.tabla == "leagues":
+            return _R(list(getattr(self.base, "creadas", [])))
         return _R({"display_name": "Ana", "email": "ana@x.com"})
 
 
@@ -148,3 +150,26 @@ def test_el_endpoint_no_borra_tablas_por_su_cuenta():
     assert 'for tbl in ("tournament_predictions", "push_subscriptions")' not in cuerpo
     assert cuerpo.index("delete_user(user_id)") < cuerpo.index('table("banned_emails")'), \
         "el veto del correo vuelve a ir antes del borrado"
+
+
+
+# ---------------------------------------------------------------------------
+# Octava auditoría: borrar al creador borraba su quiniela entera
+# ---------------------------------------------------------------------------
+def test_al_creador_de_una_quiniela_no_se_lo_borra(monkeypatch):
+    """`leagues.admin_id` era ON DELETE CASCADE: la cuenta del creador se
+    llevaba la quiniela con las predicciones de todos (Champions 26-27: 7
+    miembros, 289 predicciones, sin pagos que lo frenaran)."""
+    base = Base(pagos=[])
+    base.creadas = [{"name": "Champions 26-27"}]
+    with pytest.raises(HTTPException) as e:
+        _borrar(base, monkeypatch)
+    assert e.value.status_code == 409
+    assert "Champions 26-27" in e.value.detail
+    assert base.borrados == []
+
+
+def test_la_base_tambien_lo_impide_para_el_creador():
+    sql = (Path(__file__).resolve().parents[2] / "database"
+           / "94_borrar_al_creador_no_borra_la_quiniela.sql").read_text()
+    assert "REFERENCES public.users(id) ON DELETE RESTRICT" in sql

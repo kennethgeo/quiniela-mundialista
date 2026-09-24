@@ -584,3 +584,26 @@ WHERE p.pronamespace = 'public'::regnamespace
   AND (pg_get_functiondef(p.oid) NOT LIKE '%llave_cupo%'
     OR pg_get_functiondef(p.oid) NOT LIKE '%cupo_powerups%')
 ORDER BY p.proname;
+
+\echo '=== 17. Puntajes pendientes que la recuperación ya NO va a reintentar ==='
+-- `partidos_pendientes_de_puntaje()` (migraciones 92/93) reintenta solo durante
+-- 3 días desde que el partido quedó pendiente. Si el puntaje falla todo ese
+-- tiempo, el partido SALE de la lista sin que nada avise: salir de la lista no
+-- significa que se haya resuelto. Esta sección es ese aviso (octava auditoría).
+-- Lo que aparezca acá lo resuelve el admin con «Recalcular» desde el panel.
+-- No lista los partidos viejos sin firma anteriores a la 88 (sin marca de
+-- pendiente): esos tienen los puntos bien y no son trabajo abandonado.
+SELECT m.id AS partido, m.status, m.puntaje_pendiente_desde,
+       (SELECT count(*) FROM public.predictions p
+         WHERE p.match_id = m.id AND p.puntaje_pendiente) AS predicciones_marcadas
+FROM public.matches m
+WHERE m.status IN ('finished', 'cancelled', 'postponed')
+  AND (
+    ( CASE WHEN m.status = 'finished' THEN m.puntuado_con IS NULL
+           ELSE m.puntuado_con IS DISTINCT FROM 'anulado' END
+      AND m.puntaje_pendiente_desde < now() - interval '3 days' )
+    OR EXISTS (SELECT 1 FROM public.predictions p
+                WHERE p.match_id = m.id AND p.puntaje_pendiente
+                  AND p.modificada_at <= now() - interval '3 days')
+  )
+ORDER BY m.id;

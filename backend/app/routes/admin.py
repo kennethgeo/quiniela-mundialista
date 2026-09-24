@@ -156,6 +156,23 @@ async def delete_user(
                     "constancia. Desconfirmalos antes desde el pozo de cada quiniela."),
         )
 
+    # Tampoco se borra a quien CREÓ una quiniela (octava auditoría): la
+    # cascada se llevaba la quiniela entera con las predicciones de todos. La
+    # base lo rechaza igual desde la migración 94 (FK con ON DELETE RESTRICT);
+    # esto es para decir por qué. No hay traspaso: primero se borra la quiniela.
+    try:
+        creadas = (supabase.table("leagues").select("name")
+                   .eq("admin_id", user_id).execute().data or [])
+    except Exception:  # noqa: BLE001
+        raise HTTPException(status_code=503, detail="No se pudo comprobar si creó quinielas; no se borró nada")
+    if creadas:
+        nombres = ", ".join(q.get("name") or "?" for q in creadas)
+        raise HTTPException(
+            status_code=409,
+            detail=(f"Creó {len(creadas)} quiniela(s) ({nombres}): borrar la cuenta borraría "
+                    "la quiniela con las predicciones de todos. Borrala antes desde su Zona de peligro."),
+        )
+
     # Nombre y correo (best-effort, ANTES de borrar) para mensaje y ban.
     display_name = None
     email = None
