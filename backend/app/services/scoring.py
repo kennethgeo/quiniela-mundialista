@@ -206,44 +206,48 @@ def _todas_las_predicciones(supabase, match_id: int) -> list:
 DIAS_DE_RECUPERACION = 3
 
 
-async def puntuar_pendientes(supabase, ahora=None) -> dict:
-    """Puntúa los partidos terminados que esperan puntaje, mirando la BASE.
+async def puntuar_pendientes(supabase) -> dict:
+    """Puntúa los partidos que esperan puntaje, mirando la BASE.
 
     EL FALLO QUE ESTO ARREGLA (quinta auditoría, hallazgo 1): el reintento por
     firma vivía dentro del sync de ESPN, y a ese sync solo se llegaba si ESPN
     devolvía eventos y si alguna puerta del cron se abría. Un partido YA
-    terminado cuyo puntaje falló no abría ninguna: si era el último en curso,
-    nadie volvía a llamar. Medido: desde el 21 de septiembre ningún partido
-    recibió firma porque nada volvió a llamar al sync.
+    terminado cuyo puntaje falló no abría ninguna.
 
-    Esto no depende de lo que diga la fuente: pregunta a nuestra base qué
-    partidos terminados de torneos con quiniela, de los últimos 3 días, no
-    tienen la firma de su resultado actual. Incluye los congelados. La puerta
-    del cron (`hay_puntajes_pendientes`) mira lo mismo del lado de la base.
+    Desde la migración 92 la lista sale de UNA función SQL,
+    `partidos_pendientes_de_puntaje()`, la misma que usa la puerta del cron:
+    terminados sin firma, cancelados/pospuestos sin anular, y partidos con una
+    predicción agregada o corregida después de firmar; los 3 días se cuentan
+    desde que el partido QUEDÓ pendiente, no desde su saque (sexta auditoría).
+
+    Cada resultado se clasifica: `ok` es puntuado; `stale` queda pendiente y
+    se reintenta; cualquier otra cosa es un ERROR, no un éxito (antes un
+    `status: error` se contaba entre los puntuados).
     """
-    from datetime import datetime, timedelta, timezone
-    ahora = ahora or datetime.now(timezone.utc)
-    torneos = {r["tournament_id"] for r in (
-        supabase.table("leagues").select("tournament_id").execute().data or [])
-        if r.get("tournament_id") is not None}
-    if not torneos:
-        return {"pendientes": 0, "puntuados": [], "errores": []}
-    candidatos = (supabase.table("matches").select("id")
-                  .eq("status", "finished")
-                  .in_("tournament_id", sorted(torneos))
-                  .gte("kickoff_at", (ahora - timedelta(days=DIAS_DE_RECUPERACION)).isoformat())
-                  .lte("kickoff_at", ahora.isoformat())
-                  .execute().data or [])
-    pendientes = sorted(partidos_sin_puntuar(supabase, [c["id"] for c in candidatos]))
-    puntuados, errores = [], []
+    try:
+        filas = supabase.rpc("partidos_pendientes_de_puntaje", {}).execute().data or []
+    except Exception as exc:  # noqa: BLE001 - p. ej. código desplegado antes que la 92
+        _log.exception("No se pudo leer la lista de puntajes pendientes")
+        return {"pendientes": 0, "puntuados": [], "reintentar": [],
+                "errores": [{"match_id": None, "error": f"{type(exc).__name__}: {exc}"}]}
+    pendientes = sorted({f if isinstance(f, int) else next(iter(f.values())) for f in filas})
+    puntuados, reintentar, errores = [], [], []
     for mid in pendientes:
         try:
             r = await calculate_and_update_scores(supabase, mid)
-            puntuados.append({"match_id": mid, "status": r.get("status")})
         except Exception as exc:  # noqa: BLE001 - un partido no tapa a los demás
             _log.exception("Falló el puntaje pendiente del partido %s", mid)
             errores.append({"match_id": mid, "error": f"{type(exc).__name__}: {exc}"})
-    return {"pendientes": len(pendientes), "puntuados": puntuados, "errores": errores}
+            continue
+        estado = (r or {}).get("status")
+        if estado == "ok":
+            puntuados.append({"match_id": mid, "status": estado})
+        elif estado == "stale":
+            reintentar.append({"match_id": mid, "status": estado})
+        else:
+            errores.append({"match_id": mid, "error": (r or {}).get("message") or str(estado)})
+    return {"pendientes": len(pendientes), "puntuados": puntuados,
+            "reintentar": reintentar, "errores": errores}
 
 
 def _aplicar_puntaje(supabase, match: dict, puntos: list) -> str:
@@ -328,7 +332,14 @@ async def calculate_and_update_scores(supabase, match_id: int) -> dict:
     if not predictions:
         # Se firma igual (por la misma vía atómica): si no, se reintentaría
         # en cada pasada del cron para siempre.
-        _aplicar_puntaje(supabase, match, [])
+        resultado = _aplicar_puntaje(supabase, match, [])
+        if resultado == "desactualizado":
+            return {"status": "stale", "message": "El resultado cambió durante el cálculo"}
+        if not str(resultado).startswith("ok:"):
+            # Otra respuesta (p. ej. `incompleto` porque entró una predicción
+            # entre la lectura y la escritura) NO es un éxito: sin firma, se
+            # reintenta (sexta auditoría).
+            raise RuntimeError(f"aplicar_puntaje({match_id}) respondió {resultado!r}")
         return {"status": "ok", "message": "No hay predicciones para este partido"}
 
     # 2b. Config de puntaje por quiniela (cada predicción pertenece a un league).
@@ -357,7 +368,12 @@ async def calculate_and_update_scores(supabase, match_id: int) -> dict:
             match.get("away_team"),
             config=configs.get(pred.get("league_id")),
         )
-        puntos.append({"id": pred["id"], "puntos": pts})
+        # Con el marcador que se usó: la base comprueba que siga siendo el de la
+        # predicción, igual que con el resultado del partido (migración 92).
+        puntos.append({"id": pred["id"], "puntos": pts,
+                       "h": pred.get("home_goals_pred"), "a": pred.get("away_goals_pred"),
+                       "pw": pred.get("penalties_winner_pred"),
+                       "x2": bool(pred.get("use_powerup_x2"))})
         delta = pts - (pred.get("points_earned") or 0)
         if delta != 0:
             user_id = pred["user_id"]

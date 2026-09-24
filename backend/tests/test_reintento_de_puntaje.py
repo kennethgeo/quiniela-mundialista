@@ -111,6 +111,10 @@ class _RPC:
         self.db, self.nombre, self.params = db, nombre, params
 
     def execute(self):
+        if self.nombre == "partidos_pendientes_de_puntaje":
+            # La LISTA la decide SQL (migración 92, probada contra Postgres);
+            # el doble solo entrega la que se le dé.
+            return _R(list(self.db.pendientes))
         assert self.nombre == "aplicar_puntaje", self.nombre
         if self.db.fallar_rpc:
             raise RuntimeError("se cortó la conexión con la base")
@@ -124,6 +128,7 @@ class FalsaBase:
         self.fallar_si = None
         self.fallar_rpc = False
         self.durante_el_calculo = None  # para intercalar otra ejecución
+        self.pendientes = []
         self.consultas = 0
 
     def table(self, nombre):
@@ -154,6 +159,15 @@ class FalsaBase:
         if (len(ids) != len(set(ids)) or set(ids) != del_partido
                 or any(not isinstance(x.get("puntos"), int) or x["puntos"] < 0 for x in p_puntos)):
             return "incompleto"
+        # Migración 92: cada predicción con el marcador que se usó.
+        if any(not all(k in x for k in ("h", "a", "pw", "x2")) for x in p_puntos):
+            return "incompleto"
+        por_id = {pr["id"]: pr for pr in self.tablas["predictions"]}
+        for x in p_puntos:
+            pr = por_id[x["id"]]
+            if (pr.get("home_goals_pred"), pr.get("away_goals_pred"), pr.get("penalties_winner_pred"),
+                    bool(pr.get("use_powerup_x2"))) != (x["h"], x["a"], x["pw"], bool(x["x2"])):
+                return "desactualizado"
         n = 0
         for x in p_puntos:
             for pr in self.tablas["predictions"]:
@@ -365,41 +379,33 @@ def test_si_la_base_rechaza_el_lote_no_se_da_por_puntuado(monkeypatch):
 
 
 def _base_para_recuperar():
-    from datetime import datetime, timezone
-    ahora = datetime(2026, 10, 10, 6, 0, tzinfo=timezone.utc)
     partidos = [
         # El del viernes 9: terminó, el puntaje falló, ESPN ya no lo devuelve.
-        _partido(id=297, tournament_id=5, kickoff_at="2026-10-10T02:00:00+00:00"),
+        _partido(id=297, tournament_id=5),
         # Congelado por el admin: también se puntúa.
-        _partido(id=298, tournament_id=5, kickoff_at="2026-10-09T02:00:00+00:00", score_locked=True),
-        # Viejo, sin firma (anterior a la 88): fuera de la ventana, no se toca.
-        _partido(id=251, tournament_id=5, kickoff_at="2026-09-21T01:00:00+00:00"),
-        # Torneo sin quiniela: no se toca.
-        _partido(id=900, tournament_id=9, kickoff_at="2026-10-10T01:00:00+00:00"),
+        _partido(id=298, tournament_id=5, score_locked=True),
     ]
-    preds = [_prediccion(1, 2, 1, match_id=297), _prediccion(2, 2, 1, match_id=298),
-             _prediccion(3, 2, 1, match_id=251)]
+    preds = [_prediccion(1, 2, 1, match_id=297), _prediccion(2, 2, 1, match_id=298)]
     ligas = [{"id": "L", "tournament_id": 5, "points_exact": 3, "points_correct": 1}]
-    return FalsaBase(partidos, preds, ligas), ahora
+    db = FalsaBase(partidos, preds, ligas)
+    db.pendientes = [297, 298]
+    return db
 
 
-def test_la_recuperacion_puntua_desde_la_base_sin_preguntarle_a_la_fuente():
+def test_la_recuperacion_puntua_lo_que_la_base_dice_sin_preguntarle_a_la_fuente():
     """EL CASO DE LA QUINTA AUDITORÍA: el último partido en curso termina, el
-    puntaje falla, y ya no hay otro partido que abra la puerta del sync ni
-    eventos de ESPN que lo traigan. La recuperación lo encuentra en la base."""
-    db, ahora = _base_para_recuperar()
-    r = _correr(scoring.puntuar_pendientes(db, ahora=ahora))
+    puntaje falla y ya no hay otro partido ni eventos de ESPN. Desde la 92 la
+    lista la da `partidos_pendientes_de_puntaje()` (la misma de la puerta del
+    cron) y el backend solo la recorre."""
+    db = _base_para_recuperar()
+    r = _correr(scoring.puntuar_pendientes(db))
     assert sorted(x["match_id"] for x in r["puntuados"]) == [297, 298]
     assert r["errores"] == []
-    puntos = {p["match_id"]: p["points_earned"] for p in db.tablas["predictions"]}
-    assert puntos == {297: 3, 298: 3, 251: 0}
-    firmas = {m["id"]: m["puntuado_con"] for m in db.tablas["matches"]}
-    assert firmas[251] is None, "tocó un partido viejo fuera de la ventana"
-    assert firmas[900] is None, "tocó un torneo sin quiniela"
+    assert {p["match_id"]: p["points_earned"] for p in db.tablas["predictions"]} == {297: 3, 298: 3}
 
 
-def test_la_recuperacion_es_idempotente_y_un_fallo_no_tapa_a_los_demas():
-    db, ahora = _base_para_recuperar()
+def test_un_fallo_no_tapa_a_los_demas_y_no_se_cuenta_como_exito():
+    db = _base_para_recuperar()
     original = db.aplicar_puntaje
 
     def falla_el_297(**k):
@@ -407,26 +413,96 @@ def test_la_recuperacion_es_idempotente_y_un_fallo_no_tapa_a_los_demas():
             raise RuntimeError("se cortó")
         return original(**k)
     db.aplicar_puntaje = falla_el_297
-    r = _correr(scoring.puntuar_pendientes(db, ahora=ahora))
+    r = _correr(scoring.puntuar_pendientes(db))
     assert [e["match_id"] for e in r["errores"]] == [297]
     assert [x["match_id"] for x in r["puntuados"]] == [298]
 
-    db.aplicar_puntaje = original
-    r = _correr(scoring.puntuar_pendientes(db, ahora=ahora))
-    assert [x["match_id"] for x in r["puntuados"]] == [297]
-    assert _correr(scoring.puntuar_pendientes(db, ahora=ahora))["pendientes"] == 0
+
+def test_un_partido_sin_goles_es_un_error_no_un_puntuado():
+    """Sexta auditoría: un `status: error` del motor se contaba entre los
+    puntuados y `errores` salía vacío."""
+    db = _base_para_recuperar()
+    db.tablas["matches"][0]["home_goals_actual"] = None
+    r = _correr(scoring.puntuar_pendientes(db))
+    assert [e["match_id"] for e in r["errores"]] == [297]
+    assert 297 not in [x["match_id"] for x in r["puntuados"]]
+
+
+def test_desactualizado_queda_para_reintentar_no_es_exito_ni_error():
+    db = _base_para_recuperar()
+    db.aplicar_puntaje = lambda **_k: "desactualizado"
+    r = _correr(scoring.puntuar_pendientes(db))
+    assert r["puntuados"] == [] and r["errores"] == []
+    assert sorted(x["match_id"] for x in r["reintentar"]) == [297, 298]
+
+
+def test_sin_predicciones_y_la_base_dice_incompleto_no_es_un_exito():
+    """Sexta auditoría: la rama «no hay predicciones» ignoraba la respuesta de
+    la base y devolvía `ok` aunque la firma no se hubiera escrito (p. ej.
+    porque entró una predicción entre la lectura y la escritura)."""
+    db = FalsaBase([_partido(id=7)], [])
+    db.pendientes = [7]
+    db.aplicar_puntaje = lambda **_k: "incompleto"
+    r = _correr(scoring.puntuar_pendientes(db))
+    assert [e["match_id"] for e in r["errores"]] == [7]
+    assert r["puntuados"] == []
+
+
+def test_si_la_lista_no_se_puede_leer_se_dice():
+    db = _base_para_recuperar()
+
+    def rota(*_a, **_k):
+        raise RuntimeError("la función no existe")
+    db.rpc = rota
+    r = _correr(scoring.puntuar_pendientes(db))
+    assert r["pendientes"] == 0 and r["errores"], "un fallo al leer la lista quedó mudo"
+
+
+def test_el_lote_lleva_el_marcador_con_el_que_se_calculo():
+    """Migración 92: la base rechaza (desactualizado) un lote calculado con un
+    marcador que ya no es el de la predicción, así que hay que mandarlo."""
+    enviados = []
+    db = FalsaBase([_partido()], [_prediccion(1, 2, 1, use_powerup_x2=True, penalties_winner_pred="X")],
+                   [{"id": "L", "points_exact": 3, "points_correct": 1}])
+    original = db.aplicar_puntaje
+
+    def espia(**k):
+        enviados.extend(k["p_puntos"])
+        return original(**k)
+    db.aplicar_puntaje = espia
+    _correr(calculate_and_update_scores(db, 7))
+    assert enviados == [{"id": 1, "puntos": 6, "h": 2, "a": 1, "pw": "X", "x2": True}]
+
+
+def test_una_prediccion_corregida_durante_el_calculo_no_se_firma():
+    """El admin corrige una predicción mientras el motor calcula: la base ve
+    que el marcador enviado ya no es el vigente y no escribe nada."""
+    db = FalsaBase([_partido()], [_prediccion(1, 2, 1)],
+                   [{"id": "L", "points_exact": 3, "points_correct": 1}])
+
+    def corrige():
+        db.tablas["predictions"][0]["home_goals_pred"] = 0
+    db.durante_el_calculo = corrige
+    r = _correr(calculate_and_update_scores(db, 7))
+    assert r["status"] == "stale"
+    assert db.tablas["predictions"][0]["points_earned"] == 0
+    assert db.tablas["matches"][0]["puntuado_con"] is None
 
 
 def test_la_ventana_de_recuperacion_es_la_de_la_base_y_la_del_sync():
-    """Tres números que tienen que ser el mismo: la ventana del backend, la
-    puerta del cron (SQL) y la ventana móvil del sync."""
+    """La ventana vive en SQL (una sola definición, la usan la puerta y el
+    backend) y tiene que seguir siendo la del sync."""
     from app.services.espn_tournament_sync import DIAS_HACIA_ATRAS
     sql = (Path(__file__).resolve().parents[2] / "database"
-           / "91_puntaje_que_se_recupera_y_pagos_sin_carreras.sql").read_text()
-    puerta = sql[sql.index("FUNCTION public.hay_puntajes_pendientes"):sql.index("REVOKE ALL ON FUNCTION public.hay_puntajes_pendientes")]
-    assert f"interval '{scoring.DIAS_DE_RECUPERACION} days'" in puerta
+           / "92_pagos_que_sobreviven_y_puntaje_que_no_se_pierde.sql").read_text()
+    lista = sql[sql.index("FUNCTION public.partidos_pendientes_de_puntaje"):
+                sql.index("REVOKE ALL ON FUNCTION public.partidos_pendientes_de_puntaje")]
+    assert f"interval '{scoring.DIAS_DE_RECUPERACION} days'" in lista
     assert scoring.DIAS_DE_RECUPERACION == DIAS_HACIA_ATRAS
-    assert "t.status" not in puerta, "filtrar por torneo terminado deja afuera su último partido"
+    assert "t.status" not in lista, "filtrar por torneo terminado deja afuera su último partido"
+    assert "puntaje_pendiente_desde" in lista, "la ventana volvió a contarse desde el saque"
+    puerta = sql[sql.index("FUNCTION public.hay_puntajes_pendientes"):]
+    assert "partidos_pendientes_de_puntaje()" in puerta[:400], "la puerta y el backend volvieron a ser dos listas"
 
 
 def test_el_endpoint_del_cron_corre_la_recuperacion():

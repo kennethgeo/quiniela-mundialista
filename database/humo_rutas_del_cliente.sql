@@ -33,6 +33,18 @@
 --   Regla: sustituir cualquier escritura por una que no hace nada tiene que
 --   hacer caer SU comprobación.
 --
+-- VERSIÓN 4 (24 sep 2026), después de la sexta auditoría, que encontró dos
+-- escrituras que seguían pasando con un no-op (aceptar reglas y medallas) y
+-- lecturas cuya expectativa salía de la MISMA RPC probada:
+--   · aceptar reglas parte de reglas SIN aceptar; medallas parte de cero;
+--   · votar afirma que el voto quedó guardado;
+--   · lo esperado de las lecturas sale de las TABLAS, no de la RPC;
+--   · el resultado del admin manda el payload completo de MatchResultsAdmin;
+--   · migración 92: una cuenta con pago no se borra, y una predicción corregida
+--     después de puntuar deja el partido pendiente.
+--   El avatar (`users.avatar_url` + Storage) NO se ejercita más allá de la fila
+--   de storage: el dueño pidió no tocar avatares por SQL, ni revertido.
+--
 -- CÓMO SE USA: antes y después de cada migración, y como ENSAYO (la migración
 -- sin BEGIN/COMMIT + esta prueba, en un solo envío: el RAISE final revierte
 -- todo). Una línea con ✗ se mira ANTES de seguir.
@@ -48,7 +60,7 @@ DECLARE
   n int; j jsonb; t timestamptz; x numeric; id_devuelto uuid; st text;
   fila record; a1 int; a2 int; v_admin_global uuid;
   e_propuestas int; e_creditos int; e_medallas int; e_mis_medallas int; e_auditoria int;
-  e_jugadores int; e_bitacora int;
+  e_jugadores int; e_bitacora int; e_votos int;
   r text := E'\n';
   ok int := 0; mal int := 0;
 BEGIN
@@ -104,11 +116,15 @@ BEGIN
   -- Lo que TIENEN que devolver las lecturas que pueden venir vacías, calculado
   -- como dueño y con la misma identidad: cero solo vale si la base tiene cero.
   PERFORM set_config('request.jwt.claims', json_build_object('sub', v_socio, 'role','authenticated')::text, true);
-  SELECT count(*) INTO e_propuestas FROM public.league_proposals(v_liga);
-  SELECT count(*) INTO e_creditos FROM public.my_powerup_credits(v_liga);
-  SELECT count(*) INTO e_medallas FROM public.league_medals(v_liga);
-  SELECT count(*) INTO e_mis_medallas FROM public.my_medals();
-  SELECT count(*) INTO e_auditoria FROM public.match_audit_log(v_tid, 10);
+  -- Desde las TABLAS, no desde las RPC que se prueban: si una RPC devolviera
+  -- siempre vacío, calcular lo esperado con ella daría vacío = vacío.
+  SELECT count(*) INTO e_propuestas FROM public.rule_proposals WHERE league_id = v_liga;
+  SELECT count(*) INTO e_creditos FROM (SELECT DISTINCT phase, matchday FROM public.powerup_credits
+    WHERE user_id = v_socio AND league_id = v_liga AND consumed_at IS NULL AND phase IS NOT NULL) c;
+  SELECT count(*) INTO e_medallas FROM public.user_badges WHERE league_id = v_liga;
+  SELECT count(*) INTO e_mis_medallas FROM public.user_badges WHERE user_id = v_socio;
+  SELECT least(10, count(*)) INTO e_auditoria FROM public.match_audit a
+    JOIN public.matches m ON m.id = a.match_id WHERE m.tournament_id = v_tid;
   SELECT count(*) INTO e_jugadores FROM public.players WHERE tournament_id = v_tid;
   SELECT count(*) INTO e_bitacora FROM (SELECT 1 FROM public.prediction_logs WHERE user_id = v_socio LIMIT 50) b;
 
@@ -201,7 +217,11 @@ BEGIN
     IF sqlerrm = 'HUMO_OK' THEN r := r || E'✓ lecturas de todas las pantallas (20), con datos\n'; ok := ok + 1;
     ELSE r := r || '✗ lecturas: ' || sqlerrm || E'\n'; mal := mal + 1; END IF; END;
 
-  BEGIN PERFORM public.accept_group_rules(v_liga);
+  BEGIN  -- parte de reglas SIN aceptar: con la fecha ya puesta, un no-op pasaba
+    RESET ROLE;
+    UPDATE public.league_members SET rules_accepted_at = NULL WHERE league_id = v_liga AND user_id = v_socio;
+    SET LOCAL ROLE authenticated;
+    PERFORM public.accept_group_rules(v_liga);
     SELECT rules_accepted_at INTO t FROM public.league_members WHERE league_id = v_liga AND user_id = v_socio;
     IF t IS NULL THEN RAISE EXCEPTION 'no quedó aceptado'; END IF;
     RAISE EXCEPTION 'HUMO_OK';
@@ -318,7 +338,15 @@ BEGIN
     IF sqlerrm = 'HUMO_OK' THEN r := r || E'✓ nombrar y quitar un co-admin\n'; ok := ok + 1;
     ELSE r := r || '✗ co-admin: ' || sqlerrm || E'\n'; mal := mal + 1; END IF; END;
 
-  BEGIN PERFORM public.recompute_league_badges(v_liga);
+  BEGIN  -- parte de CERO medallas: sin efecto que medir, un no-op pasaba
+    RESET ROLE;
+    DELETE FROM public.user_badges WHERE league_id = v_liga;
+    SET LOCAL ROLE authenticated;
+    PERFORM public.recompute_league_badges(v_liga);
+    RESET ROLE;
+    SELECT count(*) INTO n FROM public.user_badges WHERE league_id = v_liga;
+    SET LOCAL ROLE authenticated;
+    IF e_medallas > 0 AND n = 0 THEN RAISE EXCEPTION 'recalcular no dejó ninguna medalla (había %)', e_medallas; END IF;
     RAISE EXCEPTION 'HUMO_OK';
   EXCEPTION WHEN others THEN
     IF sqlerrm = 'HUMO_OK' THEN r := r || E'✓ recalcular medallas\n'; ok := ok + 1;
@@ -328,6 +356,10 @@ BEGIN
     v_prop := public.propose_rule_change(v_liga, 'rules', jsonb_build_object('rules', v_rules), 'humo');
     PERFORM set_config('request.jwt.claims', json_build_object('sub', v_socio, 'role','authenticated')::text, true);
     PERFORM public.cast_rule_vote(v_prop, false);
+    RESET ROLE;
+    SELECT count(*) INTO e_votos FROM public.rule_votes WHERE proposal_id = v_prop AND user_id = v_socio AND vote = false;
+    SET LOCAL ROLE authenticated;
+    IF e_votos <> 1 THEN RAISE EXCEPTION 'el voto no quedó guardado'; END IF;
     PERFORM set_config('request.jwt.claims', json_build_object('sub', v_creador, 'role','authenticated')::text, true);
     SELECT members INTO n FROM public.league_proposals(v_liga) WHERE id = v_prop;
     IF n IS DISTINCT FROM v_miembros THEN RAISE EXCEPTION 'el padrón es % y no %', n, v_miembros; END IF;
@@ -407,10 +439,23 @@ BEGIN
         RAISE EXCEPTION 'el anuncio no quedó guardado'; END IF;
       -- BannedEmailsAdmin
       PERFORM * FROM public.banned_emails ORDER BY banned_at DESC;
-      -- MatchResultsAdmin: resultado de un partido por jugar (se revierte)
-      UPDATE public.matches SET home_goals_actual = 9, away_goals_actual = 8 WHERE id = v_m1;
-      IF (SELECT home_goals_actual FROM public.matches WHERE id = v_m1) IS DISTINCT FROM 9 THEN
+      -- MatchResultsAdmin: el payload COMPLETO de handleSave (se revierte)
+      UPDATE public.matches SET status = 'finished', kickoff_at = kickoff_at - interval '1 minute',
+        home_goals_actual = 9, away_goals_actual = 8, goes_to_penalties = false,
+        penalties_winner_real = NULL, score_locked = true, predictions_force_open = false
+       WHERE id = v_m1;
+      IF (SELECT (home_goals_actual, status, score_locked) FROM public.matches WHERE id = v_m1)
+         IS DISTINCT FROM (9, 'finished'::text, true) THEN
         RAISE EXCEPTION 'el resultado no quedó guardado'; END IF;
+      -- (92) corregir una predicción de un partido ya puntuado lo deja pendiente
+      UPDATE public.predictions SET home_goals_pred = (home_goals_pred + 1) % 10 WHERE id = v_puntuada;
+      RESET ROLE;
+      UPDATE public.matches SET puntuado_con = 'humo', puntuado_at = now() - interval '1 second'
+       WHERE id = (SELECT match_id FROM public.predictions WHERE id = v_puntuada) AND puntuado_at IS NULL;
+      IF NOT EXISTS (SELECT 1 FROM public.partidos_pendientes_de_puntaje() AS pend(mid)
+                      WHERE pend.mid = (SELECT match_id FROM public.predictions WHERE id = v_puntuada)) THEN
+        RAISE EXCEPTION 'una predicción corregida después de puntuar no dejó el partido pendiente'; END IF;
+      SET LOCAL ROLE authenticated;
       RAISE EXCEPTION 'HUMO_OK';
     EXCEPTION WHEN others THEN
       IF sqlerrm = 'HUMO_OK' THEN r := r || E'✓ admin global: anuncio, correos vetados, resultado\n'; ok := ok + 1;
@@ -449,6 +494,16 @@ BEGIN
   EXCEPTION WHEN others THEN
     IF sqlerrm = 'HUMO_OK' THEN r := r || E'✓ reconfirmar un pago conserva su monto\n'; ok := ok + 1;
     ELSE r := r || '✗ ' || sqlerrm || E'\n'; mal := mal + 1; END IF; END;
+
+  BEGIN  -- (6.ª auditoría) borrar la CUENTA de quien pagó: la cascada no se lleva el pago
+    RESET ROLE;
+    DELETE FROM auth.users WHERE id = v_pagador;
+    RAISE EXCEPTION 'HUMO_ABIERTO';
+  EXCEPTION WHEN others THEN
+    IF sqlerrm = 'HUMO_ABIERTO' THEN r := r || E'✗ ABIERTO: borrar la cuenta borra su pago confirmado\n'; mal := mal + 1;
+    ELSIF sqlerrm LIKE 'Esta membresía tiene un pago confirmado%' THEN r := r || E'✓ una cuenta con pago no se borra\n'; ok := ok + 1;
+    ELSE r := r || '✗ borrar cuenta, otra causa: ' || sqlerrm || E'\n'; mal := mal + 1; END IF;
+    SET LOCAL ROLE authenticated; END;
 
   BEGIN  -- (4.ª auditoría) una predicción cerrada no se muda a otro partido con sus puntos
     PERFORM set_config('request.jwt.claims', json_build_object('sub', v_dueno_puntuada, 'role','authenticated')::text, true);

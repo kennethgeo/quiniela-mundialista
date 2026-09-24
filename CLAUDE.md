@@ -286,6 +286,30 @@ Cinco hallazgos de Astra, los cinco ciertos, más uno que destapó la prueba de 
 - Se agregaron las **operaciones directas sobre tablas** (push, chat, ajustes, jugadores, bitácora, estadísticas, perfil, avatar) y las del **admin global**. Resultado: línea base 32/2 (el anuncio y un error de la propia prueba: `set_group_extras` recorta espacios) → ensayo con la 91 **34/0**.
 - Lo que la prueba NO hace: carreras entre dos conexiones (un solo envío es una sola sesión). Esas se prueban en el Postgres local.
 
+## Sexta auditoría (migración `database/92_pagos_que_sobreviven_y_puntaje_que_no_se_pierde.sql`)
+Seis hallazgos de Astra, los seis ciertos. Ninguno había hecho daño: 13 pagos (₡130.000) y 795 predicciones terminadas iguales al motor.
+- **Borrar una CUENTA borraba sus pagos**: `auth.users → users → league_members`, todo en cascada, y `delete-user` no miraba pagos. Una cuarta puerta al mismo cuarto (salir, borrar la quiniela y el DELETE directo ya estaban cerradas). **El candado va ahora en la TABLA**: trigger `pago_confirmado_no_se_borra` (BEFORE DELETE en `league_members`), que cubre cualquier puerta presente o futura. En una cascada ve la versión vigente de la fila: **reproducido con dos conexiones** — confirmar el pago mientras se borra la cuenta → el borrado se rechaza y el pago queda. `delete-user` además lo comprueba **antes de tocar nada** (409), porque borra las globales y las suscripciones antes de llamar a Auth y eso no vuelve.
+- **La única excepción es la expulsión (B10)**: `expulsar_miembro` enciende `quiniela.expulsion_con_pago` con `set_config(..., true)` (vive solo en su transacción) y lo apaga enseguida. El cliente no puede llamar a `set_config`: PostgREST solo expone `public`.
+- **Anular y restaurar dejaba ceros con firma válida**: el trigger de la 91 no miraba el estado. Ahora el estado también invalida, `void_cancelled_match` bloquea el partido y firma `'anulado'` al terminar (después de apagar los ×2, para que eso no parezca una corrección), y la recuperación busca también cancelados/pospuestos sin esa firma.
+- **Una predicción agregada o corregida después de puntuar no se veía.** No se arregló con un trigger en `predictions` que toque `matches`: admin con la predicción bloqueada queriendo el partido, contra `aplicar_puntaje` con el partido queriendo la predicción, es un deadlock. En su lugar, `predictions.modificada_at` (su propio trigger, solo su fila; `updated_at` no sirve porque cambia al escribir puntos) contra `matches.puntuado_at`. Y `aplicar_puntaje` bloquea partido → predicciones, siempre en ese orden, y exige que cada predicción siga teniendo el marcador con el que se calculó (el lote lleva `h`, `a`, `pw`, `x2`); si no, `desactualizado`.
+- **La ventana de 3 días se contaba desde el SAQUE**: una corrección de hoy sobre un partido viejo nacía fuera. Ahora cuenta desde `matches.puntaje_pendiente_desde`, que pone el trigger al invalidar. Los 189 partidos viejos sin firma siguen fuera (sin esa marca y con saque viejo): no hay re-puntaje histórico.
+- **La lista de pendientes vive en UNA función** (`partidos_pendientes_de_puntaje`, solo `service_role`): la usan la puerta del cron y el backend. Antes eran dos definiciones (SQL y Python) que podían separarse.
+- **La recuperación ya no cuenta un fallo como éxito**: `ok` → puntuados, `stale` → reintentar, cualquier otra cosa → errores. La rama «sin predicciones» ignoraba la respuesta de la base; ahora un `incompleto` ahí es un error.
+- **Salir y expulsar tomaban los mismos recursos en orden inverso**: expulsar bloquea ahora primero al miembro, como salir.
+- Comprobado en un Postgres local con las funciones de la 92: corre dos veces seguidas; los seis escenarios de la auditoría dan lo esperado.
+- **Orden de despliegue**: el código nuevo es compatible con la 91 (las claves extra del lote se ignoran; si falta `partidos_pendientes_de_puntaje`, la recuperación lo dice como error y sigue). Por eso se mergea primero y la migración se aplica después.
+
+### Prueba de humo v4
+- Aceptar reglas parte de reglas **sin aceptar** y medallas de **cero**: con la fecha ya puesta y las medallas ya calculadas, un no-op pasaba (lo reprodujo Astra).
+- Votar afirma que el voto quedó en `rule_votes`.
+- **Lo esperado de las lecturas sale de las TABLAS**, no de la misma RPC que se prueba: si la RPC devolviera siempre vacío, «vacío = vacío» pasaba.
+- El resultado del admin manda el **payload completo** de `MatchResultsAdmin`. Nuevos: una cuenta con pago no se borra, y una predicción corregida después de puntuar deja el partido pendiente.
+- **El avatar no se ejercita más allá de la fila de storage**: el dueño pidió no tocar avatares por SQL, ni en una transacción revertida.
+
+### Lo que sigue abierto
+- **`void_cancelled_match` está escrita también en la 61** (línea 161). Volver a correr la 61 pisaría la de la 92 (y ya pisaba la de la 73): misma familia que `recompute_user_total` en la 86.
+- Producción tiene **26 cuentas en `auth.users` y 24 en `public.users`**: dos cuentas sin perfil. No es daño, pero no está explicado.
+
 ## Acceso del admin global (migración `database/66_acceso_del_admin_global.sql`)
 - El admin global (`users.is_admin`) **puede entrar a cualquier quiniela y ver lo mismo que un miembro**: tabla, histórico, predicciones destapadas, pozo, medallas. Decisión explícita del dueño.
 - Se hace con `puede_ver_quiniela(league_id)` = `is_league_member OR es_admin_global`. **No se ensanchó `is_league_member`** a propósito: esa función se llama así porque responde "¿es miembro?", y hacerla mentir abriría un agujero la próxima vez que alguien la use para un permiso de escritura.

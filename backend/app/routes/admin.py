@@ -137,6 +137,26 @@ async def delete_user(
 
     supabase = get_supabase()
 
+    # Un pago confirmado no se borra (sexta auditoría). La cascada
+    # auth.users → users → league_members se llevaba la constancia que salir y
+    # borrar la quiniela sí protegen. La base lo rechaza igual (trigger
+    # `pago_confirmado_no_se_borra`, migración 92), pero hay que comprobarlo
+    # ACÁ y ANTES de tocar nada: más abajo se borran las globales y las
+    # suscripciones, y eso no se revierte si Auth falla después.
+    # Si la consulta falla, NO se borra: ante la duda, se conserva.
+    try:
+        pagos = (supabase.table("league_members").select("league_id")
+                 .eq("user_id", user_id).not_.is_("pago_confirmado_at", "null")
+                 .execute().data or [])
+    except Exception:  # noqa: BLE001
+        raise HTTPException(status_code=503, detail="No se pudo comprobar si tiene pagos; no se borró nada")
+    if pagos:
+        raise HTTPException(
+            status_code=409,
+            detail=(f"Tiene {len(pagos)} pago(s) confirmado(s): borrar la cuenta borraría esa "
+                    "constancia. Desconfirmalos antes desde el pozo de cada quiniela."),
+        )
+
     # Nombre y correo (best-effort, ANTES de borrar) para mensaje y ban.
     display_name = None
     email = None

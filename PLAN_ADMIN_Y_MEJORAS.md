@@ -120,6 +120,11 @@ Cada uno comprobado leyendo el código o la base, no supuesto. Los marcados con
 | B45 🔶 | ~~Limpiar un push vencido podía reenviar el aviso a quien ya lo recibió~~ · **RESUELTO**: la limpieza ya no tumba el resultado del envío | `notifications.py` | ✅ |
 | B46 🔶 | ~~El anuncio global NO se podía guardar nunca~~ · **RESUELTO** (91): faltaba la política de INSERT que exige el upsert. Lo destapó la humo v3, no la auditoría | `91_…sql` | ✅ |
 | B47 🔶 | ~~La humo v2 daba verde con escrituras que no hacían nada~~ · **RESUELTO**: versión 3, 34 rutas; valores distintos y afirmados, `RETURNING *`, lecturas contra lo esperado, tablas directas y admin global. Comprobado que cae con `set_group_extras`/`set_powerup_limits` vacías | `humo_rutas_del_cliente.sql` | ✅ |
+| B48 🔶 | ~~Borrar una cuenta borraba sus pagos~~ · **RESUELTO** (92): trigger en `league_members` + comprobación previa en `delete-user`. Reproducido con dos conexiones | `92_…sql` · `routes/admin.py` | ✅ |
+| B49 🔶 | ~~Anular/restaurar, predicciones tardías y correcciones viejas escapaban a la recuperación~~ · **RESUELTO** (92): el estado invalida la firma, `anulado` como firma, `modificada_at`/`puntuado_at`, ventana desde que quedó pendiente, lista única en SQL | `92_…sql` · `scoring.py` | ✅ |
+| B50 🔶 | ~~Salir y expulsar podían trabarse (deadlock)~~ · **RESUELTO** (92): mismo orden de bloqueos | `92_…sql` | ✅ |
+| B51 🔶 | **`void_cancelled_match` también está escrita en la 61**: volver a correrla pisaría la versión de la 92 (y la de la 73) | `61_endurecer_permisos.sql:161` | latente |
+| B52 🔶 | **26 cuentas en `auth.users`, 24 perfiles en `public.users`**: dos cuentas sin perfil, sin explicar | auth.users | por mirar |
 | B9 | ~~No existe ninguna salida voluntaria~~ · **RESUELTO** (migración 83, 21 sep 2026): `salir_de_quiniela` + aviso con números. B1 se resuelve de paso: «No acepto · salir» ahora sale de verdad | `83_salida_voluntaria.sql` | ✅ |
 
 ## 3. La arquitectura

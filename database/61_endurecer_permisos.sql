@@ -571,7 +571,9 @@ DECLARE
     -- dejarían de deduplicarse sin decir por qué.
     'claim_notification_deliveries',
     -- Migración 90: la escritura atómica del puntaje. Solo backend.
-    'aplicar_puntaje'
+    'aplicar_puntaje',
+    -- Migración 92: la lista de puntajes pendientes que recorre el backend.
+    'partidos_pendientes_de_puntaje'
   ];
   v_faltan text[] := '{}';
 BEGIN
