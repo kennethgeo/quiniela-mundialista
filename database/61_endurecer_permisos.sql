@@ -48,6 +48,24 @@
 -- =============================================================================
 
 -- -----------------------------------------------------------------------------
+-- GUARDA (séptima auditoría, 24 sep 2026): ESTA MIGRACIÓN ES HISTÓRICA.
+-- Redefine siete funciones que migraciones posteriores reemplazaron
+-- (recompute_user_total, void_cancelled_match, resolve_pending_powerup_credits,
+-- _apply_rule_proposal, league_table, match_audit_log, check_powerup_limit).
+-- Volver a correrla sobre una base actual pisaría esas versiones con las viejas:
+-- el total global sin deduplicar, los cupos por fase ignorados, la anulación
+-- sin firma… Se comparó cada cuerpo contra producción: los siete difieren.
+-- Si hace falta REPARAR PERMISOS, se escribe una migración nueva que solo haga
+-- REVOKE/GRANT; esta no se usa como reparación genérica.
+-- -----------------------------------------------------------------------------
+DO $guarda$
+BEGIN
+  IF to_regprocedure('public.partidos_pendientes_de_puntaje()') IS NOT NULL THEN
+    RAISE EXCEPTION 'La migración 61 es histórica: sobre esta base pisaría funciones de migraciones posteriores (73, 86, 92…). Para reparar permisos, escribir una migración nueva de solo REVOKE/GRANT.';
+  END IF;
+END $guarda$;
+
+-- -----------------------------------------------------------------------------
 -- 0) Quién llama de verdad
 -- -----------------------------------------------------------------------------
 -- PostgREST fija request.jwt.claims en TODA petición, incluidas las anónimas

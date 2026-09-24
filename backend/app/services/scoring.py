@@ -373,7 +373,9 @@ async def calculate_and_update_scores(supabase, match_id: int) -> dict:
         puntos.append({"id": pred["id"], "puntos": pts,
                        "h": pred.get("home_goals_pred"), "a": pred.get("away_goals_pred"),
                        "pw": pred.get("penalties_winner_pred"),
-                       "x2": bool(pred.get("use_powerup_x2"))})
+                       "x2": bool(pred.get("use_powerup_x2")),
+                       # El tipo también cambia los puntos (migración 93).
+                       "t": pred.get("prediction_type")})
         delta = pts - (pred.get("points_earned") or 0)
         if delta != 0:
             user_id = pred["user_id"]

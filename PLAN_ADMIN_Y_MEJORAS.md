@@ -123,8 +123,10 @@ Cada uno comprobado leyendo el código o la base, no supuesto. Los marcados con
 | B48 🔶 | ~~Borrar una cuenta borraba sus pagos~~ · **RESUELTO** (92): trigger en `league_members` + comprobación previa en `delete-user`. Reproducido con dos conexiones | `92_…sql` · `routes/admin.py` | ✅ |
 | B49 🔶 | ~~Anular/restaurar, predicciones tardías y correcciones viejas escapaban a la recuperación~~ · **RESUELTO** (92): el estado invalida la firma, `anulado` como firma, `modificada_at`/`puntuado_at`, ventana desde que quedó pendiente, lista única en SQL | `92_…sql` · `scoring.py` | ✅ |
 | B50 🔶 | ~~Salir y expulsar podían trabarse (deadlock)~~ · **RESUELTO** (92): mismo orden de bloqueos | `92_…sql` | ✅ |
-| B51 🔶 | **`void_cancelled_match` también está escrita en la 61**: volver a correrla pisaría la versión de la 92 (y la de la 73) | `61_endurecer_permisos.sql:161` | latente |
+| B51 🔶 | ~~`void_cancelled_match` también está escrita en la 61~~ · **RESUELTO**: la 61 tiene una guarda que se niega a correr sobre una base posterior a la 92 (siete funciones difieren) | `61_endurecer_permisos.sql` | ✅ |
 | B52 🔶 | **26 cuentas en `auth.users`, 24 perfiles en `public.users`**: dos cuentas sin perfil, sin explicar | auth.users | por mirar |
+| B53 🔶 | ~~Predicciones históricas corregidas, inserciones concurrentes y cambios de tipo escapaban al detector~~ · **RESUELTO** (93): marca `puntaje_pendiente` por fila; el lote lleva el tipo. Carrera reproducida con dos conexiones | `93_…sql` · `scoring.py` | ✅ |
+| B54 🔶 | ~~Borrar una cuenta podía quedar a medias (globales y veto antes de la cascada)~~ · **RESUELTO**: una sola cascada; el veto después | `routes/admin.py` | ✅ |
 | B9 | ~~No existe ninguna salida voluntaria~~ · **RESUELTO** (migración 83, 21 sep 2026): `salir_de_quiniela` + aviso con números. B1 se resuelve de paso: «No acepto · salir» ahora sale de verdad | `83_salida_voluntaria.sql` | ✅ |
 
 ## 3. La arquitectura

@@ -42,6 +42,8 @@
 --   · el resultado del admin manda el payload completo de MatchResultsAdmin;
 --   · migración 92: una cuenta con pago no se borra, y una predicción corregida
 --     después de puntuar deja el partido pendiente.
+--   Séptima auditoría: el paso de «predicción corregida» ya no le fabrica un
+--   `puntuado_at` al partido; prueba el estado histórico real (NULL).
 --   El avatar (`users.avatar_url` + Storage) NO se ejercita más allá de la fila
 --   de storage: el dueño pidió no tocar avatares por SQL, ni revertido.
 --
@@ -449,9 +451,10 @@ BEGIN
         RAISE EXCEPTION 'el resultado no quedó guardado'; END IF;
       -- (92) corregir una predicción de un partido ya puntuado lo deja pendiente
       UPDATE public.predictions SET home_goals_pred = (home_goals_pred + 1) % 10 WHERE id = v_puntuada;
+      -- (93) SIN prepararle una firma: el partido queda como los históricos
+      -- reales (puntuado_at NULL). La v4 le ponía uno artificial y así tapaba
+      -- justo el caso que fallaba (séptima auditoría).
       RESET ROLE;
-      UPDATE public.matches SET puntuado_con = 'humo', puntuado_at = now() - interval '1 second'
-       WHERE id = (SELECT match_id FROM public.predictions WHERE id = v_puntuada) AND puntuado_at IS NULL;
       IF NOT EXISTS (SELECT 1 FROM public.partidos_pendientes_de_puntaje() AS pend(mid)
                       WHERE pend.mid = (SELECT match_id FROM public.predictions WHERE id = v_puntuada)) THEN
         RAISE EXCEPTION 'una predicción corregida después de puntuar no dejó el partido pendiente'; END IF;
