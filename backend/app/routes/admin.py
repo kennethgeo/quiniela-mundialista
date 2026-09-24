@@ -173,6 +173,26 @@ async def delete_user(
                     "la quiniela con las predicciones de todos. Borrala antes desde su Zona de peligro."),
         )
 
+    # Tampoco a quien propuso o votó en una votación (novena auditoría).
+    # `rule_proposals.proposed_by` y `rule_votes.user_id` borraban en cascada:
+    # borrar al co-admin que propuso se llevaba la propuesta con TODOS sus
+    # votos, y borrar a un votante le quitaba su voto a una mayoría ya emitida
+    # (el padrón, que no apunta a users, quedaba). La base lo rechaza igual
+    # desde la migración 95; esto es para decir por qué.
+    try:
+        propuestas = (supabase.table("rule_proposals").select("id")
+                      .eq("proposed_by", user_id).execute().data or [])
+        votos = (supabase.table("rule_votes").select("proposal_id")
+                 .eq("user_id", user_id).execute().data or [])
+    except Exception:  # noqa: BLE001
+        raise HTTPException(status_code=503, detail="No se pudo comprobar si participó en votaciones; no se borró nada")
+    if propuestas or votos:
+        raise HTTPException(
+            status_code=409,
+            detail=(f"Participó en votaciones ({len(propuestas)} propuesta(s), {len(votos)} voto(s)): "
+                    "borrar la cuenta borraría esas decisiones del grupo. Por ahora no se puede borrar."),
+        )
+
     # Nombre y correo (best-effort, ANTES de borrar) para mensaje y ban.
     display_name = None
     email = None
@@ -204,7 +224,7 @@ async def delete_user(
             if "database error" in texto:
                 # La base rechazó la cascada: un pago confirmado o una quiniela
                 # creada que la comprobación de arriba no vio (carrera).
-                raise HTTPException(status_code=409, detail="La base rechazó el borrado (un pago confirmado o una quiniela creada): no se borró nada.")
+                raise HTTPException(status_code=409, detail="La base rechazó el borrado (un pago confirmado, una quiniela creada o una votación): no se borró nada.")
             raise HTTPException(status_code=502, detail="No se pudo borrar la cuenta en Auth: no se borró nada. Intentá de nuevo.")
         # Respaldo SOLO si la cuenta ya no existe en Auth: queda un perfil
         # huérfano que sí hay que borrar (también cae en cascada).

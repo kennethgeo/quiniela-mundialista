@@ -19,7 +19,7 @@ import { Bell, BellOff, Loader2, Check, Sun, Clock, Share, Lock } from 'lucide-r
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import {
-  soportaPush, activarPush, desactivarPush, guardarSuscripcion,
+  soportaPush, activarPush, desactivarPush, guardarSuscripcion, swListo,
   urlBase64ToUint8Array, VAPID_PUBLIC_KEY, estadoPermiso, necesitaInstalarPrimero,
 } from '../../lib/notificaciones'
 import { situacionAvisos, olvidarPospuesto } from '../../lib/avisoPush'
@@ -52,7 +52,16 @@ export default function PushNotificationToggle () {
     const revisar = async () => {
       try {
         if (!soportaPush()) return
-        const registration = await navigator.serviceWorker.ready
+        // Con límite: sin él, un service worker que nunca se pone listo
+        // dejaba el botón en «Un momento…» para siempre (novena auditoría).
+        const registration = await swListo()
+        if (!registration) {
+          if (vigente) {
+            setIsSubscribed(false)
+            setError('El navegador no terminó de preparar los avisos. Recargá la página y probá de nuevo.')
+          }
+          return
+        }
         const actual = urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
         let sub = await registration.pushManager.getSubscription()
 
@@ -83,19 +92,35 @@ export default function PushNotificationToggle () {
           }
         }
 
-        // Por si se perdió la fila en la base. Es idempotente.
-        if (profile?.id) await guardarSuscripcion(profile.id, sub)
+        // Por si se perdió la fila en la base. Es idempotente. Si falla, NO
+        // está activo: el backend manda a lo que hay en la base, no a lo que
+        // tiene el navegador. Antes el error iba solo a la consola y la
+        // tarjeta podía seguir diciendo «activados».
+        if (profile?.id) {
+          try {
+            await guardarSuscripcion(profile.id, sub)
+          } catch (e) {
+            console.error('No se pudo registrar la suscripción:', e)
+            if (vigente) {
+              setIsSubscribed(false)
+              setError(e?.message?.startsWith('Este dispositivo')
+                ? e.message
+                : 'No pudimos registrar este dispositivo. Tocá «Activar avisos» para reintentar.')
+            }
+            return
+          }
+        }
         if (vigente) setIsSubscribed(true)
       } catch (err) {
         console.error('Error checking push subscription:', err)
+        if (vigente) setIsSubscribed(false)
       } finally {
         if (vigente) { setLoading(false); setRevisado(true) }
       }
     }
 
     revisar()
-    const limite = setTimeout(() => { if (vigente) setRevisado(true) }, 4000)
-    return () => { vigente = false; clearTimeout(limite) }
+    return () => { vigente = false }
   }, [profile?.id])
 
   const activar = async () => {
@@ -134,8 +159,8 @@ export default function PushNotificationToggle () {
   // Ni instalando se podría: no se ofrece nada que no pueda funcionar.
   if (situacion === 'sin-soporte') return null
   /* Solo con permiso concedido puede resultar «activo», así que solo ahí se
-     espera. Y con límite: si el service worker no se pone listo nunca, la
-     tarjeta tiene que salir igual y no quedarse escondida. */
+     espera. La espera tiene límite (`swListo`): si el service worker no se
+     pone listo nunca, la tarjeta sale igual, con el botón usable. */
   if (!revisado && permiso === 'granted') return null
 
   if (situacion === 'activo') {

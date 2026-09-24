@@ -19,7 +19,7 @@ import { motion, AnimatePresence } from 'motion/react'
 import { Bell, X, Loader2, Check } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
 import {
-  activarPush, estadoPermiso, tieneSuscripcion, necesitaInstalarPrimero, soportaPush,
+  activarPush, estadoPermiso, avisosActivos, necesitaInstalarPrimero, soportaPush,
 } from '../../lib/notificaciones'
 import {
   posponerAviso, avisoPospuesto, debeOfrecerse, olvidarPospuesto, situacionAvisos,
@@ -28,6 +28,7 @@ import {
 export default function AvisoNotificaciones () {
   const { profile } = useAuth()
   const [visible, setVisible] = useState(false)
+  const [decidido, setDecidido] = useState(false)
   const [situacion, setSituacion] = useState('pendiente')
   const [activando, setActivando] = useState(false)
   const [listo, setListo] = useState(false)
@@ -36,14 +37,21 @@ export default function AvisoNotificaciones () {
   useEffect(() => {
     let vigente = true
     const decidir = async () => {
+      // Sin cuenta todavía no se puede saber si la base tiene el registro:
+      // decidir antes mostraría el aviso un instante a quien ya lo tiene.
+      if (!profile?.id) return
       const p = estadoPermiso()
-      const suscrito = p === 'granted' ? await tieneSuscripcion() : false
+      // «Activo» = suscripción en el navegador Y fila en la base a nombre de
+      // esta cuenta (novena auditoría). Solo la primera dejaba callado el
+      // aviso a quien el backend no le puede escribir.
+      const suscrito = p === 'granted' ? await avisosActivos(profile.id) : false
       if (!vigente) return
       const s = situacionAvisos({
         soporta: soportaPush(), iosSinInstalar: necesitaInstalarPrimero(), permiso: p, suscrito,
       })
       setSituacion(s)
       setVisible(debeOfrecerse({ situacion: s, pospuesto: avisoPospuesto() }))
+      setDecidido(true)
     }
     decidir()
     return () => { vigente = false }
@@ -68,7 +76,10 @@ export default function AvisoNotificaciones () {
 
   const posponer = () => { posponerAviso(); setVisible(false) }
 
-  if (!visible) return null
+  /* La marca oculta existe para las pruebas: «no se ofrece» solo significa
+     algo cuando consta que ya se decidió. La decisión espera una consulta a la
+     base, y una prueba que afirma la ausencia antes pasaría siempre. */
+  if (!visible) return decidido ? <span hidden data-aviso-push="no-se-ofrece" /> : null
 
   /* Tres situaciones distintas, y confundirlas deja a alguien pulsando un
      botón que no puede funcionar:

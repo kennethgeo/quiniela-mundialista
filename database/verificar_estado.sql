@@ -585,17 +585,24 @@ WHERE p.pronamespace = 'public'::regnamespace
     OR pg_get_functiondef(p.oid) NOT LIKE '%cupo_powerups%')
 ORDER BY p.proname;
 
-\echo '=== 17. Puntajes pendientes que la recuperación ya NO va a reintentar ==='
+\echo '=== 17. Puntajes pendientes ATRASADOS (más de 3 días) ==='
 -- `partidos_pendientes_de_puntaje()` (migraciones 92/93) reintenta solo durante
--- 3 días desde que el partido quedó pendiente. Si el puntaje falla todo ese
--- tiempo, el partido SALE de la lista sin que nada avise: salir de la lista no
--- significa que se haya resuelto. Esta sección es ese aviso (octava auditoría).
--- Lo que aparezca acá lo resuelve el admin con «Recalcular» desde el panel.
+-- 3 días desde que el partido o la predicción quedó pendiente. Si el puntaje
+-- falla todo ese tiempo, puede SALIR de la lista sin que nada avise: salir de
+-- la lista no significa que se haya resuelto (octava auditoría).
+-- La columna `estado` separa dos cosas que la versión anterior mezclaba
+-- (novena auditoría): un partido con una predicción atrasada Y otra reciente
+-- sigue en la lista de recuperación —se va a reintentar entero— y no es
+-- trabajo abandonado. Solo «fuera de recuperación» lo es; eso lo resuelve el
+-- admin con «Recalcular» desde el panel.
 -- No lista los partidos viejos sin firma anteriores a la 88 (sin marca de
--- pendiente): esos tienen los puntos bien y no son trabajo abandonado.
+-- pendiente): esos tienen los puntos bien y no son trabajo pendiente.
 SELECT m.id AS partido, m.status, m.puntaje_pendiente_desde,
        (SELECT count(*) FROM public.predictions p
-         WHERE p.match_id = m.id AND p.puntaje_pendiente) AS predicciones_marcadas
+         WHERE p.match_id = m.id AND p.puntaje_pendiente) AS predicciones_marcadas,
+       CASE WHEN m.id IN (SELECT public.partidos_pendientes_de_puntaje())
+            THEN 'atrasado, se sigue reintentando'
+            ELSE 'FUERA de recuperación: nadie lo va a reintentar' END AS estado
 FROM public.matches m
 WHERE m.status IN ('finished', 'cancelled', 'postponed')
   AND (
@@ -606,4 +613,4 @@ WHERE m.status IN ('finished', 'cancelled', 'postponed')
                 WHERE p.match_id = m.id AND p.puntaje_pendiente
                   AND p.modificada_at <= now() - interval '3 days')
   )
-ORDER BY m.id;
+ORDER BY (m.id IN (SELECT public.partidos_pendientes_de_puntaje())), m.id;

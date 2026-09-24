@@ -65,10 +65,23 @@ BEGIN;
 -- Si hace falta REPARAR PERMISOS, se escribe una migración nueva que solo haga
 -- REVOKE/GRANT; esta no se usa como reparación genérica.
 -- -----------------------------------------------------------------------------
+--
+-- La guarda CORTA SU PROPIA CONEXIÓN antes de fallar (novena auditoría). Un
+-- RAISE solo no alcanzaba: con `psql -v ON_ERROR_ROLLBACK=on`, psql envuelve
+-- cada sentencia en un savepoint, deshace la que falló y SIGUE, y la versión
+-- vieja de `void_cancelled_match` quedaba instalada (reproducido en un
+-- Postgres local). Se probó también dejar la transacción en solo lectura: el
+-- savepoint lo deshace igual. Una conexión cortada, en cambio, no la deshace
+-- nadie: probado con ON_ERROR_ROLLBACK off/on/interactive, con `-1` y pegando
+-- el archivo por la entrada estándar — la función moderna queda en los cinco.
+-- Lo que NINGUNA guarda al principio puede cubrir es un FRAGMENTO del archivo
+-- que la excluya: por eso la regla está escrita en CLAUDE.md, no solo acá.
 DO $guarda$
 BEGIN
   IF to_regprocedure('public.partidos_pendientes_de_puntaje()') IS NOT NULL THEN
-    RAISE EXCEPTION 'La migración 61 es histórica: sobre esta base pisaría funciones de migraciones posteriores (73, 86, 92…). Para reparar permisos, escribir una migración nueva de solo REVOKE/GRANT.';
+    RAISE WARNING 'La migración 61 es histórica: sobre esta base pisaría funciones de migraciones posteriores (73, 86, 92…). Se corta la conexión. Para reparar permisos, escribir una migración nueva de solo REVOKE/GRANT.';
+    PERFORM pg_terminate_backend(pg_backend_pid());
+    RAISE EXCEPTION 'La migración 61 es histórica: no se aplicó nada.';
   END IF;
 END $guarda$;
 
