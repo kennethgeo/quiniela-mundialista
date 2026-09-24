@@ -3,6 +3,7 @@ import { createContext, useContext, useState, useEffect, useCallback } from 'rea
 import { supabase } from '../lib/supabase'
 import { crearCargaDePerfil } from '../lib/cargaDePerfil'
 import { conLimite, describirFallo, registrarIntento } from '../lib/loginResiliente'
+import { olvidarDispositivo } from '../lib/notificaciones'
 
 const AuthContext = createContext(null)
 
@@ -153,6 +154,10 @@ export function AuthProvider({ children }) {
    * Cierra la sesión actual
    */
   const signOut = useCallback(async () => {
+    // Antes de perder la sesión (la RLS la necesita para borrar la fila):
+    // este dispositivo deja de recibir los avisos de esta cuenta.
+    const { data } = await supabase.auth.getSession().catch(() => ({ data: null }))
+    await olvidarDispositivo(data?.session?.user?.id)
     const { error } = await supabase.auth.signOut()
     if (error) throw error
     asignarUsuario(null)

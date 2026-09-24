@@ -193,6 +193,21 @@ async def delete_user(
                     "borrar la cuenta borraría esas decisiones del grupo. Por ahora no se puede borrar."),
         )
 
+    # Ni a quien CONFIRMÓ pagos de otros (décima auditoría): la FK era
+    # ON DELETE SET NULL y el pago quedaba «confirmado por nadie». La base lo
+    # rechaza igual desde la migración 96.
+    try:
+        confirmados = (supabase.table("league_members").select("user_id")
+                       .eq("pago_confirmado_por", user_id).execute().data or [])
+    except Exception:  # noqa: BLE001
+        raise HTTPException(status_code=503, detail="No se pudo comprobar si confirmó pagos; no se borró nada")
+    if confirmados:
+        raise HTTPException(
+            status_code=409,
+            detail=(f"Confirmó {len(confirmados)} pago(s) de otras personas: borrar la cuenta borraría "
+                    "quién dio fe de esos pagos. Por ahora no se puede borrar."),
+        )
+
     # Nombre y correo (best-effort, ANTES de borrar) para mensaje y ban.
     display_name = None
     email = None
@@ -224,7 +239,7 @@ async def delete_user(
             if "database error" in texto:
                 # La base rechazó la cascada: un pago confirmado o una quiniela
                 # creada que la comprobación de arriba no vio (carrera).
-                raise HTTPException(status_code=409, detail="La base rechazó el borrado (un pago confirmado, una quiniela creada o una votación): no se borró nada.")
+                raise HTTPException(status_code=409, detail="La base rechazó el borrado (un pago confirmado, una quiniela creada, una votación o pagos que confirmó): no se borró nada.")
             raise HTTPException(status_code=502, detail="No se pudo borrar la cuenta en Auth: no se borró nada. Intentá de nuevo.")
         # Respaldo SOLO si la cuenta ya no existe en Auth: queda un perfil
         # huérfano que sí hay que borrar (también cae en cascada).

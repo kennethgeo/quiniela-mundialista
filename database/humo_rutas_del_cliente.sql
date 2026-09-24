@@ -207,7 +207,15 @@ BEGIN
   BEGIN  -- las lecturas de cada pantalla, y que traigan DATOS
     SELECT count(*) INTO n FROM public.my_groups();                IF n = 0 THEN RAISE EXCEPTION 'my_groups vacío'; END IF;
     SELECT count(*) INTO n FROM public.quiniela_por_id(v_liga);    IF n <> 1 THEN RAISE EXCEPTION 'quiniela_por_id devolvió %', n; END IF;
-    SELECT count(*) INTO n FROM public.group_standings(v_liga);    IF n = 0 THEN RAISE EXCEPTION 'group_standings vacío'; END IF;
+    -- (décima auditoría) La Tabla es la del dinero: no alcanza con que no venga
+    -- vacía. Una fila por miembro, la del socio con los puntos de las tablas,
+    -- y posiciones que arrancan en 1.
+    SELECT count(*), min(pos) INTO n, a1 FROM public.group_standings(v_liga);
+    IF n <> v_miembros THEN RAISE EXCEPTION 'group_standings da % filas de % miembros', n, v_miembros; END IF;
+    IF a1 IS DISTINCT FROM 1 THEN RAISE EXCEPTION 'group_standings no arranca en la posición 1 (%)', a1; END IF;
+    SELECT points INTO x FROM public.group_standings(v_liga) WHERE user_id = v_socio;
+    IF x IS DISTINCT FROM e_puntos_liga THEN
+      RAISE EXCEPTION 'group_standings le da % puntos al socio y la quiniela tiene %', x, e_puntos_liga; END IF;
     j := public.league_jornadas(v_liga);
     IF NOT (j ? 'jornadas' AND j ? 'rachas') THEN RAISE EXCEPTION 'league_jornadas sin jornadas/rachas: %', left(j::text, 80); END IF;
     IF e_hay_jornadas AND COALESCE(jsonb_array_length(j->'jornadas'), 0) = 0 THEN

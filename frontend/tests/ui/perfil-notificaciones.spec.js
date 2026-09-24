@@ -200,3 +200,22 @@ test('un service worker que nunca responde no deja el botón trabado', async ({ 
   await expect(boton).toBeEnabled()
   await expect(boton).toHaveText(/Activar avisos/)
 })
+
+/* ── Décima auditoría: cerrar sesión desvincula el dispositivo ─────────────
+   Antes la fila seguía a nombre de quien se fue, y en un celular compartido
+   sus avisos le llegaban a quien lo usara después. */
+test('cerrar sesión borra la suscripción de ESTE dispositivo a nombre de esta cuenta', async ({ page }) => {
+  await montar(page, { permiso: 'granted', suscrito: true })
+  const borrados = []
+  await page.route('**://pruebas.supabase.co/rest/v1/push_subscriptions**', (route) => {
+    const req = route.request()
+    if (req.method() === 'DELETE') borrados.push(decodeURIComponent(req.url()))
+    return route.fulfill({ status: 200, contentType: 'application/json', body: '[{"id":"x"}]' })
+  })
+  await page.goto('/profile')
+  await expect(page.getByText('Avisos activados', { exact: true })).toBeVisible({ timeout: 15000 })
+  await page.getByRole('button', { name: /Cerrar sesión/ }).last().click()
+  await expect.poll(() => borrados.length, { timeout: 10000 }).toBeGreaterThan(0)
+  expect(borrados[0]).toContain('endpoint=eq.https://ejemplo/x')
+  expect(borrados[0]).toContain(`user_id=eq.${USUARIO.id}`)
+})

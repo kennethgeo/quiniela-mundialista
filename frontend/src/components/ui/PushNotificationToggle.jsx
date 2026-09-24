@@ -127,7 +127,7 @@ export default function PushNotificationToggle () {
     setLoading(true); setError(null)
     try {
       await activarPush(profile?.id)
-      olvidarPospuesto()
+      olvidarPospuesto(profile?.id)
       setIsSubscribed(true)
     } catch (err) {
       console.error('Push error:', err)

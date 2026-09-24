@@ -50,7 +50,7 @@ export default function AvisoNotificaciones () {
         soporta: soportaPush(), iosSinInstalar: necesitaInstalarPrimero(), permiso: p, suscrito,
       })
       setSituacion(s)
-      setVisible(debeOfrecerse({ situacion: s, pospuesto: avisoPospuesto() }))
+      setVisible(debeOfrecerse({ situacion: s, pospuesto: avisoPospuesto(Date.now(), profile.id) }))
       setDecidido(true)
     }
     decidir()
@@ -61,7 +61,7 @@ export default function AvisoNotificaciones () {
     setActivando(true); setFallo(null)
     try {
       await activarPush(profile?.id)
-      olvidarPospuesto()
+      olvidarPospuesto(profile?.id)
       setListo(true)
       // Se deja ver la confirmación antes de retirarlo: si desaparece de golpe
       // no queda claro si funcionó.
@@ -74,7 +74,7 @@ export default function AvisoNotificaciones () {
     }
   }
 
-  const posponer = () => { posponerAviso(); setVisible(false) }
+  const posponer = () => { posponerAviso(Date.now(), profile?.id); setVisible(false) }
 
   /* La marca oculta existe para las pruebas: «no se ofrece» solo significa
      algo cuando consta que ya se decidió. La decisión espera una consulta a la
