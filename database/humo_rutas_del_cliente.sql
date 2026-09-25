@@ -64,6 +64,7 @@ DECLARE
   e_propuestas int; e_creditos int; e_medallas int; e_mis_medallas int; e_auditoria int;
   e_jugadores int; e_bitacora int; e_votos int;
   e_puntos_global int; e_quinielas int; e_puntos_liga numeric; e_hay_jornadas boolean;
+  e_tabla jsonb; e_ranking jsonb;
   r text := E'\n';
   ok int := 0; mal int := 0;
 BEGIN
@@ -131,10 +132,28 @@ BEGIN
        + COALESCE((SELECT sum(COALESCE(champion_points,0) + COALESCE(top_scorer_points,0) + COALESCE(top_assist_points,0))
                      FROM public.tournament_predictions WHERE user_id = v_socio AND league_id = v_liga), 0)
     INTO e_puntos_liga;
+  -- (undécima auditoría) Los puntos de TODOS los miembros y de todo el
+  -- ranking, desde las tablas: comprobar una sola fila dejaba pasar una Tabla
+  -- con los demás en 999 y todos en la posición 1.
+  SELECT jsonb_object_agg(lm.user_id::text,
+           COALESCE((SELECT sum(COALESCE(p.points_earned,0)) FROM public.predictions p
+                      WHERE p.user_id = lm.user_id AND p.league_id = v_liga), 0)
+         + COALESCE((SELECT sum(COALESCE(tp.champion_points,0) + COALESCE(tp.top_scorer_points,0) + COALESCE(tp.top_assist_points,0))
+                      FROM public.tournament_predictions tp WHERE tp.user_id = lm.user_id AND tp.league_id = v_liga), 0))
+    INTO e_tabla FROM public.league_members lm WHERE lm.league_id = v_liga;
+  SELECT jsonb_object_agg(u.id::text, COALESCE(u.total_points, 0)) INTO e_ranking FROM public.users u;
   SELECT EXISTS (SELECT 1 FROM public.predictions p JOIN public.matches m ON m.id = p.match_id
                   WHERE p.league_id = v_liga AND m.status = 'finished') INTO e_hay_jornadas;
-  SELECT count(*) INTO e_creditos FROM (SELECT DISTINCT phase, matchday FROM public.powerup_credits
-    WHERE user_id = v_socio AND league_id = v_liga AND consumed_at IS NULL AND phase IS NOT NULL) c;
+  -- (97) my_powerup_credits devuelve el AJUSTE neto por jornada: créditos de
+  -- la jornada menos ×2 anulados de la jornada, solo donde no da cero.
+  SELECT count(*) INTO e_creditos FROM (
+    SELECT z.llave FROM (
+      SELECT phase || '|' || COALESCE(matchday, 0)::text AS llave, 1 AS d FROM public.powerup_credits
+       WHERE user_id = v_socio AND league_id = v_liga AND phase IS NOT NULL
+      UNION ALL
+      SELECT public.llave_cupo(source_match_id), -1 FROM public.powerup_credits
+       WHERE user_id = v_socio AND league_id = v_liga AND source_match_id IS NOT NULL) z
+    GROUP BY z.llave HAVING sum(z.d) <> 0) c;
   SELECT count(*) INTO e_medallas FROM public.user_badges WHERE league_id = v_liga;
   SELECT count(*) INTO e_mis_medallas FROM public.user_badges WHERE user_id = v_socio;
   SELECT least(10, count(*)) INTO e_auditoria FROM public.match_audit a
@@ -216,6 +235,16 @@ BEGIN
     SELECT points INTO x FROM public.group_standings(v_liga) WHERE user_id = v_socio;
     IF x IS DISTINCT FROM e_puntos_liga THEN
       RAISE EXCEPTION 'group_standings le da % puntos al socio y la quiniela tiene %', x, e_puntos_liga; END IF;
+    -- Cada fila con los puntos de las tablas, y el orden coherente con ellos.
+    SELECT count(*) INTO n FROM public.group_standings(v_liga) g
+     WHERE g.points IS DISTINCT FROM (e_tabla->>(g.user_id::text))::numeric;
+    IF n > 0 THEN RAISE EXCEPTION 'group_standings: % filas con puntos distintos de las tablas', n; END IF;
+    SELECT count(*) INTO n FROM public.group_standings(v_liga) a, public.group_standings(v_liga) b
+     WHERE a.pos < b.pos AND a.points < b.points;
+    IF n > 0 THEN RAISE EXCEPTION 'group_standings: % pares con alguien arriba teniendo menos puntos', n; END IF;
+    SELECT count(DISTINCT pos) INTO n FROM public.group_standings(v_liga);
+    IF n < 2 AND v_miembros > 1 AND (SELECT count(DISTINCT points) FROM public.group_standings(v_liga)) > 1 THEN
+      RAISE EXCEPTION 'group_standings: todos en la misma posición con puntos distintos'; END IF;
     j := public.league_jornadas(v_liga);
     IF NOT (j ? 'jornadas' AND j ? 'rachas') THEN RAISE EXCEPTION 'league_jornadas sin jornadas/rachas: %', left(j::text, 80); END IF;
     IF e_hay_jornadas AND COALESCE(jsonb_array_length(j->'jornadas'), 0) = 0 THEN
@@ -235,6 +264,12 @@ BEGIN
     SELECT count(*) INTO n FROM public.league_medals(v_liga);      IF n <> e_medallas THEN RAISE EXCEPTION 'league_medals da % de %', n, e_medallas; END IF;
     SELECT count(*) INTO n FROM public.my_medals();                IF n <> e_mis_medallas THEN RAISE EXCEPTION 'my_medals da % de %', n, e_mis_medallas; END IF;
     SELECT count(*) INTO n FROM public.ranking_global(10);          IF n = 0 THEN RAISE EXCEPTION 'ranking_global vacío'; END IF;
+    SELECT count(*) INTO n FROM public.ranking_global(10) g
+     WHERE g.puntos IS DISTINCT FROM (e_ranking->>(g.user_id::text))::int;
+    IF n > 0 THEN RAISE EXCEPTION 'ranking_global: % filas con puntos distintos del total', n; END IF;
+    SELECT count(*) INTO n FROM public.ranking_global(10) a, public.ranking_global(10) b
+     WHERE a.pos < b.pos AND a.puntos < b.puntos;
+    IF n > 0 THEN RAISE EXCEPTION 'ranking_global: orden incoherente con los puntos'; END IF;
     j := public.mi_resumen_global();
     IF (j->>'puntos')::int IS DISTINCT FROM e_puntos_global THEN
       RAISE EXCEPTION 'mi_resumen_global dice % puntos y el total es %', j->>'puntos', e_puntos_global; END IF;

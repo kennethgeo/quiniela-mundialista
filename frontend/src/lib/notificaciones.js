@@ -131,6 +131,8 @@ export async function avisosActivos (userId) {
   if (!sub || !userId) return false
   try {
     if (await registrada(userId, sub.endpoint)) return true
+    // Durante un cierre de sesión no se re-registra nada (undécima auditoría).
+    if (cerrandoSesion()) return false
     await guardarSuscripcion(userId, sub)
     return true
   } catch {
@@ -169,26 +171,51 @@ export async function activarPush (userId) {
   return sub
 }
 
-/* Al CERRAR SESIÓN (décima auditoría): este dispositivo deja de recibir los
-   avisos de esa cuenta. Antes `signOut` no tocaba nada y la fila seguía a su
-   nombre: en un celular prestado o compartido, los avisos de quien se fue
-   —«te faltan 2 por predecir en Bundestica»— le seguían llegando a quien lo
-   usara después. Se borra solo la FILA (la RLS deja borrar la propia): la
-   suscripción del navegador queda, y si la misma persona vuelve a entrar se
-   registra sola (`avisosActivos` se sana). NUNCA frena el cierre de sesión:
-   con límite y sin lanzar. */
-export async function olvidarDispositivo (userId) {
-  if (!userId) return
+/* Al CERRAR SESIÓN (décima y undécima auditoría): este dispositivo deja de
+   recibir los avisos de esa cuenta.
+
+   Tres defensas, porque una sola no alcanzaba (lo reprodujo Astra):
+   · Se da de BAJA la suscripción del NAVEGADOR, no solo la fila. Sin red, el
+     DELETE no llega y la fila queda; pero un endpoint dado de baja el
+     proveedor lo rechaza (410) y el backend la borra solo (90). Además otra
+     pestaña ya no tiene suscripción que volver a registrar.
+   · Se deja una marca compartida entre pestañas (`localStorage`) mientras se
+     cierra: la auto-sanación del Hub y del Perfil no vuelve a dar de alta
+     nada en ese rato. Sin eso, otra pestaña veía «falta la fila» y la
+     re-insertaba antes de que terminara el cierre.
+   · Todo con UN presupuesto de tiempo: ni `getSubscription()` ni la red
+     pueden impedir que después se cierre la sesión.
+   Después se puede volver a activar a mano sin problema: la marca no frena
+   `activarPush`, solo las altas automáticas. */
+export const CLAVE_CERRANDO = 'avisosPush:cerrando'
+const VIDA_MARCA_MS = 60 * 1000
+export const PRESUPUESTO_CIERRE_MS = 4000
+
+function marcarCierre () {
+  try { localStorage.setItem(CLAVE_CERRANDO, String(Date.now())) } catch { /* modo privado */ }
+}
+
+/** ¿Hay un cierre de sesión en curso (en esta pestaña o en otra)? */
+export function cerrandoSesion (ahora = Date.now()) {
   try {
+    const t = parseInt(localStorage.getItem(CLAVE_CERRANDO), 10)
+    return Number.isFinite(t) && ahora - t < VIDA_MARCA_MS
+  } catch { return false }
+}
+
+export async function olvidarDispositivo (userId) {
+  marcarCierre()
+  const trabajo = (async () => {
     const sub = await suscripcionLocal()
     if (!sub) return
-    await Promise.race([
-      supabase.from('push_subscriptions').delete().eq('user_id', userId).eq('endpoint', sub.endpoint),
-      new Promise((resolve) => setTimeout(resolve, LIMITE_SW_MS)),
-    ])
-  } catch {
-    // Cerrar sesión importa más que esto.
-  }
+    const endpoint = sub.endpoint
+    try { await sub.unsubscribe() } catch { /* la fila igual se intenta borrar */ }
+    if (userId) {
+      await supabase.from('push_subscriptions').delete().eq('user_id', userId).eq('endpoint', endpoint)
+    }
+  })().catch(() => {})
+  // Cerrar sesión importa más que esto: pase lo que pase, se sigue.
+  await Promise.race([trabajo, new Promise((resolve) => setTimeout(resolve, PRESUPUESTO_CIERRE_MS))])
 }
 
 /** Baja en este dispositivo. */

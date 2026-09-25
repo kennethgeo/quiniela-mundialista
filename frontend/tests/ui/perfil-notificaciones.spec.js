@@ -18,10 +18,10 @@ const PERFIL = {
 
 /* Un service worker de mentira con o sin suscripción. Sin él, el de verdad
    puede o no registrarse según el entorno, y la prueba dependería de eso. */
-async function montar (page, { permiso = 'default', suscrito = false, iphone = false, swNunca = false, registroFalla = false } = {}) {
+async function montar (page, { permiso = 'default', suscrito = false, iphone = false, swNunca = false, registroFalla = false, subNunca = false } = {}) {
   await sinRedExterna(page)
   await conSesion(page)
-  await page.addInitScript(({ p, s, ios, nunca }) => {
+  await page.addInitScript(({ p, s, ios, nunca, subNunca }) => {
     localStorage.setItem('tutorial_seen', 'true')
     localStorage.setItem('pwaPromptDismissed', 'true')
     if (ios) {
@@ -41,9 +41,15 @@ async function montar (page, { permiso = 'default', suscrito = false, iphone = f
         // `nunca`: un service worker que no se pone listo jamás.
         ready: nunca ? new Promise(() => {}) : Promise.resolve({
           pushManager: {
-            getSubscription: async () => (s
-              ? { endpoint: 'https://ejemplo/x', options: {}, toJSON: () => ({ endpoint: 'https://ejemplo/x', keys: { p256dh: 'a', auth: 'b' } }) }
-              : null),
+            // `subNunca`: el navegador deja de contestar cuando la prueba lo
+            // indica (`window.__colgar`), justo antes de cerrar sesión.
+            getSubscription: () => {
+              if (subNunca && window.__colgar) return new Promise(() => {})
+              return Promise.resolve(s
+                ? { endpoint: 'https://ejemplo/x', options: {}, unsubscribe: async () => { window.__bajaNavegador = true; return true },
+                    toJSON: () => ({ endpoint: 'https://ejemplo/x', keys: { p256dh: 'a', auth: 'b' } }) }
+                : null)
+            },
             subscribe: async () => { throw new Error('no en pruebas') },
           },
         }),
@@ -51,7 +57,7 @@ async function montar (page, { permiso = 'default', suscrito = false, iphone = f
         addEventListener: () => {},
       }),
     })
-  }, { p: permiso, s: suscrito, ios: iphone, nunca: swNunca })
+  }, { p: permiso, s: suscrito, ios: iphone, nunca: swNunca, subNunca })
   await interceptarSupabase(page, {
     '/rest/v1/users': PERFIL,
     '/rest/v1/matches': [],
@@ -218,4 +224,23 @@ test('cerrar sesión borra la suscripción de ESTE dispositivo a nombre de esta 
   await expect.poll(() => borrados.length, { timeout: 10000 }).toBeGreaterThan(0)
   expect(borrados[0]).toContain('endpoint=eq.https://ejemplo/x')
   expect(borrados[0]).toContain(`user_id=eq.${USUARIO.id}`)
+  // Undécima auditoría: también se da de baja en el NAVEGADOR, para que sin
+  // red el proveedor rechace el endpoint y otra pestaña no lo re-registre.
+  expect(await page.evaluate(() => window.__bajaNavegador === true)).toBe(true)
+})
+
+test('si el navegador no contesta, la sesión se cierra igual', async ({ page }) => {
+  /* Astra lo reprodujo: con getSubscription() colgado, signOut() de Supabase
+     no llegaba a llamarse nunca. */
+  await montar(page, { permiso: 'granted', suscrito: true, subNunca: true })
+  const salidas = []
+  await page.route('**://pruebas.supabase.co/auth/v1/logout**', (route) => {
+    salidas.push(route.request().method())
+    return route.fulfill({ status: 204, body: '' })
+  })
+  await page.goto('/profile')
+  await expect(page.getByText('Avisos activados', { exact: true })).toBeVisible({ timeout: 15000 })
+  await page.evaluate(() => { window.__colgar = true })
+  await page.getByRole('button', { name: /Cerrar sesión/ }).last().click()
+  await expect.poll(() => salidas.length, { timeout: 12000 }).toBeGreaterThan(0)
 })

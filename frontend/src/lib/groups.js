@@ -118,8 +118,11 @@ export async function fetchLeagueProposals(leagueId) {
   return data || []
 }
 
-// Mis créditos de comodín ×2 sin consumir en una quiniela (arrastrados de un
-// partido cancelado). Devuelve { "fase|jornada": cantidad }.
+// El AJUSTE de cupo de ×2 por jornada (migración 97): créditos de esa jornada
+// menos ×2 anulados de esa jornada. Se suma al cupo base y se compara con los
+// ×2 activos: es la misma cuenta que aplica el trigger (`_x2_cuenta`). Puede ser
+// negativo: un ×2 anulado sigue ocupando su lugar en su jornada.
+// Devuelve { "fase|jornada": ajuste }.
 export async function fetchMyPowerupCredits(leagueId) {
   const { data, error } = await supabase.rpc('my_powerup_credits', { p_league_id: leagueId })
   if (error) throw error
