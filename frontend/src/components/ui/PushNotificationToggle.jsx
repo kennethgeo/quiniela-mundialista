@@ -20,7 +20,7 @@ import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import {
   soportaPush, activarPush, desactivarPush, guardarSuscripcion, swListo,
-  urlBase64ToUint8Array, VAPID_PUBLIC_KEY, estadoPermiso, necesitaInstalarPrimero,
+  urlBase64ToUint8Array, VAPID_PUBLIC_KEY, estadoPermiso, necesitaInstalarPrimero, cerrandoSesion,
 } from '../../lib/notificaciones'
 import { situacionAvisos, olvidarPospuesto } from '../../lib/avisoPush'
 
@@ -66,7 +66,9 @@ export default function PushNotificationToggle () {
         let sub = await registration.pushManager.getSubscription()
 
         // Auto-sanación: permiso concedido pero sin suscripción.
-        if (!sub && profile?.id && Notification.permission === 'granted') {
+        // Nunca mientras se cierra sesión en esta u otra pestaña (undécima
+        // auditoría): re-suscribiría el dispositivo de quien se está yendo.
+        if (!sub && profile?.id && Notification.permission === 'granted' && !cerrandoSesion()) {
           try {
             sub = await registration.pushManager.subscribe({
               userVisibleOnly: true, applicationServerKey: actual,
@@ -95,7 +97,9 @@ export default function PushNotificationToggle () {
         // Por si se perdió la fila en la base. Es idempotente. Si falla, NO
         // está activo: el backend manda a lo que hay en la base, no a lo que
         // tiene el navegador. Antes el error iba solo a la consola y la
-        // tarjeta podía seguir diciendo «activados».
+        // tarjeta podía seguir diciendo «activados». Durante un cierre de
+        // sesión no se toca nada (undécima auditoría).
+        if (cerrandoSesion()) return
         if (profile?.id) {
           try {
             await guardarSuscripcion(profile.id, sub)

@@ -275,3 +275,19 @@ test('un service worker que nunca responde no esconde el aviso', async ({ page }
   await page.goto('/')
   await expect(aviso(page)).toBeVisible({ timeout: 15000 })
 })
+
+test('mientras OTRA pestaña cierra sesión, el Hub no vuelve a registrar el dispositivo', async ({ page }) => {
+  /* Astra: la pestaña A borraba la fila y, antes de que terminara el cierre,
+     la B veía «falta la fila» y la volvía a insertar. */
+  await montar(page, 'granted')
+  await suscritoEnElNavegador(page)
+  await page.addInitScript(() => localStorage.setItem('avisosPush:cerrando', String(Date.now())))
+  let insertados = 0
+  await page.route('**://pruebas.supabase.co/rest/v1/push_subscriptions**', (route) => {
+    if (route.request().method() === 'POST') insertados++
+    return route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
+  })
+  await page.goto('/')
+  await expect(aviso(page)).toBeVisible({ timeout: 10000 })
+  expect(insertados).toBe(0)
+})
