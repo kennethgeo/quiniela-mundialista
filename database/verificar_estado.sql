@@ -137,6 +137,7 @@ FROM unnest(ARRAY[
   '_x2_cuenta',                        -- 97, interna (sin EXECUTE para el cliente)
   'creditos_se_van_con_la_membresia',  -- 99, función de trigger
   'membresia_viva_al_escribir',        -- 100, función de trigger
+  'registrar_compensacion_x2',         -- 103, función de trigger
   'prediccion_modificada',
   'partidos_pendientes_de_puntaje'
 ]::text[]) x
@@ -245,6 +246,7 @@ WHERE n.nspname = 'public'
   '_x2_cuenta',                        -- 97, interna (sin EXECUTE para el cliente)
   'creditos_se_van_con_la_membresia',  -- 99, función de trigger
   'membresia_viva_al_escribir',        -- 100, función de trigger
+  'registrar_compensacion_x2',         -- 103, función de trigger
   'prediccion_modificada',
   'partidos_pendientes_de_puntaje'
 ]::text[])
@@ -658,3 +660,15 @@ FROM information_schema.role_table_grants
 WHERE table_schema = 'public' AND grantee IN ('anon', 'authenticated')
   AND privilege_type IN ('TRUNCATE', 'TRIGGER', 'REFERENCES')
 ORDER BY 1, 2, 3;
+
+\echo '=== 20. Alguien compensado DOS veces por el mismo ×2 anulado ==='
+-- Migración 103. Límite aceptado por el dueño (27 sep 2026): salir de la
+-- quiniela borra los créditos, así que si la persona vuelve y el mismo partido
+-- se re-anula, se la compensa otra vez. No se cambió la regla; esta bitácora
+-- (que no se borra al salir) permite verlo. Si sale una fila, lo corrige un
+-- admin a mano. Tiene que salir VACÍA.
+SELECT user_id, league_id, match_id, count(*) AS veces, min(creada_at), max(creada_at)
+FROM public.compensaciones_x2
+GROUP BY user_id, league_id, match_id
+HAVING count(*) > 1
+ORDER BY max(creada_at) DESC;
