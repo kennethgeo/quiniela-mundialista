@@ -158,11 +158,18 @@ export function AuthProvider({ children }) {
     // este dispositivo deja de recibir los avisos de esta cuenta.
     // Con UN presupuesto para todo el preámbulo (undécima auditoría): si
     // `getSession()` o el navegador no responden, la sesión se cierra igual.
+    // Vencido el presupuesto, el preámbulo que siga colgado ya no puede tocar
+    // nada: la próxima cuenta que entre en este navegador no es la que salió
+    // (decimosexta auditoría).
+    let vigente = true
+    const sigueVigente = () => vigente
     const preambulo = (async () => {
       const { data } = await supabase.auth.getSession().catch(() => ({ data: null }))
-      await olvidarDispositivo(data?.session?.user?.id)
+      if (!vigente) return
+      await olvidarDispositivo(data?.session?.user?.id, sigueVigente)
     })().catch(() => {})
     await Promise.race([preambulo, new Promise((resolve) => setTimeout(resolve, PRESUPUESTO_CIERRE_MS + 1000))])
+    vigente = false
     const { error } = await supabase.auth.signOut()
     if (error) throw error
     asignarUsuario(null)

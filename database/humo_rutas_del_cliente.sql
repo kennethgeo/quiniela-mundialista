@@ -53,6 +53,10 @@
 -- quiniela_por_id afirman también `is_admin` y `soy_creador`; y la 99: el admin
 -- global no escribe predicciones cerradas y salir se lleva los créditos.
 --
+-- VERSIÓN 10 (27 sep 2026), después de la decimosexta auditoría: el ranking se
+-- compara entero (personas, posiciones, puntos y «soy yo») y las globales
+-- afirman los tres campos guardados.
+--
 -- CÓMO SE USA: antes y después de cada migración, y como ENSAYO (la migración
 -- sin BEGIN/COMMIT + esta prueba, en un solo envío: el RAISE final revierte
 -- todo). Una línea con ✗ se mira ANTES de seguir.
@@ -71,7 +75,7 @@ DECLARE
   e_jugadores int; e_bitacora int; e_votos int;
   e_puntos_global int; e_quinielas int; e_puntos_liga numeric; e_hay_jornadas boolean;
   e_tabla jsonb; e_ranking jsonb; e_liga jsonb; e_cupos jsonb; e_fases text[];
-  e_cupos_set text[]; e_fases_set text[]; e_creditos_set text[];
+  e_cupos_set text[]; e_fases_set text[]; e_creditos_set text[]; e_ranking_set text[];
   r text := E'\n';
   ok int := 0; mal int := 0;
 BEGIN
@@ -165,6 +169,14 @@ BEGIN
                       FROM public.tournament_predictions tp WHERE tp.user_id = lm.user_id AND tp.league_id = v_liga), 0))
     INTO e_tabla FROM public.league_members lm WHERE lm.league_id = v_liga;
   SELECT jsonb_object_agg(u.id::text, COALESCE(u.total_points, 0)) INTO e_ranking FROM public.users u;
+  -- (decimosexta auditoría) El ranking ENTERO que tiene que salir: los 10
+  -- primeros por puntos y antigüedad, más el socio si queda afuera. Solo
+  -- comparar puntos y orden dejaba pasar un ranking con una sola fila.
+  SELECT array_agg(o.p || '|' || o.id || '|' || o.puntos || '|' || (o.id = v_socio) ORDER BY o.p) INTO e_ranking_set
+    FROM (SELECT u.id, COALESCE(u.total_points, 0) AS puntos,
+                 row_number() OVER (ORDER BY COALESCE(u.total_points, 0) DESC, u.created_at ASC) AS p
+            FROM public.users u) o
+   WHERE o.p <= 10 OR o.id = v_socio;
   -- (duodécima auditoría) Lo que las pantallas de la quiniela tienen que
   -- mostrar, sacado de las tablas: reglas y puntaje, el cupo de cada jornada y
   -- las fases del editor de cupos. Antes solo se contaban filas.
@@ -275,9 +287,12 @@ BEGIN
     ON CONFLICT (user_id,league_id) DO UPDATE SET user_id=excluded.user_id, tournament_id=excluded.tournament_id,
       league_id=excluded.league_id, champion_team=excluded.champion_team, top_scorer_name=excluded.top_scorer_name,
       top_assist_name=excluded.top_assist_name;
+    -- (decimosexta auditoría) Los TRES campos: con solo el campeón, un guardado
+    -- que perdiera goleador y asistidor pasaba.
     SELECT count(*) INTO n FROM public.tournament_predictions
-     WHERE user_id = v_socio AND league_id = v_liga AND champion_team = 'HUMO';
-    IF n <> 1 THEN RAISE EXCEPTION 'las globales no quedaron guardadas'; END IF;
+     WHERE user_id = v_socio AND league_id = v_liga AND champion_team = 'HUMO'
+       AND top_scorer_name = 'HUMO' AND top_assist_name = 'HUMO';
+    IF n <> 1 THEN RAISE EXCEPTION 'las globales no quedaron guardadas (los tres campos)'; END IF;
     RAISE EXCEPTION 'HUMO_OK';
   EXCEPTION WHEN others THEN
     IF sqlerrm = 'HUMO_OK' THEN r := r || E'✓ guardar las globales (TournamentGlobalCard)\n'; ok := ok + 1;
@@ -360,6 +375,9 @@ BEGIN
     SELECT count(*) INTO n FROM public.ranking_global(10) a, public.ranking_global(10) b
      WHERE a.pos < b.pos AND a.puntos < b.puntos;
     IF n > 0 THEN RAISE EXCEPTION 'ranking_global: orden incoherente con los puntos'; END IF;
+    IF (SELECT array_agg(g.pos || '|' || g.user_id || '|' || g.puntos || '|' || g.soy_yo ORDER BY g.pos) FROM public.ranking_global(10) g)
+       IS DISTINCT FROM e_ranking_set THEN
+      RAISE EXCEPTION 'ranking_global: faltan o sobran personas, o no marca bien quién soy'; END IF;
     j := public.mi_resumen_global();
     IF (j->>'puntos')::int IS DISTINCT FROM e_puntos_global THEN
       RAISE EXCEPTION 'mi_resumen_global dice % puntos y el total es %', j->>'puntos', e_puntos_global; END IF;

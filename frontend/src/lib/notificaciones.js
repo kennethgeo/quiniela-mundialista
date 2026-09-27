@@ -203,19 +203,27 @@ export function cerrandoSesion (ahora = Date.now()) {
   } catch { return false }
 }
 
-export async function olvidarDispositivo (userId) {
+/* `sigueVigente` (decimosexta auditoría): `Promise.race` limita la ESPERA pero
+   no cancela el trabajo. Si el cierre se da por vencido y otra cuenta entra
+   antes de que el navegador responda, la suscripción que aparece es la de la
+   cuenta NUEVA: darla de baja le quitaría sus avisos. Por eso, pasada cada
+   espera, el trabajo pregunta si sigue siendo el suyo antes de tocar nada. */
+export async function olvidarDispositivo (userId, sigueVigente = () => true) {
   marcarCierre()
+  let enPlazo = true
+  const vale = () => enPlazo && sigueVigente()
   const trabajo = (async () => {
     const sub = await suscripcionLocal()
-    if (!sub) return
+    if (!sub || !vale()) return
     const endpoint = sub.endpoint
     try { await sub.unsubscribe() } catch { /* la fila igual se intenta borrar */ }
-    if (userId) {
+    if (userId && vale()) {
       await supabase.from('push_subscriptions').delete().eq('user_id', userId).eq('endpoint', endpoint)
     }
   })().catch(() => {})
   // Cerrar sesión importa más que esto: pase lo que pase, se sigue.
   await Promise.race([trabajo, new Promise((resolve) => setTimeout(resolve, PRESUPUESTO_CIERRE_MS))])
+  enPlazo = false
 }
 
 /* Al ABRIR la app SIN sesión (duodécima auditoría): si el navegador todavía
@@ -239,7 +247,10 @@ export async function bajaSinSesion (sigueSinSesion = () => true) {
     const sub = await suscripcionLocal()
     if (!sub || !sigueSinSesion()) return
     const sesion = await Promise.race([
-      supabase.auth.getSession().then(({ data }) => data?.session ?? null),
+      // Un error de Auth NO es «no hay sesión»: con una renovación fallida
+      // devuelve `session: null` y la sesión sigue guardada (decimosexta
+      // auditoría). Ante un error, como ante el silencio, no se da de baja.
+      supabase.auth.getSession().then(({ data, error }) => (error ? 'sin-respuesta' : data?.session ?? null)),
       new Promise((resolve) => setTimeout(() => resolve('sin-respuesta'), LIMITE_SW_MS)),
     ])
     if (sesion !== null || !sigueSinSesion()) return
