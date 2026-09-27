@@ -64,7 +64,7 @@ DECLARE
   e_propuestas int; e_creditos int; e_medallas int; e_mis_medallas int; e_auditoria int;
   e_jugadores int; e_bitacora int; e_votos int;
   e_puntos_global int; e_quinielas int; e_puntos_liga numeric; e_hay_jornadas boolean;
-  e_tabla jsonb; e_ranking jsonb;
+  e_tabla jsonb; e_ranking jsonb; e_liga jsonb; e_cupos jsonb; e_fases text[];
   r text := E'\n';
   ok int := 0; mal int := 0;
 BEGIN
@@ -142,6 +142,21 @@ BEGIN
                       FROM public.tournament_predictions tp WHERE tp.user_id = lm.user_id AND tp.league_id = v_liga), 0))
     INTO e_tabla FROM public.league_members lm WHERE lm.league_id = v_liga;
   SELECT jsonb_object_agg(u.id::text, COALESCE(u.total_points, 0)) INTO e_ranking FROM public.users u;
+  -- (duodécima auditoría) Lo que las pantallas de la quiniela tienen que
+  -- mostrar, sacado de las tablas: reglas y puntaje, el cupo de cada jornada y
+  -- las fases del editor de cupos. Antes solo se contaban filas.
+  SELECT jsonb_build_object('name', l.name, 'admin_id', l.admin_id, 'tournament_id', l.tournament_id,
+           'points_exact', l.points_exact, 'points_correct', l.points_correct, 'champion_points', l.champion_points,
+           'scorer_points', l.scorer_points, 'assist_points', l.assist_points, 'powerup_limit', l.powerup_limit,
+           'powerup_por_partidos', l.powerup_por_partidos, 'powerup_limits', l.powerup_limits,
+           'rules', l.rules, 'prizes_text', l.prizes_text, 'whatsapp_link', l.whatsapp_link)
+    INTO e_liga FROM public.leagues l WHERE l.id = v_liga;
+  SELECT jsonb_object_agg(b.llave, public.cupo_powerups(v_liga, b.mid)) INTO e_cupos
+    FROM (SELECT public.llave_cupo(m.id) AS llave, min(m.id) AS mid FROM public.matches m
+           WHERE m.tournament_id = v_tid GROUP BY 1) b;
+  SELECT array_agg(DISTINCT c ORDER BY c) INTO e_fases FROM (
+    SELECT public.clave_fase(m.phase, m.stage) AS c FROM public.matches m WHERE m.tournament_id = v_tid
+    UNION SELECT jsonb_object_keys(COALESCE(v_limits, '{}'::jsonb))) z;
   SELECT EXISTS (SELECT 1 FROM public.predictions p JOIN public.matches m ON m.id = p.match_id
                   WHERE p.league_id = v_liga AND m.status = 'finished') INTO e_hay_jornadas;
   -- (97) my_powerup_credits devuelve el AJUSTE neto por jornada: créditos de
@@ -226,6 +241,26 @@ BEGIN
   BEGIN  -- las lecturas de cada pantalla, y que traigan DATOS
     SELECT count(*) INTO n FROM public.my_groups();                IF n = 0 THEN RAISE EXCEPTION 'my_groups vacío'; END IF;
     SELECT count(*) INTO n FROM public.quiniela_por_id(v_liga);    IF n <> 1 THEN RAISE EXCEPTION 'quiniela_por_id devolvió %', n; END IF;
+    SELECT jsonb_build_object('name', q.name, 'admin_id', q.admin_id, 'tournament_id', q.tournament_id,
+             'points_exact', q.points_exact, 'points_correct', q.points_correct, 'champion_points', q.champion_points,
+             'scorer_points', q.scorer_points, 'assist_points', q.assist_points, 'powerup_limit', q.powerup_limit,
+             'powerup_por_partidos', q.powerup_por_partidos, 'powerup_limits', q.powerup_limits,
+             'rules', q.rules, 'prizes_text', q.prizes_text, 'whatsapp_link', q.whatsapp_link)
+      INTO j FROM public.quiniela_por_id(v_liga) q;
+    IF j IS DISTINCT FROM e_liga THEN RAISE EXCEPTION 'quiniela_por_id no dice lo que tiene la quiniela'; END IF;
+    SELECT jsonb_build_object('name', g.name, 'admin_id', g.admin_id, 'tournament_id', g.tournament_id,
+             'points_exact', g.points_exact, 'points_correct', g.points_correct, 'champion_points', g.champion_points,
+             'scorer_points', g.scorer_points, 'assist_points', g.assist_points, 'powerup_limit', g.powerup_limit,
+             'powerup_por_partidos', g.powerup_por_partidos, 'powerup_limits', g.powerup_limits,
+             'rules', g.rules, 'prizes_text', g.prizes_text, 'whatsapp_link', g.whatsapp_link)
+      INTO j FROM public.my_groups() g WHERE g.id = v_liga;
+    IF j IS DISTINCT FROM e_liga THEN RAISE EXCEPTION 'my_groups no dice lo que tiene la quiniela'; END IF;
+    SELECT count(*) INTO n FROM public.cupos_por_jornada(v_liga) c
+     WHERE c.cupo IS DISTINCT FROM (e_cupos->>c.llave)::int;
+    IF n > 0 OR (SELECT count(*) FROM public.cupos_por_jornada(v_liga)) <> (SELECT count(*) FROM jsonb_object_keys(e_cupos)) THEN
+      RAISE EXCEPTION 'cupos_por_jornada no coincide con cupo_powerups (% jornadas distintas)', n; END IF;
+    IF (SELECT array_agg(f.clave ORDER BY f.clave) FROM public.fases_del_torneo(v_liga) f) IS DISTINCT FROM e_fases THEN
+      RAISE EXCEPTION 'fases_del_torneo no trae las fases del torneo y de los cupos guardados'; END IF;
     -- (décima auditoría) La Tabla es la del dinero: no alcanza con que no venga
     -- vacía. Una fila por miembro, la del socio con los puntos de las tablas,
     -- y posiciones que arrancan en 1.
