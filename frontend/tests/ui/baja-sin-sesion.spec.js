@@ -82,3 +82,36 @@ test('si alguien entra mientras el navegador tarda, su suscripción NO se da de 
   await page.waitForTimeout(1500)
   expect(await page.evaluate(() => window.__bajaNavegador === true)).toBe(false)
 })
+
+/* Decimosexta auditoría: `Promise.race` limita la espera del cierre pero no
+   cancela el trabajo. Si el navegador responde DESPUÉS de vencido el plazo y
+   para entonces ya entró otra cuenta, la suscripción que aparece es la de la
+   cuenta nueva: el cierre viejo no la puede tocar. */
+test('un cierre de sesión vencido no le quita los avisos a quien entra después', async ({ page }) => {
+  test.setTimeout(45000)
+  await sinRedExterna(page)
+  await conSesion(page)
+  await conSuscripcionViva(page, { retenida: true })
+  const sesion = {
+    access_token: 'token-de-mentira', refresh_token: 'refresh-de-mentira', token_type: 'bearer',
+    expires_at: Math.floor(Date.now() / 1000) + 31536000, expires_in: 31536000, user: USUARIO,
+  }
+  await interceptarSupabase(page, {
+    '/auth/v1/token': sesion,
+    '/auth/v1/logout': {},
+    '/rest/v1/users': { id: USUARIO.id, display_name: 'Prueba', avatar_url: null, is_admin: false },
+    '/rest/v1/push_subscriptions': [{ id: 'x' }],
+  })
+  await page.goto('/profile')
+  await page.getByRole('button', { name: /Cerrar sesión/ }).last().click()
+  // El navegador no contesta: vence el presupuesto y la sesión se cierra igual.
+  await expect(page).toHaveURL(/\/auth/, { timeout: 15000 })
+  await page.fill('#login-email', USUARIO.email)
+  await page.fill('#login-password', 'clave-de-prueba')
+  await page.getByRole('button', { name: 'Entrar', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'Mis quinielas' })).toBeVisible({ timeout: 10000 })
+  // Recién ahora responde el navegador: el cierre viejo sigue esperando.
+  await page.evaluate(() => window.__soltarSW())
+  await page.waitForTimeout(1500)
+  expect(await page.evaluate(() => window.__bajaNavegador === true)).toBe(false)
+})
