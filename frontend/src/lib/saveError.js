@@ -7,6 +7,13 @@ export function friendlySaveError(err) {
   const msg = err?.message || ''
   const code = err?.code || ''
 
+  // La base canceló el guardado por cruzarse con otra operación (una
+  // anulación, un borrado de la quiniela, otra pestaña). No quedó nada a
+  // medias: se puede volver a intentar (migración 100).
+  if (code === '40P01' || /deadlock detected/i.test(msg)) {
+    return 'No se pudo guardar porque se cruzó con otro cambio al mismo tiempo. Intentá de nuevo.'
+  }
+
   // Rechazo por RLS: partido bloqueado (<15 min) o sin permiso.
   if (code === '42501' || /row-level security|violates row-level/i.test(msg)) {
     return 'No se pudo guardar: el partido ya está cerrado (faltan menos de 15 min para empezar) o no tenés permiso para editar esta predicción.'
