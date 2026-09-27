@@ -223,11 +223,27 @@ export async function olvidarDispositivo (userId) {
    darla de baja —sin red, `unsubscribe()` y el DELETE fallan—. Sin sesión no
    hay cuenta a la que avisar: se da de baja en el navegador y, cuando el
    backend le escriba, el proveedor responde 410 y la fila se limpia sola (90).
-   Nunca lanza ni espera más que el service worker. */
-export async function bajaSinSesion () {
+   Nunca lanza ni espera más que el service worker.
+
+   «Sin sesión» tiene que seguir siendo cierto AL DAR DE BAJA, no solo al
+   decidirlo (decimotercera auditoría): mientras se espera al service worker
+   puede llegar un SIGNED_IN —en esta pestaña o en otra— y la baja se llevaba
+   los avisos de quien acaba de entrar. Por eso, después de cada espera, se
+   pregunta otra vez: a quien llamó (`sigueSinSesion`, que sabe de los eventos
+   de esta pestaña) y al almacenamiento de la sesión (`getSession`, que ve
+   también lo que escribió otra pestaña). Ante la duda —una respuesta que no
+   llega— no se da de baja: perder los avisos de alguien con sesión es peor que
+   dejar una suscripción huérfana hasta la próxima apertura. */
+export async function bajaSinSesion (sigueSinSesion = () => true) {
   try {
     const sub = await suscripcionLocal()
-    if (sub) await sub.unsubscribe()
+    if (!sub || !sigueSinSesion()) return
+    const sesion = await Promise.race([
+      supabase.auth.getSession().then(({ data }) => data?.session ?? null),
+      new Promise((resolve) => setTimeout(() => resolve('sin-respuesta'), LIMITE_SW_MS)),
+    ])
+    if (sesion !== null || !sigueSinSesion()) return
+    await sub.unsubscribe()
   } catch { /* se vuelve a intentar en la próxima apertura */ }
 }
 

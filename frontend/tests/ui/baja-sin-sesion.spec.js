@@ -5,8 +5,12 @@
 import { expect, test } from '@playwright/test'
 import { conSesion, interceptarSupabase, sinRedExterna, USUARIO } from './apoyo.js'
 
-async function conSuscripcionViva (page) {
-  await page.addInitScript(() => {
+async function conSuscripcionViva (page, { retenida = false } = {}) {
+  await page.addInitScript((retenida) => {
+    // `retenida`: el navegador tarda en contestar hasta que la prueba lo suelte.
+    let soltar
+    const suelta = new Promise((resolve) => { soltar = resolve })
+    window.__soltarSW = () => soltar()
     localStorage.setItem('tutorial_seen', 'true')
     localStorage.setItem('pwaPromptDismissed', 'true')
     Object.defineProperty(Notification, 'permission', { get: () => 'granted', configurable: true })
@@ -15,18 +19,21 @@ async function conSuscripcionViva (page) {
       get: () => ({
         ready: Promise.resolve({
           pushManager: {
-            getSubscription: async () => ({
-              endpoint: 'https://ejemplo/x', options: {},
-              unsubscribe: async () => { window.__bajaNavegador = true; return true },
-              toJSON: () => ({ endpoint: 'https://ejemplo/x', keys: { p256dh: 'a', auth: 'b' } }),
-            }),
+            getSubscription: async () => {
+              if (retenida) await suelta
+              return {
+                endpoint: 'https://ejemplo/x', options: {},
+                unsubscribe: async () => { window.__bajaNavegador = true; return true },
+                toJSON: () => ({ endpoint: 'https://ejemplo/x', keys: { p256dh: 'a', auth: 'b' } }),
+              }
+            },
           },
         }),
         register: async () => ({}),
         addEventListener: () => {},
       }),
     })
-  })
+  }, retenida)
 }
 
 test('sin sesión, la suscripción que quedó en el navegador se da de baja', async ({ page }) => {
@@ -47,6 +54,31 @@ test('con sesión, la suscripción NO se toca', async ({ page }) => {
   })
   await page.goto('/')
   await expect(page.getByRole('heading', { name: 'Mis quinielas' })).toBeVisible({ timeout: 10000 })
+  await page.waitForTimeout(1500)
+  expect(await page.evaluate(() => window.__bajaNavegador === true)).toBe(false)
+})
+
+/* Decimotercera auditoría: la decisión «no hay sesión» se toma al abrir, pero
+   la baja ocurre DESPUÉS de esperar al navegador. Si en ese hueco la persona
+   entra, la baja se llevaba los avisos de quien acaba de iniciar sesión. */
+test('si alguien entra mientras el navegador tarda, su suscripción NO se da de baja', async ({ page }) => {
+  await sinRedExterna(page)
+  await conSuscripcionViva(page, { retenida: true })
+  const sesion = {
+    access_token: 'token-de-mentira', refresh_token: 'refresh-de-mentira', token_type: 'bearer',
+    expires_at: Math.floor(Date.now() / 1000) + 31536000, expires_in: 31536000, user: USUARIO,
+  }
+  await interceptarSupabase(page, {
+    '/auth/v1/token': sesion,
+    '/rest/v1/users': { id: USUARIO.id, display_name: 'Prueba', avatar_url: null, is_admin: false },
+    '/rest/v1/push_subscriptions': [{ id: 'x' }],
+  })
+  await page.goto('/auth')
+  await page.fill('#login-email', USUARIO.email)
+  await page.fill('#login-password', 'clave-de-prueba')
+  await page.getByRole('button', { name: 'Entrar', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'Mis quinielas' })).toBeVisible({ timeout: 10000 })
+  await page.evaluate(() => window.__soltarSW())
   await page.waitForTimeout(1500)
   expect(await page.evaluate(() => window.__bajaNavegador === true)).toBe(false)
 })

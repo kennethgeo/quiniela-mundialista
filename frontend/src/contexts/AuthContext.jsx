@@ -172,6 +172,11 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     let vigente = true
     let huboEvento = false
+    // Lo último que se supo de la sesión en esta pestaña. La baja de avisos
+    // sin sesión lo vuelve a mirar después de cada espera (decimotercera
+    // auditoría): un SIGNED_IN a mitad de camino la cancela.
+    let hayUsuario = false
+    const sigueSinSesion = () => vigente && !hayUsuario
     // Obtener sesión inicial
     const initAuth = async () => {
       try {
@@ -184,6 +189,7 @@ export function AuthProvider({ children }) {
 
         if (!vigente || huboEvento) return
         const currentUser = session?.user ?? null
+        hayUsuario = !!currentUser
         asignarUsuario(currentUser)
 
         if (currentUser) {
@@ -192,7 +198,7 @@ export function AuthProvider({ children }) {
         }
         // Sin sesión: la suscripción que quede en el navegador es de alguien
         // que ya salió (duodécima auditoría). Sin await: nunca frena la carga.
-        else bajaSinSesion()
+        else bajaSinSesion(sigueSinSesion)
       } catch (err) {
         console.error('Error al inicializar auth:', err.message)
       } finally {
@@ -208,6 +214,7 @@ export function AuthProvider({ children }) {
         if (!vigente) return
         huboEvento = true
         const currentUser = session?.user ?? null
+        hayUsuario = !!currentUser
         asignarUsuario(currentUser)
 
         if (currentUser && (['INITIAL_SESSION', 'SIGNED_IN', 'TOKEN_REFRESHED', 'USER_UPDATED'].includes(event))) {
@@ -217,7 +224,7 @@ export function AuthProvider({ children }) {
         if (event === 'SIGNED_OUT') {
           setProfile(null)
         }
-        if (event === 'INITIAL_SESSION' && !currentUser) bajaSinSesion()
+        if (event === 'INITIAL_SESSION' && !currentUser) bajaSinSesion(sigueSinSesion)
       }
     )
 

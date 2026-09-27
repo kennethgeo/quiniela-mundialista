@@ -3,8 +3,10 @@
 -- =============================================================================
 -- Las migraciones se corren a mano, así que schema.sql dejó de describir la
 -- base hace rato. Eso ya mordió dos veces:
---   · predictions_update_admin y predictions_insert_admin existen en producción
---     y NO están en ningún archivo de database/ — se crearon en el dashboard;
+--   · predictions_update_admin y predictions_insert_admin existían en producción
+--     y NO estaban en ningún archivo de database/ — se crearon en el dashboard
+--     (la migración 99 las borró: dejaban al admin global escribir predicciones
+--     cerradas; la sección 18 vigila que no vuelva algo así);
 --   · la migración 61 revoca EXECUTE en bloque, así que una RPC nueva que no
 --     esté en su inventario se queda muda en la siguiente corrida.
 --
@@ -132,6 +134,8 @@ FROM unnest(ARRAY[
   'hay_puntajes_pendientes',
   'resultado_cambiado_invalida_firma',
   'pago_confirmado_no_se_borra',
+  '_x2_cuenta',                        -- 97, interna (sin EXECUTE para el cliente)
+  'creditos_se_van_con_la_membresia',  -- 99, función de trigger
   'prediccion_modificada',
   'partidos_pendientes_de_puntaje'
 ]::text[]) x
@@ -237,6 +241,8 @@ WHERE n.nspname = 'public'
   'hay_puntajes_pendientes',
   'resultado_cambiado_invalida_firma',
   'pago_confirmado_no_se_borra',
+  '_x2_cuenta',                        -- 97, interna (sin EXECUTE para el cliente)
+  'creditos_se_van_con_la_membresia',  -- 99, función de trigger
   'prediccion_modificada',
   'partidos_pendientes_de_puntaje'
 ]::text[])
@@ -614,3 +620,29 @@ WHERE m.status IN ('finished', 'cancelled', 'postponed')
                   AND p.modificada_at <= now() - interval '3 days')
   )
 ORDER BY (m.id IN (SELECT public.partidos_pendientes_de_puntaje())), m.id;
+
+\echo '=== 18. Escritura de predicciones que no mira si el partido está cerrado ==='
+-- Decimotercera auditoría (migración 99). Dos maneras de reabrir sin querer
+-- lo que las políticas cierran:
+--   · una política de escritura que se decide por `is_admin`: las permisivas
+--     se combinan con OR, así que basta una para que el admin global reescriba
+--     predicciones de partidos terminados (así estaba hasta la 99);
+--   · una política de UPDATE cuyo USING no mira el cierre: el WITH CHECK llega
+--     DESPUÉS de los triggers BEFORE, y en el hueco el cliente bloquea la fila
+--     y el trigger del ×2 pide el candado de cupo (deadlock reproducido contra
+--     void_cancelled_match).
+-- Tiene que salir VACÍA.
+SELECT p.tablename, p.policyname, p.cmd, p.roles,
+       CASE WHEN (COALESCE(p.qual, '') || COALESCE(p.with_check, '')) ILIKE '%is_admin%'
+            THEN 'se decide por is_admin'
+            ELSE 'el USING no mira el cierre' END AS problema
+FROM pg_policies p
+WHERE p.schemaname = 'public'
+  AND p.tablename IN ('predictions', 'tournament_predictions')
+  AND p.cmd IN ('INSERT', 'UPDATE', 'ALL')
+  AND NOT ('service_role' = ANY (p.roles))
+  AND ( (COALESCE(p.qual, '') || COALESCE(p.with_check, '')) ILIKE '%is_admin%'
+     OR (p.cmd IN ('UPDATE', 'ALL')
+         AND COALESCE(p.qual, '') NOT ILIKE '%postponed%'
+         AND COALESCE(p.qual, '') NOT ILIKE '%tournament_predictions_open%') )
+ORDER BY 1, 2;
