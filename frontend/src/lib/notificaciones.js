@@ -218,6 +218,19 @@ export async function olvidarDispositivo (userId) {
   await Promise.race([trabajo, new Promise((resolve) => setTimeout(resolve, PRESUPUESTO_CIERRE_MS))])
 }
 
+/* Al ABRIR la app SIN sesión (duodécima auditoría): si el navegador todavía
+   tiene una suscripción viva, es de alguien que salió y cuyo cierre no pudo
+   darla de baja —sin red, `unsubscribe()` y el DELETE fallan—. Sin sesión no
+   hay cuenta a la que avisar: se da de baja en el navegador y, cuando el
+   backend le escriba, el proveedor responde 410 y la fila se limpia sola (90).
+   Nunca lanza ni espera más que el service worker. */
+export async function bajaSinSesion () {
+  try {
+    const sub = await suscripcionLocal()
+    if (sub) await sub.unsubscribe()
+  } catch { /* se vuelve a intentar en la próxima apertura */ }
+}
+
 /** Baja en este dispositivo. */
 export async function desactivarPush () {
   if (!soportaPush()) return

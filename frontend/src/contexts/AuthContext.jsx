@@ -3,7 +3,7 @@ import { createContext, useContext, useState, useEffect, useCallback } from 'rea
 import { supabase } from '../lib/supabase'
 import { crearCargaDePerfil } from '../lib/cargaDePerfil'
 import { conLimite, describirFallo, registrarIntento } from '../lib/loginResiliente'
-import { olvidarDispositivo, PRESUPUESTO_CIERRE_MS } from '../lib/notificaciones'
+import { olvidarDispositivo, bajaSinSesion, PRESUPUESTO_CIERRE_MS } from '../lib/notificaciones'
 
 const AuthContext = createContext(null)
 
@@ -190,6 +190,9 @@ export function AuthProvider({ children }) {
           // Lanzar fetchProfile sin await para no bloquear la pantalla de carga (soluciona pantalla en negro en PWA)
           fetchProfile(currentUser.id).catch(err => console.error('Error cargando perfil:', err))
         }
+        // Sin sesión: la suscripción que quede en el navegador es de alguien
+        // que ya salió (duodécima auditoría). Sin await: nunca frena la carga.
+        else bajaSinSesion()
       } catch (err) {
         console.error('Error al inicializar auth:', err.message)
       } finally {
@@ -214,6 +217,7 @@ export function AuthProvider({ children }) {
         if (event === 'SIGNED_OUT') {
           setProfile(null)
         }
+        if (event === 'INITIAL_SESSION' && !currentUser) bajaSinSesion()
       }
     )
 
