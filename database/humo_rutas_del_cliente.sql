@@ -47,6 +47,12 @@
 --   El avatar (`users.avatar_url` + Storage) NO se ejercita más allá de la fila
 --   de storage: el dueño pidió no tocar avatares por SQL, ni revertido.
 --
+-- VERSIÓN 9 (27 sep 2026), después de la decimotercera auditoría: cupos, fases
+-- y ajustes de créditos se comparan como CONJUNTOS fila entera (una jornada
+-- repetida en lugar de otra, o `empezo`/`existe` falsos, pasaban); my_groups y
+-- quiniela_por_id afirman también `is_admin` y `soy_creador`; y la 99: el admin
+-- global no escribe predicciones cerradas y salir se lleva los créditos.
+--
 -- CÓMO SE USA: antes y después de cada migración, y como ENSAYO (la migración
 -- sin BEGIN/COMMIT + esta prueba, en un solo envío: el RAISE final revierte
 -- todo). Una línea con ✗ se mira ANTES de seguir.
@@ -57,14 +63,15 @@ DECLARE
   v_pagador uuid; v_m1 int; v_m2 int; v_prop uuid; v_liga_sin_pagos uuid; v_creador_sin_pagos uuid;
   v_expulsable uuid; v_rules text; v_premios text; v_wa text; v_cuota numeric;
   v_moneda text; v_reparto jsonb; v_limits jsonb; v_recaudado numeric; v_miembros int;
-  v_puntuada uuid; v_dueno_puntuada uuid; v_abierto_libre int;
+  v_puntuada uuid; v_dueno_puntuada uuid; v_abierto_libre int; v_abierto_socio int;
   v_pe int; v_pc int; v_cp int; v_sp int; v_pl int; v_ap int; v_ppp int;
   n int; j jsonb; t timestamptz; x numeric; id_devuelto uuid; st text;
-  fila record; a1 int; a2 int; v_admin_global uuid;
+  fila record; a1 int; a2 int; v_admin_global uuid; v_adm_liga uuid; v_adm_partido int;
   e_propuestas int; e_creditos int; e_medallas int; e_mis_medallas int; e_auditoria int;
   e_jugadores int; e_bitacora int; e_votos int;
   e_puntos_global int; e_quinielas int; e_puntos_liga numeric; e_hay_jornadas boolean;
   e_tabla jsonb; e_ranking jsonb; e_liga jsonb; e_cupos jsonb; e_fases text[];
+  e_cupos_set text[]; e_fases_set text[]; e_creditos_set text[];
   r text := E'\n';
   ok int := 0; mal int := 0;
 BEGIN
@@ -116,6 +123,22 @@ BEGIN
   END IF;
 
   SELECT u.id INTO v_admin_global FROM public.users u WHERE u.is_admin LIMIT 1;
+  -- (99) un partido abierto que el socio NO predijo, distinto de v_m1
+  SELECT m.id INTO v_abierto_socio FROM public.matches m
+   WHERE m.tournament_id = v_tid AND m.kickoff_at - interval '15 minutes' > now() AND m.id <> v_m1
+     AND NOT EXISTS (SELECT 1 FROM public.predictions p WHERE p.match_id = m.id
+                      AND p.user_id = v_socio AND p.league_id = v_liga)
+   ORDER BY m.kickoff_at LIMIT 1;
+  -- (99) una predicción del admin global en un partido ya terminado
+  SELECT p.league_id, p.match_id INTO v_adm_liga, v_adm_partido
+    FROM public.predictions p JOIN public.matches m ON m.id = p.match_id
+   WHERE p.user_id = v_admin_global AND m.status = 'finished' LIMIT 1;
+
+  -- (99) Un crédito de ×2 para el socio en la jornada del primer partido
+  -- abierto: si no tiene ninguno, «el ajuste de créditos coincide» compara
+  -- vacío con vacío y no prueba nada (se revierte con todo lo demás).
+  INSERT INTO public.powerup_credits (user_id, league_id, phase, matchday)
+  SELECT v_socio, v_liga, public.clave_fase(m.phase, m.stage), m.matchday FROM public.matches m WHERE m.id = v_m1;
 
   -- Lo que TIENEN que devolver las lecturas que pueden venir vacías, calculado
   -- como dueño y con la misma identidad: cero solo vale si la base tiene cero.
@@ -149,7 +172,8 @@ BEGIN
            'points_exact', l.points_exact, 'points_correct', l.points_correct, 'champion_points', l.champion_points,
            'scorer_points', l.scorer_points, 'assist_points', l.assist_points, 'powerup_limit', l.powerup_limit,
            'powerup_por_partidos', l.powerup_por_partidos, 'powerup_limits', l.powerup_limits,
-           'rules', l.rules, 'prizes_text', l.prizes_text, 'whatsapp_link', l.whatsapp_link)
+           'rules', l.rules, 'prizes_text', l.prizes_text, 'whatsapp_link', l.whatsapp_link,
+           'is_admin', public.es_admin_liga(v_liga, v_socio), 'soy_creador', l.admin_id = v_socio)
     INTO e_liga FROM public.leagues l WHERE l.id = v_liga;
   SELECT jsonb_object_agg(b.llave, public.cupo_powerups(v_liga, b.mid)) INTO e_cupos
     FROM (SELECT public.llave_cupo(m.id) AS llave, min(m.id) AS mid FROM public.matches m
@@ -157,12 +181,33 @@ BEGIN
   SELECT array_agg(DISTINCT c ORDER BY c) INTO e_fases FROM (
     SELECT public.clave_fase(m.phase, m.stage) AS c FROM public.matches m WHERE m.tournament_id = v_tid
     UNION SELECT jsonb_object_keys(COALESCE(v_limits, '{}'::jsonb))) z;
+  -- (decimotercera auditoría) Contar filas o mirar solo las claves no
+  -- alcanza: Astra hizo pasar una jornada repetida en lugar de otra con el
+  -- mismo cupo, y fases con `empezo`/`existe` falsos. Se comparan CONJUNTOS
+  -- con multiplicidad, fila entera. OJO: dentro de un agregado, `ORDER BY 1`
+  -- ordena por la CONSTANTE 1, no por la primera columna; hay que nombrar la
+  -- expresión (la primera versión comparaba arreglos en orden arbitrario).
+  SELECT array_agg(b.llave || '=' || public.cupo_powerups(v_liga, b.mid) ORDER BY b.llave) INTO e_cupos_set
+    FROM (SELECT public.llave_cupo(m.id) AS llave, min(m.id) AS mid FROM public.matches m
+           WHERE m.tournament_id = v_tid GROUP BY 1) b;
+  SELECT array_agg(f.c || '|existe=' || f.existe || '|empezo=' || public.fase_ya_empezo(v_liga, f.c) ORDER BY f.c) INTO e_fases_set
+    FROM (SELECT z.c, bool_or(z.real) AS existe FROM (
+            SELECT public.clave_fase(m.phase, m.stage) AS c, true AS real FROM public.matches m WHERE m.tournament_id = v_tid
+            UNION ALL SELECT jsonb_object_keys(COALESCE(v_limits, '{}'::jsonb)), false) z GROUP BY z.c) f;
   SELECT EXISTS (SELECT 1 FROM public.predictions p JOIN public.matches m ON m.id = p.match_id
                   WHERE p.league_id = v_liga AND m.status = 'finished') INTO e_hay_jornadas;
   -- (97) my_powerup_credits devuelve el AJUSTE neto por jornada: créditos de
   -- la jornada menos ×2 anulados de la jornada, solo donde no da cero.
   SELECT count(*) INTO e_creditos FROM (
     SELECT z.llave FROM (
+      SELECT phase || '|' || COALESCE(matchday, 0)::text AS llave, 1 AS d FROM public.powerup_credits
+       WHERE user_id = v_socio AND league_id = v_liga AND phase IS NOT NULL
+      UNION ALL
+      SELECT public.llave_cupo(source_match_id), -1 FROM public.powerup_credits
+       WHERE user_id = v_socio AND league_id = v_liga AND source_match_id IS NOT NULL) z
+    GROUP BY z.llave HAVING sum(z.d) <> 0) c;
+  SELECT array_agg(c.llave || '=' || c.ajuste ORDER BY c.llave) INTO e_creditos_set FROM (
+    SELECT z.llave, sum(z.d) AS ajuste FROM (
       SELECT phase || '|' || COALESCE(matchday, 0)::text AS llave, 1 AS d FROM public.powerup_credits
        WHERE user_id = v_socio AND league_id = v_liga AND phase IS NOT NULL
       UNION ALL
@@ -245,14 +290,16 @@ BEGIN
              'points_exact', q.points_exact, 'points_correct', q.points_correct, 'champion_points', q.champion_points,
              'scorer_points', q.scorer_points, 'assist_points', q.assist_points, 'powerup_limit', q.powerup_limit,
              'powerup_por_partidos', q.powerup_por_partidos, 'powerup_limits', q.powerup_limits,
-             'rules', q.rules, 'prizes_text', q.prizes_text, 'whatsapp_link', q.whatsapp_link)
+             'rules', q.rules, 'prizes_text', q.prizes_text, 'whatsapp_link', q.whatsapp_link,
+             'is_admin', q.is_admin, 'soy_creador', q.soy_creador)
       INTO j FROM public.quiniela_por_id(v_liga) q;
     IF j IS DISTINCT FROM e_liga THEN RAISE EXCEPTION 'quiniela_por_id no dice lo que tiene la quiniela'; END IF;
     SELECT jsonb_build_object('name', g.name, 'admin_id', g.admin_id, 'tournament_id', g.tournament_id,
              'points_exact', g.points_exact, 'points_correct', g.points_correct, 'champion_points', g.champion_points,
              'scorer_points', g.scorer_points, 'assist_points', g.assist_points, 'powerup_limit', g.powerup_limit,
              'powerup_por_partidos', g.powerup_por_partidos, 'powerup_limits', g.powerup_limits,
-             'rules', g.rules, 'prizes_text', g.prizes_text, 'whatsapp_link', g.whatsapp_link)
+             'rules', g.rules, 'prizes_text', g.prizes_text, 'whatsapp_link', g.whatsapp_link,
+             'is_admin', g.is_admin, 'soy_creador', g.soy_creador)
       INTO j FROM public.my_groups() g WHERE g.id = v_liga;
     IF j IS DISTINCT FROM e_liga THEN RAISE EXCEPTION 'my_groups no dice lo que tiene la quiniela'; END IF;
     SELECT count(*) INTO n FROM public.cupos_por_jornada(v_liga) c
@@ -261,6 +308,11 @@ BEGIN
       RAISE EXCEPTION 'cupos_por_jornada no coincide con cupo_powerups (% jornadas distintas)', n; END IF;
     IF (SELECT array_agg(f.clave ORDER BY f.clave) FROM public.fases_del_torneo(v_liga) f) IS DISTINCT FROM e_fases THEN
       RAISE EXCEPTION 'fases_del_torneo no trae las fases del torneo y de los cupos guardados'; END IF;
+    IF (SELECT array_agg(c.llave || '=' || c.cupo ORDER BY c.llave) FROM public.cupos_por_jornada(v_liga) c) IS DISTINCT FROM e_cupos_set THEN
+      RAISE EXCEPTION 'cupos_por_jornada: las jornadas o sus cupos no son los de la base'; END IF;
+    IF (SELECT array_agg(f.clave || '|existe=' || f.existe || '|empezo=' || f.empezo ORDER BY f.clave) FROM public.fases_del_torneo(v_liga) f)
+       IS DISTINCT FROM e_fases_set THEN
+      RAISE EXCEPTION 'fases_del_torneo: existe/empezo no coinciden con los partidos (el candado del editor mentiría)'; END IF;
     -- (décima auditoría) La Tabla es la del dinero: no alcanza con que no venga
     -- vacía. Una fila por miembro, la del socio con los puntos de las tablas,
     -- y posiciones que arrancan en 1.
@@ -290,6 +342,9 @@ BEGIN
       RAISE EXCEPTION 'el pozo dice % recaudado y tendría que decir %', j->>'recaudado', v_recaudado; END IF;
     SELECT count(*) INTO n FROM public.league_miembros(v_liga);    IF n <> v_miembros THEN RAISE EXCEPTION 'league_miembros da % de %', n, v_miembros; END IF;
     SELECT count(*) INTO n FROM public.my_powerup_credits(v_liga); IF n <> e_creditos THEN RAISE EXCEPTION 'my_powerup_credits da % de %', n, e_creditos; END IF;
+    IF (SELECT array_agg(c.phase || '|' || c.matchday || '=' || c.credits ORDER BY c.phase || '|' || c.matchday) FROM public.my_powerup_credits(v_liga) c)
+       IS DISTINCT FROM e_creditos_set THEN
+      RAISE EXCEPTION 'my_powerup_credits: el ajuste de alguna jornada no es el de las tablas'; END IF;
     SELECT count(*) INTO n FROM public.cupos_por_jornada(v_liga);  IF n = 0 THEN RAISE EXCEPTION 'cupos_por_jornada vacío'; END IF;
     SELECT count(*) INTO n FROM public.fases_del_torneo(v_liga);   IF n = 0 THEN RAISE EXCEPTION 'fases_del_torneo vacío'; END IF;
     j := public.perfil_en_quiniela(v_liga, v_socio);
@@ -525,11 +580,18 @@ BEGIN
     ELSE r := r || '✗ crear quiniela: ' || sqlerrm || E'\n'; mal := mal + 1; END IF; END;
 
   PERFORM set_config('request.jwt.claims', json_build_object('sub', v_socio, 'role','authenticated')::text, true);
-  BEGIN PERFORM public.salir_de_quiniela(v_liga);
+  BEGIN
+    -- (99) con un crédito de ×2: al salir se va con la membresía
+    RESET ROLE;
+    INSERT INTO public.powerup_credits (user_id, league_id, phase, matchday) VALUES (v_socio, v_liga, 'groups', 999);
+    SET LOCAL ROLE authenticated;
+    PERFORM public.salir_de_quiniela(v_liga);
     RESET ROLE;
     SELECT count(*) INTO n FROM public.league_members WHERE league_id = v_liga AND user_id = v_socio;
+    SELECT count(*) INTO a1 FROM public.powerup_credits WHERE league_id = v_liga AND user_id = v_socio;
     SET LOCAL ROLE authenticated;
     IF n <> 0 THEN RAISE EXCEPTION 'sigue en la quiniela'; END IF;
+    IF a1 <> 0 THEN RAISE EXCEPTION 'se fue y conserva % créditos de ×2 para cuando vuelva', a1; END IF;
     RAISE EXCEPTION 'HUMO_OK';
   EXCEPTION WHEN others THEN
     IF sqlerrm = 'HUMO_OK' THEN r := r || E'✓ salir de la quiniela (sin pago)\n'; ok := ok + 1;
@@ -569,11 +631,14 @@ BEGIN
          IS DISTINCT FROM (9, 'finished'::text, true) THEN
         RAISE EXCEPTION 'el resultado no quedó guardado'; END IF;
       -- (92) corregir una predicción de un partido ya puntuado lo deja pendiente
-      UPDATE public.predictions SET home_goals_pred = (home_goals_pred + 1) % 10 WHERE id = v_puntuada;
       -- (93) SIN prepararle una firma: el partido queda como los históricos
       -- reales (puntuado_at NULL). La v4 le ponía uno artificial y así tapaba
       -- justo el caso que fallaba (séptima auditoría).
+      -- (99) Como DUEÑO de la base, no como admin global: la 99 le quitó al
+      -- admin la escritura de predicciones cerradas, y esa corrección hoy solo
+      -- se hace desde el dashboard.
       RESET ROLE;
+      UPDATE public.predictions SET home_goals_pred = (home_goals_pred + 1) % 10 WHERE id = v_puntuada;
       IF NOT EXISTS (SELECT 1 FROM public.partidos_pendientes_de_puntaje() AS pend(mid)
                       WHERE pend.mid = (SELECT match_id FROM public.predictions WHERE id = v_puntuada)) THEN
         RAISE EXCEPTION 'una predicción corregida después de puntuar no dejó el partido pendiente'; END IF;
@@ -630,14 +695,72 @@ BEGIN
   BEGIN  -- (4.ª auditoría) una predicción cerrada no se muda a otro partido con sus puntos
     PERFORM set_config('request.jwt.claims', json_build_object('sub', v_dueno_puntuada, 'role','authenticated')::text, true);
     UPDATE public.predictions SET match_id = v_abierto_libre WHERE id = v_puntuada;
+    -- (99) El USING ya no deja tocar una fila cerrada: 0 filas es rechazo.
+    GET DIAGNOSTICS n = ROW_COUNT;
+    IF n = 0 THEN RAISE EXCEPTION 'HUMO_CERO'; END IF;
     RAISE EXCEPTION 'HUMO_ABIERTO';
   EXCEPTION WHEN others THEN
     IF sqlerrm = 'HUMO_ABIERTO' THEN r := r || E'✗ ABIERTO: una predicción puntuada se muda de partido con sus puntos\n'; mal := mal + 1;
-    ELSIF sqlerrm LIKE 'Una predicción no cambia de%' THEN r := r || E'✓ una predicción no se muda de partido\n'; ok := ok + 1;
+    ELSIF sqlerrm LIKE 'Una predicción no cambia de%' OR sqlerrm = 'HUMO_CERO' THEN r := r || E'✓ una predicción no se muda de partido\n'; ok := ok + 1;
     ELSE r := r || '✗ mudar predicción, rechazada por otra causa: ' || sqlerrm || E'\n'; mal := mal + 1; END IF; END;
+
+  -- (99) Con el USING nuevo, la fila CERRADA del paso anterior ni se ve, así
+  -- que ese paso ya no llega al trigger `identidad_de_prediccion_fija`. Sobre
+  -- una predicción ABIERTA el USING deja pasar y quien frena es el trigger:
+  -- si alguien lo borra, esto cae.
+  BEGIN
+    RESET ROLE;
+    INSERT INTO public.predictions (user_id, league_id, match_id, prediction_type, home_goals_pred, away_goals_pred)
+    VALUES (v_socio, v_liga, v_m1, 'Marcador', 1, 0) ON CONFLICT (user_id, league_id, match_id) DO NOTHING;
+    SET LOCAL ROLE authenticated;
+    PERFORM set_config('request.jwt.claims', json_build_object('sub', v_socio, 'role','authenticated')::text, true);
+    IF v_abierto_socio IS NULL THEN RAISE EXCEPTION 'HUMO_SIN_DATOS'; END IF;
+    UPDATE public.predictions SET match_id = v_abierto_socio
+     WHERE user_id = v_socio AND league_id = v_liga AND match_id = v_m1;
+    RAISE EXCEPTION 'HUMO_ABIERTO';
+  EXCEPTION WHEN others THEN
+    IF sqlerrm = 'HUMO_ABIERTO' THEN r := r || E'✗ ABIERTO: una predicción abierta se muda de partido\n'; mal := mal + 1;
+    ELSIF sqlerrm LIKE 'Una predicción no cambia de%' THEN r := r || E'✓ una predicción abierta tampoco se muda (el trigger)\n'; ok := ok + 1;
+    ELSE r := r || '✗ mudar predicción abierta, otra causa: ' || sqlerrm || E'\n'; mal := mal + 1; END IF;
+    SET LOCAL ROLE authenticated; END;
+
+  -- (99) las globales con el torneo CERRADO no se reescriben: el USING nuevo
+  -- mira `tournament_predictions_open`, como el WITH CHECK.
+  BEGIN
+    PERFORM set_config('request.jwt.claims', json_build_object('sub', v_socio, 'role','authenticated')::text, true);
+    IF public.tournament_predictions_open(v_tid) THEN RAISE EXCEPTION 'HUMO_SIN_DATOS'; END IF;
+    INSERT INTO public.tournament_predictions (user_id,tournament_id,league_id,champion_team,top_scorer_name,top_assist_name)
+    VALUES (v_socio,v_tid,v_liga,'HUMO','HUMO','HUMO')
+    ON CONFLICT (user_id,league_id) DO UPDATE SET user_id=excluded.user_id, tournament_id=excluded.tournament_id,
+      league_id=excluded.league_id, champion_team=excluded.champion_team, top_scorer_name=excluded.top_scorer_name,
+      top_assist_name=excluded.top_assist_name;
+    RAISE EXCEPTION 'HUMO_ABIERTO';
+  EXCEPTION WHEN others THEN
+    IF sqlerrm = 'HUMO_ABIERTO' THEN r := r || E'✗ ABIERTO: las globales se reescriben con el torneo cerrado\n'; mal := mal + 1;
+    ELSIF sqlstate = '42501' THEN r := r || E'✓ globales con el torneo cerrado: 42501\n'; ok := ok + 1;
+    ELSE r := r || '✗ globales cerradas, otra causa: ' || sqlerrm || E'\n'; mal := mal + 1; END IF; END;
 
   -- ================================================ SIN PERMISO (tiene que ser 42501)
   r := r || E'--- cerrado por permiso ---\n';
+  -- (99) el admin global TAMPOCO escribe una predicción cerrada: con el
+  -- upsert completo de PredecirJornada, sobre su propia fila de un terminado.
+  IF v_adm_partido IS NOT NULL THEN
+    PERFORM set_config('request.jwt.claims', json_build_object('sub', v_admin_global, 'role','authenticated')::text, true);
+    BEGIN
+      INSERT INTO public.predictions (user_id,league_id,match_id,prediction_type,home_goals_pred,away_goals_pred,penalties_winner_pred,use_powerup_x2)
+      VALUES (v_admin_global, v_adm_liga, v_adm_partido, 'Marcador', 7, 7, NULL, false)
+      ON CONFLICT (user_id, league_id, match_id) DO UPDATE SET user_id = excluded.user_id, league_id = excluded.league_id,
+        match_id = excluded.match_id, prediction_type = excluded.prediction_type, home_goals_pred = excluded.home_goals_pred,
+        away_goals_pred = excluded.away_goals_pred, penalties_winner_pred = excluded.penalties_winner_pred,
+        use_powerup_x2 = excluded.use_powerup_x2;
+      RAISE EXCEPTION 'HUMO_ABIERTO';
+    EXCEPTION WHEN others THEN
+      IF sqlerrm = 'HUMO_ABIERTO' THEN r := r || E'✗ ABIERTO: el admin global reescribe una predicción de un partido terminado\n'; mal := mal + 1;
+      ELSIF sqlstate = '42501' THEN r := r || E'✓ predicción cerrada del admin global: 42501\n'; ok := ok + 1;
+      ELSE r := r || '✗ predicción cerrada del admin, otra causa: ' || sqlerrm || E'\n'; mal := mal + 1; END IF; END;
+  ELSE
+    r := r || E'✗ no hay predicción cerrada del admin global con qué probar\n'; mal := mal + 1;
+  END IF;
   PERFORM set_config('request.jwt.claims', json_build_object('sub', v_ajeno, 'role','authenticated')::text, true);
   BEGIN
     INSERT INTO public.league_members (league_id, user_id, es_admin) VALUES (v_liga, v_ajeno, true);
