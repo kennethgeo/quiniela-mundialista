@@ -136,6 +136,7 @@ FROM unnest(ARRAY[
   'pago_confirmado_no_se_borra',
   '_x2_cuenta',                        -- 97, interna (sin EXECUTE para el cliente)
   'creditos_se_van_con_la_membresia',  -- 99, función de trigger
+  'membresia_viva_al_escribir',        -- 100, función de trigger
   'prediccion_modificada',
   'partidos_pendientes_de_puntaje'
 ]::text[]) x
@@ -243,6 +244,7 @@ WHERE n.nspname = 'public'
   'pago_confirmado_no_se_borra',
   '_x2_cuenta',                        -- 97, interna (sin EXECUTE para el cliente)
   'creditos_se_van_con_la_membresia',  -- 99, función de trigger
+  'membresia_viva_al_escribir',        -- 100, función de trigger
   'prediccion_modificada',
   'partidos_pendientes_de_puntaje'
 ]::text[])
