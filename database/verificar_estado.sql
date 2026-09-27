@@ -648,3 +648,13 @@ WHERE p.schemaname = 'public'
          AND COALESCE(p.qual, '') NOT ILIKE '%postponed%'
          AND COALESCE(p.qual, '') NOT ILIKE '%tournament_predictions_open%') )
 ORDER BY 1, 2;
+
+\echo '=== 19. Permisos del cliente que vacían tablas o cambian la estructura ==='
+-- Decimoséptima auditoría (migración 102). TRUNCATE no pasa por la RLS: vacía
+-- la tabla entera. Supabase lo otorga por defecto a las tablas nuevas; la 102
+-- lo quitó de las actuales y de las futuras. Tiene que salir VACÍA.
+SELECT table_name, grantee, privilege_type
+FROM information_schema.role_table_grants
+WHERE table_schema = 'public' AND grantee IN ('anon', 'authenticated')
+  AND privilege_type IN ('TRUNCATE', 'TRIGGER', 'REFERENCES')
+ORDER BY 1, 2, 3;
