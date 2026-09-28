@@ -57,6 +57,15 @@
 -- compara entero (personas, posiciones, puntos y «soy yo») y las globales
 -- afirman los tres campos guardados.
 --
+-- VERSIÓN 11 (28 sep 2026), auditoría de Claude: con 13 sabotajes a la vez la
+-- v10 seguía en 39/0. Ahora: premios y WhatsApp, reparto del pozo y cupos se
+-- comparan ENTEROS; un ×2 se prende de verdad (y el que se pasa del cupo se
+-- rechaza con el mensaje del trigger); salir deja cero predicciones y globales;
+-- el ranking se pide con 20 como la app; la visibilidad de predicciones ajenas
+-- se mide (abiertas 0, cerradas las de la quiniela, ajeno 0); el cliente no
+-- edita partidos ni lee `email`; el SELECT de AuthContext trae su fila; y lo
+-- de la 104/105 (funciones de backend, bitácora de predicciones, push, chat).
+--
 -- CÓMO SE USA: antes y después de cada migración, y como ENSAYO (la migración
 -- sin BEGIN/COMMIT + esta prueba, en un solo envío: el RAISE final revierte
 -- todo). Una línea con ✗ se mira ANTES de seguir.
@@ -76,6 +85,7 @@ DECLARE
   e_puntos_global int; e_quinielas int; e_puntos_liga numeric; e_hay_jornadas boolean;
   e_tabla jsonb; e_ranking jsonb; e_liga jsonb; e_cupos jsonb; e_fases text[];
   e_cupos_set text[]; e_fases_set text[]; e_creditos_set text[]; e_ranking_set text[];
+  v_x2 int[];
   r text := E'\n';
   ok int := 0; mal int := 0;
 BEGIN
@@ -169,14 +179,14 @@ BEGIN
                       FROM public.tournament_predictions tp WHERE tp.user_id = lm.user_id AND tp.league_id = v_liga), 0))
     INTO e_tabla FROM public.league_members lm WHERE lm.league_id = v_liga;
   SELECT jsonb_object_agg(u.id::text, COALESCE(u.total_points, 0)) INTO e_ranking FROM public.users u;
-  -- (decimosexta auditoría) El ranking ENTERO que tiene que salir: los 10
+  -- (decimosexta auditoría) El ranking ENTERO que tiene que salir: los 20
   -- primeros por puntos y antigüedad, más el socio si queda afuera. Solo
   -- comparar puntos y orden dejaba pasar un ranking con una sola fila.
   SELECT array_agg(o.p || '|' || o.id || '|' || o.puntos || '|' || (o.id = v_socio) ORDER BY o.p) INTO e_ranking_set
     FROM (SELECT u.id, COALESCE(u.total_points, 0) AS puntos,
                  row_number() OVER (ORDER BY COALESCE(u.total_points, 0) DESC, u.created_at ASC) AS p
             FROM public.users u) o
-   WHERE o.p <= 10 OR o.id = v_socio;
+   WHERE o.p <= 20 OR o.id = v_socio;   -- 20: lo que pide RankingGlobal.jsx (v11)
   -- (duodécima auditoría) Lo que las pantallas de la quiniela tienen que
   -- mostrar, sacado de las tablas: reglas y puntaje, el cupo de cada jornada y
   -- las fases del editor de cupos. Antes solo se contaban filas.
@@ -368,14 +378,14 @@ BEGIN
       RAISE EXCEPTION 'perfil_en_quiniela dice % puntos y la quiniela tiene %', j->>'puntos', e_puntos_liga; END IF;
     SELECT count(*) INTO n FROM public.league_medals(v_liga);      IF n <> e_medallas THEN RAISE EXCEPTION 'league_medals da % de %', n, e_medallas; END IF;
     SELECT count(*) INTO n FROM public.my_medals();                IF n <> e_mis_medallas THEN RAISE EXCEPTION 'my_medals da % de %', n, e_mis_medallas; END IF;
-    SELECT count(*) INTO n FROM public.ranking_global(10);          IF n = 0 THEN RAISE EXCEPTION 'ranking_global vacío'; END IF;
-    SELECT count(*) INTO n FROM public.ranking_global(10) g
+    SELECT count(*) INTO n FROM public.ranking_global(20);          IF n = 0 THEN RAISE EXCEPTION 'ranking_global vacío'; END IF;
+    SELECT count(*) INTO n FROM public.ranking_global(20) g
      WHERE g.puntos IS DISTINCT FROM (e_ranking->>(g.user_id::text))::int;
     IF n > 0 THEN RAISE EXCEPTION 'ranking_global: % filas con puntos distintos del total', n; END IF;
-    SELECT count(*) INTO n FROM public.ranking_global(10) a, public.ranking_global(10) b
+    SELECT count(*) INTO n FROM public.ranking_global(20) a, public.ranking_global(20) b
      WHERE a.pos < b.pos AND a.puntos < b.puntos;
     IF n > 0 THEN RAISE EXCEPTION 'ranking_global: orden incoherente con los puntos'; END IF;
-    IF (SELECT array_agg(g.pos || '|' || g.user_id || '|' || g.puntos || '|' || g.soy_yo ORDER BY g.pos) FROM public.ranking_global(10) g)
+    IF (SELECT array_agg(g.pos || '|' || g.user_id || '|' || g.puntos || '|' || g.soy_yo ORDER BY g.pos) FROM public.ranking_global(20) g)
        IS DISTINCT FROM e_ranking_set THEN
       RAISE EXCEPTION 'ranking_global: faltan o sobran personas, o no marca bien quién soy'; END IF;
     j := public.mi_resumen_global();
@@ -455,6 +465,58 @@ BEGIN
     IF sqlerrm = 'HUMO_OK' THEN r := r || E'✓ tablas directas: push, chat, ajustes, jugadores, bitácora, estadísticas, perfil\n'; ok := ok + 1;
     ELSE r := r || '✗ tablas directas: ' || sqlerrm || E'\n'; mal := mal + 1; END IF; END;
 
+  BEGIN  -- (v11) prender un ×2 de verdad: ningún paso mandaba use_powerup_x2 = true
+    RESET ROLE;
+    SELECT public.llave_cupo(v_m1) INTO st;
+    SELECT c.usados, c.creditos INTO a1, a2 FROM public._x2_cuenta(v_socio, v_liga, st, NULL) c;
+    n := public.cupo_powerups(v_liga, v_m1) + a2 - a1;   -- lugares libres en la jornada de v_m1
+    SELECT array_agg(m.id ORDER BY m.kickoff_at) INTO v_x2
+      FROM public.matches m
+     WHERE m.tournament_id = v_tid AND public.llave_cupo(m.id) = st
+       AND m.kickoff_at - interval '15 minutes' > now() AND m.status = 'pending'
+       AND NOT EXISTS (SELECT 1 FROM public.predictions p WHERE p.match_id = m.id AND p.user_id = v_socio
+                        AND p.league_id = v_liga AND p.use_powerup_x2);
+    SET LOCAL ROLE authenticated;
+    IF n > 0 AND coalesce(array_length(v_x2, 1), 0) > 0 THEN
+      INSERT INTO public.predictions (user_id,league_id,match_id,prediction_type,home_goals_pred,away_goals_pred,penalties_winner_pred,use_powerup_x2)
+      VALUES (v_socio, v_liga, v_x2[1], 'Marcador', 1, 0, NULL, true)
+      ON CONFLICT (user_id,league_id,match_id) DO UPDATE SET user_id=excluded.user_id, league_id=excluded.league_id,
+        match_id=excluded.match_id, prediction_type=excluded.prediction_type, home_goals_pred=excluded.home_goals_pred,
+        away_goals_pred=excluded.away_goals_pred, penalties_winner_pred=excluded.penalties_winner_pred,
+        use_powerup_x2=excluded.use_powerup_x2;
+      IF NOT (SELECT use_powerup_x2 FROM public.predictions WHERE user_id = v_socio AND league_id = v_liga
+               AND match_id = v_x2[1]) THEN
+        RAISE EXCEPTION 'el ×2 dentro del cupo no quedó prendido'; END IF;
+    END IF;
+    -- pasarse: prender en TODOS los demás abiertos de esa jornada
+    IF coalesce(array_length(v_x2, 1), 0) > GREATEST(n, 0) THEN
+      BEGIN
+        INSERT INTO public.predictions (user_id,league_id,match_id,prediction_type,home_goals_pred,away_goals_pred,penalties_winner_pred,use_powerup_x2)
+        SELECT v_socio, v_liga, px.mid, 'Marcador', 1, 0, NULL, true FROM unnest(v_x2) AS px(mid)
+        ON CONFLICT (user_id,league_id,match_id) DO UPDATE SET use_powerup_x2 = excluded.use_powerup_x2;
+        RAISE EXCEPTION 'HUMO_PASADO';
+      EXCEPTION WHEN others THEN
+        IF sqlerrm = 'HUMO_PASADO' THEN RAISE EXCEPTION 'se guardaron más ×2 que el cupo (%)', n; END IF;
+        IF sqlerrm NOT LIKE 'Límite de comodines x2 alcanzado%' THEN RAISE; END IF;
+      END;
+    END IF;
+    RAISE EXCEPTION 'HUMO_OK';
+  EXCEPTION WHEN others THEN
+    IF sqlerrm = 'HUMO_OK' THEN r := r || E'✓ prender un ×2 dentro del cupo; pasarse lo rechaza el trigger\n'; ok := ok + 1;
+    ELSE r := r || '✗ ×2: ' || sqlerrm || E'\n'; mal := mal + 1; END IF; END;
+
+  BEGIN  -- (v11) AuthContext: el SELECT exacto del perfil trae SU fila; `email` no se lee
+    SELECT count(*) INTO n FROM (SELECT id, display_name, avatar_url, total_points, points_adjustment,
+                                        is_admin, created_at, updated_at
+                                   FROM public.users WHERE id = v_socio) q;
+    IF n <> 1 THEN RAISE EXCEPTION 'el perfil no se puede leer: sin él no arranca la sesión'; END IF;
+    BEGIN PERFORM email FROM public.users LIMIT 1; RAISE EXCEPTION 'HUMO_ABIERTO';
+    EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+    RAISE EXCEPTION 'HUMO_OK';
+  EXCEPTION WHEN others THEN
+    IF sqlerrm = 'HUMO_OK' THEN r := r || E'✓ perfil de AuthContext (y el correo sigue cerrado)\n'; ok := ok + 1;
+    ELSE r := r || '✗ perfil: ' || sqlerrm || E'\n'; mal := mal + 1; END IF; END;
+
   BEGIN  -- avatar.js: subir al bucket con el prefijo propio (la fila; el archivo no existe)
     INSERT INTO storage.objects (bucket_id, name, owner, metadata)
     VALUES ('avatars', v_socio || '-humo.webp', v_socio, '{"mimetype":"image/webp","size":10}'::jsonb);
@@ -478,9 +540,13 @@ BEGIN
     IF sqlerrm = 'HUMO_OK' THEN r := r || E'✓ confirmar y desconfirmar un pago\n'; ok := ok + 1;
     ELSE r := r || '✗ confirmar/desconfirmar: ' || sqlerrm || E'\n'; mal := mal + 1; END IF; END;
 
-  BEGIN PERFORM public.set_league_pozo(v_liga, v_cuota + 1, v_moneda, v_reparto);
+  BEGIN PERFORM public.set_league_pozo(v_liga, v_cuota + 1, v_moneda, '[{"puesto":1,"porcentaje":100}]'::jsonb);
     IF (SELECT cuota FROM public.leagues WHERE id = v_liga) IS DISTINCT FROM v_cuota + 1 THEN
       RAISE EXCEPTION 'la cuota nueva no quedó guardada'; END IF;
+    -- (v11) el reparto, DISTINTO del que hay, y la moneda intacta
+    IF (SELECT (premios_reparto, moneda) FROM public.leagues WHERE id = v_liga)
+       IS DISTINCT FROM ('[{"puesto":1,"porcentaje":100}]'::jsonb, v_moneda) THEN
+      RAISE EXCEPTION 'el reparto del pozo no quedó guardado'; END IF;
     IF (public.league_pozo(v_liga)->>'recaudado')::numeric IS DISTINCT FROM v_recaudado THEN
       RAISE EXCEPTION 'cambiar la cuota movió lo recaudado'; END IF;
     RAISE EXCEPTION 'HUMO_OK';
@@ -489,9 +555,12 @@ BEGIN
     ELSE r := r || '✗ guardar pozo: ' || sqlerrm || E'\n'; mal := mal + 1; END IF; END;
 
   BEGIN  -- la función recorta espacios: se compara contra el texto ya recortado
-    PERFORM public.set_group_extras(v_liga, 'humo · ' || COALESCE(v_premios, ''), v_wa);
+    PERFORM public.set_group_extras(v_liga, 'humo · ' || COALESCE(v_premios, ''), 'https://chat.whatsapp.com/humo');
     IF (SELECT prizes_text FROM public.leagues WHERE id = v_liga) IS DISTINCT FROM btrim('humo · ' || COALESCE(v_premios, '')) THEN
       RAISE EXCEPTION 'los premios no quedaron guardados'; END IF;
+    -- (v11) el enlace también, con un valor DISTINTO: mandar el mismo pasaba con un NULL fijo
+    IF (SELECT whatsapp_link FROM public.leagues WHERE id = v_liga) IS DISTINCT FROM 'https://chat.whatsapp.com/humo' THEN
+      RAISE EXCEPTION 'el enlace de WhatsApp no quedó guardado'; END IF;
     RAISE EXCEPTION 'HUMO_OK';
   EXCEPTION WHEN others THEN
     IF sqlerrm = 'HUMO_OK' THEN r := r || E'✓ guardar premios/WhatsApp\n'; ok := ok + 1;
@@ -499,8 +568,10 @@ BEGIN
 
   BEGIN  -- una fase que todavía no empezó: se puede configurar por adelantado (74)
     PERFORM public.set_powerup_limits(v_liga, coalesce(v_limits, '{}'::jsonb) || '{"Humo":1}'::jsonb);
-    IF (SELECT powerup_limits->>'Humo' FROM public.leagues WHERE id = v_liga) IS DISTINCT FROM '1' THEN
-      RAISE EXCEPTION 'el cupo nuevo no quedó guardado'; END IF;
+    -- (v11) ENTERO: guardar solo la clave nueva perdía las demás (la 76 otra vez)
+    IF (SELECT powerup_limits FROM public.leagues WHERE id = v_liga)
+       IS DISTINCT FROM coalesce(v_limits, '{}'::jsonb) || '{"Humo":1}'::jsonb THEN
+      RAISE EXCEPTION 'los cupos no quedaron como se mandaron (¿se perdieron fases?)'; END IF;
     RAISE EXCEPTION 'HUMO_OK';
   EXCEPTION WHEN others THEN
     IF sqlerrm = 'HUMO_OK' THEN r := r || E'✓ guardar cupos ×2 (una fase nueva)\n'; ok := ok + 1;
@@ -607,8 +678,13 @@ BEGIN
     RESET ROLE;
     SELECT count(*) INTO n FROM public.league_members WHERE league_id = v_liga AND user_id = v_socio;
     SELECT count(*) INTO a1 FROM public.powerup_credits WHERE league_id = v_liga AND user_id = v_socio;
+    -- (v11) las predicciones y las globales se van con ella (una salida que
+    -- solo borraba la membresía pasaba)
+    SELECT (SELECT count(*) FROM public.predictions WHERE league_id = v_liga AND user_id = v_socio)
+         + (SELECT count(*) FROM public.tournament_predictions WHERE league_id = v_liga AND user_id = v_socio) INTO a2;
     SET LOCAL ROLE authenticated;
     IF n <> 0 THEN RAISE EXCEPTION 'sigue en la quiniela'; END IF;
+    IF a2 <> 0 THEN RAISE EXCEPTION 'se fue y quedaron % predicciones o globales suyas', a2; END IF;
     IF a1 <> 0 THEN RAISE EXCEPTION 'se fue y conserva % créditos de ×2 para cuando vuelva', a1; END IF;
     RAISE EXCEPTION 'HUMO_OK';
   EXCEPTION WHEN others THEN
@@ -779,6 +855,79 @@ BEGIN
   ELSE
     r := r || E'✗ no hay predicción cerrada del admin global con qué probar\n'; mal := mal + 1;
   END IF;
+  -- (v11) VISIBILIDAD de predicciones ajenas (65): se MIDE, no «hay alguna».
+  -- Lo esperado se cuenta como dueño: una política `USING (true)` pasaba la v10.
+  RESET ROLE;
+  SELECT count(*) INTO a1 FROM public.predictions p JOIN public.matches m ON m.id = p.match_id
+   WHERE p.league_id = v_liga AND p.user_id <> v_socio AND m.kickoff_at - interval '15 minutes' <= now();
+  SET LOCAL ROLE authenticated;
+  PERFORM set_config('request.jwt.claims', json_build_object('sub', v_socio, 'role','authenticated')::text, true);
+  BEGIN
+    SELECT count(*) INTO n FROM public.predictions p JOIN public.matches m ON m.id = p.match_id
+     WHERE p.league_id = v_liga AND p.user_id <> v_socio AND m.kickoff_at - interval '15 minutes' > now();
+    IF n <> 0 THEN RAISE EXCEPTION 'el socio ve % predicciones ajenas de partidos SIN destapar', n; END IF;
+    SELECT count(*) INTO n FROM public.predictions p JOIN public.matches m ON m.id = p.match_id
+     WHERE p.league_id = v_liga AND p.user_id <> v_socio AND m.kickoff_at - interval '15 minutes' <= now();
+    IF n <> a1 THEN RAISE EXCEPTION 'el socio ve % de % predicciones destapadas de su quiniela', n, a1; END IF;
+    PERFORM set_config('request.jwt.claims', json_build_object('sub', v_ajeno, 'role','authenticated')::text, true);
+    SELECT count(*) INTO n FROM public.predictions WHERE league_id = v_liga;
+    IF n <> 0 THEN RAISE EXCEPTION 'alguien de afuera ve % predicciones de la quiniela', n; END IF;
+    SELECT count(*) INTO n FROM public.tournament_predictions WHERE league_id = v_liga;
+    IF n <> 0 THEN RAISE EXCEPTION 'alguien de afuera ve % globales de la quiniela', n; END IF;
+    RAISE EXCEPTION 'HUMO_OK';
+  EXCEPTION WHEN others THEN
+    IF sqlerrm = 'HUMO_OK' THEN r := r || E'✓ predicciones ajenas: sin destapar 0, destapadas todas, de afuera 0\n'; ok := ok + 1;
+    ELSE r := r || '✗ visibilidad: ' || sqlerrm || E'\n'; mal := mal + 1; END IF; END;
+
+  -- (v11/105) un miembro no edita partidos; nadie del cliente escribe la firma de puntaje
+  PERFORM set_config('request.jwt.claims', json_build_object('sub', v_socio, 'role','authenticated')::text, true);
+  BEGIN
+    UPDATE public.matches SET home_goals_actual = 9 WHERE id = v_m1;
+    GET DIAGNOSTICS n = ROW_COUNT;
+    IF n <> 0 THEN RAISE EXCEPTION 'HUMO_ABIERTO'; END IF;
+    BEGIN UPDATE public.matches SET puntuado_con = 'x' WHERE id = v_m1; RAISE EXCEPTION 'HUMO_ABIERTO';
+    EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+    RAISE EXCEPTION 'HUMO_OK';
+  EXCEPTION WHEN others THEN
+    IF sqlerrm = 'HUMO_OK' THEN r := r || E'✓ un miembro no edita partidos ni la firma de puntaje\n'; ok := ok + 1;
+    ELSE r := r || '✗ editar partidos: ' || sqlerrm || E'\n'; mal := mal + 1; END IF; END;
+
+  BEGIN  -- (104) las funciones de backend no son del cliente
+    BEGIN PERFORM public.anonimizar_usuario(v_socio); RAISE EXCEPTION 'HUMO_ABIERTO';
+    EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+    BEGIN PERFORM * FROM public.reclamar_alertas_de_puntaje(6); RAISE EXCEPTION 'HUMO_ABIERTO';
+    EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+    RAISE EXCEPTION 'HUMO_OK';
+  EXCEPTION WHEN others THEN
+    IF sqlerrm = 'HUMO_OK' THEN r := r || E'✓ anonimizar y alertas: solo backend (42501)\n'; ok := ok + 1;
+    ELSE r := r || '✗ funciones de backend: ' || sqlerrm || E'\n'; mal := mal + 1; END IF; END;
+
+  BEGIN  -- (105) push solo a proveedores reales; el chat no elige su fecha
+    BEGIN
+      INSERT INTO public.push_subscriptions (user_id, endpoint, p256dh, auth)
+      VALUES (v_socio, 'http://169.254.169.254/humo', 'a', 'b');
+      RAISE EXCEPTION 'HUMO_ABIERTO';
+    EXCEPTION WHEN check_violation THEN NULL; END;
+    BEGIN
+      INSERT INTO public.global_chat (user_id, content, created_at) VALUES (v_socio, 'humo', '2099-01-01');
+      RAISE EXCEPTION 'HUMO_ABIERTO';
+    EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+    RAISE EXCEPTION 'HUMO_OK';
+  EXCEPTION WHEN others THEN
+    IF sqlerrm = 'HUMO_OK' THEN r := r || E'✓ push a una URL cualquiera y chat con fecha propia: rechazados\n'; ok := ok + 1;
+    ELSE r := r || '✗ push/chat: ' || sqlerrm || E'\n'; mal := mal + 1; END IF; END;
+
+  IF v_admin_global IS NOT NULL THEN  -- (105) la bitácora de predicciones es de cada uno, también para el admin
+    PERFORM set_config('request.jwt.claims', json_build_object('sub', v_admin_global, 'role','authenticated')::text, true);
+    BEGIN
+      SELECT count(*) INTO n FROM public.prediction_logs WHERE user_id <> v_admin_global;
+      IF n <> 0 THEN RAISE EXCEPTION 'el admin global lee % registros ajenos (con marcador)', n; END IF;
+      RAISE EXCEPTION 'HUMO_OK';
+    EXCEPTION WHEN others THEN
+      IF sqlerrm = 'HUMO_OK' THEN r := r || E'✓ bitácora de predicciones: el admin solo ve la suya\n'; ok := ok + 1;
+      ELSE r := r || '✗ bitácora: ' || sqlerrm || E'\n'; mal := mal + 1; END IF; END;
+  END IF;
+
   PERFORM set_config('request.jwt.claims', json_build_object('sub', v_ajeno, 'role','authenticated')::text, true);
   BEGIN
     INSERT INTO public.league_members (league_id, user_id, es_admin) VALUES (v_liga, v_ajeno, true);

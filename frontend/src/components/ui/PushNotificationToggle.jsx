@@ -20,6 +20,7 @@ import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import {
   soportaPush, activarPush, desactivarPush, guardarSuscripcion, swListo,
+  cuentaPidioAvisos, marcarAvisosDeCuenta,
   urlBase64ToUint8Array, VAPID_PUBLIC_KEY, estadoPermiso, necesitaInstalarPrimero, cerrandoSesion,
 } from '../../lib/notificaciones'
 import { situacionAvisos, olvidarPospuesto } from '../../lib/avisoPush'
@@ -68,7 +69,10 @@ export default function PushNotificationToggle () {
         // Auto-sanación: permiso concedido pero sin suscripción.
         // Nunca mientras se cierra sesión en esta u otra pestaña (undécima
         // auditoría): re-suscribiría el dispositivo de quien se está yendo.
-        if (!sub && profile?.id && Notification.permission === 'granted' && !cerrandoSesion()) {
+        // Y solo para una cuenta que los PIDIÓ acá y no los desactivó: el
+        // permiso es del navegador, no de la persona (28 sep 2026).
+        if (!sub && profile?.id && Notification.permission === 'granted' && !cerrandoSesion() &&
+            cuentaPidioAvisos(profile.id)) {
           try {
             sub = await registration.pushManager.subscribe({
               userVisibleOnly: true, applicationServerKey: actual,
@@ -103,6 +107,7 @@ export default function PushNotificationToggle () {
         if (profile?.id) {
           try {
             await guardarSuscripcion(profile.id, sub)
+            marcarAvisosDeCuenta(profile.id, true)
           } catch (e) {
             console.error('No se pudo registrar la suscripción:', e)
             if (vigente) {
@@ -145,7 +150,7 @@ export default function PushNotificationToggle () {
   const desactivar = async () => {
     setLoading(true); setError(null)
     try {
-      await desactivarPush()
+      await desactivarPush(profile?.id)
       setIsSubscribed(false)
     } catch (err) {
       console.error('Push error:', err)

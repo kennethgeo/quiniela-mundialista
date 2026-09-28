@@ -140,6 +140,7 @@ FROM unnest(ARRAY[
   'registrar_compensacion_x2',         -- 103, función de trigger
   'reclamar_alertas_de_puntaje',       -- 104, solo backend
   'anonimizar_usuario',                -- 104, solo backend
+  'tope_de_dispositivos_push',         -- 105, función de trigger
   'prediccion_modificada',
   'partidos_pendientes_de_puntaje'
 ]::text[]) x
@@ -251,6 +252,7 @@ WHERE n.nspname = 'public'
   'registrar_compensacion_x2',         -- 103, función de trigger
   'reclamar_alertas_de_puntaje',       -- 104, solo backend
   'anonimizar_usuario',                -- 104, solo backend
+  'tope_de_dispositivos_push',         -- 105, función de trigger
   'prediccion_modificada',
   'partidos_pendientes_de_puntaje'
 ]::text[])
@@ -697,3 +699,44 @@ SELECT u.id, u.anonimizado_at, a.banned_until
 FROM public.users u JOIN auth.users a ON a.id = u.id
 WHERE u.anonimizado_at IS NOT NULL
   AND (a.banned_until IS NULL OR a.banned_until < now());
+
+\echo '=== 23. Jornadas de liga con un tamaño raro (reparten mal el cupo de ×2) ==='
+-- Auditoría del 28 sep 2026. La jornada sale de una heurística del sync
+-- (`_assign_stages`) y el cupo del ×2 es POR jornada: una «Jornada 11» con los
+-- partidos de dos jornadas reales dejaba a alguien sin ×2 el fin de semana.
+-- En una liga donde juegan todos cada jornada, cada una tiene los mismos
+-- partidos (la mitad de los equipos). Una fila acá es una jornada partida o
+-- juntada; lo corrige el admin o una sincronización completa.
+WITH por_jornada AS (
+  SELECT m.tournament_id, m.matchday, count(*) AS partidos
+  FROM public.matches m
+  WHERE m.phase = 'groups' AND m.matchday IS NOT NULL
+    AND EXISTS (SELECT 1 FROM public.leagues l WHERE l.tournament_id = m.tournament_id)
+  GROUP BY 1, 2
+), normal AS (
+  SELECT tournament_id, mode() WITHIN GROUP (ORDER BY partidos) AS partidos
+  FROM por_jornada GROUP BY 1
+)
+SELECT t.name AS torneo, j.matchday, j.partidos, n.partidos AS lo_normal
+FROM por_jornada j JOIN normal n USING (tournament_id)
+JOIN public.tournaments t ON t.id = j.tournament_id
+WHERE j.partidos <> n.partidos
+ORDER BY 1, 2;
+
+\echo '=== 24. Lectura de datos de predicciones que se decide por is_admin ==='
+-- Migración 105. `prediction_logs` guarda la predicción entera (marcador y
+-- ×2) y su política dejaba leer TODO al admin global, que también juega:
+-- veía las predicciones ajenas antes del saque. Tiene que salir VACÍA.
+SELECT tablename, policyname, cmd
+FROM pg_policies
+WHERE schemaname = 'public'
+  AND tablename IN ('prediction_logs', 'predictions', 'tournament_predictions')
+  AND cmd IN ('SELECT', 'ALL')
+  AND COALESCE(qual, '') ILIKE '%is_admin%';
+
+\echo '=== 25. Suscripciones push fuera de los proveedores conocidos ==='
+-- Migración 105 (CHECK `push_endpoint_conocido`). Si sale una fila, el CHECK
+-- se quitó o se creó con NOT VALID. Tiene que salir VACÍA.
+SELECT id, user_id, substring(endpoint FROM '^(https?://[^/]+)') AS host
+FROM public.push_subscriptions
+WHERE endpoint !~ '^https://((fcm|android)\.googleapis\.com|updates\.push\.services\.mozilla\.com|([a-z0-9-]+\.)*push\.apple\.com|[a-z0-9-]+\.notify\.windows\.com)/';

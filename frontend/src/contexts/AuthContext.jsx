@@ -230,6 +230,12 @@ export function AuthProvider({ children }) {
 
         if (event === 'SIGNED_OUT') {
           setProfile(null)
+          // También acá, no solo al abrir (auditoría del 28 sep 2026): si el
+          // cierre venció su presupuesto sin dar de baja el navegador y otra
+          // persona entra sin recargar, le llegaban los avisos de la anterior.
+          // `bajaSinSesion` vuelve a comprobar que no haya sesión antes de
+          // tocar nada, así que un ingreso inmediato no pierde los suyos.
+          bajaSinSesion(sigueSinSesion)
         }
         if (event === 'INITIAL_SESSION' && !currentUser) bajaSinSesion(sigueSinSesion)
       }

@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 import os
@@ -29,14 +30,34 @@ def _get_vapid_private_key():
     return "private_key.pem"
 
 
-def send_push_notification(subscription_info, payload_data):
-    """Envía una notificación push web a una suscripción específica."""
+# Cuánto guarda el proveedor un aviso para un dispositivo desconectado. El
+# valor por defecto de pywebpush es 0: si el celular no estaba en línea en ese
+# instante —lo normal a las 6 am— el aviso se descartaba, y el proveedor igual
+# respondía 201 y quedaba como entregado (auditoría del 28 sep 2026).
+TTL_POR_DEFECTO = 6 * 60 * 60
+# Sin límite, un endpoint que no responde colgaba la corrida entera y los que
+# venían después no recibían nada. pywebpush trae `timeout=None`.
+TIMEOUT_ENVIO = 10
+
+
+def send_push_notification(subscription_info, payload_data, ttl: int = TTL_POR_DEFECTO):
+    """Envía una notificación push web a una suscripción específica.
+
+    `vapid_claims` va COPIADO en cada llamada: pywebpush le escribe `aud` y
+    `exp` al diccionario que recibe si no los tiene, así que con el global
+    compartido el `aud` del PRIMER proveedor quedaba fijo para todos los envíos
+    siguientes del proceso. Los dispositivos de otro proveedor (Apple, WNS)
+    rechazaban el JWT y no recibían nada. Reproducido con la librería real el
+    28 sep 2026: tres proveedores, los tres con el `aud` de FCM.
+    """
     try:
         webpush(
             subscription_info=subscription_info,
             data=json.dumps(payload_data),
             vapid_private_key=_get_vapid_private_key(),
-            vapid_claims=VAPID_CLAIMS
+            vapid_claims=dict(VAPID_CLAIMS),
+            ttl=ttl,
+            timeout=TIMEOUT_ENVIO,
         )
         return True
     except WebPushException as ex:
@@ -83,7 +104,9 @@ async def broadcast_push_to_users(supabase, user_ids: list, title: str, body: st
             }
         }
         
-        result = send_push_notification(sub_info, payload)
+        # En un hilo: `webpush` es síncrono y el backend corre con un solo
+        # worker; un proveedor lento congelaba sync, puntaje y API a la vez.
+        result = await asyncio.to_thread(send_push_notification, sub_info, payload)
         if result == "expired":
             expired_endpoints.append(sub["endpoint"])
         elif result is True:
@@ -96,7 +119,8 @@ async def broadcast_push_to_users(supabase, user_ids: list, title: str, body: st
     return success_count
 
 
-async def enviar_push_personalizado(supabase, mensajes: dict, detallado: bool = False):
+async def enviar_push_personalizado(supabase, mensajes: dict, detallado: bool = False,
+                                    ttl: int = TTL_POR_DEFECTO):
     """Manda un push DISTINTO a cada persona.
 
     broadcast_push_to_users manda el mismo texto a todos, y para el resumen
@@ -137,7 +161,7 @@ async def enviar_push_personalizado(supabase, mensajes: dict, detallado: bool = 
                 "endpoint": sub["endpoint"],
                 "keys": {"p256dh": sub["p256dh"], "auth": sub["auth"]},
             }
-            resultado = send_push_notification(info, payload)
+            resultado = await asyncio.to_thread(send_push_notification, info, payload, ttl=ttl)
             if resultado == "expired":
                 expirados.append(sub["endpoint"])
                 suyo["expirados"] += 1
