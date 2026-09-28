@@ -1,0 +1,1171 @@
+{
+"fuente": "UNAFUT /api/rounds/1..18 y matches del torneo 2, 28 sep 2026 (jornada ya corregida)",
+"oficiales": [
+{
+"local": "C.S. Herediano",
+"visita": "Puntarenas F.C.",
+"fecha": "2026-07-24 02:00:00",
+"ronda": 1
+},
+{
+"local": "Deportivo Saprissa",
+"visita": "Municipal Pérez Zeledón ",
+"fecha": "2026-07-25 02:00:00",
+"ronda": 1
+},
+{
+"local": "C.S. Cartaginés",
+"visita": "Inter San Carlos",
+"fecha": "2026-07-25 23:00:00",
+"ronda": 1
+},
+{
+"local": "Sporting F.C.",
+"visita": "L.D. Alajuelense",
+"fecha": "2026-07-26 02:00:00",
+"ronda": 1
+},
+{
+"local": "Puntarenas F.C.",
+"visita": "Sporting F.C.",
+"fecha": "2026-08-01 23:00:00",
+"ronda": 2
+},
+{
+"local": "L.D. Alajuelense",
+"visita": "Escorpiones F.C.",
+"fecha": "2026-08-02 02:00:00",
+"ronda": 2
+},
+{
+"local": "Deportivo Saprissa",
+"visita": "A.D. San Carlos",
+"fecha": "2026-08-02 22:00:00",
+"ronda": 2
+},
+{
+"local": "Inter San Carlos",
+"visita": "C.S. Herediano",
+"fecha": "2026-08-03 00:00:00",
+"ronda": 2
+},
+{
+"local": "Municipal Pérez Zeledón ",
+"visita": "C.S. Cartaginés",
+"fecha": "2026-08-04 02:00:00",
+"ronda": 2
+},
+{
+"local": "C.S. Cartaginés",
+"visita": "Sporting F.C.",
+"fecha": "2026-08-08 02:00:00",
+"ronda": 3
+},
+{
+"local": "Escorpiones F.C.",
+"visita": "Municipal Pérez Zeledón ",
+"fecha": "2026-08-09 00:00:00",
+"ronda": 3
+},
+{
+"local": "Puntarenas F.C.",
+"visita": "Deportivo Saprissa",
+"fecha": "2026-08-09 02:00:00",
+"ronda": 3
+},
+{
+"local": "Inter San Carlos",
+"visita": "A.D. San Carlos",
+"fecha": "2026-08-09 21:00:00",
+"ronda": 3
+},
+{
+"local": "C.S. Herediano",
+"visita": "L.D. Alajuelense",
+"fecha": "2026-08-10 00:00:00",
+"ronda": 3
+},
+{
+"local": "A.D. San Carlos",
+"visita": "C.S. Herediano",
+"fecha": "2026-08-15 02:00:00",
+"ronda": 4
+},
+{
+"local": "L.D. Alajuelense",
+"visita": "Puntarenas F.C.",
+"fecha": "2026-08-15 22:00:00",
+"ronda": 4
+},
+{
+"local": "Deportivo Saprissa",
+"visita": "C.S. Cartaginés",
+"fecha": "2026-08-16 02:00:00",
+"ronda": 4
+},
+{
+"local": "Municipal Pérez Zeledón ",
+"visita": "Inter San Carlos",
+"fecha": "2026-08-16 22:00:00",
+"ronda": 4
+},
+{
+"local": "Sporting F.C.",
+"visita": "Escorpiones F.C.",
+"fecha": "2026-08-18 02:00:00",
+"ronda": 4
+},
+{
+"local": "Puntarenas F.C.",
+"visita": "Municipal Pérez Zeledón ",
+"fecha": "2026-08-22 01:00:00",
+"ronda": 5
+},
+{
+"local": "Escorpiones F.C.",
+"visita": "C.S. Cartaginés",
+"fecha": "2026-08-22 23:00:00",
+"ronda": 5
+},
+{
+"local": "C.S. Herediano",
+"visita": "Sporting F.C.",
+"fecha": "2026-08-23 02:00:00",
+"ronda": 5
+},
+{
+"local": "Inter San Carlos",
+"visita": "Deportivo Saprissa",
+"fecha": "2026-08-23 21:00:00",
+"ronda": 5
+},
+{
+"local": "L.D. Alajuelense",
+"visita": "A.D. San Carlos",
+"fecha": "2026-08-24 00:00:00",
+"ronda": 5
+},
+{
+"local": "Sporting F.C.",
+"visita": "Inter San Carlos",
+"fecha": "2026-08-29 02:00:00",
+"ronda": 6
+},
+{
+"local": "Municipal Pérez Zeledón ",
+"visita": "L.D. Alajuelense",
+"fecha": "2026-08-30 02:00:00",
+"ronda": 6
+},
+{
+"local": "C.S. Cartaginés",
+"visita": "C.S. Herediano",
+"fecha": "2026-08-30 17:00:00",
+"ronda": 6
+},
+{
+"local": "A.D. San Carlos",
+"visita": "Puntarenas F.C.",
+"fecha": "2026-08-30 22:00:00",
+"ronda": 6
+},
+{
+"local": "Deportivo Saprissa",
+"visita": "Escorpiones F.C.",
+"fecha": "2026-08-31 00:00:00",
+"ronda": 6
+},
+{
+"local": "Escorpiones F.C.",
+"visita": "Inter San Carlos",
+"fecha": "2026-09-05 02:00:00",
+"ronda": 7
+},
+{
+"local": "C.S. Herediano",
+"visita": "Municipal Pérez Zeledón ",
+"fecha": "2026-09-05 23:00:00",
+"ronda": 7
+},
+{
+"local": "L.D. Alajuelense",
+"visita": "Deportivo Saprissa",
+"fecha": "2026-09-06 02:00:00",
+"ronda": 7
+},
+{
+"local": "Puntarenas F.C.",
+"visita": "C.S. Cartaginés",
+"fecha": "2026-09-06 22:00:00",
+"ronda": 7
+},
+{
+"local": "A.D. San Carlos",
+"visita": "Sporting F.C.",
+"fecha": "2026-09-07 01:00:00",
+"ronda": 7
+},
+{
+"local": "Municipal Pérez Zeledón ",
+"visita": "A.D. San Carlos",
+"fecha": "2026-09-12 02:00:00",
+"ronda": 8
+},
+{
+"local": "Inter San Carlos",
+"visita": "Puntarenas F.C.",
+"fecha": "2026-09-12 23:00:00",
+"ronda": 8
+},
+{
+"local": "Escorpiones F.C.",
+"visita": "C.S. Herediano",
+"fecha": "2026-09-13 02:00:00",
+"ronda": 8
+},
+{
+"local": "Sporting F.C.",
+"visita": "Deportivo Saprissa",
+"fecha": "2026-09-13 22:00:00",
+"ronda": 8
+},
+{
+"local": "C.S. Cartaginés",
+"visita": "L.D. Alajuelense",
+"fecha": "2026-09-14 00:00:00",
+"ronda": 8
+},
+{
+"local": "Municipal Pérez Zeledón ",
+"visita": "Sporting F.C.",
+"fecha": "2026-09-19 02:00:00",
+"ronda": 9
+},
+{
+"local": "Puntarenas F.C.",
+"visita": "Escorpiones F.C.",
+"fecha": "2026-09-19 23:00:00",
+"ronda": 9
+},
+{
+"local": "Deportivo Saprissa",
+"visita": "C.S. Herediano",
+"fecha": "2026-09-20 02:00:00",
+"ronda": 9
+},
+{
+"local": "L.D. Alajuelense",
+"visita": "Inter San Carlos",
+"fecha": "2026-09-20 23:00:00",
+"ronda": 9
+},
+{
+"local": "A.D. San Carlos",
+"visita": "C.S. Cartaginés",
+"fecha": "2026-09-21 01:00:00",
+"ronda": 9
+},
+{
+"local": "Sporting F.C.",
+"visita": "C.S. Cartaginés",
+"fecha": "2026-10-10 02:00:00",
+"ronda": 10
+},
+{
+"local": "Inter San Carlos",
+"visita": "Municipal Pérez Zeledón ",
+"fecha": "2026-10-10 21:00:00",
+"ronda": 10
+},
+{
+"local": "Puntarenas F.C.",
+"visita": "L.D. Alajuelense",
+"fecha": "2026-10-10 23:00:00",
+"ronda": 10
+},
+{
+"local": "C.S. Herediano",
+"visita": "A.D. San Carlos",
+"fecha": "2026-10-11 02:00:00",
+"ronda": 10
+},
+{
+"local": "Escorpiones F.C.",
+"visita": "Deportivo Saprissa",
+"fecha": "2026-10-11 23:00:00",
+"ronda": 10
+},
+{
+"local": "C.S. Cartaginés",
+"visita": "Puntarenas F.C.",
+"fecha": "2026-10-14 00:00:00",
+"ronda": 11
+},
+{
+"local": "A.D. San Carlos",
+"visita": "Inter San Carlos",
+"fecha": "2026-10-14 02:00:00",
+"ronda": 11
+},
+{
+"local": "Municipal Pérez Zeledón ",
+"visita": "Escorpiones F.C.",
+"fecha": "2026-10-14 23:00:00",
+"ronda": 11
+},
+{
+"local": "L.D. Alajuelense",
+"visita": "C.S. Herediano",
+"fecha": "2026-10-15 02:00:00",
+"ronda": 11
+},
+{
+"local": "Deportivo Saprissa",
+"visita": "Sporting F.C.",
+"fecha": "2026-10-16 02:00:00",
+"ronda": 11
+},
+{
+"local": "Inter San Carlos",
+"visita": "L.D. Alajuelense",
+"fecha": "2026-10-18 02:00:00",
+"ronda": 12
+},
+{
+"local": "C.S. Cartaginés",
+"visita": "Deportivo Saprissa",
+"fecha": "2026-10-18 17:00:00",
+"ronda": 12
+},
+{
+"local": "Municipal Pérez Zeledón ",
+"visita": "C.S. Herediano",
+"fecha": "2026-10-18 22:00:00",
+"ronda": 12
+},
+{
+"local": "Sporting F.C.",
+"visita": "A.D. San Carlos",
+"fecha": "2026-10-20 00:00:00",
+"ronda": 12
+},
+{
+"local": "Escorpiones F.C.",
+"visita": "Puntarenas F.C.",
+"fecha": "2026-10-20 02:00:00",
+"ronda": 12
+},
+{
+"local": "Escorpiones F.C.",
+"visita": "Sporting F.C.",
+"fecha": "2026-10-24 02:00:00",
+"ronda": 13
+},
+{
+"local": "Puntarenas F.C.",
+"visita": "Inter San Carlos",
+"fecha": "2026-10-25 00:00:00",
+"ronda": 13
+},
+{
+"local": "C.S. Herediano",
+"visita": "C.S. Cartaginés",
+"fecha": "2026-10-25 02:00:00",
+"ronda": 13
+},
+{
+"local": "A.D. San Carlos",
+"visita": "Deportivo Saprissa",
+"fecha": "2026-10-25 22:00:00",
+"ronda": 13
+},
+{
+"local": "L.D. Alajuelense",
+"visita": "Municipal Pérez Zeledón ",
+"fecha": "2026-10-26 00:00:00",
+"ronda": 13
+},
+{
+"local": "Inter San Carlos",
+"visita": "Escorpiones F.C.",
+"fecha": "2026-10-31 00:00:00",
+"ronda": 14
+},
+{
+"local": "Municipal Pérez Zeledón ",
+"visita": "Puntarenas F.C.",
+"fecha": "2026-10-31 02:00:00",
+"ronda": 14
+},
+{
+"local": "Sporting F.C.",
+"visita": "C.S. Herediano",
+"fecha": "2026-11-01 02:00:00",
+"ronda": 14
+},
+{
+"local": "C.S. Cartaginés",
+"visita": "A.D. San Carlos",
+"fecha": "2026-11-01 17:00:00",
+"ronda": 14
+},
+{
+"local": "Deportivo Saprissa",
+"visita": "L.D. Alajuelense",
+"fecha": "2026-11-01 22:00:00",
+"ronda": 14
+},
+{
+"local": "Sporting F.C.",
+"visita": "Municipal Pérez Zeledón ",
+"fecha": "2026-11-04 01:00:00",
+"ronda": 15
+},
+{
+"local": "Puntarenas F.C.",
+"visita": "A.D. San Carlos",
+"fecha": "2026-11-05 00:00:00",
+"ronda": 15
+},
+{
+"local": "Escorpiones F.C.",
+"visita": "L.D. Alajuelense",
+"fecha": "2026-11-05 02:00:00",
+"ronda": 15
+},
+{
+"local": "Inter San Carlos",
+"visita": "C.S. Cartaginés",
+"fecha": "2026-11-05 23:00:00",
+"ronda": 15
+},
+{
+"local": "C.S. Herediano",
+"visita": "Deportivo Saprissa",
+"fecha": "2026-11-06 02:00:00",
+"ronda": 15
+},
+{
+"local": "A.D. San Carlos",
+"visita": "Municipal Pérez Zeledón ",
+"fecha": "2026-11-08 00:00:00",
+"ronda": 16
+},
+{
+"local": "L.D. Alajuelense",
+"visita": "Sporting F.C.",
+"fecha": "2026-11-08 02:00:00",
+"ronda": 16
+},
+{
+"local": "C.S. Cartaginés",
+"visita": "Escorpiones F.C.",
+"fecha": "2026-11-08 17:00:00",
+"ronda": 16
+},
+{
+"local": "Deportivo Saprissa",
+"visita": "Puntarenas F.C.",
+"fecha": "2026-11-08 22:00:00",
+"ronda": 16
+},
+{
+"local": "C.S. Herediano",
+"visita": "Inter San Carlos",
+"fecha": "2026-11-09 00:30:00",
+"ronda": 16
+},
+{
+"local": "Inter San Carlos",
+"visita": "Sporting F.C.",
+"fecha": "2026-11-20 02:00:00",
+"ronda": 17
+},
+{
+"local": "Escorpiones F.C.",
+"visita": "A.D. San Carlos",
+"fecha": "2026-11-21 02:00:00",
+"ronda": 17
+},
+{
+"local": "Puntarenas F.C.",
+"visita": "C.S. Herediano",
+"fecha": "2026-11-21 23:30:00",
+"ronda": 17
+},
+{
+"local": "Municipal Pérez Zeledón ",
+"visita": "Deportivo Saprissa",
+"fecha": "2026-11-22 02:00:00",
+"ronda": 17
+},
+{
+"local": "L.D. Alajuelense",
+"visita": "C.S. Cartaginés",
+"fecha": "2026-11-22 22:00:00",
+"ronda": 17
+},
+{
+"local": "C.S. Herediano",
+"visita": "Escorpiones F.C.",
+"fecha": "2026-11-29 21:00:00",
+"ronda": 18
+},
+{
+"local": "Sporting F.C.",
+"visita": "Puntarenas F.C.",
+"fecha": "2026-11-29 21:00:00",
+"ronda": 18
+},
+{
+"local": "A.D. San Carlos",
+"visita": "L.D. Alajuelense",
+"fecha": "2026-11-29 21:00:00",
+"ronda": 18
+},
+{
+"local": "C.S. Cartaginés",
+"visita": "Municipal Pérez Zeledón ",
+"fecha": "2026-11-29 21:00:00",
+"ronda": 18
+},
+{
+"local": "Deportivo Saprissa",
+"visita": "Inter San Carlos",
+"fecha": "2026-11-29 21:00:00",
+"ronda": 18
+}
+],
+"nuestros": [
+{
+"id": 248,
+"home_team": "Herediano",
+"away_team": "Puntarenas FC",
+"kickoff_at": "2026-07-24T02:00:00Z",
+"jornada": 1
+},
+{
+"id": 249,
+"home_team": "Saprissa",
+"away_team": "Pérez Zeledón",
+"kickoff_at": "2026-07-25T02:00:00Z",
+"jornada": 1
+},
+{
+"id": 250,
+"home_team": "Cartaginés",
+"away_team": "Inter de San Carlos",
+"kickoff_at": "2026-07-25T23:00:00Z",
+"jornada": 1
+},
+{
+"id": 251,
+"home_team": "Sporting San José",
+"away_team": "Alajuelense",
+"kickoff_at": "2026-07-26T02:00:00Z",
+"jornada": 1
+},
+{
+"id": 252,
+"home_team": "AD San Carlos",
+"away_team": "Escorpiones Belén",
+"kickoff_at": "2026-07-26T23:00:00Z",
+"jornada": 1
+},
+{
+"id": 256,
+"home_team": "Puntarenas FC",
+"away_team": "Sporting San José",
+"kickoff_at": "2026-08-01T23:00:00Z",
+"jornada": 2
+},
+{
+"id": 253,
+"home_team": "Alajuelense",
+"away_team": "Escorpiones Belén",
+"kickoff_at": "2026-08-02T02:00:00Z",
+"jornada": 2
+},
+{
+"id": 257,
+"home_team": "Saprissa",
+"away_team": "AD San Carlos",
+"kickoff_at": "2026-08-02T22:00:00Z",
+"jornada": 2
+},
+{
+"id": 254,
+"home_team": "Inter de San Carlos",
+"away_team": "Herediano",
+"kickoff_at": "2026-08-03T00:30:00Z",
+"jornada": 2
+},
+{
+"id": 255,
+"home_team": "Pérez Zeledón",
+"away_team": "Cartaginés",
+"kickoff_at": "2026-08-04T02:00:00Z",
+"jornada": 2
+},
+{
+"id": 258,
+"home_team": "Cartaginés",
+"away_team": "Sporting San José",
+"kickoff_at": "2026-08-08T02:00:00Z",
+"jornada": 3
+},
+{
+"id": 259,
+"home_team": "Escorpiones Belén",
+"away_team": "Pérez Zeledón",
+"kickoff_at": "2026-08-09T00:00:00Z",
+"jornada": 3
+},
+{
+"id": 262,
+"home_team": "Puntarenas FC",
+"away_team": "Saprissa",
+"kickoff_at": "2026-08-09T02:00:00Z",
+"jornada": 3
+},
+{
+"id": 261,
+"home_team": "Inter de San Carlos",
+"away_team": "AD San Carlos",
+"kickoff_at": "2026-08-09T21:00:00Z",
+"jornada": 3
+},
+{
+"id": 260,
+"home_team": "Herediano",
+"away_team": "Alajuelense",
+"kickoff_at": "2026-08-10T00:00:00Z",
+"jornada": 3
+},
+{
+"id": 263,
+"home_team": "AD San Carlos",
+"away_team": "Herediano",
+"kickoff_at": "2026-08-15T02:00:00Z",
+"jornada": 4
+},
+{
+"id": 264,
+"home_team": "Alajuelense",
+"away_team": "Puntarenas FC",
+"kickoff_at": "2026-08-15T22:00:00Z",
+"jornada": 4
+},
+{
+"id": 266,
+"home_team": "Saprissa",
+"away_team": "Cartaginés",
+"kickoff_at": "2026-08-16T02:00:00Z",
+"jornada": 4
+},
+{
+"id": 265,
+"home_team": "Pérez Zeledón",
+"away_team": "Inter de San Carlos",
+"kickoff_at": "2026-08-16T22:00:00Z",
+"jornada": 4
+},
+{
+"id": 267,
+"home_team": "Sporting San José",
+"away_team": "Escorpiones Belén",
+"kickoff_at": "2026-08-18T02:00:00Z",
+"jornada": 4
+},
+{
+"id": 272,
+"home_team": "Puntarenas FC",
+"away_team": "Pérez Zeledón",
+"kickoff_at": "2026-08-22T01:00:00Z",
+"jornada": 5
+},
+{
+"id": 269,
+"home_team": "Escorpiones Belén",
+"away_team": "Cartaginés",
+"kickoff_at": "2026-08-22T23:00:00Z",
+"jornada": 5
+},
+{
+"id": 270,
+"home_team": "Herediano",
+"away_team": "Sporting San José",
+"kickoff_at": "2026-08-23T02:00:00Z",
+"jornada": 5
+},
+{
+"id": 271,
+"home_team": "Inter de San Carlos",
+"away_team": "Saprissa",
+"kickoff_at": "2026-08-23T21:00:00Z",
+"jornada": 5
+},
+{
+"id": 268,
+"home_team": "Alajuelense",
+"away_team": "AD San Carlos",
+"kickoff_at": "2026-08-24T00:00:00Z",
+"jornada": 5
+},
+{
+"id": 277,
+"home_team": "Sporting San José",
+"away_team": "Inter de San Carlos",
+"kickoff_at": "2026-08-29T02:00:00Z",
+"jornada": 6
+},
+{
+"id": 275,
+"home_team": "Pérez Zeledón",
+"away_team": "Alajuelense",
+"kickoff_at": "2026-08-30T02:00:00Z",
+"jornada": 6
+},
+{
+"id": 274,
+"home_team": "Cartaginés",
+"away_team": "Herediano",
+"kickoff_at": "2026-08-30T17:00:00Z",
+"jornada": 6
+},
+{
+"id": 273,
+"home_team": "AD San Carlos",
+"away_team": "Puntarenas FC",
+"kickoff_at": "2026-08-30T22:00:00Z",
+"jornada": 6
+},
+{
+"id": 276,
+"home_team": "Saprissa",
+"away_team": "Escorpiones Belén",
+"kickoff_at": "2026-08-31T00:00:00Z",
+"jornada": 6
+},
+{
+"id": 280,
+"home_team": "Escorpiones Belén",
+"away_team": "Inter de San Carlos",
+"kickoff_at": "2026-09-05T02:00:00Z",
+"jornada": 7
+},
+{
+"id": 281,
+"home_team": "Herediano",
+"away_team": "Pérez Zeledón",
+"kickoff_at": "2026-09-05T23:00:00Z",
+"jornada": 7
+},
+{
+"id": 279,
+"home_team": "Alajuelense",
+"away_team": "Saprissa",
+"kickoff_at": "2026-09-06T02:00:00Z",
+"jornada": 7
+},
+{
+"id": 282,
+"home_team": "Puntarenas FC",
+"away_team": "Cartaginés",
+"kickoff_at": "2026-09-06T22:00:00Z",
+"jornada": 7
+},
+{
+"id": 278,
+"home_team": "AD San Carlos",
+"away_team": "Sporting San José",
+"kickoff_at": "2026-09-07T01:00:00Z",
+"jornada": 7
+},
+{
+"id": 286,
+"home_team": "Pérez Zeledón",
+"away_team": "AD San Carlos",
+"kickoff_at": "2026-09-12T02:00:00Z",
+"jornada": 8
+},
+{
+"id": 285,
+"home_team": "Inter de San Carlos",
+"away_team": "Puntarenas FC",
+"kickoff_at": "2026-09-12T23:00:00Z",
+"jornada": 8
+},
+{
+"id": 284,
+"home_team": "Escorpiones Belén",
+"away_team": "Herediano",
+"kickoff_at": "2026-09-13T02:00:00Z",
+"jornada": 8
+},
+{
+"id": 287,
+"home_team": "Sporting San José",
+"away_team": "Saprissa",
+"kickoff_at": "2026-09-13T22:00:00Z",
+"jornada": 8
+},
+{
+"id": 283,
+"home_team": "Cartaginés",
+"away_team": "Alajuelense",
+"kickoff_at": "2026-09-14T00:00:00Z",
+"jornada": 8
+},
+{
+"id": 290,
+"home_team": "Pérez Zeledón",
+"away_team": "Sporting San José",
+"kickoff_at": "2026-09-19T02:00:00Z",
+"jornada": 9
+},
+{
+"id": 291,
+"home_team": "Puntarenas FC",
+"away_team": "Escorpiones Belén",
+"kickoff_at": "2026-09-19T23:00:00Z",
+"jornada": 9
+},
+{
+"id": 292,
+"home_team": "Saprissa",
+"away_team": "Herediano",
+"kickoff_at": "2026-09-20T02:00:00Z",
+"jornada": 9
+},
+{
+"id": 289,
+"home_team": "Alajuelense",
+"away_team": "Inter de San Carlos",
+"kickoff_at": "2026-09-20T23:00:00Z",
+"jornada": 9
+},
+{
+"id": 288,
+"home_team": "AD San Carlos",
+"away_team": "Cartaginés",
+"kickoff_at": "2026-09-21T01:00:00Z",
+"jornada": 9
+},
+{
+"id": 297,
+"home_team": "Sporting San José",
+"away_team": "Cartaginés",
+"kickoff_at": "2026-10-10T02:00:00Z",
+"jornada": 10
+},
+{
+"id": 295,
+"home_team": "Inter de San Carlos",
+"away_team": "Pérez Zeledón",
+"kickoff_at": "2026-10-10T21:00:00Z",
+"jornada": 10
+},
+{
+"id": 296,
+"home_team": "Puntarenas FC",
+"away_team": "Alajuelense",
+"kickoff_at": "2026-10-10T23:00:00Z",
+"jornada": 10
+},
+{
+"id": 294,
+"home_team": "Herediano",
+"away_team": "AD San Carlos",
+"kickoff_at": "2026-10-11T02:00:00Z",
+"jornada": 10
+},
+{
+"id": 293,
+"home_team": "Escorpiones Belén",
+"away_team": "Saprissa",
+"kickoff_at": "2026-10-11T23:00:00Z",
+"jornada": 10
+},
+{
+"id": 300,
+"home_team": "Cartaginés",
+"away_team": "Puntarenas FC",
+"kickoff_at": "2026-10-14T00:00:00Z",
+"jornada": 11
+},
+{
+"id": 298,
+"home_team": "AD San Carlos",
+"away_team": "Inter de San Carlos",
+"kickoff_at": "2026-10-14T02:00:00Z",
+"jornada": 11
+},
+{
+"id": 301,
+"home_team": "Pérez Zeledón",
+"away_team": "Escorpiones Belén",
+"kickoff_at": "2026-10-14T23:00:00Z",
+"jornada": 11
+},
+{
+"id": 299,
+"home_team": "Alajuelense",
+"away_team": "Herediano",
+"kickoff_at": "2026-10-15T02:00:00Z",
+"jornada": 11
+},
+{
+"id": 302,
+"home_team": "Saprissa",
+"away_team": "Sporting San José",
+"kickoff_at": "2026-10-16T02:00:00Z",
+"jornada": 11
+},
+{
+"id": 305,
+"home_team": "Inter de San Carlos",
+"away_team": "Alajuelense",
+"kickoff_at": "2026-10-18T02:00:00Z",
+"jornada": 12
+},
+{
+"id": 303,
+"home_team": "Cartaginés",
+"away_team": "Saprissa",
+"kickoff_at": "2026-10-18T17:00:00Z",
+"jornada": 12
+},
+{
+"id": 306,
+"home_team": "Pérez Zeledón",
+"away_team": "Herediano",
+"kickoff_at": "2026-10-18T22:00:00Z",
+"jornada": 12
+},
+{
+"id": 307,
+"home_team": "Sporting San José",
+"away_team": "AD San Carlos",
+"kickoff_at": "2026-10-20T00:00:00Z",
+"jornada": 12
+},
+{
+"id": 304,
+"home_team": "Escorpiones Belén",
+"away_team": "Puntarenas FC",
+"kickoff_at": "2026-10-20T02:00:00Z",
+"jornada": 12
+},
+{
+"id": 312,
+"home_team": "Puntarenas FC",
+"away_team": "Inter de San Carlos",
+"kickoff_at": "2026-10-24T00:00:00Z",
+"jornada": 13
+},
+{
+"id": 310,
+"home_team": "Escorpiones Belén",
+"away_team": "Sporting San José",
+"kickoff_at": "2026-10-24T02:00:00Z",
+"jornada": 13
+},
+{
+"id": 309,
+"home_team": "Alajuelense",
+"away_team": "Pérez Zeledón",
+"kickoff_at": "2026-10-24T23:00:00Z",
+"jornada": 13
+},
+{
+"id": 311,
+"home_team": "Herediano",
+"away_team": "Cartaginés",
+"kickoff_at": "2026-10-25T02:00:00Z",
+"jornada": 13
+},
+{
+"id": 308,
+"home_team": "AD San Carlos",
+"away_team": "Saprissa",
+"kickoff_at": "2026-10-26T00:00:00Z",
+"jornada": 13
+},
+{
+"id": 314,
+"home_team": "Inter de San Carlos",
+"away_team": "Escorpiones Belén",
+"kickoff_at": "2026-10-31T00:00:00Z",
+"jornada": 14
+},
+{
+"id": 315,
+"home_team": "Pérez Zeledón",
+"away_team": "Puntarenas FC",
+"kickoff_at": "2026-10-31T02:00:00Z",
+"jornada": 14
+},
+{
+"id": 317,
+"home_team": "Sporting San José",
+"away_team": "Herediano",
+"kickoff_at": "2026-11-01T00:00:00Z",
+"jornada": 14
+},
+{
+"id": 316,
+"home_team": "Saprissa",
+"away_team": "Alajuelense",
+"kickoff_at": "2026-11-01T02:00:00Z",
+"jornada": 14
+},
+{
+"id": 313,
+"home_team": "Cartaginés",
+"away_team": "AD San Carlos",
+"kickoff_at": "2026-11-01T21:00:00Z",
+"jornada": 14
+},
+{
+"id": 320,
+"home_team": "Inter de San Carlos",
+"away_team": "Cartaginés",
+"kickoff_at": "2026-11-04T21:00:00Z",
+"jornada": 15
+},
+{
+"id": 318,
+"home_team": "Escorpiones Belén",
+"away_team": "Alajuelense",
+"kickoff_at": "2026-11-04T21:00:00Z",
+"jornada": 15
+},
+{
+"id": 322,
+"home_team": "Sporting San José",
+"away_team": "Pérez Zeledón",
+"kickoff_at": "2026-11-04T21:00:00Z",
+"jornada": 15
+},
+{
+"id": 321,
+"home_team": "Puntarenas FC",
+"away_team": "AD San Carlos",
+"kickoff_at": "2026-11-04T21:00:00Z",
+"jornada": 15
+},
+{
+"id": 319,
+"home_team": "Herediano",
+"away_team": "Saprissa",
+"kickoff_at": "2026-11-04T21:00:00Z",
+"jornada": 15
+},
+{
+"id": 326,
+"home_team": "Herediano",
+"away_team": "Inter de San Carlos",
+"kickoff_at": "2026-11-08T21:00:00Z",
+"jornada": 16
+},
+{
+"id": 327,
+"home_team": "Saprissa",
+"away_team": "Puntarenas FC",
+"kickoff_at": "2026-11-08T21:00:00Z",
+"jornada": 16
+},
+{
+"id": 323,
+"home_team": "AD San Carlos",
+"away_team": "Pérez Zeledón",
+"kickoff_at": "2026-11-08T21:00:00Z",
+"jornada": 16
+},
+{
+"id": 324,
+"home_team": "Alajuelense",
+"away_team": "Sporting San José",
+"kickoff_at": "2026-11-08T21:00:00Z",
+"jornada": 16
+},
+{
+"id": 325,
+"home_team": "Cartaginés",
+"away_team": "Escorpiones Belén",
+"kickoff_at": "2026-11-08T21:00:00Z",
+"jornada": 16
+},
+{
+"id": 329,
+"home_team": "Escorpiones Belén",
+"away_team": "AD San Carlos",
+"kickoff_at": "2026-11-22T21:00:00Z",
+"jornada": 17
+},
+{
+"id": 330,
+"home_team": "Inter de San Carlos",
+"away_team": "Sporting San José",
+"kickoff_at": "2026-11-22T21:00:00Z",
+"jornada": 17
+},
+{
+"id": 331,
+"home_team": "Pérez Zeledón",
+"away_team": "Saprissa",
+"kickoff_at": "2026-11-22T21:00:00Z",
+"jornada": 17
+},
+{
+"id": 328,
+"home_team": "Alajuelense",
+"away_team": "Cartaginés",
+"kickoff_at": "2026-11-22T21:00:00Z",
+"jornada": 17
+},
+{
+"id": 332,
+"home_team": "Puntarenas FC",
+"away_team": "Herediano",
+"kickoff_at": "2026-11-22T21:00:00Z",
+"jornada": 17
+},
+{
+"id": 336,
+"home_team": "Saprissa",
+"away_team": "Inter de San Carlos",
+"kickoff_at": "2026-11-29T21:00:00Z",
+"jornada": 18
+},
+{
+"id": 335,
+"home_team": "Herediano",
+"away_team": "Escorpiones Belén",
+"kickoff_at": "2026-11-29T21:00:00Z",
+"jornada": 18
+},
+{
+"id": 337,
+"home_team": "Sporting San José",
+"away_team": "Puntarenas FC",
+"kickoff_at": "2026-11-29T21:00:00Z",
+"jornada": 18
+},
+{
+"id": 334,
+"home_team": "Cartaginés",
+"away_team": "Pérez Zeledón",
+"kickoff_at": "2026-11-29T21:00:00Z",
+"jornada": 18
+},
+{
+"id": 333,
+"home_team": "AD San Carlos",
+"away_team": "Alajuelense",
+"kickoff_at": "2026-11-29T21:00:00Z",
+"jornada": 18
+}
+]
+}
