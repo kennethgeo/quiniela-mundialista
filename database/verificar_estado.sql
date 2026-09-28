@@ -138,6 +138,8 @@ FROM unnest(ARRAY[
   'creditos_se_van_con_la_membresia',  -- 99, función de trigger
   'membresia_viva_al_escribir',        -- 100, función de trigger
   'registrar_compensacion_x2',         -- 103, función de trigger
+  'reclamar_alertas_de_puntaje',       -- 104, solo backend
+  'anonimizar_usuario',                -- 104, solo backend
   'prediccion_modificada',
   'partidos_pendientes_de_puntaje'
 ]::text[]) x
@@ -247,6 +249,8 @@ WHERE n.nspname = 'public'
   'creditos_se_van_con_la_membresia',  -- 99, función de trigger
   'membresia_viva_al_escribir',        -- 100, función de trigger
   'registrar_compensacion_x2',         -- 103, función de trigger
+  'reclamar_alertas_de_puntaje',       -- 104, solo backend
+  'anonimizar_usuario',                -- 104, solo backend
   'prediccion_modificada',
   'partidos_pendientes_de_puntaje'
 ]::text[])
@@ -672,3 +676,24 @@ FROM public.compensaciones_x2
 GROUP BY user_id, league_id, match_id
 HAVING count(*) > 1
 ORDER BY max(creada_at) DESC;
+
+\echo '=== 21. Puntajes trabados de los que ya se avisó a los admins ==='
+-- Migración 104 (B60). El backend avisa por push a los admins globales cuando
+-- un puntaje sigue sin salir después de 6 horas, y lo repite cada 20 horas
+-- mientras siga en la lista. Una fila con `sigue_pendiente = true` es trabajo
+-- que alguien tiene que mirar. Lo normal es que salga VACÍA.
+SELECT a.match_id, m.home_team || ' vs ' || m.away_team AS partido, a.avisos,
+       a.primer_aviso_at, a.ultimo_aviso_at,
+       a.match_id IN (SELECT public.partidos_pendientes_de_puntaje()) AS sigue_pendiente
+FROM public.alertas_de_puntaje a JOIN public.matches m ON m.id = a.match_id
+WHERE a.ultimo_aviso_at > now() - interval '7 days'
+ORDER BY a.ultimo_aviso_at DESC;
+
+\echo '=== 22. Cuentas anonimizadas que TODAVÍA pueden entrar ==='
+-- Migración 104 (B59). Anonimizar bloquea la cuenta en Auth ANTES de tocar la
+-- base; si una cuenta anonimizada no está bloqueada, algo se hizo a mano o por
+-- otra vía. Tiene que salir VACÍA.
+SELECT u.id, u.anonimizado_at, a.banned_until
+FROM public.users u JOIN auth.users a ON a.id = u.id
+WHERE u.anonimizado_at IS NOT NULL
+  AND (a.banned_until IS NULL OR a.banned_until < now());

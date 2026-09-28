@@ -250,6 +250,57 @@ async def puntuar_pendientes(supabase) -> dict:
             "reintentar": reintentar, "errores": errores}
 
 
+# Cuánto puede esperar un puntaje antes de avisar. Bien adentro de los
+# `DIAS_DE_RECUPERACION`: el aviso tiene que salir mientras el partido sigue
+# en la lista, porque después la puerta del cron se cierra y nadie llama.
+HORAS_PARA_ALERTAR = 6
+
+
+async def alertar_puntajes_trabados(supabase) -> dict:
+    """Avisa a los admins globales de los puntajes que no salen (B60).
+
+    Antes la recuperación reintentaba 3 días y soltaba el partido sin decirle
+    nada a nadie: solo se veía corriendo la §17 de `verificar_estado.sql`.
+
+    Qué partidos y cada cuánto lo decide la base (`reclamar_alertas_de_puntaje`,
+    migración 104): usa la misma lista que la recuperación y anota el aviso de
+    forma atómica, así que dos pasadas del cron no avisan dos veces y un mismo
+    partido se repite como mucho cada 20 horas. Se llama DESPUÉS de
+    `puntuar_pendientes`: lo que esta pasada logró puntuar ya no está en la
+    lista y no se avisa.
+
+    Nunca lanza: una alerta que falla no puede tumbar el sync. Pero lo que no
+    pudo avisar queda en el log como ERROR, no en silencio.
+    """
+    try:
+        filas = (supabase.rpc("reclamar_alertas_de_puntaje",
+                              {"p_horas": HORAS_PARA_ALERTAR}).execute().data or [])
+    except Exception as exc:  # noqa: BLE001 - p. ej. código desplegado antes que la 104
+        _log.exception("No se pudo consultar los puntajes trabados")
+        return {"partidos": [], "enviados": 0, "error": f"{type(exc).__name__}: {exc}"}
+    if not filas:
+        return {"partidos": [], "enviados": 0}
+
+    partidos = [f.get("partido") or f"partido {f.get('match_id')}" for f in filas]
+    _log.error("Puntajes trabados hace más de %d h: %s", HORAS_PARA_ALERTAR, "; ".join(partidos))
+
+    cuerpo = (f"{len(filas)} partido(s) sin puntuar hace más de {HORAS_PARA_ALERTAR} h: "
+              + ", ".join(partidos[:3]) + ("…" if len(partidos) > 3 else "")
+              + ". Revisá el panel de admin.")
+    try:
+        admins = [u["id"] for u in (supabase.table("users").select("id")
+                                    .eq("is_admin", True).execute().data or [])]
+        enviados = await broadcast_push_to_users(
+            supabase, admins, "⚠️ Puntajes sin calcular", cuerpo, url="/admin") or 0
+    except Exception as exc:  # noqa: BLE001
+        _log.exception("No se pudo mandar la alerta de puntajes trabados")
+        return {"partidos": [f.get("match_id") for f in filas], "enviados": 0,
+                "error": f"{type(exc).__name__}: {exc}"}
+    if not enviados:
+        _log.error("La alerta de puntajes trabados no llegó a ningún dispositivo de un admin")
+    return {"partidos": [f.get("match_id") for f in filas], "enviados": enviados}
+
+
 def _aplicar_puntaje(supabase, match: dict, puntos: list) -> str:
     # `match` tiene que ser la foto con la que se CALCULARON los puntos: la base
     # compara ese resultado con el vigente. Releer el partido acá anularía todo

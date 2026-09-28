@@ -122,6 +122,14 @@ async def sync_live(authorization: Optional[str] = Header(default=None)):
     except Exception as exc:  # noqa: BLE001
         result["puntajes_pendientes_error"] = str(exc)
 
+    # ALERTA (migración 104, B60): lo que sigue trabado después de reintentar
+    # se le avisa a los admins, en vez de soltarse en silencio a los 3 días.
+    try:
+        from app.services.scoring import alertar_puntajes_trabados
+        result["alerta_puntajes"] = await alertar_puntajes_trabados(supabase)
+    except Exception as exc:  # noqa: BLE001
+        result["alerta_puntajes_error"] = str(exc)
+
     # VIGILANTE: ¿la fuente oficial tiene resultados que a nosotros nos faltan?
     #
     # El sync puede quedarse mudo sin dar un solo error —pasó: durante días le

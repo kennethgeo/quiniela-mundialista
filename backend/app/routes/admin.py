@@ -153,7 +153,7 @@ async def delete_user(
         raise HTTPException(
             status_code=409,
             detail=(f"Tiene {len(pagos)} pago(s) confirmado(s): borrar la cuenta borraría esa "
-                    "constancia. Desconfirmalos antes desde el pozo de cada quiniela."),
+                    "constancia. Se puede anonimizar (Editar → Anonimizar cuenta)."),
         )
 
     # Tampoco se borra a quien CREÓ una quiniela (octava auditoría): la
@@ -190,7 +190,7 @@ async def delete_user(
         raise HTTPException(
             status_code=409,
             detail=(f"Participó en votaciones ({len(propuestas)} propuesta(s), {len(votos)} voto(s)): "
-                    "borrar la cuenta borraría esas decisiones del grupo. Por ahora no se puede borrar."),
+                    "borrar la cuenta borraría esas decisiones del grupo. Se puede anonimizar (Editar → Anonimizar cuenta)."),
         )
 
     # Ni a quien CONFIRMÓ pagos de otros (décima auditoría): la FK era
@@ -205,7 +205,7 @@ async def delete_user(
         raise HTTPException(
             status_code=409,
             detail=(f"Confirmó {len(confirmados)} pago(s) de otras personas: borrar la cuenta borraría "
-                    "quién dio fe de esos pagos. Por ahora no se puede borrar."),
+                    "quién dio fe de esos pagos. Se puede anonimizar (Editar → Anonimizar cuenta)."),
         )
 
     # Nombre y correo (best-effort, ANTES de borrar) para mensaje y ban.
@@ -274,6 +274,103 @@ async def delete_user(
         "display_name": display_name,
         "banned_email": banned_email,
         "via": deleted_via,
+    }
+
+
+# 100 años: Supabase no tiene «para siempre», esto es lo más parecido.
+BLOQUEO_PERMANENTE = "876000h"
+
+
+@router.post("/anonymize-user")
+async def anonymize_user(
+    user_id: str = Body(..., embed=True),
+    ban: bool = Body(False, embed=True),
+    admin: dict = Depends(require_admin),
+):
+    """Anonimiza una cuenta que no se puede borrar (B59, migración 104).
+
+    Borrar se niega a quien tiene un pago confirmado, creó una quiniela,
+    propuso o votó, o confirmó pagos: la cascada se llevaría constancias del
+    grupo. Esto es la salida para esa persona: se borra lo PERSONAL y se
+    conserva lo HISTÓRICO.
+
+    Orden, y por qué:
+      1. Auth: se BLOQUEA la cuenta. Si esto falla, no se toca nada (502).
+      2. Auth: se reemplaza el correo y se borran nombre y foto de los
+         metadatos. Es lo que menos importa para la seguridad —la cuenta ya no
+         entra—, así que si falla se informa en vez de deshacer el bloqueo.
+      3. Base: `anonimizar_usuario` cambia el nombre, borra foto, correo y
+         dispositivos de avisos. Si falla, la cuenta ya está bloqueada y
+         reintentar es seguro: todo el endpoint es idempotente.
+    Predicciones, puntos, membresías, pagos y votos NO se tocan: la Tabla, el
+    pozo y las votaciones siguen cuadrando.
+
+    LÍMITE, dicho: una sesión ya abierta conserva su token hasta que vence
+    (≤ 1 h); lo que ya no puede es renovarlo.
+    """
+    if not user_id:
+        raise HTTPException(status_code=400, detail="user_id requerido")
+    if user_id == admin.get("sub"):
+        raise HTTPException(status_code=400, detail="No podés anonimizarte a vos mismo")
+
+    supabase = get_supabase()
+    try:
+        filas = (supabase.table("users").select("display_name, email, is_admin")
+                 .eq("id", user_id).execute().data or [])
+    except Exception:  # noqa: BLE001
+        raise HTTPException(status_code=503, detail="No se pudo leer la cuenta; no se tocó nada")
+    if not filas:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    if filas[0].get("is_admin"):
+        raise HTTPException(status_code=409, detail="Es admin global: quitale el rol antes de anonimizarlo")
+    nombre_anterior = filas[0].get("display_name")
+    email = filas[0].get("email")
+
+    # 1. Bloquear: sin esto, anonimizar dejaría entrar a alguien sin nombre.
+    try:
+        supabase.auth.admin.update_user_by_id(user_id, {"ban_duration": BLOQUEO_PERMANENTE})
+    except Exception:  # noqa: BLE001
+        raise HTTPException(status_code=502, detail="No se pudo bloquear la cuenta en Auth: no se tocó nada. Intentá de nuevo.")
+
+    # 2. Datos personales en Auth. Un valor nulo en user_metadata borra la clave.
+    auth_datos = "borrados"
+    try:
+        supabase.auth.admin.update_user_by_id(user_id, {
+            "email": f"anonimizado-{user_id}@anonimizado.invalid",
+            "email_confirm": True,
+            "user_metadata": {"full_name": None, "name": None, "avatar_url": None,
+                              "picture": None, "display_name": None},
+        })
+    except Exception:  # noqa: BLE001
+        auth_datos = "sin-cambiar"
+
+    # 3. La base.
+    try:
+        res = supabase.rpc("anonimizar_usuario", {"p_user_id": user_id}).execute().data or {}
+    except Exception:  # noqa: BLE001
+        raise HTTPException(
+            status_code=502,
+            detail="La cuenta quedó BLOQUEADA pero no se pudo anonimizar su perfil. Intentá de nuevo: es seguro repetirlo.")
+
+    banned_email = None
+    if ban and email:
+        try:
+            supabase.table("banned_emails").upsert({
+                "email": _norm_email(email),
+                "reason": "Bloqueado al anonimizar la cuenta",
+                "banned_by": admin.get("sub"),
+            }).execute()
+            banned_email = _norm_email(email)
+        except Exception:  # noqa: BLE001
+            pass
+
+    return {
+        "status": "ok",
+        "anonymized": user_id,
+        "display_name": nombre_anterior,
+        "nuevo_nombre": res.get("nombre") if isinstance(res, dict) else None,
+        "auth_datos": auth_datos,
+        "banned_email": banned_email,
     }
 
 

@@ -1,6 +1,6 @@
 /* Admin: gestión de usuarios — editar, rol admin, ajuste de puntos, contraseña temporal y borrar */
 import { useState, useEffect } from 'react'
-import { Trash2, Loader2, ShieldCheck, ShieldOff, AlertTriangle, CheckCircle2, Search, Pencil, KeyRound, Save, X } from 'lucide-react'
+import { Trash2, Loader2, ShieldCheck, ShieldOff, AlertTriangle, CheckCircle2, Search, Pencil, KeyRound, Save, X, UserX } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 
@@ -108,6 +108,22 @@ export default function UserManagementAdmin() {
     } catch (err) { flash('error', err.message) } finally { setBusyId(null) }
   }
 
+  // Para quien no se puede borrar (pagó, creó una quiniela, votó o confirmó
+  // pagos): se bloquea la cuenta y se borran nombre, foto, correo y avisos,
+  // pero sus puntos, pagos y votos se quedan (migración 104).
+  const anonymize = async (u) => {
+    const name = u.display_name || u.id
+    if (!confirm(`¿Anonimizar a "${name}"?\n\nNo podrá volver a entrar. Se borran su nombre, foto, correo y avisos; sus predicciones, puntos, pagos y votos se quedan para que la Tabla y el pozo sigan cuadrando. No se puede deshacer.`)) return
+    const ban = confirm(`¿Bloquear también su correo?\n\nAceptar = NO podrá registrarse de nuevo con ese correo.\nCancelar = podría crear una cuenta nueva (vacía).`)
+    try {
+      setBusyId(u.id)
+      const res = await callAdmin('anonymize-user', { user_id: u.id, ban })
+      setUsers((prev) => prev.map((x) => x.id === u.id ? { ...x, display_name: res.nuevo_nombre || x.display_name } : x))
+      setEditingId(null)
+      flash('ok', `"${name}" anonimizado${res.banned_email ? ' y correo bloqueado' : ''}.${res.auth_datos === 'sin-cambiar' ? ' Ojo: el correo en Auth no se pudo cambiar (la cuenta sí quedó bloqueada).' : ''}`)
+    } catch (err) { flash('error', err.message) } finally { setBusyId(null) }
+  }
+
   const filtered = users.filter((u) => (u.display_name || '').toLowerCase().includes(search.toLowerCase()))
 
   return (
@@ -118,7 +134,7 @@ export default function UserManagementAdmin() {
         </div>
         <div>
           <h3 className="text-sm font-bold text-slate-900 dark:text-white">Gestión de usuarios</h3>
-          <p className="text-[11px] text-slate-500">Editar nombre, rol admin, ajustar puntos, contraseña temporal o borrar.</p>
+          <p className="text-[11px] text-slate-500">Editar nombre, rol admin, ajustar puntos, contraseña temporal, anonimizar o borrar.</p>
         </div>
       </div>
 
@@ -198,6 +214,11 @@ export default function UserManagementAdmin() {
                       <button onClick={() => tempPassword(u)} disabled={busy}
                         className="px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 bg-white/5 border border-white/10 text-slate-600 dark:text-slate-300 hover:bg-white/10 disabled:opacity-30">
                         <KeyRound size={13} /> Contraseña temporal
+                      </button>
+                      <button onClick={() => anonymize(u)} disabled={busy || isSelf || u.is_admin}
+                        title={isSelf ? 'No puedes anonimizarte a ti mismo' : u.is_admin ? 'Quitale el rol de admin antes' : 'Para quien no se puede borrar: bloquea la cuenta y borra sus datos personales'}
+                        className="px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 bg-rose-500/10 border border-rose-500/20 text-rose-500 hover:bg-rose-500/20 disabled:opacity-30">
+                        <UserX size={13} /> Anonimizar cuenta
                       </button>
                     </div>
                   </div>
