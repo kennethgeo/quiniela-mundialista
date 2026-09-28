@@ -131,3 +131,14 @@ def test_la_alerta_usa_la_misma_lista_que_la_recuperacion():
     assert "partidos_pendientes_de_puntaje()" in funcion, "una segunda definición de «pendiente»"
     assert "interval '20 hours'" in funcion
     assert "ON CONFLICT" in funcion, "el reclamo tiene que ser atómico"
+
+
+def test_si_el_envio_revienta_se_suelta_el_reclamo(monkeypatch):
+    """Auditoría 19: antes el reclamo quedaba anotado y la alerta callaba 20 h."""
+    async def revienta(*_a, **_k):
+        raise RuntimeError("proveedor caído")
+    monkeypatch.setattr(scoring, "broadcast_push_to_users", revienta)
+    db = FalsaBase([{"match_id": 7, "partido": "A vs B", "avisos": 1}])
+    r = _correr(scoring.alertar_puntajes_trabados(db))
+    assert r["enviados"] == 0 and "error" in r
+    assert ("soltar_alertas_de_puntaje", {"p_ids": [7]}) in db.llamadas

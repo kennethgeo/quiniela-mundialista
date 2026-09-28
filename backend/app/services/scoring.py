@@ -294,6 +294,13 @@ async def alertar_puntajes_trabados(supabase) -> dict:
             supabase, admins, "⚠️ Puntajes sin calcular", cuerpo, url="/admin") or 0
     except Exception as exc:  # noqa: BLE001
         _log.exception("No se pudo mandar la alerta de puntajes trabados")
+        # El aviso no salió: se suelta el reclamo para reintentar en la pasada
+        # siguiente, en vez de quedar callado 20 h (auditoría 19, migración 106).
+        try:
+            supabase.rpc("soltar_alertas_de_puntaje",
+                         {"p_ids": [f.get("match_id") for f in filas]}).execute()
+        except Exception:  # noqa: BLE001
+            _log.exception("Tampoco se pudo soltar el reclamo de la alerta")
         return {"partidos": [f.get("match_id") for f in filas], "enviados": 0,
                 "error": f"{type(exc).__name__}: {exc}"}
     if not enviados:

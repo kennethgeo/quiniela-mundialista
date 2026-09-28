@@ -20,7 +20,7 @@ import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import {
   soportaPush, activarPush, desactivarPush, guardarSuscripcion, swListo,
-  cuentaPidioAvisos, marcarAvisosDeCuenta,
+  cuentaPidioAvisos, marcarAvisosDeCuenta, registrada,
   urlBase64ToUint8Array, VAPID_PUBLIC_KEY, estadoPermiso, necesitaInstalarPrimero, cerrandoSesion,
 } from '../../lib/notificaciones'
 import { situacionAvisos, olvidarPospuesto } from '../../lib/avisoPush'
@@ -104,6 +104,17 @@ export default function PushNotificationToggle () {
         // tarjeta podía seguir diciendo «activados». Durante un cierre de
         // sesión no se toca nada (undécima auditoría).
         if (cerrandoSesion()) return
+        // Una suscripción viva que no es de esta cuenta y que esta cuenta no
+        // pidió es de otra persona: se da de baja, no se la apropia
+        // (auditoría 19). La propia (fila en la base) sigue como siempre.
+        if (profile?.id && !cuentaPidioAvisos(profile.id)) {
+          const mia = await registrada(profile.id, sub.endpoint).catch(() => false)
+          if (!mia) {
+            try { await sub.unsubscribe() } catch { /* se reintenta la próxima vez */ }
+            if (vigente) setIsSubscribed(false)
+            return
+          }
+        }
         if (profile?.id) {
           try {
             await guardarSuscripcion(profile.id, sub)

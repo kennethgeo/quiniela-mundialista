@@ -141,6 +141,9 @@ FROM unnest(ARRAY[
   'reclamar_alertas_de_puntaje',       -- 104, solo backend
   'anonimizar_usuario',                -- 104, solo backend
   'tope_de_dispositivos_push',         -- 105, función de trigger
+  'marcar_destape',                    -- 106, función de trigger
+  'cuenta_anonimizada',                -- 106, en la política de alta de push
+  'soltar_alertas_de_puntaje',         -- 106, solo backend
   'prediccion_modificada',
   'partidos_pendientes_de_puntaje'
 ]::text[]) x
@@ -253,6 +256,9 @@ WHERE n.nspname = 'public'
   'reclamar_alertas_de_puntaje',       -- 104, solo backend
   'anonimizar_usuario',                -- 104, solo backend
   'tope_de_dispositivos_push',         -- 105, función de trigger
+  'marcar_destape',                    -- 106, función de trigger
+  'cuenta_anonimizada',                -- 106, en la política de alta de push
+  'soltar_alertas_de_puntaje',         -- 106, solo backend
   'prediccion_modificada',
   'partidos_pendientes_de_puntaje'
 ]::text[])
@@ -698,7 +704,11 @@ ORDER BY a.ultimo_aviso_at DESC;
 SELECT u.id, u.anonimizado_at, a.banned_until
 FROM public.users u JOIN auth.users a ON a.id = u.id
 WHERE u.anonimizado_at IS NOT NULL
-  AND (a.banned_until IS NULL OR a.banned_until < now());
+  AND (a.banned_until IS NULL OR a.banned_until < now()
+       -- 106: tampoco puede haber recuperado su identidad ni sus avisos
+       OR u.display_name NOT LIKE 'Ex-miembro %' OR u.avatar_url IS NOT NULL
+       OR EXISTS (SELECT 1 FROM public.push_subscriptions p WHERE p.user_id = u.id)
+       OR a.raw_user_meta_data ? 'email');
 
 \echo '=== 23. Jornadas de liga con un tamaño raro (reparten mal el cupo de ×2) ==='
 -- Auditoría del 28 sep 2026. La jornada sale de una heurística del sync
@@ -740,3 +750,12 @@ WHERE schemaname = 'public'
 SELECT id, user_id, substring(endpoint FROM '^(https?://[^/]+)') AS host
 FROM public.push_subscriptions
 WHERE endpoint !~ '^https://((fcm|android)\.googleapis\.com|updates\.push\.services\.mozilla\.com|([a-z0-9-]+\.)*push\.apple\.com|[a-z0-9-]+\.notify\.windows\.com)/';
+
+\echo '=== 26. Saques movidos después del destape (106) ==='
+-- Un partido destapado cuyo saque se atrasó: las predicciones quedaron
+-- cerradas (bien), pero conviene saber cuándo pasa. Informativo.
+SELECT a.match_id, m.home_team || ' vs ' || m.away_team AS partido, a.valor_antes, a.valor_despues,
+       a.changed_by IS NULL AS lo_movio_el_sync, a.changed_at
+FROM public.match_audit a JOIN public.matches m ON m.id = a.match_id
+WHERE a.campo = 'saque' AND m.destapado_at IS NOT NULL AND a.changed_at >= m.destapado_at
+ORDER BY a.changed_at DESC;

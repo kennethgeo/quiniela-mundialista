@@ -3,7 +3,7 @@ import { createContext, useContext, useState, useEffect, useCallback } from 'rea
 import { supabase } from '../lib/supabase'
 import { crearCargaDePerfil } from '../lib/cargaDePerfil'
 import { conLimite, describirFallo, registrarIntento } from '../lib/loginResiliente'
-import { olvidarDispositivo, bajaSinSesion, PRESUPUESTO_CIERRE_MS } from '../lib/notificaciones'
+import { olvidarDispositivo, bajaSinSesion, PRESUPUESTO_CIERRE_MS, marcarConservarAvisos, olvidarMarcaConservar } from '../lib/notificaciones'
 
 const AuthContext = createContext(null)
 
@@ -153,7 +153,7 @@ export function AuthProvider({ children }) {
   /**
    * Cierra la sesión actual
    */
-  const signOut = useCallback(async () => {
+  const signOut = useCallback(async ({ olvidarAvisos = true } = {}) => {
     // Antes de perder la sesión (la RLS la necesita para borrar la fila):
     // este dispositivo deja de recibir los avisos de esta cuenta.
     // Con UN presupuesto para todo el preámbulo (undécima auditoría): si
@@ -164,6 +164,7 @@ export function AuthProvider({ children }) {
     let vigente = true
     const sigueVigente = () => vigente
     const preambulo = (async () => {
+      if (!olvidarAvisos) return
       const { data } = await supabase.auth.getSession().catch(() => ({ data: null }))
       if (!vigente) return
       await olvidarDispositivo(data?.session?.user?.id, sigueVigente)
@@ -224,6 +225,7 @@ export function AuthProvider({ children }) {
         hayUsuario = !!currentUser
         asignarUsuario(currentUser)
 
+        if (event === 'SIGNED_IN') olvidarMarcaConservar()
         if (currentUser && (['INITIAL_SESSION', 'SIGNED_IN', 'TOKEN_REFRESHED', 'USER_UPDATED'].includes(event))) {
           fetchProfile(currentUser.id).catch(err => console.error('Error cargando perfil en evento:', err))
         }
@@ -258,7 +260,10 @@ export function AuthProvider({ children }) {
       inactivityTimer = setTimeout(() => {
         if (user) {
           console.log('Sesión expirada por inactividad')
-          signOut()
+          // No elegiste salir: los avisos de este dispositivo se quedan
+          // (auditoría 19). Si entra otra cuenta, los da de baja ella.
+          marcarConservarAvisos()
+          signOut({ olvidarAvisos: false })
         }
       }, 86400000)
     }

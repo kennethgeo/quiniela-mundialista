@@ -230,6 +230,7 @@ async function suscritoEnElNavegador (page) {
           pushManager: {
             getSubscription: async () => ({
               endpoint: 'https://ejemplo/x',
+              unsubscribe: async () => { window.__bajaNavegador = true; return true },
               toJSON: () => ({ endpoint: 'https://ejemplo/x', keys: { p256dh: 'a', auth: 'b' } }),
             }),
           },
@@ -253,6 +254,8 @@ test('suscrito en el navegador y sin fila en la base que se pueda guardar: se of
 test('suscrito en el navegador y sin fila, pero se puede guardar: se sana solo y no insiste', async ({ page }) => {
   await montar(page, 'granted')
   await suscritoEnElNavegador(page)
+  // La cuenta los activó en este dispositivo (auditoría 19): solo así se sana sola.
+  await page.addInitScript((id) => localStorage.setItem(`avisosPush:activos:${id}`, '1'), USUARIO.id)
   let insertados = 0
   await page.route('**://pruebas.supabase.co/rest/v1/push_subscriptions**', (route) => {
     if (route.request().method() === 'POST') insertados++
@@ -290,4 +293,21 @@ test('mientras OTRA pestaña cierra sesión, el Hub no vuelve a registrar el dis
   await page.goto('/')
   await expect(aviso(page)).toBeVisible({ timeout: 10000 })
   expect(insertados).toBe(0)
+})
+
+/* Auditoría 19: el Hub no se apropia de una suscripción que no es de esta
+   cuenta ni la pidió esta cuenta (celular compartido): la da de baja, no la
+   registra a su nombre, y ofrece activar. */
+test('suscripción ajena en el navegador: el Hub la da de baja y no la registra', async ({ page }) => {
+  await montar(page, 'granted')
+  await suscritoEnElNavegador(page)
+  let insertados = 0
+  await page.route('**://pruebas.supabase.co/rest/v1/push_subscriptions**', (route) => {
+    if (route.request().method() === 'POST') insertados++
+    return route.fulfill({ status: route.request().method() === 'POST' ? 201 : 200, contentType: 'application/json', body: '[]' })
+  })
+  await page.goto('/')
+  await expect(aviso(page)).toBeVisible({ timeout: 10000 })
+  expect(insertados).toBe(0)
+  expect(await page.evaluate(() => window.__bajaNavegador === true)).toBe(true)
 })

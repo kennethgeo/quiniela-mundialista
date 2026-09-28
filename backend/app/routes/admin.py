@@ -338,8 +338,10 @@ async def anonymize_user(
         supabase.auth.admin.update_user_by_id(user_id, {
             "email": f"anonimizado-{user_id}@anonimizado.invalid",
             "email_confirm": True,
+            # El correo también: el alta por correo lo guarda en los metadatos
+            # (auditoría 19). La base además los limpia en `anonimizar_usuario`.
             "user_metadata": {"full_name": None, "name": None, "avatar_url": None,
-                              "picture": None, "display_name": None},
+                              "picture": None, "display_name": None, "email": None},
         })
     except Exception:  # noqa: BLE001
         auth_datos = "sin-cambiar"
@@ -353,6 +355,7 @@ async def anonymize_user(
             detail="La cuenta quedó BLOQUEADA pero no se pudo anonimizar su perfil. Intentá de nuevo: es seguro repetirlo.")
 
     banned_email = None
+    ban_error = None
     if ban and email:
         try:
             supabase.table("banned_emails").upsert({
@@ -362,7 +365,12 @@ async def anonymize_user(
             }).execute()
             banned_email = _norm_email(email)
         except Exception:  # noqa: BLE001
-            pass
+            # Después de anonimizar el correo original ya no está en ningún
+            # lado: un reintento no podría vetarlo. Se dice, en vez de callarlo.
+            ban_error = ("No se pudo bloquear el correo original. Anotalo y agregalo "
+                         "a mano en «Correos vetados»: ya no queda guardado en la app.")
+    elif ban and not email:
+        ban_error = "La cuenta no tenía correo guardado: no se pudo bloquear."
 
     return {
         "status": "ok",
@@ -371,6 +379,7 @@ async def anonymize_user(
         "nuevo_nombre": res.get("nombre") if isinstance(res, dict) else None,
         "auth_datos": auth_datos,
         "banned_email": banned_email,
+        "ban_error": ban_error,
     }
 
 

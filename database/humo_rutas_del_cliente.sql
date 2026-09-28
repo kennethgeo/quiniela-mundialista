@@ -66,6 +66,14 @@
 -- edita partidos ni lee `email`; el SELECT de AuthContext trae su fila; y lo
 -- de la 104/105 (funciones de backend, bitácora de predicciones, push, chat).
 --
+-- VERSIÓN 12 (28 sep 2026), auditoría 19: el ×2 prueba el BORDE exacto (entran
+-- cupo + créditos − usados, el siguiente da el mensaje del trigger; sin datos
+-- es ✗, no ✓); crear quiniela CON reglas; retirar el aviso de pago; confirmar
+-- afirma quién y en qué moneda; reglas y puntaje se GUARDAN en un torneo sin
+-- empezar; una votación llega a mayoría y se APLICA; las RPC de la quiniela
+-- rechazan a alguien de afuera con su mensaje; y atrasar el saque después del
+-- destape no reabre la edición (106).
+--
 -- CÓMO SE USA: antes y después de cada migración, y como ENSAYO (la migración
 -- sin BEGIN/COMMIT + esta prueba, en un solo envío: el RAISE final revierte
 -- todo). Una línea con ✗ se mira ANTES de seguir.
@@ -86,6 +94,7 @@ DECLARE
   e_tabla jsonb; e_ranking jsonb; e_liga jsonb; e_cupos jsonb; e_fases text[];
   e_cupos_set text[]; e_fases_set text[]; e_creditos_set text[]; e_ranking_set text[];
   v_x2 int[];
+  v_liga_nueva uuid; v_tid_nuevo int; v_necesarios int; v_votos int; v_votantes uuid[]; v_u uuid;
   r text := E'\n';
   ok int := 0; mal int := 0;
 BEGIN
@@ -465,45 +474,45 @@ BEGIN
     IF sqlerrm = 'HUMO_OK' THEN r := r || E'✓ tablas directas: push, chat, ajustes, jugadores, bitácora, estadísticas, perfil\n'; ok := ok + 1;
     ELSE r := r || '✗ tablas directas: ' || sqlerrm || E'\n'; mal := mal + 1; END IF; END;
 
-  BEGIN  -- (v11) prender un ×2 de verdad: ningún paso mandaba use_powerup_x2 = true
+  -- ===== P7 ×2 en el BORDE: exactamente los lugares libres pasan, uno más no
+  PERFORM set_config('request.jwt.claims', json_build_object('sub', v_socio, 'role','authenticated')::text, true);
+  BEGIN
     RESET ROLE;
     SELECT public.llave_cupo(v_m1) INTO st;
     SELECT c.usados, c.creditos INTO a1, a2 FROM public._x2_cuenta(v_socio, v_liga, st, NULL) c;
-    n := public.cupo_powerups(v_liga, v_m1) + a2 - a1;   -- lugares libres en la jornada de v_m1
-    SELECT array_agg(m.id ORDER BY m.kickoff_at) INTO v_x2
-      FROM public.matches m
+    n := public.cupo_powerups(v_liga, v_m1) + a2 - a1;
+    SELECT array_agg(m.id ORDER BY m.kickoff_at) INTO v_x2 FROM public.matches m
      WHERE m.tournament_id = v_tid AND public.llave_cupo(m.id) = st
        AND m.kickoff_at - interval '15 minutes' > now() AND m.status = 'pending'
        AND NOT EXISTS (SELECT 1 FROM public.predictions p WHERE p.match_id = m.id AND p.user_id = v_socio
                         AND p.league_id = v_liga AND p.use_powerup_x2);
     SET LOCAL ROLE authenticated;
-    IF n > 0 AND coalesce(array_length(v_x2, 1), 0) > 0 THEN
+    -- sin lugar libre o sin un partido más que lugares, el paso no prueba el borde: ✗, no ✓
+    IF n <= 0 OR a2 = 0 OR coalesce(array_length(v_x2, 1), 0) <= n THEN
+      RAISE EXCEPTION 'sin datos para el borde (libres %, créditos %, abiertos %)', n, a2, coalesce(array_length(v_x2, 1), 0); END IF;
+    INSERT INTO public.predictions (user_id,league_id,match_id,prediction_type,home_goals_pred,away_goals_pred,penalties_winner_pred,use_powerup_x2)
+    SELECT v_socio, v_liga, v_x2[i], 'Marcador', 1, 0, NULL, true FROM generate_series(1, n) i
+    ON CONFLICT (user_id,league_id,match_id) DO UPDATE SET user_id=excluded.user_id, league_id=excluded.league_id,
+      match_id=excluded.match_id, prediction_type=excluded.prediction_type, home_goals_pred=excluded.home_goals_pred,
+      away_goals_pred=excluded.away_goals_pred, penalties_winner_pred=excluded.penalties_winner_pred,
+      use_powerup_x2=excluded.use_powerup_x2;
+    SELECT count(*) INTO a1 FROM public.predictions WHERE user_id = v_socio AND league_id = v_liga
+       AND match_id = ANY (v_x2[1:n]) AND use_powerup_x2;
+    IF a1 <> n THEN RAISE EXCEPTION 'quedaron % de % ×2 dentro del cupo', a1, n; END IF;
+    BEGIN
       INSERT INTO public.predictions (user_id,league_id,match_id,prediction_type,home_goals_pred,away_goals_pred,penalties_winner_pred,use_powerup_x2)
-      VALUES (v_socio, v_liga, v_x2[1], 'Marcador', 1, 0, NULL, true)
-      ON CONFLICT (user_id,league_id,match_id) DO UPDATE SET user_id=excluded.user_id, league_id=excluded.league_id,
-        match_id=excluded.match_id, prediction_type=excluded.prediction_type, home_goals_pred=excluded.home_goals_pred,
-        away_goals_pred=excluded.away_goals_pred, penalties_winner_pred=excluded.penalties_winner_pred,
-        use_powerup_x2=excluded.use_powerup_x2;
-      IF NOT (SELECT use_powerup_x2 FROM public.predictions WHERE user_id = v_socio AND league_id = v_liga
-               AND match_id = v_x2[1]) THEN
-        RAISE EXCEPTION 'el ×2 dentro del cupo no quedó prendido'; END IF;
-    END IF;
-    -- pasarse: prender en TODOS los demás abiertos de esa jornada
-    IF coalesce(array_length(v_x2, 1), 0) > GREATEST(n, 0) THEN
-      BEGIN
-        INSERT INTO public.predictions (user_id,league_id,match_id,prediction_type,home_goals_pred,away_goals_pred,penalties_winner_pred,use_powerup_x2)
-        SELECT v_socio, v_liga, px.mid, 'Marcador', 1, 0, NULL, true FROM unnest(v_x2) AS px(mid)
-        ON CONFLICT (user_id,league_id,match_id) DO UPDATE SET use_powerup_x2 = excluded.use_powerup_x2;
-        RAISE EXCEPTION 'HUMO_PASADO';
-      EXCEPTION WHEN others THEN
-        IF sqlerrm = 'HUMO_PASADO' THEN RAISE EXCEPTION 'se guardaron más ×2 que el cupo (%)', n; END IF;
-        IF sqlerrm NOT LIKE 'Límite de comodines x2 alcanzado%' THEN RAISE; END IF;
-      END;
-    END IF;
+      VALUES (v_socio, v_liga, v_x2[n + 1], 'Marcador', 1, 0, NULL, true)
+      ON CONFLICT (user_id,league_id,match_id) DO UPDATE SET use_powerup_x2 = excluded.use_powerup_x2;
+      RAISE EXCEPTION 'HUMO_PASADO';
+    EXCEPTION WHEN others THEN
+      IF sqlerrm = 'HUMO_PASADO' THEN RAISE EXCEPTION 'el ×2 número % entró con % lugares', n + 1, n; END IF;
+      IF sqlerrm <> 'Límite de comodines x2 alcanzado para esta jornada.' THEN RAISE; END IF;
+    END;
     RAISE EXCEPTION 'HUMO_OK';
   EXCEPTION WHEN others THEN
-    IF sqlerrm = 'HUMO_OK' THEN r := r || E'✓ prender un ×2 dentro del cupo; pasarse lo rechaza el trigger\n'; ok := ok + 1;
-    ELSE r := r || '✗ ×2: ' || sqlerrm || E'\n'; mal := mal + 1; END IF; END;
+    IF sqlerrm = 'HUMO_OK' THEN r := r || E'✓ ×2: entran exactamente cupo + créditos, el siguiente no\n'; ok := ok + 1;
+    ELSE r := r || '✗ ×2 en el borde: ' || sqlerrm || E'\n'; mal := mal + 1; END IF;
+    SET LOCAL ROLE authenticated; END;
 
   BEGIN  -- (v11) AuthContext: el SELECT exacto del perfil trae SU fila; `email` no se lee
     SELECT count(*) INTO n FROM (SELECT id, display_name, avatar_url, total_points, points_adjustment,
@@ -742,6 +751,170 @@ BEGIN
       IF sqlerrm = 'HUMO_OK' THEN r := r || E'✓ admin global: anuncio, correos vetados, resultado\n'; ok := ok + 1;
       ELSE r := r || '✗ admin global: ' || sqlerrm || E'\n'; mal := mal + 1; END IF; END;
   END IF;
+
+  PERFORM set_config('request.jwt.claims', json_build_object('sub', v_ajeno, 'role','authenticated')::text, true);
+  BEGIN
+    SELECT * INTO fila FROM public.create_group('  humo  ', v_tid, E'  Reglas humo\n1. nada  ');
+    IF fila.id IS NULL THEN RAISE EXCEPTION 'no devolvió la quiniela'; END IF;
+    IF (fila.name, fila.admin_id, fila.tournament_id, fila.rules)
+       IS DISTINCT FROM ('humo'::text, v_ajeno, v_tid, E'Reglas humo\n1. nada'::text) THEN
+      RAISE EXCEPTION 'la fila devuelta no trae nombre/creador/torneo/reglas enviados (reglas: %)', left(fila.rules, 30); END IF;
+    IF fila.invitation_code !~ '^[0-9A-F]{6}$' THEN RAISE EXCEPTION 'código raro: %', fila.invitation_code; END IF;
+    SELECT count(*) INTO n FROM public.leagues WHERE id = fila.id AND rules = E'Reglas humo\n1. nada';
+    IF n <> 1 THEN RAISE EXCEPTION 'las reglas no quedaron en la quiniela'; END IF;
+    SELECT rules_accepted_at INTO t FROM public.league_members WHERE league_id = fila.id AND user_id = v_ajeno;
+    IF t IS NULL THEN RAISE EXCEPTION 'el creador no quedó dentro con las reglas aceptadas'; END IF;
+    RAISE EXCEPTION 'HUMO_OK';
+  EXCEPTION WHEN others THEN
+    IF sqlerrm = 'HUMO_OK' THEN r := r || E'✓ crear una quiniela CON reglas\n'; ok := ok + 1;
+    ELSE r := r || '✗ crear con reglas: ' || sqlerrm || E'\n'; mal := mal + 1; END IF; END;
+
+  -- ===== P2 avisar_pago(false): parte CON aviso
+  PERFORM set_config('request.jwt.claims', json_build_object('sub', v_socio, 'role','authenticated')::text, true);
+  BEGIN
+    RESET ROLE;
+    UPDATE public.league_members SET pago_avisado_at = now() - interval '1 day' WHERE league_id = v_liga AND user_id = v_socio;
+    SET LOCAL ROLE authenticated;
+    PERFORM public.avisar_pago(v_liga, false);
+    SELECT pago_avisado_at INTO t FROM public.league_members WHERE league_id = v_liga AND user_id = v_socio;
+    IF t IS NOT NULL THEN RAISE EXCEPTION 'retirar el aviso no lo quitó'; END IF;
+    RAISE EXCEPTION 'HUMO_OK';
+  EXCEPTION WHEN others THEN
+    IF sqlerrm = 'HUMO_OK' THEN r := r || E'✓ retirar el aviso de pago\n'; ok := ok + 1;
+    ELSE r := r || '✗ retirar aviso: ' || sqlerrm || E'\n'; mal := mal + 1; END IF;
+    SET LOCAL ROLE authenticated; END;
+
+  -- ===== P3 confirmar_pago: quién, cuánto y en qué moneda; y sus dos rechazos
+  PERFORM set_config('request.jwt.claims', json_build_object('sub', v_creador, 'role','authenticated')::text, true);
+  BEGIN
+    PERFORM public.confirmar_pago(v_liga, v_socio, true);
+    RESET ROLE;
+    SELECT (pago_confirmado_at IS NOT NULL, pago_confirmado_por, pago_confirmado_monto, pago_confirmado_moneda)::text INTO st
+      FROM public.league_members WHERE league_id = v_liga AND user_id = v_socio;
+    SET LOCAL ROLE authenticated;
+    IF st IS DISTINCT FROM (true, v_creador, v_cuota, COALESCE(v_moneda, 'CRC'))::text THEN
+      RAISE EXCEPTION 'la confirmación quedó como % y tenía que ser (t,creador,cuota,moneda)', st; END IF;
+    BEGIN PERFORM public.confirmar_pago(v_liga, v_creador, true); RAISE EXCEPTION 'HUMO_ABIERTO';
+    EXCEPTION WHEN others THEN IF sqlerrm <> 'No podés confirmar tu propio pago' THEN RAISE EXCEPTION 'propio: %', sqlerrm; END IF; END;
+    PERFORM set_config('request.jwt.claims', json_build_object('sub', v_socio, 'role','authenticated')::text, true);
+    BEGIN PERFORM public.confirmar_pago(v_liga, v_creador, true); RAISE EXCEPTION 'HUMO_ABIERTO';
+    EXCEPTION WHEN others THEN IF sqlerrm <> 'Solo un administrador puede confirmar pagos' THEN RAISE EXCEPTION 'no admin: %', sqlerrm; END IF; END;
+    RAISE EXCEPTION 'HUMO_OK';
+  EXCEPTION WHEN others THEN
+    IF sqlerrm = 'HUMO_OK' THEN r := r || E'✓ confirmar pago: autor, monto y moneda; ni el propio ni un no-admin\n'; ok := ok + 1;
+    ELSE r := r || '✗ confirmar pago: ' || sqlerrm || E'\n'; mal := mal + 1; END IF;
+    SET LOCAL ROLE authenticated; END;
+
+  -- ===== P4 reglas y puntaje SE GUARDAN con el torneo sin empezar
+  -- No hay torneo con quiniela sin arrancar: se arma uno SIN partidos (se revierte).
+  BEGIN
+    RESET ROLE;
+    INSERT INTO public.tournaments (name, kind, status, source) VALUES ('humo', 'league', 'upcoming', 'manual') RETURNING id INTO v_tid_nuevo;
+    INSERT INTO public.leagues (name, invitation_code, admin_id, tournament_id)
+    VALUES ('humo-sin-empezar', upper(substr(md5(random()::text), 1, 6)), v_creador, v_tid_nuevo) RETURNING id INTO v_liga_nueva;
+    INSERT INTO public.league_members (league_id, user_id, rules_accepted_at)
+    VALUES (v_liga_nueva, v_creador, now()), (v_liga_nueva, v_socio, now());
+    IF public.group_tournament_started(v_liga_nueva) THEN RAISE EXCEPTION 'el torneo nuevo figura empezado'; END IF;
+    SET LOCAL ROLE authenticated;
+    PERFORM set_config('request.jwt.claims', json_build_object('sub', v_creador, 'role','authenticated')::text, true);
+    PERFORM public.set_group_rules(v_liga_nueva, '  reglas humo nuevas  ');
+    SELECT rules INTO st FROM public.leagues WHERE id = v_liga_nueva;
+    IF st IS DISTINCT FROM 'reglas humo nuevas' THEN RAISE EXCEPTION 'las reglas no quedaron (%)', left(st, 30); END IF;
+    RESET ROLE;
+    SELECT rules_accepted_at INTO t FROM public.league_members WHERE league_id = v_liga_nueva AND user_id = v_socio;
+    SET LOCAL ROLE authenticated;
+    IF t IS NOT NULL THEN RAISE EXCEPTION 'cambiar las reglas no le pidió al grupo volver a aceptarlas'; END IF;
+    PERFORM public.set_group_scoring(v_liga_nueva, 5, 2, 10, 11, 3, 13, 4);
+    SELECT (points_exact, points_correct, champion_points, scorer_points, powerup_limit, assist_points, powerup_por_partidos)::text
+      INTO st FROM public.leagues WHERE id = v_liga_nueva;
+    IF st IS DISTINCT FROM '(5,2,10,11,3,13,4)' THEN RAISE EXCEPTION 'el puntaje quedó %', st; END IF;
+    PERFORM set_config('request.jwt.claims', json_build_object('sub', v_socio, 'role','authenticated')::text, true);
+    BEGIN PERFORM public.set_group_rules(v_liga_nueva, 'x'); RAISE EXCEPTION 'HUMO_ABIERTO';
+    EXCEPTION WHEN others THEN IF sqlerrm <> 'Solo un administrador puede editar las reglas' THEN RAISE EXCEPTION 'miembro edita reglas: %', sqlerrm; END IF; END;
+    RAISE EXCEPTION 'HUMO_OK';
+  EXCEPTION WHEN others THEN
+    IF sqlerrm = 'HUMO_OK' THEN r := r || E'✓ reglas y puntaje se guardan con el torneo sin empezar (y un miembro no)\n'; ok := ok + 1;
+    ELSE r := r || '✗ reglas/puntaje sin empezar: ' || sqlerrm || E'\n'; mal := mal + 1; END IF;
+    SET LOCAL ROLE authenticated; END;
+
+  -- ===== P5 votación llevada a MAYORÍA: se aplica justo al pasar la mitad del padrón
+  PERFORM set_config('request.jwt.claims', json_build_object('sub', v_creador, 'role','authenticated')::text, true);
+  BEGIN
+    v_prop := public.propose_rule_change(v_liga, 'scoring',
+                jsonb_build_object('points_exact', v_pe + 1, 'powerup_por_partidos', 7), 'humo');
+    v_necesarios := v_miembros / 2 + 1;          -- sí * 2 > padrón
+    v_votos := 1;                                -- el voto del que propone
+    RESET ROLE;   -- el padrón no lo lee el cliente
+    SELECT array_agg(e.user_id ORDER BY e.user_id) INTO v_votantes FROM public.rule_proposal_electores e
+     WHERE e.proposal_id = v_prop AND e.user_id <> v_creador;
+    IF (SELECT count(*) FROM public.rule_proposal_electores WHERE proposal_id = v_prop) <> v_miembros THEN
+      RAISE EXCEPTION 'el padrón guardado no es la membresía'; END IF;
+    SET LOCAL ROLE authenticated;
+    FOREACH v_u IN ARRAY v_votantes LOOP
+      EXIT WHEN v_votos >= v_necesarios;
+      SELECT status INTO st FROM public.league_proposals(v_liga) WHERE id = v_prop;
+      IF st IS DISTINCT FROM 'open' THEN RAISE EXCEPTION 'se cerró (%) con % de % votos', st, v_votos, v_necesarios; END IF;
+      PERFORM set_config('request.jwt.claims', json_build_object('sub', v_u, 'role','authenticated')::text, true);
+      PERFORM public.cast_rule_vote(v_prop, true);
+      v_votos := v_votos + 1;
+      PERFORM set_config('request.jwt.claims', json_build_object('sub', v_creador, 'role','authenticated')::text, true);
+    END LOOP;
+    SELECT status INTO st FROM public.league_proposals(v_liga) WHERE id = v_prop;
+    IF st IS DISTINCT FROM 'approved' THEN RAISE EXCEPTION 'con % sí de % el estado es %', v_votos, v_miembros, st; END IF;
+    SELECT (points_exact, powerup_por_partidos)::text INTO st FROM public.leagues WHERE id = v_liga;
+    IF st IS DISTINCT FROM (v_pe + 1, 7)::text THEN RAISE EXCEPTION 'aprobada pero no aplicada: %', st; END IF;
+    RAISE EXCEPTION 'HUMO_OK';
+  EXCEPTION WHEN others THEN
+    IF sqlerrm = 'HUMO_OK' THEN r := r || E'✓ votación aprobada por mayoría del padrón y aplicada\n'; ok := ok + 1;
+    ELSE r := r || '✗ votación a mayoría: ' || sqlerrm || E'\n'; mal := mal + 1; END IF;
+    PERFORM set_config('request.jwt.claims', json_build_object('sub', v_creador, 'role','authenticated')::text, true); END;
+
+  -- ===== P6 las RPC de la quiniela, llamadas por alguien de AFUERA: cada una con SU rechazo
+  PERFORM set_config('request.jwt.claims', json_build_object('sub', v_ajeno, 'role','authenticated')::text, true);
+  BEGIN
+    BEGIN j := public.league_pozo(v_liga); RAISE EXCEPTION 'HUMO_ABIERTO pozo';
+    EXCEPTION WHEN others THEN IF sqlerrm <> 'No sos miembro de esta quiniela' THEN RAISE EXCEPTION 'league_pozo: %', sqlerrm; END IF; END;
+    BEGIN PERFORM * FROM public.league_miembros(v_liga); RAISE EXCEPTION 'HUMO_ABIERTO miembros';
+    EXCEPTION WHEN others THEN IF sqlerrm <> 'No sos miembro de esta quiniela' THEN RAISE EXCEPTION 'league_miembros: %', sqlerrm; END IF; END;
+    BEGIN PERFORM * FROM public.group_standings(v_liga); RAISE EXCEPTION 'HUMO_ABIERTO tabla';
+    EXCEPTION WHEN others THEN IF sqlerrm <> 'No sos miembro de este grupo' THEN RAISE EXCEPTION 'group_standings: %', sqlerrm; END IF; END;
+    BEGIN j := public.perfil_en_quiniela(v_liga, v_socio); RAISE EXCEPTION 'HUMO_ABIERTO perfil';
+    EXCEPTION WHEN others THEN IF sqlerrm <> 'No sos miembro de esta quiniela' THEN RAISE EXCEPTION 'perfil_en_quiniela: %', sqlerrm; END IF; END;
+    BEGIN j := public.league_jornadas(v_liga); RAISE EXCEPTION 'HUMO_ABIERTO jornadas';
+    EXCEPTION WHEN others THEN IF sqlerrm <> 'No sos miembro de esta quiniela' THEN RAISE EXCEPTION 'league_jornadas: %', sqlerrm; END IF; END;
+    BEGIN PERFORM * FROM public.quiniela_por_id(v_liga); RAISE EXCEPTION 'HUMO_ABIERTO quiniela';
+    EXCEPTION WHEN others THEN IF sqlerrm <> 'No tenés acceso a esta quiniela' THEN RAISE EXCEPTION 'quiniela_por_id: %', sqlerrm; END IF; END;
+    RAISE EXCEPTION 'HUMO_OK';
+  EXCEPTION WHEN others THEN
+    IF sqlerrm = 'HUMO_OK' THEN r := r || E'✓ pozo, miembros, Tabla, perfil, jornadas y quiniela: cerrados a quien no es miembro\n'; ok := ok + 1;
+    ELSE r := r || '✗ RPC de quiniela para un ajeno: ' || sqlerrm || E'\n'; mal := mal + 1; END IF; END;
+
+  -- ===== (106) atrasar el saque después del destape NO reabre la edición
+  BEGIN
+    RESET ROLE;
+    UPDATE public.matches SET kickoff_at = now() + interval '10 minutes' WHERE id = v_m2;
+    UPDATE public.matches SET kickoff_at = now() + interval '5 days' WHERE id = v_m2;
+    IF (SELECT destapado_at FROM public.matches WHERE id = v_m2) IS NULL THEN
+      RAISE EXCEPTION 'el destape no quedó marcado'; END IF;
+    INSERT INTO public.predictions (user_id, league_id, match_id, prediction_type, home_goals_pred, away_goals_pred)
+    VALUES (v_socio, v_liga, v_m2, 'Marcador', 1, 0) ON CONFLICT (user_id, league_id, match_id) DO NOTHING;
+    SET LOCAL ROLE authenticated;
+    PERFORM set_config('request.jwt.claims', json_build_object('sub', v_socio, 'role','authenticated')::text, true);
+    UPDATE public.predictions SET home_goals_pred = (home_goals_pred + 1) % 10
+     WHERE user_id = v_socio AND league_id = v_liga AND match_id = v_m2;
+    GET DIAGNOSTICS n = ROW_COUNT;
+    IF n <> 0 THEN RAISE EXCEPTION 'se editó una predicción con el partido ya destapado'; END IF;
+    BEGIN
+      INSERT INTO public.predictions (user_id,league_id,match_id,prediction_type,home_goals_pred,away_goals_pred,penalties_winner_pred,use_powerup_x2)
+      VALUES (v_socio, v_liga, v_m2, 'Marcador', 7, 7, NULL, false)
+      ON CONFLICT (user_id, league_id, match_id) DO UPDATE SET home_goals_pred = excluded.home_goals_pred;
+      RAISE EXCEPTION 'HUMO_ABIERTO';
+    EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+    RAISE EXCEPTION 'HUMO_OK';
+  EXCEPTION WHEN others THEN
+    IF sqlerrm = 'HUMO_OK' THEN r := r || E'✓ saque atrasado tras el destape: la predicción sigue cerrada\n'; ok := ok + 1;
+    ELSE r := r || '✗ destape: ' || sqlerrm || E'\n'; mal := mal + 1; END IF;
+    SET LOCAL ROLE authenticated; END;
 
   -- ================================================ REGLAS QUE RECHAZAN A PROPÓSITO
   -- Cuentan solo si el rechazo es ESE: con otro mensaje es un fallo distinto.
