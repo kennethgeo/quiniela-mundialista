@@ -130,9 +130,19 @@ export async function avisosActivos (userId) {
   const sub = await suscripcionLocal()
   if (!sub || !userId) return false
   try {
-    if (await registrada(userId, sub.endpoint)) return true
+    if (await registrada(userId, sub.endpoint)) {
+      marcarAvisosDeCuenta(userId, true)
+      return true
+    }
     // Durante un cierre de sesión no se re-registra nada (undécima auditoría).
     if (cerrandoSesion()) return false
+    // Una suscripción que no es de esta cuenta y que esta cuenta no pidió es de
+    // OTRA persona (celular compartido): se da de baja, no se la apropia
+    // (auditoría 19). Sin suscripción, el backend ya no le escribe a la otra.
+    if (!cuentaPidioAvisos(userId)) {
+      try { await sub.unsubscribe() } catch { /* se reintenta la próxima vez */ }
+      return false
+    }
     await guardarSuscripcion(userId, sub)
     return true
   } catch {
@@ -209,6 +219,24 @@ export async function activarPush (userId) {
      pueden impedir que después se cierre la sesión.
    Después se puede volver a activar a mano sin problema: la marca no frena
    `activarPush`, solo las altas automáticas. */
+/* Cierre por INACTIVIDAD (auditoría 19): la persona no eligió salir, y el
+   resumen de las 6 am es justo lo que la trae de vuelta. Ese cierre no da de
+   baja el dispositivo, y esta marca le avisa a `bajaSinSesion` que la
+   suscripción que quedó es de quien se durmió, no de alguien que se fue. Si
+   después entra OTRA cuenta, `avisosActivos`/el Perfil la ven ajena y la dan
+   de baja. Se borra al entrar. */
+export const CLAVE_CONSERVAR = 'avisosPush:conservarTrasInactividad'
+
+export function marcarConservarAvisos () {
+  try { localStorage.setItem(CLAVE_CONSERVAR, '1') } catch { /* modo privado */ }
+}
+export function olvidarMarcaConservar () {
+  try { localStorage.removeItem(CLAVE_CONSERVAR) } catch { /* modo privado */ }
+}
+function conservarAvisos () {
+  try { return localStorage.getItem(CLAVE_CONSERVAR) === '1' } catch { return false }
+}
+
 export const CLAVE_CERRANDO = 'avisosPush:cerrando'
 const VIDA_MARCA_MS = 60 * 1000
 export const PRESUPUESTO_CIERRE_MS = 4000
@@ -265,6 +293,7 @@ export async function olvidarDispositivo (userId, sigueVigente = () => true) {
    llega— no se da de baja: perder los avisos de alguien con sesión es peor que
    dejar una suscripción huérfana hasta la próxima apertura. */
 export async function bajaSinSesion (sigueSinSesion = () => true) {
+  if (conservarAvisos()) return
   try {
     const sub = await suscripcionLocal()
     if (!sub || !sigueSinSesion()) return

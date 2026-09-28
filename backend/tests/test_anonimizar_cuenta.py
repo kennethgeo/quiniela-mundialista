@@ -156,3 +156,25 @@ def test_la_base_conserva_lo_historico():
         assert f"FROM public.{tabla}" not in cuerpo and f"UPDATE public.{tabla}" not in cuerpo, tabla
     assert "DELETE FROM public.push_subscriptions" in cuerpo
     assert "GRANT EXECUTE ON FUNCTION public.anonimizar_usuario(uuid) TO service_role" in sql
+
+
+def test_el_correo_de_los_metadatos_tambien_se_borra(monkeypatch):
+    base = Base()
+    _anonimizar(base, monkeypatch)
+    datos = base.pasos[1][1]
+    assert "email" in datos["user_metadata"] and datos["user_metadata"]["email"] is None
+
+
+def test_si_el_veto_falla_se_dice(monkeypatch):
+    """Después de anonimizar el correo original ya no está en ningún lado:
+    un veto fallido no se puede reintentar, así que no se calla."""
+    base = Base()
+    original = _Q.upsert
+
+    def falla(self, fila, *a, **k):
+        if self.tabla == "banned_emails":
+            raise RuntimeError("se cortó")
+        return original(self, fila, *a, **k)
+    monkeypatch.setattr(_Q, "upsert", falla)
+    r = _anonimizar(base, monkeypatch, ban=True)
+    assert r["banned_email"] is None and r["ban_error"]

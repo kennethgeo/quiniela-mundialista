@@ -18,7 +18,7 @@ const PERFIL = {
 
 /* Un service worker de mentira con o sin suscripción. Sin él, el de verdad
    puede o no registrarse según el entorno, y la prueba dependería de eso. */
-async function montar (page, { permiso = 'default', suscrito = false, iphone = false, swNunca = false, registroFalla = false, subNunca = false } = {}) {
+async function montar (page, { permiso = 'default', suscrito = false, iphone = false, swNunca = false, registroFalla = false, subNunca = false, registrada = false, pidio = false } = {}) {
   await sinRedExterna(page)
   await conSesion(page)
   await page.addInitScript(({ p, s, ios, nunca, subNunca }) => {
@@ -67,6 +67,14 @@ async function montar (page, { permiso = 'default', suscrito = false, iphone = f
     'rpc/my_groups': [],
     'rpc/my_medals': [],
   })
+  // `registrada`: la base ya tiene la fila de ESTA cuenta para este dispositivo.
+  // `pidio`: esta cuenta activó los avisos en este dispositivo (auditoría 19:
+  // sin una de las dos, la suscripción del navegador es de otra persona).
+  if (registrada) {
+    await page.route('**://pruebas.supabase.co/rest/v1/push_subscriptions**', (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: '[{"id":"x"}]' }))
+  }
+  if (pidio) await page.addInitScript((id) => localStorage.setItem(`avisosPush:activos:${id}`, '1'), USUARIO.id)
   if (registroFalla) {
     // La base no tiene la fila y guardarla falla: el navegador está suscrito
     // pero el backend no le puede escribir a esta persona.
@@ -98,7 +106,7 @@ test('sin avisos: la tarjeta sale ARRIBA, en la primera pantalla, con lo que se 
 })
 
 test('con avisos ya activos: una confirmación chica, sin llamado', async ({ page }) => {
-  await montar(page, { permiso: 'granted', suscrito: true })
+  await montar(page, { permiso: 'granted', suscrito: true, registrada: true })
   await page.goto('/profile')
   await expect(page.getByText('Avisos activados', { exact: true })).toBeVisible({ timeout: 15000 })
   await expect(llamado(page)).toHaveCount(0)
@@ -192,7 +200,7 @@ for (const tema of ['light', 'dark']) {
    persona: suscripción en el navegador Y fila en la base. Y ninguna espera
    del navegador puede dejar la tarjeta trabada. */
 test('suscrito en el navegador pero SIN registro en la base: no dice «activados»', async ({ page }) => {
-  await montar(page, { permiso: 'granted', suscrito: true, registroFalla: true })
+  await montar(page, { permiso: 'granted', suscrito: true, registroFalla: true, pidio: true })
   await page.goto('/profile')
   await expect(page.getByText(/No pudimos registrar este dispositivo/)).toBeVisible({ timeout: 15000 })
   await expect(page.getByText('Avisos activados', { exact: true })).toHaveCount(0)
@@ -233,7 +241,7 @@ test('cerrar sesión borra la suscripción de ESTE dispositivo a nombre de esta 
 test('si el navegador no contesta, la sesión se cierra igual', async ({ page }) => {
   /* Astra lo reprodujo: con getSubscription() colgado, signOut() de Supabase
      no llegaba a llamarse nunca. */
-  await montar(page, { permiso: 'granted', suscrito: true, subNunca: true })
+  await montar(page, { permiso: 'granted', suscrito: true, subNunca: true, registrada: true })
   const salidas = []
   await page.route('**://pruebas.supabase.co/auth/v1/logout**', (route) => {
     salidas.push(route.request().method())
@@ -262,4 +270,15 @@ test('la cuenta que los pidió y perdió la suscripción: se re-suscribe sola', 
   await montar(page, { permiso: 'granted', suscrito: false })
   await page.goto('/profile')
   await expect.poll(() => page.evaluate(() => window.__suscribio || 0), { timeout: 15000 }).toBeGreaterThan(0)
+})
+
+/* Auditoría 19: una suscripción viva que NO es de esta cuenta (sin fila suya)
+   y que esta cuenta no pidió es de otra persona — un celular compartido, o
+   quien se durmió y dejó entrar a otro. Se da de baja; no se la apropia. */
+test('suscripción ajena en el navegador: se da de baja y se ofrece activar', async ({ page }) => {
+  await montar(page, { permiso: 'granted', suscrito: true })
+  await page.goto('/profile')
+  await expect(page.getByRole('button', { name: 'Activar notificaciones' })).toBeVisible({ timeout: 15000 })
+  await expect(page.getByText('Avisos activados', { exact: true })).toHaveCount(0)
+  expect(await page.evaluate(() => window.__bajaNavegador === true)).toBe(true)
 })

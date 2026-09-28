@@ -120,7 +120,10 @@ export default function UserManagementAdmin() {
       const res = await callAdmin('anonymize-user', { user_id: u.id, ban })
       setUsers((prev) => prev.map((x) => x.id === u.id ? { ...x, display_name: res.nuevo_nombre || x.display_name } : x))
       setEditingId(null)
-      flash('ok', `"${name}" anonimizado${res.banned_email ? ' y correo bloqueado' : ''}.${res.auth_datos === 'sin-cambiar' ? ' Ojo: el correo en Auth no se pudo cambiar (la cuenta sí quedó bloqueada).' : ''}`)
+      // Un veto que falló no se puede reintentar: el correo original ya no
+      // queda guardado en la app. Se dice como error, no se esconde.
+      if (res.ban_error) flash('error', `"${name}" anonimizado, pero: ${res.ban_error}`)
+      else flash('ok', `"${name}" anonimizado${res.banned_email ? ' y correo bloqueado' : ''}.${res.auth_datos === 'sin-cambiar' ? ' Ojo: el correo en Auth no se pudo cambiar (la cuenta sí quedó bloqueada).' : ''}`)
     } catch (err) { flash('error', err.message) } finally { setBusyId(null) }
   }
 

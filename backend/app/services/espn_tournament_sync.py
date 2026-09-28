@@ -10,9 +10,20 @@ El Mundial (torneo #1) NO pasa por acá — tiene su propio sync (live_sync.py).
 
 from datetime import datetime, timedelta, timezone
 
+import logging
+
 import httpx
 
+from app.services.jornadas_unafut import (
+    aplicar_jornada_oficial,
+    firma_de_diferencias,
+    hay_que_refrescar,
+    refrescar_jornadas_oficiales,
+)
+from app.services.notifications import broadcast_push_to_users
 from app.services.scoring import calculate_and_update_scores, partidos_sin_puntuar
+
+logger = logging.getLogger(__name__)
 
 ESPN_BASE = "https://site.api.espn.com/apis/site/v2/sports/soccer"
 
@@ -339,6 +350,47 @@ def partidos_sin_predicciones(supabase, match_ids) -> list:
     return vacios
 
 
+def _usar_jornada_oficial(supabase, parsed, snap) -> list:
+    """Aplica la jornada de UNAFUT donde es seguro (ver jornadas_unafut)."""
+    candidatos = [snap[p["external_id"]]["id"] for p in parsed
+                  if p.get("matchday") is not None and p["external_id"] in snap
+                  and snap[p["external_id"]].get("jornada_oficial") not in (None, p["matchday"])]
+    con_x2 = set()
+    if candidatos:
+        try:
+            filas = (supabase.table("predictions").select("match_id")
+                     .in_("match_id", candidatos).eq("use_powerup_x2", True).execute().data or [])
+            con_x2 = {f["match_id"] for f in filas}
+        except Exception:  # noqa: BLE001 - sin saber si hay ×2, nada es seguro
+            con_x2 = set(candidatos)
+    return aplicar_jornada_oficial(parsed, snap, con_x2)
+
+
+async def _avisar_jornadas(supabase, tournament, diferencias) -> None:
+    """Push al admin global cuando cambian las diferencias con UNAFUT. Nunca lanza."""
+    firma = firma_de_diferencias(diferencias)
+    if firma == (tournament.get("unafut_aviso_firma") or ""):
+        return
+    aplicadas = [d for d in diferencias if d["aplicada"]]
+    trabadas = [d for d in diferencias if not d["aplicada"]]
+    partes = []
+    if aplicadas:
+        partes.append(f"{len(aplicadas)} corregida(s) a la jornada oficial")
+    if trabadas:
+        partes.append(f"{len(trabadas)} SIN tocar (ya empezó o tiene ×2): "
+                      + ", ".join(f"{d['partido']} J{d['calculada']}→J{d['oficial']}" for d in trabadas[:3]))
+    cuerpo = "Jornadas distintas de UNAFUT: " + "; ".join(partes) + "."
+    logger.warning(cuerpo)
+    try:
+        admins = [u["id"] for u in (supabase.table("users").select("id")
+                                    .eq("is_admin", True).execute().data or [])]
+        await broadcast_push_to_users(supabase, admins, "📅 Jornadas vs UNAFUT", cuerpo, url="/admin")
+        supabase.table("tournaments").update({"unafut_aviso_firma": firma}).eq("id", tournament["id"]).execute()
+        tournament["unafut_aviso_firma"] = firma
+    except Exception:  # noqa: BLE001
+        logger.exception("No se pudo avisar de las diferencias de jornada")
+
+
 async def sync_espn_tournament(supabase, tournament, full=False) -> dict:
     """Sincroniza un torneo ESPN (fixtures + resultados).
 
@@ -386,10 +438,17 @@ async def sync_espn_tournament(supabase, tournament, full=False) -> dict:
     # corridas parciales — ver _assign_stages). score_locked es una columna
     # nueva; si la migración que la crea todavía no corrió, cae a la versión
     # anterior en vez de romper el sync de este torneo.
+    # La jornada OFICIAL de UNAFUT, refrescada cada 6 h (ver jornadas_unafut).
+    info_unafut = None
+    if hay_que_refrescar(tournament):
+        async with httpx.AsyncClient(timeout=20.0) as client_unafut:
+            info_unafut = await refrescar_jornadas_oficiales(supabase, client_unafut, tournament)
+
     try:
         existing = (supabase.table("matches")
                     .select("id, external_id, status, home_goals_actual, away_goals_actual, "
-                            "score_locked, kickoff_at, phase, home_team, away_team")
+                            "score_locked, kickoff_at, phase, home_team, away_team, "
+                            "matchday, jornada_oficial")
                     .eq("tournament_id", tid).execute().data or [])
     except Exception:  # noqa: BLE001
         existing = (supabase.table("matches")
@@ -400,6 +459,11 @@ async def sync_espn_tournament(supabase, tournament, full=False) -> dict:
 
     history = [m for m in existing if m.get("phase") == "groups"]
     _assign_stages(parsed, history)
+    diferencias_jornada = []
+    if any(m.get("jornada_oficial") is not None for m in existing):
+        diferencias_jornada = _usar_jornada_oficial(supabase, parsed, snap)
+        if diferencias_jornada:
+            await _avisar_jornadas(supabase, tournament, diferencias_jornada)
     # Lo que el admin fijó a mano manda sobre la fuente: un walkover que ESPN
     # sigue mostrando como jugado, o un marcador cambiado por un fallo oficial
     # (alineación indebida) que ESPN nunca va a reflejar.
@@ -560,7 +624,8 @@ async def sync_all_espn_tournaments(supabase) -> dict:
     forma de arrancar un torneo nuevo.
     """
     tours = (supabase.table("tournaments")
-             .select("id, external_ref, source, status")
+             .select("id, external_ref, source, status, unafut_league_slug, "
+                     "unafut_competition_id, unafut_jornadas_at, unafut_aviso_firma")
              .eq("source", "espn")
              .in_("status", ["upcoming", "active"]).execute().data or [])
 

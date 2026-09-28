@@ -241,6 +241,27 @@ async def notify_daily(authorization: Optional[str] = Header(default=None)):
 TTL_RECORDATORIO = 30 * 60
 
 
+def ttl_recordatorio(partidos, ahora) -> int:
+    """Cuánto puede esperar el proveedor para entregar el recordatorio.
+
+    Nunca más allá del cierre de predicciones (15 min antes del saque) del
+    partido MÁS próximo del envío: un reintento a T-16 con 30 min de TTL podía
+    llegar a T+14, cuando ya no se puede predecir (auditoría 19). Mínimo 60 s
+    para que el proveedor no lo descarte de entrada.
+    """
+    from datetime import datetime, timedelta  # como el resto del archivo: import local
+    limites = []
+    for p in partidos or []:
+        try:
+            saque = datetime.fromisoformat(str(p.get("kickoff_at")).replace("Z", "+00:00"))
+        except (TypeError, ValueError):
+            continue
+        limites.append((saque - timedelta(minutes=15) - ahora).total_seconds())
+    if not limites:
+        return TTL_RECORDATORIO
+    return int(max(60, min(TTL_RECORDATORIO, min(limites))))
+
+
 @router.post("/notify-kickoff")
 async def notify_kickoff(authorization: Optional[str] = Header(default=None)):
     """Recordatorio 45 minutos antes del saque, SOLO a quien le falta predecir.
@@ -379,7 +400,7 @@ async def notify_kickoff(authorization: Optional[str] = Header(default=None)):
 
     async def _enviar_sin_deduplicar():
         mensajes = mensajes_de_recordatorio(entregas)
-        resultado = await enviar_push_personalizado(supabase, mensajes, ttl=TTL_RECORDATORIO)
+        resultado = await enviar_push_personalizado(supabase, mensajes, ttl=ttl_recordatorio(partidos, ahora))
         return {
             "status": "ok",
             "partidos": len(partidos_frescos),
@@ -401,7 +422,7 @@ async def notify_kickoff(authorization: Optional[str] = Header(default=None)):
     # corrida no puede contarse en el «te faltan N por predecir».
     mensajes = mensajes_de_recordatorio(reclamadas)
     resultado = await enviar_push_personalizado(supabase, mensajes, detallado=True,
-                                            ttl=TTL_RECORDATORIO)
+                                            ttl=ttl_recordatorio(partidos, ahora))
     por_usuario = resultado.pop("por_usuario", {})
 
     # Cerrar el reclamo NO es opcional: ver `cerrar_reclamos`, que lo hace a
