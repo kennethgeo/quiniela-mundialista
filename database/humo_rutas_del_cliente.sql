@@ -428,14 +428,14 @@ BEGIN
 
   BEGIN  -- operaciones DIRECTAS sobre tablas, tal como las manda el cliente
     -- notificaciones.js: borrar + insertar por endpoint (no hay UPDATE)
-    DELETE FROM public.push_subscriptions WHERE endpoint = 'https://humo.invalid/ep';
+    DELETE FROM public.push_subscriptions WHERE endpoint = 'https://fcm.googleapis.com/fcm/send/humo-ep';
     INSERT INTO public.push_subscriptions (user_id, endpoint, p256dh, auth)
-    VALUES (v_socio, 'https://humo.invalid/ep', 'k', 'a');
-    SELECT count(*) INTO n FROM public.push_subscriptions WHERE endpoint = 'https://humo.invalid/ep';
+    VALUES (v_socio, 'https://fcm.googleapis.com/fcm/send/humo-ep', 'k', 'a');
+    SELECT count(*) INTO n FROM public.push_subscriptions WHERE endpoint = 'https://fcm.googleapis.com/fcm/send/humo-ep';
     IF n <> 1 THEN RAISE EXCEPTION 'la suscripción no quedó (%)', n; END IF;
-    DELETE FROM public.push_subscriptions WHERE endpoint = 'https://humo.invalid/ep';
+    DELETE FROM public.push_subscriptions WHERE endpoint = 'https://fcm.googleapis.com/fcm/send/humo-ep';
     RESET ROLE;
-    SELECT count(*) INTO n FROM public.push_subscriptions WHERE endpoint = 'https://humo.invalid/ep';
+    SELECT count(*) INTO n FROM public.push_subscriptions WHERE endpoint = 'https://fcm.googleapis.com/fcm/send/humo-ep';
     SET LOCAL ROLE authenticated;
     IF n <> 0 THEN RAISE EXCEPTION 'darse de baja no borró la suscripción'; END IF;
     -- GlobalChatDrawer: leer con el nombre, escribir con .select(), borrar el propio
@@ -939,7 +939,7 @@ BEGIN
 
   BEGIN  -- una suscripción de push a nombre de OTRA persona
     INSERT INTO public.push_subscriptions (user_id, endpoint, p256dh, auth)
-    VALUES (v_socio, 'https://humo.invalid/ajeno', 'k', 'a');
+    VALUES (v_socio, 'https://fcm.googleapis.com/fcm/send/humo-ajeno', 'k', 'a');
     RAISE EXCEPTION 'HUMO_ABIERTO';
   EXCEPTION WHEN others THEN
     IF sqlerrm = 'HUMO_ABIERTO' THEN r := r || E'✗ ABIERTO: suscribir a otra persona a los push\n'; mal := mal + 1;
