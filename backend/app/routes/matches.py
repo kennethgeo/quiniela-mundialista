@@ -235,6 +235,12 @@ async def notify_daily(authorization: Optional[str] = Header(default=None)):
     }
 
 
+# El recordatorio sirve mientras se pueda predecir: llega ~45-60 min antes y
+# las predicciones cierran 15 min antes del saque. Un aviso que el proveedor
+# entrega después de eso solo molesta.
+TTL_RECORDATORIO = 30 * 60
+
+
 @router.post("/notify-kickoff")
 async def notify_kickoff(authorization: Optional[str] = Header(default=None)):
     """Recordatorio 45 minutos antes del saque, SOLO a quien le falta predecir.
@@ -373,7 +379,7 @@ async def notify_kickoff(authorization: Optional[str] = Header(default=None)):
 
     async def _enviar_sin_deduplicar():
         mensajes = mensajes_de_recordatorio(entregas)
-        resultado = await enviar_push_personalizado(supabase, mensajes)
+        resultado = await enviar_push_personalizado(supabase, mensajes, ttl=TTL_RECORDATORIO)
         return {
             "status": "ok",
             "partidos": len(partidos_frescos),
@@ -394,7 +400,8 @@ async def notify_kickoff(authorization: Optional[str] = Header(default=None)):
     # El texto se compone DESPUÉS de reclamar: un partido que se llevó otra
     # corrida no puede contarse en el «te faltan N por predecir».
     mensajes = mensajes_de_recordatorio(reclamadas)
-    resultado = await enviar_push_personalizado(supabase, mensajes, detallado=True)
+    resultado = await enviar_push_personalizado(supabase, mensajes, detallado=True,
+                                            ttl=TTL_RECORDATORIO)
     por_usuario = resultado.pop("por_usuario", {})
 
     # Cerrar el reclamo NO es opcional: ver `cerrar_reclamos`, que lo hace a

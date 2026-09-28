@@ -50,7 +50,8 @@ async function montar (page, { permiso = 'default', suscrito = false, iphone = f
                     toJSON: () => ({ endpoint: 'https://ejemplo/x', keys: { p256dh: 'a', auth: 'b' } }) }
                 : null)
             },
-            subscribe: async () => { throw new Error('no en pruebas') },
+            // Se anota cada intento: la auto-sanación no puede suscribir a quien no lo pidió.
+            subscribe: async () => { window.__suscribio = (window.__suscribio || 0) + 1; throw new Error('no en pruebas') },
           },
         }),
         register: async () => ({}),
@@ -243,4 +244,22 @@ test('si el navegador no contesta, la sesión se cierra igual', async ({ page })
   await page.evaluate(() => { window.__colgar = true })
   await page.getByRole('button', { name: /Cerrar sesión/ }).last().click()
   await expect.poll(() => salidas.length, { timeout: 12000 }).toBeGreaterThan(0)
+})
+
+/* Auditoría del 28 sep 2026: el permiso del navegador es del ORIGEN, no de la
+   cuenta. Con `granted` y sin suscripción, abrir el Perfil suscribía solo a
+   cualquiera: a quien había pulsado «Desactivar» y a la cuenta siguiente en un
+   celular compartido. Solo se re-suscribe la cuenta que los pidió acá. */
+test('permiso concedido pero la cuenta NO pidió avisos: no se la suscribe sola', async ({ page }) => {
+  await montar(page, { permiso: 'granted', suscrito: false })
+  await page.goto('/profile')
+  await expect(page.getByRole('button', { name: 'Activar notificaciones' })).toBeVisible({ timeout: 15000 })
+  expect(await page.evaluate(() => window.__suscribio || 0)).toBe(0)
+})
+
+test('la cuenta que los pidió y perdió la suscripción: se re-suscribe sola', async ({ page }) => {
+  await page.addInitScript((id) => localStorage.setItem(`avisosPush:activos:${id}`, '1'), USUARIO.id)
+  await montar(page, { permiso: 'granted', suscrito: false })
+  await page.goto('/profile')
+  await expect.poll(() => page.evaluate(() => window.__suscribio || 0), { timeout: 15000 }).toBeGreaterThan(0)
 })

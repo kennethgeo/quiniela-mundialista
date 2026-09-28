@@ -140,6 +140,27 @@ export async function avisosActivos (userId) {
   }
 }
 
+/* ¿Esta CUENTA pidió avisos en este dispositivo? (auditoría del 28 sep 2026)
+   El permiso del navegador es del ORIGEN, no de la cuenta: con `granted`, la
+   auto-sanación del Perfil volvía a suscribir a quien había pulsado
+   «Desactivar» (bastaba con volver a abrir el Perfil), y en un celular
+   compartido suscribía a la cuenta siguiente sin que lo pidiera. Solo se
+   re-suscribe sola una cuenta que los activó acá y no los desactivó. */
+const claveActivos = (userId) => `avisosPush:activos:${userId}`
+
+export function marcarAvisosDeCuenta (userId, activos) {
+  if (!userId) return
+  try {
+    if (activos) localStorage.setItem(claveActivos(userId), '1')
+    else localStorage.removeItem(claveActivos(userId))
+  } catch { /* modo privado: sin marca no hay auto-alta, que es lo prudente */ }
+}
+
+export function cuentaPidioAvisos (userId) {
+  if (!userId) return false
+  try { return localStorage.getItem(claveActivos(userId)) === '1' } catch { return false }
+}
+
 /** Activa push y deja la suscripción guardada. Devuelve la suscripción.
  *  Lanza con un mensaje legible si no se puede: quien llama lo muestra. */
 export async function activarPush (userId) {
@@ -168,6 +189,7 @@ export async function activarPush (userId) {
     applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
   })
   await guardarSuscripcion(userId, sub)
+  marcarAvisosDeCuenta(userId, true)
   return sub
 }
 
@@ -258,8 +280,10 @@ export async function bajaSinSesion (sigueSinSesion = () => true) {
   } catch { /* se vuelve a intentar en la próxima apertura */ }
 }
 
-/** Baja en este dispositivo. */
-export async function desactivarPush () {
+/** Baja en este dispositivo. La marca se quita PRIMERO: aunque falle lo
+ *  demás, la auto-sanación ya no vuelve a suscribir a esta cuenta. */
+export async function desactivarPush (userId) {
+  marcarAvisosDeCuenta(userId, false)
   if (!soportaPush()) return
   const reg = await swListo()
   if (!reg) throw new Error(SW_NO_LISTO)

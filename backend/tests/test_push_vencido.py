@@ -95,7 +95,7 @@ def test_si_falla_borrar_un_endpoint_muerto_igual_se_devuelve_el_detalle(monkeyp
         def table(self, _n): return Q()
 
     monkeypatch.setattr(notif, "send_push_notification",
-                        lambda info, _p: True if info["endpoint"] == "https://a" else "expired")
+                        lambda info, _p, **_k: True if info["endpoint"] == "https://a" else "expired")
     import asyncio
     r = asyncio.run(notif.enviar_push_personalizado(Base(), {"A": {"title": "t"}, "B": {"title": "t"}}, detallado=True))
     assert r["por_usuario"]["A"]["enviados"] == 1
