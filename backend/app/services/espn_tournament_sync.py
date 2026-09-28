@@ -181,13 +181,17 @@ def _assign_stages(parsed, history=None):
 
     new_regular = [p for p in parsed if not _es_eliminatoria(p["stage_base"])]
     new_ids = {p["external_id"] for p in new_regular}
+    def _entrada(x):
+        return {"external_id": x["external_id"], "kickoff_at": x["kickoff_at"],
+                "equipos": {e for e in (x.get("home_team"), x.get("away_team")) if e}}
+
     hist_entries = [
-        {"external_id": h["external_id"], "kickoff_at": h["kickoff_at"]}
+        _entrada(h)
         for h in (history or [])
         if h.get("kickoff_at") and h.get("external_id") not in new_ids
     ]
     combined = sorted(
-        [{"external_id": p["external_id"], "kickoff_at": p["kickoff_at"]} for p in new_regular] + hist_entries,
+        [_entrada(p) for p in new_regular] + hist_entries,
         key=lambda x: x["kickoff_at"] or "",
     )
 
@@ -197,16 +201,31 @@ def _assign_stages(parsed, history=None):
     # varios días (mínimo ~72h visto en producción). 48h queda cómodo en el
     # medio. Se compara SIEMPRE contra el partido anterior (no contra el
     # primero de la jornada) para no perder el hueco si la jornada se estira.
+    #
+    # EL HUECO SOLO NO ALCANZA (auditoría del 28 sep 2026): la liga tica metió
+    # una jornada entre semana (14-16 oct) pegada a la del fin de semana (18-20
+    # oct), con exactamente 48 h de hueco, y las dos quedaron como UNA
+    # «Jornada 11» de 10 partidos. Como el cupo del ×2 es por jornada, quien
+    # gastó sus dos ×2 entre semana se quedaba sin ninguno el fin de semana.
+    # Regla que no depende del calendario: **cada equipo juega una vez por
+    # jornada**. Si un equipo ya jugó en la jornada abierta, empieza otra.
+    # Límite, dicho: un partido pospuesto y jugado semanas después cae en la
+    # jornada de esa fecha (y puede abrir una de más); lo corrige el admin, y
+    # `verificar_estado.sql` §23 lista las jornadas con un tamaño raro.
     GAP_THRESHOLD_HOURS = 48
     md_by_id = {}
     md = 0
     prev_date = None
+    equipos_de_la_jornada = set()
     for e in combined:
         d = _parse(e["kickoff_at"])
-        if prev_date is None or (d and (d - prev_date).total_seconds() > GAP_THRESHOLD_HOURS * 3600):
+        repite = bool(e["equipos"] & equipos_de_la_jornada)
+        if prev_date is None or repite or (d and (d - prev_date).total_seconds() > GAP_THRESHOLD_HOURS * 3600):
             md += 1
+            equipos_de_la_jornada = set()
         if d:
             prev_date = d
+        equipos_de_la_jornada |= e["equipos"]
         md_by_id[e["external_id"]] = md
 
     for p in parsed:
@@ -370,12 +389,12 @@ async def sync_espn_tournament(supabase, tournament, full=False) -> dict:
     try:
         existing = (supabase.table("matches")
                     .select("id, external_id, status, home_goals_actual, away_goals_actual, "
-                            "score_locked, kickoff_at, phase")
+                            "score_locked, kickoff_at, phase, home_team, away_team")
                     .eq("tournament_id", tid).execute().data or [])
     except Exception:  # noqa: BLE001
         existing = (supabase.table("matches")
                     .select("id, external_id, status, home_goals_actual, away_goals_actual, "
-                            "kickoff_at, phase")
+                            "kickoff_at, phase, home_team, away_team")
                     .eq("tournament_id", tid).execute().data or [])
     snap = {m["external_id"]: m for m in existing if m.get("external_id")}
 
