@@ -25,3 +25,6 @@ Thumbs.db
 frontend/test-results/
 frontend/playwright-report/
 frontend/blob-report/
+
+# Respaldos de datos (tienen datos personales: nunca al repo)
+respaldo-tico-games-*.md
