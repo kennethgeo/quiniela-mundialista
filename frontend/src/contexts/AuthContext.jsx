@@ -3,7 +3,7 @@ import { createContext, useContext, useState, useEffect, useCallback } from 'rea
 import { supabase } from '../lib/supabase'
 import { crearCargaDePerfil } from '../lib/cargaDePerfil'
 import { conLimite, describirFallo, registrarIntento } from '../lib/loginResiliente'
-import { olvidarDispositivo, bajaSinSesion, PRESUPUESTO_CIERRE_MS, marcarConservarAvisos, olvidarMarcaConservar } from '../lib/notificaciones'
+import { olvidarDispositivo, bajaSinSesion, PRESUPUESTO_CIERRE_MS, marcarConservarAvisos, olvidarMarcaConservar, olvidarBajaPendiente } from '../lib/notificaciones'
 
 const AuthContext = createContext(null)
 
@@ -171,7 +171,11 @@ export function AuthProvider({ children }) {
     })().catch(() => {})
     await Promise.race([preambulo, new Promise((resolve) => setTimeout(resolve, PRESUPUESTO_CIERRE_MS + 1000))])
     vigente = false
-    const { error } = await supabase.auth.signOut()
+    // `local`, no el global por defecto (10 oct 2026): el global revocaba la
+    // sesión en TODOS los dispositivos de la persona —salir en la compu la
+    // sacaba también del celular— y el celular, al quedarse sin sesión, perdía
+    // sus avisos. Es la misma regla que ya tenía el botón de rescate.
+    const { error } = await supabase.auth.signOut({ scope: 'local' })
     if (error) throw error
     asignarUsuario(null)
   }, [asignarUsuario])
@@ -225,7 +229,12 @@ export function AuthProvider({ children }) {
         hayUsuario = !!currentUser
         asignarUsuario(currentUser)
 
-        if (event === 'SIGNED_IN') olvidarMarcaConservar()
+        if (event === 'SIGNED_IN') {
+          olvidarMarcaConservar()
+          // Con sesión no hay baja pendiente: si entró otra cuenta, la guarda
+          // de `avisosActivos`/el Perfil se ocupa de la suscripción ajena.
+          olvidarBajaPendiente()
+        }
         if (currentUser && (['INITIAL_SESSION', 'SIGNED_IN', 'TOKEN_REFRESHED', 'USER_UPDATED'].includes(event))) {
           fetchProfile(currentUser.id).catch(err => console.error('Error cargando perfil en evento:', err))
         }

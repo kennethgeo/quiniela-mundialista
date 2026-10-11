@@ -1,4 +1,14 @@
 import React from 'react'
+import { refreshApplication } from '../../lib/appUpdate'
+
+const CLAVE_RECARGA = 'recargaPorVersionVieja'
+
+function recargoHacePoco () {
+  try { return Date.now() - parseInt(sessionStorage.getItem(CLAVE_RECARGA), 10) < 60000 } catch { return false }
+}
+function anotarRecarga () {
+  try { sessionStorage.setItem(CLAVE_RECARGA, String(Date.now())) } catch { /* modo privado */ }
+}
 
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -18,21 +28,20 @@ class ErrorBoundary extends React.Component {
       error.message?.includes('Failed to fetch dynamically imported module') ||
       error.message?.includes('Importing a module script failed')
     ) {
+      // Una recarga por versión vieja, no un bucle: si ya se recargó por esto
+      // hace menos de un minuto, se muestra el error con su botón.
+      if (recargoHacePoco()) return
       this.setState({ isReloading: true })
-      
-      // Desregistrar service workers para limpiar el caché corrupto antes de recargar
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.getRegistrations().then((registrations) => {
-          const unregisterPromises = registrations.map(r => r.unregister())
-          Promise.all(unregisterPromises).then(() => {
-            window.location.reload(true)
-          })
-        }).catch(() => {
-          window.location.reload(true)
-        })
-      } else {
-        window.location.reload(true)
-      }
+
+      // NUNCA desregistrar el service worker (10 oct 2026). Desregistrarlo
+      // borra la suscripción push del dispositivo —va atada al registro— y
+      // la persona se quedaba sin avisos sin saberlo, justo después de cada
+      // despliegue, que es cuando aparece este error. Alcanza con lo que hace
+      // la herramienta de recuperación: pedir la versión nueva, vaciar los
+      // cachés y recargar. Una actualización del service worker conserva la
+      // suscripción.
+      anotarRecarga()
+      refreshApplication().catch(() => window.location.reload())
     }
   }
 

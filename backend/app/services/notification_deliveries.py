@@ -14,6 +14,8 @@ logger = logging.getLogger(__name__)
 
 
 TIPO_RECORDATORIO_SAQUE = "kickoff-45m"
+# Tope de `claim_notification_deliveries` (migración 82): más filas, excepción.
+LOTE_MAXIMO = 1000
 MINUTOS_PARA_RECLAMO_VENCIDO = 5
 
 
@@ -106,18 +108,26 @@ def reclamar_entregas(supabase, entregas: list[dict]) -> tuple[list[dict], dict[
         })
         por_clave[clave_entrega(entrega)] = entrega
 
-    try:
-        respuesta = supabase.rpc("claim_notification_deliveries", {
-            "p_entregas": payload,
-            "p_tipo": TIPO_RECORDATORIO_SAQUE,
-        }).execute()
-    except Exception as exc:
-        if _es_objeto_ausente(exc):
-            raise DeduplicacionNoDisponible from exc
-        raise
+    # La base acepta hasta LOTE_MAXIMO unidades por llamada. Desde el 11 oct
+    # 2026 entran también quienes ya predijeron, así que el lote crece: se parte
+    # en vez de caer al envío sin deduplicar. Cada llamada es atómica por sí
+    # sola, y el token por persona sirve igual aunque sus unidades queden en
+    # dos llamadas distintas.
+    filas = []
+    for i in range(0, len(payload), LOTE_MAXIMO):
+        try:
+            respuesta = supabase.rpc("claim_notification_deliveries", {
+                "p_entregas": payload[i:i + LOTE_MAXIMO],
+                "p_tipo": TIPO_RECORDATORIO_SAQUE,
+            }).execute()
+        except Exception as exc:
+            if _es_objeto_ausente(exc):
+                raise DeduplicacionNoDisponible from exc
+            raise
+        filas.extend(respuesta.data or [])
 
     reclamadas = []
-    for fila in respuesta.data or []:
+    for fila in filas:
         clave = (
             str(fila["claimed_user_id"]),
             str(fila["claimed_league_id"]),

@@ -127,8 +127,16 @@ export async function tieneSuscripcion () {
    (auto-sanación); si eso falla, NO está activo y la pantalla lo ofrece.
    Si ni siquiera se puede preguntar, tampoco se afirma que esté activo. */
 export async function avisosActivos (userId) {
-  const sub = await suscripcionLocal()
-  if (!sub || !userId) return false
+  if (!userId) return false
+  let sub = await suscripcionLocal()
+  // Auto-sanación TAMBIÉN en el Hub (10 oct 2026). Antes solo el Perfil
+  // volvía a suscribir a quien había perdido la suscripción del navegador
+  // (un service worker desregistrado, un cierre de sesión involuntario), y casi
+  // nadie entra al Perfil: la persona creía tener avisos y no le llegaba nada.
+  // Mismas condiciones que el Perfil: permiso dado, esta cuenta los pidió acá
+  // y no los apagó, y no hay un cierre de sesión en curso.
+  if (!sub) sub = await resuscribirSiLosPidio(userId)
+  if (!sub) return false
   try {
     if (await registrada(userId, sub.endpoint)) {
       marcarAvisosDeCuenta(userId, true)
@@ -169,6 +177,22 @@ export function marcarAvisosDeCuenta (userId, activos) {
 export function cuentaPidioAvisos (userId) {
   if (!userId) return false
   try { return localStorage.getItem(claveActivos(userId)) === '1' } catch { return false }
+}
+
+/** Vuelve a suscribir ESTE navegador si la cuenta los pidió acá y el permiso
+ *  sigue dado. Devuelve la suscripción nueva o null. Nunca lanza. */
+export async function resuscribirSiLosPidio (userId) {
+  try {
+    if (!userId || estadoPermiso() !== 'granted' || cerrandoSesion() || !cuentaPidioAvisos(userId)) return null
+    const reg = await swListo()
+    if (!reg) return null
+    return await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+    })
+  } catch {
+    return null
+  }
 }
 
 /** Activa push y deja la suscripción guardada. Devuelve la suscripción.
@@ -237,6 +261,28 @@ function conservarAvisos () {
   try { return localStorage.getItem(CLAVE_CONSERVAR) === '1' } catch { return false }
 }
 
+/* BAJA PENDIENTE (10 oct 2026). `bajaSinSesion` daba de baja CUALQUIER
+   suscripción que encontrara sin sesión, y quedarse sin sesión no siempre es
+   elegir salir: una renovación de token rechazada (400/403/429/500), un cierre
+   en OTRO dispositivo —que era global— o la inactividad de otra pestaña
+   también terminan en SIGNED_OUT. Reproducido con auth-js real: los cuatro
+   códigos daban de baja los avisos de alguien que los había pedido, y desde el
+   27 de sep el grupo los fue perdiendo sin saberlo.
+   Ahora solo se da de baja lo que un cierre VOLUNTARIO de este dispositivo
+   dejó a medias: `olvidarDispositivo` deja esta marca antes de intentar y la
+   quita cuando la baja del navegador sale bien. Al entrar se borra. */
+export const CLAVE_BAJA_PENDIENTE = 'avisosPush:bajaPendiente'
+
+function marcarBajaPendiente () {
+  try { localStorage.setItem(CLAVE_BAJA_PENDIENTE, '1') } catch { /* modo privado */ }
+}
+export function olvidarBajaPendiente () {
+  try { localStorage.removeItem(CLAVE_BAJA_PENDIENTE) } catch { /* modo privado */ }
+}
+function hayBajaPendiente () {
+  try { return localStorage.getItem(CLAVE_BAJA_PENDIENTE) === '1' } catch { return false }
+}
+
 export const CLAVE_CERRANDO = 'avisosPush:cerrando'
 const VIDA_MARCA_MS = 60 * 1000
 export const PRESUPUESTO_CIERRE_MS = 4000
@@ -260,13 +306,18 @@ export function cerrandoSesion (ahora = Date.now()) {
    espera, el trabajo pregunta si sigue siendo el suyo antes de tocar nada. */
 export async function olvidarDispositivo (userId, sigueVigente = () => true) {
   marcarCierre()
+  marcarBajaPendiente()
   let enPlazo = true
   const vale = () => enPlazo && sigueVigente()
   const trabajo = (async () => {
     const sub = await suscripcionLocal()
-    if (!sub || !vale()) return
+    if (!sub) { if (vale()) olvidarBajaPendiente(); return }
+    if (!vale()) return
     const endpoint = sub.endpoint
-    try { await sub.unsubscribe() } catch { /* la fila igual se intenta borrar */ }
+    try {
+      await sub.unsubscribe()
+      olvidarBajaPendiente()
+    } catch { /* la fila igual se intenta borrar; la próxima apertura reintenta la baja */ }
     if (userId && vale()) {
       await supabase.from('push_subscriptions').delete().eq('user_id', userId).eq('endpoint', endpoint)
     }
@@ -276,9 +327,12 @@ export async function olvidarDispositivo (userId, sigueVigente = () => true) {
   enPlazo = false
 }
 
-/* Al ABRIR la app SIN sesión (duodécima auditoría): si el navegador todavía
-   tiene una suscripción viva, es de alguien que salió y cuyo cierre no pudo
-   darla de baja —sin red, `unsubscribe()` y el DELETE fallan—. Sin sesión no
+/* Al ABRIR la app SIN sesión (duodécima auditoría): si un cierre VOLUNTARIO
+   de este dispositivo quedó a medias (`CLAVE_BAJA_PENDIENTE`), la suscripción
+   que sigue viva es de alguien que eligió salir y cuyo cierre no pudo
+   darla de baja —sin red, `unsubscribe()` y el DELETE fallan—. Sin esa marca
+   no se toca nada (10 oct 2026): perder la sesión sin elegirlo no es pedir
+   que dejen de llegar los avisos. Sin sesión no
    hay cuenta a la que avisar: se da de baja en el navegador y, cuando el
    backend le escriba, el proveedor responde 410 y la fila se limpia sola (90).
    Nunca lanza ni espera más que el service worker.
@@ -293,7 +347,9 @@ export async function olvidarDispositivo (userId, sigueVigente = () => true) {
    llega— no se da de baja: perder los avisos de alguien con sesión es peor que
    dejar una suscripción huérfana hasta la próxima apertura. */
 export async function bajaSinSesion (sigueSinSesion = () => true) {
-  if (conservarAvisos()) return
+  // Sin un cierre voluntario a medias, una suscripción sin sesión es de alguien
+  // que perdió la sesión SIN elegirlo: sus avisos se quedan (10 oct 2026).
+  if (!hayBajaPendiente() || conservarAvisos()) return
   try {
     const sub = await suscripcionLocal()
     if (!sub || !sigueSinSesion()) return
@@ -306,6 +362,7 @@ export async function bajaSinSesion (sigueSinSesion = () => true) {
     ])
     if (sesion !== null || !sigueSinSesion()) return
     await sub.unsubscribe()
+    olvidarBajaPendiente()
   } catch { /* se vuelve a intentar en la próxima apertura */ }
 }
 

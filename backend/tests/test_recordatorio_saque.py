@@ -1,8 +1,9 @@
 """Recordatorio 45 minutos antes del saque.
 
-Lo que se cuida acá: que nadie reciba el aviso dos veces, y que no le llegue a
-quien ya predijo. Las dos cosas se equivocan en silencio — nadie reporta "me
-llegaron dos push", simplemente apaga las notificaciones.
+Lo que se cuida acá: que nadie reciba el aviso dos veces, y que el texto diga
+lo que corresponde. Desde el 11 oct 2026 (decisión del dueño) el aviso le llega
+también a quien ya predijo, con otro texto: antes salía solo a los pendientes y,
+con el grupo al día, no le llegaba a nadie y parecía que los avisos no andaban.
 """
 import sys
 from datetime import datetime, timedelta, timezone
@@ -57,14 +58,37 @@ def test_la_ventana_empieza_a_los_45():
     assert (hasta - desde) == timedelta(minutes=ANCHO_VENTANA_MIN)
 
 
-def test_no_se_avisa_a_quien_ya_predijo():
+def test_a_quien_ya_predijo_tambien_se_le_avisa_que_arranca():
+    """Antes este test afirmaba lo contrario («no se avisa a quien ya
+    predijo»). Lo cambió el dueño el 11 oct 2026."""
     partidos = [_p(1, "2026-09-08T20:00:00Z")]
     membresias = [{"league_id": 9, "user_id": "ana", "tournament_id": 6},
                   {"league_id": 9, "user_id": "beto", "tournament_id": 6}]
     predicciones = [{"user_id": "ana", "league_id": 9, "match_id": 1}]
     m = armar_recordatorios(partidos, membresias, predicciones)
-    assert "ana" not in m
-    assert "beto" in m
+    assert m["ana"]["title"].startswith("⚽ Arranca en 45 min")
+    assert "14:00 Saprissa vs Alajuelense" in m["ana"]["body"]
+    assert "ya está guardada" in m["ana"]["body"]
+    assert "No has predicho" in m["beto"]["body"]
+
+
+def test_con_todo_predicho_dice_cuantos_arrancan():
+    partidos = [_p(1, "2026-09-08T20:00:00Z"), _p(2, "2026-09-08T20:00:00Z", local="Herediano")]
+    membresias = [{"league_id": 9, "user_id": "ana", "tournament_id": 6}]
+    predicciones = [{"user_id": "ana", "league_id": 9, "match_id": 1},
+                    {"user_id": "ana", "league_id": 9, "match_id": 2}]
+    m = armar_recordatorios(partidos, membresias, predicciones)
+    assert "y 1 más" in m["ana"]["body"] and "predicciones ya están guardadas" in m["ana"]["body"]
+
+
+def test_si_le_falta_UNA_el_aviso_habla_de_la_que_falta():
+    """Con una predicha y otra pendiente, lo único accionable es la pendiente."""
+    partidos = [_p(1, "2026-09-08T20:00:00Z"), _p(2, "2026-09-08T20:05:00Z", local="Herediano")]
+    membresias = [{"league_id": 9, "user_id": "ana", "tournament_id": 6}]
+    predicciones = [{"user_id": "ana", "league_id": 9, "match_id": 1}]
+    m = armar_recordatorios(partidos, membresias, predicciones)
+    assert m["ana"]["title"].startswith("⏰")
+    assert "No has predicho 14:05 Herediano vs Alajuelense" in m["ana"]["body"]
 
 
 def test_estar_en_dos_quinielas_y_predecir_en_una_deja_pendiente():

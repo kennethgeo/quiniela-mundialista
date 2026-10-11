@@ -108,7 +108,15 @@ export default function PushNotificationToggle () {
         // pidió es de otra persona: se da de baja, no se la apropia
         // (auditoría 19). La propia (fila en la base) sigue como siempre.
         if (profile?.id && !cuentaPidioAvisos(profile.id)) {
-          const mia = await registrada(profile.id, sub.endpoint).catch(() => false)
+          // `null` = no se pudo saber (red, 5xx, token). Eso NO es «es de otra
+          // persona»: antes contaba como ajena y daba de baja los avisos de
+          // quien los activó antes del 28 sep con solo abrir el Perfil con
+          // mala señal (10 oct 2026). Sin saber, no se toca nada.
+          const mia = await registrada(profile.id, sub.endpoint).catch(() => null)
+          if (mia === null) {
+            if (vigente) setIsSubscribed(false)
+            return
+          }
           if (!mia) {
             try { await sub.unsubscribe() } catch { /* se reintenta la próxima vez */ }
             if (vigente) setIsSubscribed(false)
