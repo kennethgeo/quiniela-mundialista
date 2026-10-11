@@ -3,10 +3,10 @@
    mostrar nada, y Chrome muestra «este sitio se actualizó en segundo plano».
    Antes un payload que no era JSON terminaba sin aviso y sin waitUntil. */
 self.addEventListener('push', function(event) {
-  let data = {}
+  let data
   try {
     data = event.data ? event.data.json() : {}
-  } catch (e) {
+  } catch (_) {
     let texto = ''
     try { texto = event.data.text() } catch (_) { /* nada que leer */ }
     data = { body: texto }

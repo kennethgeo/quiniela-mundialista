@@ -230,7 +230,7 @@ const ENDPOINT_A = 'https://fcm.googleapis.com/fcm/send/de-A'
    La renovación de A falla (400, p. ej. cerró sesión en otro lado) y B entra. */
 test('celular compartido: A pierde la sesión sin elegirlo y entra B, que también los pidió acá: los de A se dan de baja y B queda suscrito', async ({ page }) => {
   await sinRedExterna(page)
-  await page.addInitScript(([a, bId, endpoint]) => {
+  await page.addInitScript(([a, bId]) => {
     if (sessionStorage.getItem('prueba:init') === '1') return
     sessionStorage.setItem('prueba:init', '1')
     localStorage.setItem('tutorial_seen', 'true')
@@ -241,7 +241,7 @@ test('celular compartido: A pierde la sesión sin elegirlo y entra B, que tambi�
       access_token: 'viejo', refresh_token: 'revocado', token_type: 'bearer',
       expires_at: Math.floor(Date.now() / 1000) - 3600, expires_in: 3600, user: a,
     }))
-  }, [A, B.id, ENDPOINT_A])
+  }, [A, B.id])
   await page.addInitScript((endpoint) => {
     const sub = {
       endpoint, options: {},
