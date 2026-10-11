@@ -46,7 +46,9 @@ def cargar_vapid(texto: str):
     k = (texto or "").strip().strip('"').strip("'")
     k = k.replace("\\r", "").replace("\\n", "\n").strip()
     if "-----BEGIN" in k:
-        m = re.match(r"-----BEGIN ([A-Z ]+)-----(.*?)-----END \1-----", k, re.S)
+        # El bloque de la LLAVE PRIVADA, no el primero: `openssl ecparam -genkey`
+        # escribe antes un bloque «EC PARAMETERS» (revisión del 11 oct 2026).
+        m = re.search(r"-----BEGIN ((?:EC |ENCRYPTED )?PRIVATE KEY)-----(.*?)-----END \1-----", k, re.S)
         if m:
             cuerpo = re.sub(r"\s+", "", m.group(2))
             lineas = "\n".join(cuerpo[i:i + 64] for i in range(0, len(cuerpo), 64))

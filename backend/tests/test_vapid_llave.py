@@ -57,6 +57,9 @@ def _formatos(privada):
         "PEM con espacios": pkcs8.replace("\n", " "),
         "PEM entre comillas": '"' + pkcs8.replace("\n", "\\n") + '"',
         "PEM SEC1 en una línea": sec1.replace("\n", ""),
+        # Lo que imprime `openssl ecparam -genkey` sin -noout: dos bloques.
+        "openssl con EC PARAMETERS antes": "-----BEGIN EC PARAMETERS-----\nBggqhkjOPQMBBw==\n-----END EC PARAMETERS-----\n" + sec1,
+        "EC PARAMETERS antes, con \\n literales": ("-----BEGIN EC PARAMETERS-----\nBggqhkjOPQMBBw==\n-----END EC PARAMETERS-----\n" + sec1).replace("\n", "\\n"),
         "cruda base64url (web-push)": _b64u(crudo),
         "cruda con salto final": _b64u(crudo) + "\n",
         "DER base64url": _b64u(der),

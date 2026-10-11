@@ -184,7 +184,7 @@ async def notify_daily(authorization: Optional[str] = Header(default=None)):
     # Un partido cancelado o pospuesto no se anuncia.
     partidos = [p for p in partidos if p.get("status") not in ("cancelled", "postponed")]
     if not partidos:
-        return {"status": "ok", "partidos": 0, "mensaje": "Hoy no se juega nada"}
+        return {"status": "ok", "partidos": 0, "mensaje": "Hoy no se juega nada", "vapid": estado_vapid()}
 
     torneos = sorted({p["tournament_id"] for p in partidos})
 
@@ -200,14 +200,14 @@ async def notify_daily(authorization: Optional[str] = Header(default=None)):
     ids_activos = {t["id"] for t in activos}
     partidos = [p for p in partidos if p["tournament_id"] in ids_activos]
     if not partidos:
-        return {"status": "ok", "partidos": 0, "mensaje": "Hoy no se juega nada en un torneo activo"}
+        return {"status": "ok", "partidos": 0, "mensaje": "Hoy no se juega nada en un torneo activo", "vapid": estado_vapid()}
 
     ligas = (
         supabase.table("leagues").select("id, tournament_id")
         .in_("tournament_id", sorted(ids_activos)).execute().data or []
     )
     if not ligas:
-        return {"status": "ok", "partidos": len(partidos), "mensaje": "Ningún torneo con quiniela"}
+        return {"status": "ok", "partidos": len(partidos), "mensaje": "Ningún torneo con quiniela", "vapid": estado_vapid()}
 
     torneo_de_liga = {l["id"]: l["tournament_id"] for l in ligas}
     filas = (
@@ -372,7 +372,7 @@ async def notify_kickoff(authorization: Optional[str] = Header(default=None)):
 
     partidos = list({int(p["id"]): p for p in [*partidos_frescos, *partidos_reintento]}.values())
     if not partidos:
-        return {"status": "ok", "partidos": 0}
+        return {"status": "ok", "partidos": 0, "vapid": estado_vapid()}
 
     torneos = sorted({p["tournament_id"] for p in partidos})
     # Mismo corte que el resumen diario: una quiniela de un torneo terminado no
@@ -385,14 +385,14 @@ async def notify_kickoff(authorization: Optional[str] = Header(default=None)):
     ids_activos = {t["id"] for t in activos}
     partidos = [p for p in partidos if p["tournament_id"] in ids_activos]
     if not partidos:
-        return {"status": "ok", "partidos": 0}
+        return {"status": "ok", "partidos": 0, "vapid": estado_vapid()}
 
     ligas = (
         supabase.table("leagues").select("id, tournament_id")
         .in_("tournament_id", sorted(ids_activos)).execute().data or []
     )
     if not ligas:
-        return {"status": "ok", "partidos": len(partidos), "personas": 0}
+        return {"status": "ok", "partidos": len(partidos), "personas": 0, "vapid": estado_vapid()}
 
     torneo_de_liga = {l["id"]: l["tournament_id"] for l in ligas}
     filas = (
