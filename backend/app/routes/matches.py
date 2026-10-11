@@ -427,7 +427,7 @@ async def notify_kickoff(authorization: Optional[str] = Header(default=None)):
         return resumen
 
     async def _enviar_sin_deduplicar():
-        mensajes = mensajes_de_recordatorio(entregas)
+        mensajes = mensajes_de_recordatorio(entregas, ahora)
         resultado = await enviar_push_personalizado(supabase, mensajes, ttl=ttl_recordatorio(partidos, ahora))
         return _registrar({
             "status": "ok",
@@ -447,9 +447,28 @@ async def notify_kickoff(authorization: Optional[str] = Header(default=None)):
         logger.exception("Recordatorios SIN deduplicación: falló la reclamación atómica")
         return await _enviar_sin_deduplicar()
 
+    # Desde la 108 la base ya no descarta a quien predijo entre la lectura de
+    # arriba y el reclamo: se vuelve a mirar, solo para lo reclamado, para no
+    # decirle «No has predicho» a quien acaba de hacerlo (revisión del 11 oct
+    # 2026). Una predicción no se borra desde el cliente, así que solo puede
+    # pasar de pendiente a hecha. Si la lectura falla, queda lo de arriba.
+    if reclamadas:
+        try:
+            hechas = (
+                supabase.table("predictions").select("user_id, league_id, match_id")
+                .in_("match_id", sorted({e["match_id"] for e in reclamadas}))
+                .limit(20000).execute().data or []
+            )
+            ya = {(str(x["league_id"]), x["match_id"], str(x["user_id"])) for x in hechas}
+            for e in reclamadas:
+                if (str(e["league_id"]), e["match_id"], str(e["user_id"])) in ya:
+                    e["predicha"] = True
+        except Exception:
+            logger.exception("No se pudieron releer las predicciones del recordatorio")
+
     # El texto se compone DESPUÉS de reclamar: un partido que se llevó otra
     # corrida no puede contarse en el «te faltan N por predecir».
-    mensajes = mensajes_de_recordatorio(reclamadas)
+    mensajes = mensajes_de_recordatorio(reclamadas, ahora)
     resultado = await enviar_push_personalizado(supabase, mensajes, detallado=True,
                                             ttl=ttl_recordatorio(partidos, ahora))
     por_usuario = resultado.pop("por_usuario", {})

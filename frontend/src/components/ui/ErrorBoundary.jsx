@@ -38,10 +38,10 @@ class ErrorBoundary extends React.Component {
       // la persona se quedaba sin avisos sin saberlo, justo después de cada
       // despliegue, que es cuando aparece este error. Alcanza con lo que hace
       // la herramienta de recuperación: pedir la versión nueva, vaciar los
-      // cachés y recargar. Una actualización del service worker conserva la
-      // suscripción.
+      // cachés (menos el precache, que es la app instalada) y recargar. Una
+      // actualización del service worker conserva la suscripción.
       anotarRecarga()
-      refreshApplication().catch(() => window.location.reload())
+      refreshApplication({ conservarPrecache: true }).catch(() => window.location.reload())
     }
   }
 

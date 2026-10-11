@@ -176,7 +176,21 @@ def _detalle(partido):
     return f"{_hora_cr(partido['kickoff_at'])} {partido['home_team']} vs {partido['away_team']}"
 
 
-def mensajes_de_recordatorio(entregas):
+def _minutos_para(partido, ahora):
+    """Minutos que REALMENTE faltan para el saque. Un reintento sale a los 30 o
+    a los 20 minutos, y la ventana fresca es [45, 60): un título fijo de «45
+    min» afirmaba algo falso (revisión del 11 oct 2026). Sin `ahora` se usa el
+    nominal, que es lo que producía esta función antes."""
+    if ahora is None:
+        return MINUTOS_AVISO
+    try:
+        saque = datetime.fromisoformat(str(partido["kickoff_at"]).replace("Z", "+00:00"))
+    except (TypeError, ValueError):
+        return MINUTOS_AVISO
+    return max(1, round((saque - ahora).total_seconds() / 60))
+
+
+def mensajes_de_recordatorio(entregas, ahora=None):
     """Un push por persona, compuesto desde las unidades que SÍ se van a enviar.
 
     Se arma después de reclamar, no antes: si una unidad se la llevó otra
@@ -202,7 +216,7 @@ def mensajes_de_recordatorio(entregas):
             # cuenta UNA vez, como pendiente.
             lista = sorted(suyos.values(), key=lambda p: p["kickoff_at"])
             n = len(lista)
-            titulo = f"⏰ Faltan {MINUTOS_AVISO} min"
+            titulo = f"⏰ Faltan {_minutos_para(lista[0], ahora)} min"
             detalle = _detalle(lista[0])
             if n == 1:
                 cuerpo = f"No has predicho {detalle}. Cierra 15 min antes del saque."
@@ -211,7 +225,7 @@ def mensajes_de_recordatorio(entregas):
         else:
             lista = sorted(listas[user_id].values(), key=lambda p: p["kickoff_at"])
             n = len(lista)
-            titulo = f"⚽ Arranca en {MINUTOS_AVISO} min"
+            titulo = f"⚽ Arranca en {_minutos_para(lista[0], ahora)} min"
             detalle = _detalle(lista[0])
             if n == 1:
                 cuerpo = f"{detalle}. Tu predicción ya está guardada."

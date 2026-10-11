@@ -20,7 +20,7 @@ import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import {
   soportaPush, activarPush, desactivarPush, guardarSuscripcion, swListo,
-  cuentaPidioAvisos, marcarAvisosDeCuenta, registrada,
+  cuentaPidioAvisos, marcarAvisosDeCuenta, registrada, reemplazarAjena,
   urlBase64ToUint8Array, VAPID_PUBLIC_KEY, estadoPermiso, necesitaInstalarPrimero, cerrandoSesion,
 } from '../../lib/notificaciones'
 import { situacionAvisos, olvidarPospuesto } from '../../lib/avisoPush'
@@ -125,7 +125,12 @@ export default function PushNotificationToggle () {
         }
         if (profile?.id) {
           try {
-            await guardarSuscripcion(profile.id, sub)
+            try {
+              await guardarSuscripcion(profile.id, sub)
+            } catch (e) {
+              // Ajena pero esta cuenta los pidió acá: se reemplaza (11 oct 2026).
+              if (!e?.ajena || !(await reemplazarAjena(profile.id, sub))) throw e
+            }
             marcarAvisosDeCuenta(profile.id, true)
           } catch (e) {
             console.error('No se pudo registrar la suscripción:', e)

@@ -14,8 +14,6 @@ logger = logging.getLogger(__name__)
 
 
 TIPO_RECORDATORIO_SAQUE = "kickoff-45m"
-# Tope de `claim_notification_deliveries` (migración 82): más filas, excepción.
-LOTE_MAXIMO = 1000
 MINUTOS_PARA_RECLAMO_VENCIDO = 5
 
 
@@ -108,26 +106,23 @@ def reclamar_entregas(supabase, entregas: list[dict]) -> tuple[list[dict], dict[
         })
         por_clave[clave_entrega(entrega)] = entrega
 
-    # La base acepta hasta LOTE_MAXIMO unidades por llamada. Desde el 11 oct
-    # 2026 entran también quienes ya predijeron, así que el lote crece: se parte
-    # en vez de caer al envío sin deduplicar. Cada llamada es atómica por sí
-    # sola, y el token por persona sirve igual aunque sus unidades queden en
-    # dos llamadas distintas.
-    filas = []
-    for i in range(0, len(payload), LOTE_MAXIMO):
-        try:
-            respuesta = supabase.rpc("claim_notification_deliveries", {
-                "p_entregas": payload[i:i + LOTE_MAXIMO],
-                "p_tipo": TIPO_RECORDATORIO_SAQUE,
-            }).execute()
-        except Exception as exc:
-            if _es_objeto_ausente(exc):
-                raise DeduplicacionNoDisponible from exc
-            raise
-        filas.extend(respuesta.data or [])
+    # UNA sola llamada, a propósito (revisión del 11 oct 2026): partir el lote
+    # dejaba, si fallaba la segunda parte, los reclamos de la primera abiertos
+    # y reenviados a los 5 minutos. Con ~24 personas no se llega al tope de
+    # 1000 de la base; si algún día se llega, la llamada falla y el endpoint
+    # cae al envío sin deduplicar, que es la decisión ya tomada para ese caso.
+    try:
+        respuesta = supabase.rpc("claim_notification_deliveries", {
+            "p_entregas": payload,
+            "p_tipo": TIPO_RECORDATORIO_SAQUE,
+        }).execute()
+    except Exception as exc:
+        if _es_objeto_ausente(exc):
+            raise DeduplicacionNoDisponible from exc
+        raise
 
     reclamadas = []
-    for fila in filas:
+    for fila in respuesta.data or []:
         clave = (
             str(fila["claimed_user_id"]),
             str(fila["claimed_league_id"]),

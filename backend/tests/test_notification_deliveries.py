@@ -381,43 +381,8 @@ def test_la_puerta_del_cron_se_cierra_con_las_predicciones():
 
 
 # ---------------------------------------------------------------------------
-# Desde el 11 oct 2026 el recordatorio entra para TODOS los que tienen avisos,
-# así que el lote crece. La base no acepta más de 1000 por llamada.
+# Migración 108: el reclamo deja de descartar a quien ya predijo.
 # ---------------------------------------------------------------------------
-class _Lotes:
-    """Doble que IMPONE el tope de la base, como la función real."""
-
-    def __init__(self):
-        self.llamadas = []
-
-    def rpc(self, nombre, args):
-        self.llamadas.append(args["p_entregas"])
-        if len(args["p_entregas"]) > 1000:
-            raise Exception("El lote de entregas debe ser un arreglo de hasta 1000 filas")
-        filas = [{"claimed_user_id": e["user_id"], "claimed_league_id": e["league_id"],
-                  "claimed_match_id": e["match_id"], "claimed_token": e["claim_token"]}
-                 for e in args["p_entregas"]]
-        return type("Q", (), {"execute": lambda _s: type("R", (), {"data": filas})()})()
-
-
-def test_un_lote_de_mas_de_mil_se_reclama_en_partes():
-    from app.services.notification_deliveries import LOTE_MAXIMO
-    entregas = [_entrega(ANA, LIGA_A, m) for m in range(1, 1201)]
-    base = _Lotes()
-    reclamadas, tokens = reclamar_entregas(base, entregas)
-    assert len(reclamadas) == 1200
-    assert [len(x) for x in base.llamadas] == [LOTE_MAXIMO, 200]
-    # El token de la persona es el mismo en las dos partes: el cierre marca todo junto.
-    assert {e["claim_token"] for lote in base.llamadas for e in lote} == {tokens[ANA]}
-
-
-def test_el_tope_del_lote_es_el_de_la_base():
-    sql = (Path(__file__).resolve().parents[2] / "database"
-           / "108_recordatorio_a_todos_con_avisos.sql").read_text()
-    from app.services.notification_deliveries import LOTE_MAXIMO
-    assert f"jsonb_array_length(p_entregas) > {LOTE_MAXIMO}" in sql
-
-
 def test_la_108_ya_no_descarta_a_quien_predijo_y_conserva_lo_demas():
     raiz = Path(__file__).resolve().parents[2] / "database"
     sql = (raiz / "108_recordatorio_a_todos_con_avisos.sql").read_text()

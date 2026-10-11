@@ -77,7 +77,12 @@ class _Consulta:
         if self.tabla == "league_members":
             return _R([{"league_id": LIGA, "user_id": u} for u in (SIN_DISPOSITIVO, PENDIENTE, AL_DIA)])
         if self.tabla == "predictions":
-            return _R([{"user_id": AL_DIA, "league_id": LIGA, "match_id": 295}])
+            b.lecturas_de_predicciones += 1
+            filas = [{"user_id": AL_DIA, "league_id": LIGA, "match_id": 295}]
+            # Quien predice entre la primera lectura y el reclamo.
+            if b.predice_entre_medio and b.lecturas_de_predicciones > 1:
+                filas.append({"user_id": PENDIENTE, "league_id": LIGA, "match_id": 295})
+            return _R(filas)
         if self.tabla == "push_subscriptions":
             if self.columnas == "user_id" and b.falla_filtro:
                 raise RuntimeError("se cortó la consulta del filtro")
@@ -105,7 +110,7 @@ class _Rpc:
 
 
 class Base:
-    def __init__(self, version_base=108, falla_filtro=False):
+    def __init__(self, version_base=108, falla_filtro=False, predice_entre_medio=False):
         ahora = datetime.now(timezone.utc)
         self.partido = {"id": 295, "tournament_id": 2, "home_team": "Saprissa", "away_team": "Herediano",
                         "kickoff_at": (ahora + timedelta(minutes=50)).isoformat(), "status": "pending"}
@@ -114,6 +119,7 @@ class Base:
             {"user_id": AL_DIA, "endpoint": "https://web.push.apple.com/q", "p256dh": "k", "auth": "a"},
         ]
         self.version_base, self.falla_filtro = version_base, falla_filtro
+        self.predice_entre_medio, self.lecturas_de_predicciones = predice_entre_medio, 0
         self.pedidas, self.cierres = [], []
 
     def table(self, nombre):
@@ -140,7 +146,8 @@ def test_con_la_108_le_llega_tambien_a_quien_ya_predijo(monkeypatch):
     base = Base(version_base=108)
     respuesta, enviados = _correr(monkeypatch, base)
     al_dia = enviados["https://web.push.apple.com/q"]
-    assert al_dia["title"].startswith("⚽ Arranca en 45 min")
+    # El saque está a 50 min: el título dice los minutos que faltan de verdad.
+    assert al_dia["title"] == "⚽ Arranca en 50 min"
     assert "Saprissa vs Herediano" in al_dia["body"] and "ya está guardada" in al_dia["body"]
     assert "No has predicho" in enviados["https://fcm.googleapis.com/fcm/send/p"]["body"]
     assert respuesta["enviados"] == 2
@@ -187,3 +194,24 @@ def test_quien_ya_predijo_nunca_recibe_el_texto_de_pendiente(monkeypatch, versio
     _, enviados = _correr(monkeypatch, Base(version_base=version))
     al_dia = enviados.get("https://web.push.apple.com/q")
     assert al_dia is None or "No has predicho" not in al_dia["body"]
+
+
+def test_quien_predice_justo_antes_del_reclamo_no_recibe_no_has_predicho(monkeypatch):
+    """La 108 ya no descarta en la base a quien predijo entre la lectura y el
+    reclamo: el backend relee lo reclamado antes de componer el texto."""
+    _, enviados = _correr(monkeypatch, Base(predice_entre_medio=True))
+    pendiente = enviados["https://fcm.googleapis.com/fcm/send/p"]
+    assert pendiente["title"].startswith("⚽ Arranca"), pendiente
+
+
+def test_un_reintento_dice_los_minutos_que_faltan_de_verdad():
+    from datetime import datetime, timezone
+    from app.services.resumen_diario import mensajes_de_recordatorio
+    ahora = datetime(2026, 10, 10, 20, 40, tzinfo=timezone.utc)
+    partido = {"id": 1, "home_team": "A", "away_team": "B", "kickoff_at": "2026-10-10T21:00:00Z"}
+    m = mensajes_de_recordatorio([
+        {"user_id": "u", "league_id": "l", "match_id": 1, "partido": partido, "predicha": True},
+        {"user_id": "v", "league_id": "l", "match_id": 1, "partido": partido, "predicha": False},
+    ], ahora)
+    assert m["u"]["title"] == "⚽ Arranca en 20 min"
+    assert m["v"]["title"] == "⏰ Faltan 20 min"

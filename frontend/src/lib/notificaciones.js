@@ -94,7 +94,24 @@ export async function guardarSuscripcion (userId, subscription) {
   if (!error) return
   if (error.code !== '23505') throw error
   if (await registrada(userId, s.endpoint)) return
-  throw new Error('Este dispositivo tiene los avisos registrados a otra cuenta. Desactivalos desde esa cuenta y volvé a activarlos acá.')
+  const e = new Error('Este dispositivo tiene los avisos registrados a otra cuenta. Desactivalos desde esa cuenta y volvé a activarlos acá.')
+  e.ajena = true
+  throw e
+}
+
+/* La suscripción viva es de OTRA cuenta pero ESTA los pidió en este
+   dispositivo (celular compartido donde las dos los activaron alguna vez).
+   Antes el error solo se mostraba: la suscripción de la otra persona quedaba
+   viva —le seguían llegando sus avisos a quien usa el celular— y esta cuenta
+   se quedaba sin los suyos (revisión del 11 oct 2026). Se da de baja la ajena
+   y se suscribe esta. Devuelve si quedó activo. */
+export async function reemplazarAjena (userId, sub) {
+  try { await sub.unsubscribe() } catch { return false }
+  const nueva = await resuscribirSiLosPidio(userId)
+  if (!nueva) return false
+  await guardarSuscripcion(userId, nueva)
+  marcarAvisosDeCuenta(userId, true)
+  return true
 }
 
 /** ¿La base tiene este endpoint a nombre de esta cuenta? Lanza si no se puede saber. */
@@ -151,7 +168,12 @@ export async function avisosActivos (userId) {
       try { await sub.unsubscribe() } catch { /* se reintenta la próxima vez */ }
       return false
     }
-    await guardarSuscripcion(userId, sub)
+    try {
+      await guardarSuscripcion(userId, sub)
+    } catch (e) {
+      if (!e?.ajena) throw e
+      return await reemplazarAjena(userId, sub)
+    }
     return true
   } catch {
     return false
@@ -291,6 +313,14 @@ function marcarCierre () {
   try { localStorage.setItem(CLAVE_CERRANDO, String(Date.now())) } catch { /* modo privado */ }
 }
 
+/** El cierre de sesión FALLÓ y la persona sigue adentro: se quitan las marcas
+ *  del cierre. Una baja pendiente olvidada daría de baja sus avisos la próxima
+ *  vez que perdiera la sesión sin elegirlo (revisión del 11 oct 2026). */
+export function cancelarCierre () {
+  olvidarBajaPendiente()
+  try { localStorage.removeItem(CLAVE_CERRANDO) } catch { /* modo privado */ }
+}
+
 /** ¿Hay un cierre de sesión en curso (en esta pestaña o en otra)? */
 export function cerrandoSesion (ahora = Date.now()) {
   try {
@@ -310,7 +340,13 @@ export async function olvidarDispositivo (userId, sigueVigente = () => true) {
   let enPlazo = true
   const vale = () => enPlazo && sigueVigente()
   const trabajo = (async () => {
-    const sub = await suscripcionLocal()
+    // «El navegador no contestó» NO es «no hay suscripción» (revisión del 11
+    // oct 2026): con un service worker lento, `suscripcionLocal()` da null y
+    // borrar la marca dejaba el dispositivo suscrito a nombre de quien salió.
+    // Si no contesta o lanza, la marca queda y la próxima apertura reintenta.
+    const reg = await swListo()
+    if (!reg) return
+    const sub = await reg.pushManager.getSubscription()
     if (!sub) { if (vale()) olvidarBajaPendiente(); return }
     if (!vale()) return
     const endpoint = sub.endpoint

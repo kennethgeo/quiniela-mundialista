@@ -216,3 +216,198 @@ test('un cierre voluntario cuya baja falló se completa ya sin sesión', async (
   await expect.poll(() => marca(page, 'prueba:baja'), { timeout: 10000 }).toBe(true)
   expect(await page.evaluate(() => sessionStorage.getItem('prueba:fallo'))).toBe('1')
 })
+
+
+/* ── Lo que encontró la revisión adversarial del 11 oct 2026 ─────────────── */
+
+const A = { ...USUARIO, id: '00000000-0000-4000-8000-0000000000aa', email: 'a@x.test' }
+const B = USUARIO
+const PERFIL_B = { id: B.id, display_name: 'B', avatar_url: null, total_points: 40, points_adjustment: 0, is_admin: false, created_at: '2026-01-01', updated_at: '2026-01-01' }
+const ENDPOINT_A = 'https://fcm.googleapis.com/fcm/send/de-A'
+
+/* Celular compartido. A tenía sesión (token vencido) y su suscripción viva con
+   fila en la base; B activó avisos en este celular alguna vez (marca de cuenta).
+   La renovación de A falla (400, p. ej. cerró sesión en otro lado) y B entra. */
+test('celular compartido: A pierde la sesión sin elegirlo y entra B, que también los pidió acá: los de A se dan de baja y B queda suscrito', async ({ page }) => {
+  await sinRedExterna(page)
+  await page.addInitScript(([a, bId, endpoint]) => {
+    if (sessionStorage.getItem('prueba:init') === '1') return
+    sessionStorage.setItem('prueba:init', '1')
+    localStorage.setItem('tutorial_seen', 'true')
+    localStorage.setItem('pwaPromptDismissed', 'true')
+    localStorage.setItem(`avisosPush:activos:${a.id}`, '1')
+    localStorage.setItem(`avisosPush:activos:${bId}`, '1')
+    localStorage.setItem('sb-pruebas-auth-token', JSON.stringify({
+      access_token: 'viejo', refresh_token: 'revocado', token_type: 'bearer',
+      expires_at: Math.floor(Date.now() / 1000) - 3600, expires_in: 3600, user: a,
+    }))
+  }, [A, B.id, ENDPOINT_A])
+  await page.addInitScript((endpoint) => {
+    const sub = {
+      endpoint, options: {},
+      unsubscribe: async () => { sessionStorage.setItem('prueba:bajaA', '1'); actual = null; return true },
+      toJSON: () => ({ endpoint, keys: { p256dh: 'a', auth: 'b' } }),
+    }
+    let actual = sessionStorage.getItem('prueba:bajaA') === '1' ? null : sub
+    Object.defineProperty(Notification, 'permission', { get: () => 'granted', configurable: true })
+    const reg = { pushManager: {
+      getSubscription: async () => actual,
+      subscribe: async () => { sessionStorage.setItem('prueba:alta', '1'); actual = { ...sub, endpoint: endpoint + '-nuevo', toJSON: () => ({ endpoint: endpoint + '-nuevo', keys: { p256dh: 'a', auth: 'b' } }) }; return actual },
+    } }
+    Object.defineProperty(navigator, 'serviceWorker', {
+      configurable: true,
+      get: () => ({ ready: Promise.resolve(reg), getRegistrations: async () => [], register: async () => ({}), addEventListener: () => {} }),
+    })
+  }, ENDPOINT_A)
+  await interceptarSupabase(page, { '/rest/v1/users': PERFIL_B })
+  await page.route('**://pruebas.supabase.co/rest/v1/push_subscriptions**', (route) => {
+    const req = route.request()
+    if (req.method() === 'POST') {
+      const fila = JSON.parse(req.postData())
+      // La fila del endpoint de A es de A: UNIQUE(endpoint) => 23505.
+      if (fila.endpoint === ENDPOINT_A) return route.fulfill({ status: 409, contentType: 'application/json', body: JSON.stringify({ code: '23505', message: 'duplicate key' }) })
+      return route.fulfill({ status: 201, contentType: 'application/json', body: '[]' })
+    }
+    return route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
+  })
+  await page.route('**://pruebas.supabase.co/auth/v1/token**', (route) => {
+    const url = route.request().url()
+    if (url.includes('grant_type=password')) {
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
+        access_token: 'tok-B', refresh_token: 'ref-B', token_type: 'bearer', expires_in: 3600,
+        expires_at: Math.floor(Date.now() / 1000) + 3600, user: B,
+      }) })
+    }
+    return route.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ code: 'refresh_token_not_found', error: 'invalid_grant' }) })
+  })
+  await page.goto('/')
+  await expect(page).toHaveURL(/\/auth/, { timeout: 15000 })
+  await page.waitForTimeout(2000)
+  await page.fill('#login-email', 'b@x.test')
+  await page.fill('#login-password', 'secreta')
+  await page.getByRole('button', { name: 'Entrar', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'Mis quinielas' })).toBeVisible({ timeout: 15000 })
+  await expect.poll(() => page.evaluate(() => sessionStorage.getItem('prueba:bajaA')), { timeout: 10000 }).toBe('1')
+  expect(await page.evaluate(() => sessionStorage.getItem('prueba:bajaA'))).toBe('1')
+  expect(await page.evaluate(() => sessionStorage.getItem('prueba:alta'))).toBe('1')
+})
+
+
+/* «El navegador no contestó» no es «no hay suscripción»: borrar la marca
+   dejaba el dispositivo suscrito a nombre de quien salió. */
+test('cierre voluntario con el service worker lento: la baja se completa en la próxima apertura', async ({ page }) => {
+  await sinRedExterna(page)
+  await page.addInitScript((usuario) => {
+    if (sessionStorage.getItem('prueba:sesionPuesta')) return
+    sessionStorage.setItem('prueba:sesionPuesta', '1')
+    localStorage.setItem('sb-pruebas-auth-token', JSON.stringify({ access_token: 't', refresh_token: 'r', token_type: 'bearer',
+      expires_at: Math.floor(Date.now() / 1000) + 3600 * 24 * 365, expires_in: 3600 * 24 * 365, user: usuario }))
+  }, USUARIO)
+  await page.addInitScript(([id, endpoint]) => {
+    localStorage.setItem('tutorial_seen', 'true')
+    localStorage.setItem('pwaPromptDismissed', 'true')
+    localStorage.setItem(`avisosPush:activos:${id}`, '1')
+    const sub = {
+      endpoint, options: {},
+      unsubscribe: async () => { sessionStorage.setItem('prueba:baja', '1'); return true },
+      toJSON: () => ({ endpoint, keys: { p256dh: 'a', auth: 'b' } }),
+    }
+    // Primera carga: el SW no responde (iPhone frío). Cargas siguientes: responde.
+    const primera = sessionStorage.getItem('prueba:cargas') === null
+    sessionStorage.setItem('prueba:cargas', String(Number(sessionStorage.getItem('prueba:cargas') || 0) + 1))
+    const reg = { pushManager: { getSubscription: async () => (sessionStorage.getItem('prueba:baja') ? null : sub), subscribe: async () => sub } }
+    Object.defineProperty(Notification, 'permission', { get: () => 'granted', configurable: true })
+    Object.defineProperty(navigator, 'serviceWorker', {
+      configurable: true,
+      get: () => ({
+        ready: primera ? new Promise(() => {}) : Promise.resolve(reg),
+        getRegistrations: async () => [],
+        register: async () => ({}),
+        addEventListener: () => {},
+      }),
+    })
+  }, [USUARIO.id, ENDPOINT])
+  await interceptarSupabase(page, {
+    '/rest/v1/users': PERFIL,
+    '/rest/v1/push_subscriptions': [{ id: 'x' }],
+    '/auth/v1/logout': {},
+  })
+  await page.goto('/profile')
+  await page.getByRole('button', { name: /Cerrar sesión/ }).last().click()
+  await expect(page).toHaveURL(/\/auth/, { timeout: 20000 })
+  await page.waitForTimeout(1000)
+  // El navegador no contestó: la marca tiene que quedar para reintentar.
+  expect(await page.evaluate(() => localStorage.getItem('avisosPush:bajaPendiente'))).toBe('1')
+  // Próxima apertura, sin sesión, con el SW ya respondiendo.
+  await page.reload()
+  await expect.poll(() => page.evaluate(() => sessionStorage.getItem('prueba:baja')), { timeout: 10000 }).toBe('1')
+})
+
+
+test('al entrar se borra una baja pendiente vieja: no puede llevarse los avisos después', async ({ page }) => {
+  await sinRedExterna(page)
+  await conSesion(page)
+  await navegador(page, { bajaPendiente: true })
+  await interceptarSupabase(page, { '/rest/v1/users': PERFIL, '/rest/v1/push_subscriptions': [{ id: 'x' }] })
+  await page.goto('/')
+  await expect(page.getByRole('heading', { name: 'Mis quinielas' })).toBeVisible({ timeout: 10000 })
+  await expect.poll(() => page.evaluate(() => localStorage.getItem('avisosPush:bajaPendiente')), { timeout: 10000 }).toBeNull()
+  expect(await marca(page, 'prueba:baja')).toBe(false)
+})
+
+test('si cerrar sesión falla (sin red) y la persona sigue adentro, no queda una baja pendiente', async ({ page }) => {
+  await sinRedExterna(page)
+  await conSesion(page)
+  await navegador(page)
+  await interceptarSupabase(page, { '/rest/v1/users': PERFIL, '/rest/v1/push_subscriptions': [{ id: 'x' }] })
+  await page.route('**://pruebas.supabase.co/auth/v1/logout**', (route) => route.abort())
+  await page.goto('/profile')
+  await page.getByRole('button', { name: /Cerrar sesión/ }).last().click()
+  await page.waitForTimeout(6000)
+  await expect(page).toHaveURL(/\/profile/)
+  expect(await page.evaluate(() => localStorage.getItem('avisosPush:bajaPendiente'))).toBeNull()
+  expect(await page.evaluate(() => localStorage.getItem('avisosPush:cerrando'))).toBeNull()
+})
+
+test('celular compartido, desde el Perfil: la suscripción ajena se reemplaza por la de esta cuenta', async ({ page }) => {
+  await sinRedExterna(page)
+  await conSesion(page)
+  await page.addInitScript(([bId, endpoint]) => {
+    localStorage.setItem('tutorial_seen', 'true')
+    localStorage.setItem('pwaPromptDismissed', 'true')
+    localStorage.setItem(`avisosPush:activos:${bId}`, '1')
+    const sub = {
+      endpoint, options: {},
+      unsubscribe: async () => { sessionStorage.setItem('prueba:bajaA', '1'); actual = null; return true },
+      toJSON: () => ({ endpoint, keys: { p256dh: 'a', auth: 'b' } }),
+    }
+    let actual = sessionStorage.getItem('prueba:bajaA') === '1' ? null : sub
+    Object.defineProperty(Notification, 'permission', { get: () => 'granted', configurable: true })
+    const reg = { pushManager: {
+      getSubscription: async () => actual,
+      subscribe: async () => {
+        sessionStorage.setItem('prueba:alta', '1')
+        actual = { ...sub, endpoint: endpoint + '-nuevo', toJSON: () => ({ endpoint: endpoint + '-nuevo', keys: { p256dh: 'a', auth: 'b' } }) }
+        return actual
+      },
+    } }
+    Object.defineProperty(navigator, 'serviceWorker', {
+      configurable: true,
+      get: () => ({ ready: Promise.resolve(reg), getRegistrations: async () => [], register: async () => ({}), addEventListener: () => {} }),
+    })
+  }, [B.id, ENDPOINT_A])
+  await interceptarSupabase(page, { '/rest/v1/users': PERFIL_B })
+  await page.route('**://pruebas.supabase.co/rest/v1/push_subscriptions**', (route) => {
+    const req = route.request()
+    if (req.method() === 'POST') {
+      const fila = JSON.parse(req.postData())
+      if (fila.endpoint === ENDPOINT_A) return route.fulfill({ status: 409, contentType: 'application/json', body: JSON.stringify({ code: '23505', message: 'duplicate key' }) })
+      return route.fulfill({ status: 201, contentType: 'application/json', body: '[]' })
+    }
+    return route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
+  })
+  await page.goto('/profile')
+  await expect.poll(() => page.evaluate(() => sessionStorage.getItem('prueba:bajaA')), { timeout: 10000 }).toBe('1')
+  expect(await page.evaluate(() => sessionStorage.getItem('prueba:alta'))).toBe('1')
+  await expect(page.getByText(/registrados a otra cuenta/)).toHaveCount(0)
+})
