@@ -166,7 +166,7 @@ async def notify_daily(authorization: Optional[str] = Header(default=None)):
         raise HTTPException(status_code=401, detail="No autorizado")
 
     from datetime import datetime, timezone
-    from app.services.notifications import enviar_push_personalizado
+    from app.services.notifications import enviar_push_personalizado, estado_vapid
     from app.services.resumen_diario import armar_mensajes, ventana_del_dia
 
     supabase = get_supabase()
@@ -231,6 +231,10 @@ async def notify_daily(authorization: Optional[str] = Header(default=None)):
         "status": "ok",
         "partidos": len(partidos),
         "personas": len(mensajes),
+        # Una palabra, nunca la llave: así se ve desde `net._http_response` si
+        # los envíos pueden salir (11 oct 2026: salían todos fallidos y la
+        # respuesta solo decía `enviados: 0`).
+        "vapid": estado_vapid(),
         **resultado,
     }
     # Vercel guarda una hora de registros y pg_net no conserva la respuesta:
@@ -295,7 +299,9 @@ async def notify_kickoff(authorization: Optional[str] = Header(default=None)):
         reintentos_pendientes,
         seleccionar_candidatas,
     )
-    from app.services.notifications import enviar_push_personalizado, usuarios_con_dispositivo
+    from app.services.notifications import (
+        enviar_push_personalizado, estado_vapid, usuarios_con_dispositivo,
+    )
     from app.services.resumen_diario import (
         entregas_recordatorio,
         mensajes_de_recordatorio,
@@ -420,6 +426,7 @@ async def notify_kickoff(authorization: Optional[str] = Header(default=None)):
         logger.exception("No se pudo filtrar por dispositivo; se sigue sin filtrar")
 
     def _registrar(resumen):
+        resumen["vapid"] = estado_vapid()
         # Un envío que sale bien no deja ningún rastro en el log (pywebpush usa
         # `requests`, que no anota nada): sin esta línea, «¿salieron los
         # avisos?» no se podía contestar mirando Vercel.
