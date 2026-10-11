@@ -296,11 +296,14 @@ class TestDesgloseDelRecordatorio:
         entregas = entregas_recordatorio(self.PARTIDOS, self.MIEMBROS, [])
         assert [clave_entrega(e) for e in entregas] == [(ANA, LIGA_A, 1), (ANA, LIGA_A, 2)]
 
-    def test_quien_ya_predijo_no_genera_unidad(self):
+    def test_quien_ya_predijo_genera_unidad_MARCADA(self):
+        """Desde el 11 oct 2026 también se le avisa (decisión del dueño); la
+        marca decide el texto. Antes este test afirmaba que no había unidad."""
         entregas = entregas_recordatorio(
             self.PARTIDOS, self.MIEMBROS,
             [{"user_id": ANA, "league_id": LIGA_A, "match_id": 1}])
-        assert [clave_entrega(e) for e in entregas] == [(ANA, LIGA_A, 2)]
+        assert [(clave_entrega(e), e["predicha"]) for e in entregas] == [
+            ((ANA, LIGA_A, 1), True), ((ANA, LIGA_A, 2), False)]
 
     def test_la_misma_persona_en_DOS_quinielas_del_mismo_torneo_debe_las_dos(self):
         """Predijo en una sola: en la otra el partido sigue pendiente de verdad."""
@@ -309,7 +312,21 @@ class TestDesgloseDelRecordatorio:
         entregas = entregas_recordatorio(
             self.PARTIDOS[:1], miembros,
             [{"user_id": ANA, "league_id": LIGA_A, "match_id": 1}])
-        assert [clave_entrega(e) for e in entregas] == [(ANA, LIGA_B, 1)]
+        assert [(clave_entrega(e), e["predicha"]) for e in entregas] == [
+            ((ANA, LIGA_A, 1), True), ((ANA, LIGA_B, 1), False)]
+        # Y el aviso habla de la que debe, no de la que ya hizo.
+        assert "No has predicho" in mensajes_de_recordatorio(entregas)[ANA]["body"]
+
+    def test_si_la_base_VIEJA_descarta_a_quien_predijo_no_le_llega_nada_raro(self):
+        """Orden de despliegue: el código sale antes que la migración 108. Con
+        la 82, el reclamo descarta las unidades de quien ya predijo; lo que
+        vuelve son solo pendientes y el texto es el de siempre."""
+        entregas = entregas_recordatorio(
+            self.PARTIDOS, self.MIEMBROS,
+            [{"user_id": ANA, "league_id": LIGA_A, "match_id": 1}])
+        devueltas_por_la_82 = [e for e in entregas if not e["predicha"]]
+        m = mensajes_de_recordatorio(devueltas_por_la_82)
+        assert m[ANA]["title"].startswith("⏰") and "No has predicho" in m[ANA]["body"]
 
     def test_el_texto_es_EXACTAMENTE_el_de_siempre(self):
         viejo = armar_recordatorios(self.PARTIDOS, self.MIEMBROS, [])
@@ -361,3 +378,20 @@ def test_la_puerta_del_cron_se_cierra_con_las_predicciones():
     backend exige 15 minutos, la puerta también."""
     cuerpo, _ = _puerta_sql()
     assert "m.kickoff_at - interval '15 minutes' > now()" in cuerpo
+
+
+# ---------------------------------------------------------------------------
+# Migración 108: el reclamo deja de descartar a quien ya predijo.
+# ---------------------------------------------------------------------------
+def test_la_108_ya_no_descarta_a_quien_predijo_y_conserva_lo_demas():
+    raiz = Path(__file__).resolve().parents[2] / "database"
+    sql = (raiz / "108_recordatorio_a_todos_con_avisos.sql").read_text()
+    cuerpo = sql[sql.index("CREATE OR REPLACE FUNCTION public.claim_notification_deliveries"):
+                 sql.index("COMMENT ON FUNCTION")]
+    assert "public.predictions" not in cuerpo
+    for imprescindible in ("es_backend()", "notification_deliveries_unique DO NOTHING",
+                           "interval '15 minutes' > now()", "lm.user_id = e.user_id",
+                           "m.tournament_id = l.tournament_id",
+                           "NOT IN ('finished', 'cancelled', 'postponed')"):
+        assert cuerpo.count(imprescindible) >= 1, imprescindible
+    assert "GRANT EXECUTE ON FUNCTION public.claim_notification_deliveries(jsonb, text)\n  TO service_role" in sql

@@ -759,3 +759,19 @@ SELECT a.match_id, m.home_team || ' vs ' || m.away_team AS partido, a.valor_ante
 FROM public.match_audit a JOIN public.matches m ON m.id = a.match_id
 WHERE a.campo = 'saque' AND m.destapado_at IS NOT NULL AND a.changed_at >= m.destapado_at
 ORDER BY a.changed_at DESC;
+
+\echo '=== 27. El recordatorio de 45 min se reclama para todos (108) ==='
+-- Si sale `true`, alguien volvió a correr la 82 (o aplicó otra cosa) y el
+-- reclamo volvió a descartar a quien ya predijo: el aviso saldría solo a los
+-- pendientes. Tiene que salir `false`.
+SELECT pg_get_functiondef('public.claim_notification_deliveries(jsonb,text)'::regprocedure)
+       ILIKE '%public.predictions%' AS reclamo_descarta_a_quien_predijo;
+
+\echo '=== 28. Recordatorios del saque de las últimas 24 h, por resultado ==='
+-- Informativo: cuántos avisos salieron y por qué fallaron los que no. Junto
+-- con la línea «Recordatorio de saque: …» del log del backend, es la forma de
+-- contestar «¿están saliendo los avisos?».
+SELECT status, COALESCE(last_error, '—') AS motivo, count(*) AS filas, max(updated_at) AS ultima
+FROM public.notification_deliveries
+WHERE tipo = 'kickoff-45m' AND updated_at > now() - interval '24 hours'
+GROUP BY 1, 2 ORDER BY 3 DESC;

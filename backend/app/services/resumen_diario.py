@@ -134,16 +134,21 @@ def ventana_recordatorio(ahora_utc: datetime) -> tuple[datetime, datetime]:
 
 
 def entregas_recordatorio(partidos, membresias, predicciones):
-    """Una UNIDAD por (persona, quiniela, partido) pendiente.
+    """Una UNIDAD por (persona, quiniela, partido), haya predicho o no.
 
-    Es la misma selección de siempre, pero desglosada en vez de agregada por
-    persona. La bitácora de la migración 82 deduplica por esa terna, así que
-    necesita verlas sueltas: si solo llegara el mensaje ya compuesto, no habría
-    forma de decir «este partido ya se avisó y este otro no».
+    DECISIÓN DEL DUEÑO (11 oct 2026): el aviso de los 45 minutos le llega a
+    TODOS los que tengan los avisos activados, no solo a quien le falta
+    predecir. Antes salía únicamente a los pendientes y, con casi todo el grupo
+    al día, no le llegaba a nadie: parecía que los avisos no funcionaban. Cada
+    unidad lleva `predicha` y el texto cambia según eso.
 
-    Se cuenta por PAR (quiniela, partido), porque estar en dos quinielas del
-    mismo torneo y haber predicho en una sola deja el partido pendiente de
-    verdad en la otra.
+    La bitácora de la migración 82 deduplica por esa terna, así que necesita
+    verlas sueltas: si solo llegara el mensaje ya compuesto, no habría forma de
+    decir «este partido ya se avisó y este otro no».
+
+    `predicha` se mira por PAR (quiniela, partido), porque estar en dos
+    quinielas del mismo torneo y haber predicho en una sola deja el partido
+    pendiente de verdad en la otra.
     """
     if not partidos:
         return []
@@ -157,40 +162,75 @@ def entregas_recordatorio(partidos, membresias, predicciones):
     entregas = []
     for m in membresias:
         for p in por_torneo.get(m["tournament_id"], ()):
-            if (m["league_id"], p["id"], m["user_id"]) not in ya_predijo:
-                entregas.append({
-                    "user_id": m["user_id"],
-                    "league_id": m["league_id"],
-                    "match_id": p["id"],
-                    "partido": p,
-                })
+            entregas.append({
+                "user_id": m["user_id"],
+                "league_id": m["league_id"],
+                "match_id": p["id"],
+                "partido": p,
+                "predicha": (m["league_id"], p["id"], m["user_id"]) in ya_predijo,
+            })
     return entregas
 
 
-def mensajes_de_recordatorio(entregas):
-    """El texto de siempre, compuesto desde las unidades que SÍ se van a enviar.
+def _detalle(partido):
+    return f"{_hora_cr(partido['kickoff_at'])} {partido['home_team']} vs {partido['away_team']}"
+
+
+def _minutos_para(partido, ahora):
+    """Minutos que REALMENTE faltan para el saque. Un reintento sale a los 30 o
+    a los 20 minutos, y la ventana fresca es [45, 60): un título fijo de «45
+    min» afirmaba algo falso (revisión del 11 oct 2026). Sin `ahora` se usa el
+    nominal, que es lo que producía esta función antes."""
+    if ahora is None:
+        return MINUTOS_AVISO
+    try:
+        saque = datetime.fromisoformat(str(partido["kickoff_at"]).replace("Z", "+00:00"))
+    except (TypeError, ValueError):
+        return MINUTOS_AVISO
+    return max(1, round((saque - ahora).total_seconds() / 60))
+
+
+def mensajes_de_recordatorio(entregas, ahora=None):
+    """Un push por persona, compuesto desde las unidades que SÍ se van a enviar.
 
     Se arma después de reclamar, no antes: si una unidad se la llevó otra
     corrida, su partido no puede aparecer en el «te faltan N por predecir».
     Contar antes de reclamar diría un número que no corresponde con lo que la
     persona recibe.
+
+    Si le falta predecir ALGO, el aviso habla de eso (es lo único sobre lo que
+    todavía puede actuar). Si ya predijo todo, avisa que el partido arranca.
+    Una unidad sin `predicha` cuenta como pendiente: es lo que producía esta
+    función antes del cambio del 11 oct 2026.
     """
-    pendientes = {}
+    pendientes, listas = {}, {}
     for e in entregas:
-        pendientes.setdefault(e["user_id"], {})[e["match_id"]] = e["partido"]
+        destino = listas if e.get("predicha") else pendientes
+        destino.setdefault(e["user_id"], {})[e["match_id"]] = e["partido"]
 
     mensajes = {}
-    for user_id, suyos in pendientes.items():
-        lista = sorted(suyos.values(), key=lambda p: p["kickoff_at"])
-        n = len(lista)
-        primero = lista[0]
-
-        titulo = f"⏰ Faltan {MINUTOS_AVISO} min"
-        detalle = f"{_hora_cr(primero['kickoff_at'])} {primero['home_team']} vs {primero['away_team']}"
-        if n == 1:
-            cuerpo = f"No has predicho {detalle}. Cierra 15 min antes del saque."
+    for user_id in {**listas, **pendientes}:
+        suyos = pendientes.get(user_id)
+        if suyos:
+            # Un partido que la persona predijo en una quiniela y debe en otra
+            # cuenta UNA vez, como pendiente.
+            lista = sorted(suyos.values(), key=lambda p: p["kickoff_at"])
+            n = len(lista)
+            titulo = f"⏰ Faltan {_minutos_para(lista[0], ahora)} min"
+            detalle = _detalle(lista[0])
+            if n == 1:
+                cuerpo = f"No has predicho {detalle}. Cierra 15 min antes del saque."
+            else:
+                cuerpo = f"Te faltan {n} por predecir: {detalle} y {n - 1} más. Cierran 15 min antes."
         else:
-            cuerpo = f"Te faltan {n} por predecir: {detalle} y {n - 1} más. Cierran 15 min antes."
+            lista = sorted(listas[user_id].values(), key=lambda p: p["kickoff_at"])
+            n = len(lista)
+            titulo = f"⚽ Arranca en {_minutos_para(lista[0], ahora)} min"
+            detalle = _detalle(lista[0])
+            if n == 1:
+                cuerpo = f"{detalle}. Tu predicción ya está guardada."
+            else:
+                cuerpo = f"{detalle} y {n - 1} más. Tus predicciones ya están guardadas."
 
         mensajes[user_id] = {"title": titulo, "body": cuerpo, "url": "/"}
 

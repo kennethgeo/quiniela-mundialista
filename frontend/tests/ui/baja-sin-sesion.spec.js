@@ -1,12 +1,19 @@
 /* Duodécima auditoría: si el cierre de sesión no pudo dar de baja la
    suscripción (sin red, `unsubscribe()` y el DELETE fallan), el celular seguía
    recibiendo los avisos de la cuenta que salió. Al abrir la app SIN sesión, la
-   suscripción que quede en el navegador se da de baja. CON sesión, no se toca. */
+   suscripción que quede en el navegador se da de baja. CON sesión, no se toca.
+
+   Desde el 10 oct 2026 eso vale SOLO si quedó a medias un cierre VOLUNTARIO
+   de este dispositivo (`avisosPush:bajaPendiente`): quedarse sin sesión sin
+   elegirlo le quitaba los avisos a quien los había pedido. Por eso estas
+   pruebas ponen la marca; las que no la ponen están en
+   avisos-que-no-se-pierden.spec.js. */
 import { expect, test } from '@playwright/test'
 import { conSesion, interceptarSupabase, sinRedExterna, USUARIO } from './apoyo.js'
 
-async function conSuscripcionViva (page, { retenida = false } = {}) {
-  await page.addInitScript((retenida) => {
+async function conSuscripcionViva (page, { retenida = false, bajaPendiente = true } = {}) {
+  await page.addInitScript(([retenida, bajaPendiente]) => {
+    if (bajaPendiente) localStorage.setItem('avisosPush:bajaPendiente', '1')
     // `retenida`: el navegador tarda en contestar hasta que la prueba lo suelte.
     let soltar
     const suelta = new Promise((resolve) => { soltar = resolve })
@@ -33,10 +40,10 @@ async function conSuscripcionViva (page, { retenida = false } = {}) {
         addEventListener: () => {},
       }),
     })
-  }, retenida)
+  }, [retenida, bajaPendiente])
 }
 
-test('sin sesión, la suscripción que quedó en el navegador se da de baja', async ({ page }) => {
+test('sin sesión y con un cierre voluntario a medias, la suscripción que quedó se da de baja', async ({ page }) => {
   await sinRedExterna(page)
   await conSuscripcionViva(page)
   await interceptarSupabase(page, {})

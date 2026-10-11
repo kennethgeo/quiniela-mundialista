@@ -119,6 +119,25 @@ async def broadcast_push_to_users(supabase, user_ids: list, title: str, body: st
     return success_count
 
 
+def usuarios_con_dispositivo(supabase, user_ids) -> set:
+    """De estas personas, las que tienen AL MENOS un dispositivo registrado.
+
+    El recordatorio del saque reclamaba también a quien no tiene ninguno: el
+    envío no podía salir, el reclamo se cerraba como fallido
+    («sin-dispositivo-vigente») y se volvía a reclamar cada 15 minutos hasta el
+    cierre, sin llegarle nunca a nadie (medido el 10 oct 2026 con el partido
+    295). Lanza si no se puede saber: quien llama decide seguir sin filtrar.
+    """
+    ids = sorted({u for u in user_ids if u})
+    if not ids:
+        return set()
+    filas = (
+        supabase.table("push_subscriptions").select("user_id")
+        .in_("user_id", ids).execute().data or []
+    )
+    return {f["user_id"] for f in filas}
+
+
 async def enviar_push_personalizado(supabase, mensajes: dict, detallado: bool = False,
                                     ttl: int = TTL_POR_DEFECTO):
     """Manda un push DISTINTO a cada persona.

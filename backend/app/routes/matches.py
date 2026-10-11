@@ -227,12 +227,17 @@ async def notify_daily(authorization: Optional[str] = Header(default=None)):
     mensajes = armar_mensajes(partidos, membresias, predicciones)
     resultado = await enviar_push_personalizado(supabase, mensajes)
 
-    return {
+    salida = {
         "status": "ok",
         "partidos": len(partidos),
         "personas": len(mensajes),
         **resultado,
     }
+    # Vercel guarda una hora de registros y pg_net no conserva la respuesta:
+    # sin esta línea, a media mañana ya no había forma de saber si el resumen
+    # de las 6 am salió ni a cuántos (investigación del 10 oct 2026).
+    logger.info("Resumen diario: %s", salida)
+    return salida
 
 
 # El recordatorio sirve mientras se pueda predecir: llega ~45-60 min antes y
@@ -264,7 +269,10 @@ def ttl_recordatorio(partidos, ahora) -> int:
 
 @router.post("/notify-kickoff")
 async def notify_kickoff(authorization: Optional[str] = Header(default=None)):
-    """Recordatorio 45 minutos antes del saque, SOLO a quien le falta predecir.
+    """Recordatorio 45 minutos antes del saque, a TODOS los que tengan avisos.
+
+    A quien le falta predecir le dice qué le falta; a quien ya predijo, que el
+    partido arranca (decisión del dueño, 11 oct 2026).
 
     El resumen de las 6am ya dice cuántas te faltan, pero es una vez al día: si
     el partido es a las 8pm y lo viste temprano, nada te vuelve a tocar.
@@ -287,7 +295,7 @@ async def notify_kickoff(authorization: Optional[str] = Header(default=None)):
         reintentos_pendientes,
         seleccionar_candidatas,
     )
-    from app.services.notifications import enviar_push_personalizado
+    from app.services.notifications import enviar_push_personalizado, usuarios_con_dispositivo
     from app.services.resumen_diario import (
         entregas_recordatorio,
         mensajes_de_recordatorio,
@@ -398,16 +406,37 @@ async def notify_kickoff(authorization: Optional[str] = Header(default=None)):
     entregas = entregas_recordatorio(partidos, membresias, predicciones)
     entregas = seleccionar_candidatas(entregas, ids_frescos, claves_reintento)
 
+    # Solo a quien tiene avisos activados (decisión del dueño, 11 oct 2026).
+    # Sin esto, cada persona sin dispositivo quedaba reclamada, fallida y
+    # vuelta a reclamar cada 15 minutos. Si la consulta falla se sigue SIN
+    # filtrar: el envío ya descarta solo a quien no tiene dispositivo, y perder
+    # avisos por un filtro de limpieza sería al revés.
+    try:
+        con_dispositivo = usuarios_con_dispositivo(supabase, [e["user_id"] for e in entregas])
+        sin_dispositivo_previo = len({e["user_id"] for e in entregas} - con_dispositivo)
+        entregas = [e for e in entregas if e["user_id"] in con_dispositivo]
+    except Exception:
+        sin_dispositivo_previo = None
+        logger.exception("No se pudo filtrar por dispositivo; se sigue sin filtrar")
+
+    def _registrar(resumen):
+        # Un envío que sale bien no deja ningún rastro en el log (pywebpush usa
+        # `requests`, que no anota nada): sin esta línea, «¿salieron los
+        # avisos?» no se podía contestar mirando Vercel.
+        logger.info("Recordatorio de saque: %s", {k: v for k, v in resumen.items() if k != "por_usuario"})
+        return resumen
+
     async def _enviar_sin_deduplicar():
-        mensajes = mensajes_de_recordatorio(entregas)
+        mensajes = mensajes_de_recordatorio(entregas, ahora)
         resultado = await enviar_push_personalizado(supabase, mensajes, ttl=ttl_recordatorio(partidos, ahora))
-        return {
+        return _registrar({
             "status": "ok",
             "partidos": len(partidos_frescos),
             "personas": len(mensajes),
             "deduplicacion": "fallback-sin-registro",
+            "sin_dispositivo_previo": sin_dispositivo_previo,
             **resultado,
-        }
+        })
 
     if not deduplicacion_disponible:
         return await _enviar_sin_deduplicar()
@@ -418,9 +447,28 @@ async def notify_kickoff(authorization: Optional[str] = Header(default=None)):
         logger.exception("Recordatorios SIN deduplicación: falló la reclamación atómica")
         return await _enviar_sin_deduplicar()
 
+    # Desde la 108 la base ya no descarta a quien predijo entre la lectura de
+    # arriba y el reclamo: se vuelve a mirar, solo para lo reclamado, para no
+    # decirle «No has predicho» a quien acaba de hacerlo (revisión del 11 oct
+    # 2026). Una predicción no se borra desde el cliente, así que solo puede
+    # pasar de pendiente a hecha. Si la lectura falla, queda lo de arriba.
+    if reclamadas:
+        try:
+            hechas = (
+                supabase.table("predictions").select("user_id, league_id, match_id")
+                .in_("match_id", sorted({e["match_id"] for e in reclamadas}))
+                .limit(20000).execute().data or []
+            )
+            ya = {(str(x["league_id"]), x["match_id"], str(x["user_id"])) for x in hechas}
+            for e in reclamadas:
+                if (str(e["league_id"]), e["match_id"], str(e["user_id"])) in ya:
+                    e["predicha"] = True
+        except Exception:
+            logger.exception("No se pudieron releer las predicciones del recordatorio")
+
     # El texto se compone DESPUÉS de reclamar: un partido que se llevó otra
     # corrida no puede contarse en el «te faltan N por predecir».
-    mensajes = mensajes_de_recordatorio(reclamadas)
+    mensajes = mensajes_de_recordatorio(reclamadas, ahora)
     resultado = await enviar_push_personalizado(supabase, mensajes, detallado=True,
                                             ttl=ttl_recordatorio(partidos, ahora))
     por_usuario = resultado.pop("por_usuario", {})
@@ -429,15 +477,16 @@ async def notify_kickoff(authorization: Optional[str] = Header(default=None)):
     # prueba de una persona sin detalle y del fallo de una sola fila.
     cierre = cerrar_reclamos(supabase, tokens, por_usuario, ahora=ahora)
 
-    return {
+    return _registrar({
         **({"reclamos_sin_cerrar": cierre["sin_cerrar"]} if cierre["sin_cerrar"] else {}),
         "status": "ok",
         "partidos": len(partidos_frescos),
         "personas": len(mensajes),
         "reclamadas": len(reclamadas),
         "omitidas_por_duplicado": len(entregas) - len(reclamadas),
+        "sin_dispositivo_previo": sin_dispositivo_previo,
         **resultado,
-    }
+    })
 
 
 @router.post("/notify-daily-league")

@@ -3,7 +3,7 @@ import { createContext, useContext, useState, useEffect, useCallback } from 'rea
 import { supabase } from '../lib/supabase'
 import { crearCargaDePerfil } from '../lib/cargaDePerfil'
 import { conLimite, describirFallo, registrarIntento } from '../lib/loginResiliente'
-import { olvidarDispositivo, bajaSinSesion, PRESUPUESTO_CIERRE_MS, marcarConservarAvisos, olvidarMarcaConservar } from '../lib/notificaciones'
+import { olvidarDispositivo, bajaSinSesion, PRESUPUESTO_CIERRE_MS, marcarConservarAvisos, olvidarMarcaConservar, olvidarBajaPendiente, cancelarCierre } from '../lib/notificaciones'
 
 const AuthContext = createContext(null)
 
@@ -171,8 +171,15 @@ export function AuthProvider({ children }) {
     })().catch(() => {})
     await Promise.race([preambulo, new Promise((resolve) => setTimeout(resolve, PRESUPUESTO_CIERRE_MS + 1000))])
     vigente = false
-    const { error } = await supabase.auth.signOut()
-    if (error) throw error
+    // `local`, no el global por defecto (10 oct 2026): el global revocaba la
+    // sesión en TODOS los dispositivos de la persona —salir en la compu la
+    // sacaba también del celular— y el celular, al quedarse sin sesión, perdía
+    // sus avisos. Es la misma regla que ya tenía el botón de rescate.
+    const { error } = await supabase.auth.signOut({ scope: 'local' })
+    // `local` TAMBIÉN necesita la red (auth-js avisa al servidor): sin red
+    // devuelve error y la sesión sigue. La persona sigue adentro, así que no
+    // puede quedar una baja pendiente esperándola.
+    if (error) { cancelarCierre(); throw error }
     asignarUsuario(null)
   }, [asignarUsuario])
 
@@ -201,6 +208,10 @@ export function AuthProvider({ children }) {
         asignarUsuario(currentUser)
 
         if (currentUser) {
+          // Abrir la app CON sesión: no puede quedar una baja pendiente de un
+          // cierre anterior (al arrancar auth-js emite INITIAL_SESSION, no
+          // SIGNED_IN). Al arrancar todavía no hay ningún cierre en curso.
+          olvidarBajaPendiente()
           // Lanzar fetchProfile sin await para no bloquear la pantalla de carga (soluciona pantalla en negro en PWA)
           fetchProfile(currentUser.id).catch(err => console.error('Error cargando perfil:', err))
         }
@@ -225,7 +236,13 @@ export function AuthProvider({ children }) {
         hayUsuario = !!currentUser
         asignarUsuario(currentUser)
 
-        if (event === 'SIGNED_IN') olvidarMarcaConservar()
+        if (event === 'INITIAL_SESSION' && currentUser) olvidarBajaPendiente()
+        if (event === 'SIGNED_IN') {
+          olvidarMarcaConservar()
+          // Con sesión no hay baja pendiente: si entró otra cuenta, la guarda
+          // de `avisosActivos`/el Perfil se ocupa de la suscripción ajena.
+          olvidarBajaPendiente()
+        }
         if (currentUser && (['INITIAL_SESSION', 'SIGNED_IN', 'TOKEN_REFRESHED', 'USER_UPDATED'].includes(event))) {
           fetchProfile(currentUser.id).catch(err => console.error('Error cargando perfil en evento:', err))
         }

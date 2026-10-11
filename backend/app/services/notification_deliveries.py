@@ -106,6 +106,11 @@ def reclamar_entregas(supabase, entregas: list[dict]) -> tuple[list[dict], dict[
         })
         por_clave[clave_entrega(entrega)] = entrega
 
+    # UNA sola llamada, a propósito (revisión del 11 oct 2026): partir el lote
+    # dejaba, si fallaba la segunda parte, los reclamos de la primera abiertos
+    # y reenviados a los 5 minutos. Con ~24 personas no se llega al tope de
+    # 1000 de la base; si algún día se llega, la llamada falla y el endpoint
+    # cae al envío sin deduplicar, que es la decisión ya tomada para ese caso.
     try:
         respuesta = supabase.rpc("claim_notification_deliveries", {
             "p_entregas": payload,
