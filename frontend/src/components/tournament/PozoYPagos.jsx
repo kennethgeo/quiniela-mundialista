@@ -6,13 +6,18 @@
 
    El flujo es de dos pasos a propósito: el miembro avisa que pagó y el admin
    lo confirma. Así se distingue "dijo que pagó" de "está confirmado", que es
-   justo la discusión que suele aparecer. */
+   justo la discusión que suele aparecer.
+
+   «Quitar» un pago confirmado pide confirmación y queda en el historial
+   (migración 109): antes era un toque y no dejaba rastro de la fecha ni de
+   quién había dado fe. */
 import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useConsultaDelUsuario } from '../../hooks/useConsultaDelUsuario'
-import { Wallet, Check, Clock, Loader2, Pencil, X } from 'lucide-react'
+import { Wallet, Check, Clock, Loader2, Pencil, X, AlertTriangle, History } from 'lucide-react'
 import { ErrorState } from '../ui/StatePanel'
 import { supabase } from '../../lib/supabase'
+import { describirMovimiento, plata } from '../../lib/historialPagos'
 
 const REPARTO_DEFECTO = [
   { puesto: 1, porcentaje: 60 },
@@ -20,17 +25,12 @@ const REPARTO_DEFECTO = [
   { puesto: 3, porcentaje: 10 },
 ]
 
-const plata = (n, moneda) => {
-  const v = Number(n || 0)
-  const txt = v.toLocaleString('es-CR', { maximumFractionDigits: 0 })
-  return moneda === 'USD' ? `$${txt}` : `₡${txt}`
-}
-
 const ordinal = (n) => `${n}º`
 
 export default function PozoYPagos({ leagueId }) {
   const qc = useQueryClient()
   const [editando, setEditando] = useState(false)
+  const [porQuitar, setPorQuitar] = useState(null)
 
   const { data, isLoading, isError, refetch } = useConsultaDelUsuario({
     queryKey: ['league_pozo', leagueId],
@@ -42,7 +42,10 @@ export default function PozoYPagos({ leagueId }) {
     },
   })
 
-  const refrescar = () => qc.invalidateQueries({ queryKey: ['league_pozo', leagueId] })
+  const refrescar = () => {
+    qc.invalidateQueries({ queryKey: ['league_pozo', leagueId] })
+    qc.invalidateQueries({ queryKey: ['historial_pagos', leagueId] })
+  }
 
   const avisar = useMutation({
     mutationFn: async (avisar) => {
@@ -59,7 +62,8 @@ export default function PozoYPagos({ leagueId }) {
       })
       if (error) throw error
     },
-    onSuccess: refrescar,
+    onSuccess: () => { setPorQuitar(null); refrescar() },
+    onError: () => setPorQuitar(null),
   })
 
   if (isError) return <ErrorState compact title="No pudimos cargar el pozo"
@@ -169,7 +173,9 @@ export default function PozoYPagos({ leagueId }) {
 
                 {soy_admin && !g.soy_yo && (
                   <button
-                    onClick={() => confirmar.mutate({ userId: g.user_id, confirmado: !g.confirmado })}
+                    onClick={() => (g.confirmado
+                      ? setPorQuitar(g)
+                      : confirmar.mutate({ userId: g.user_id, confirmado: true }))}
                     disabled={confirmar.isPending}
                     title={g.confirmado ? 'Marcar como pendiente' : 'Confirmar que pagó'}
                     className="shrink-0 text-[10px] font-bold px-2 py-1 rounded-lg disabled:opacity-50"
@@ -182,9 +188,89 @@ export default function PozoYPagos({ leagueId }) {
               </div>
             ))}
           </div>
+
+          {/* Quitar un pago confirmado no es un toque más: el pozo baja y se
+              pierde la fecha original. Se confirma, y queda en el historial. */}
+          {porQuitar && (
+            <div role="dialog" aria-label={`Quitar el pago de ${porQuitar.display_name}`}
+              className="mt-3 rounded-xl p-3 border" style={{ background: 'rgba(255,90,90,.08)', borderColor: 'rgba(255,90,90,.3)' }}>
+              <div className="flex items-start gap-2 mb-2">
+                <AlertTriangle size={14} className="text-rose-500 shrink-0 mt-0.5" />
+                <p className="text-[11.5px] text-slate-700 dark:text-slate-200">
+                  ¿Quitar el pago confirmado de <strong>{porQuitar.display_name}</strong>? Va a figurar como
+                  pendiente y lo recaudado baja. Queda registrado en el historial quién lo quitó y cuándo;
+                  si después se vuelve a confirmar, cuenta como un pago nuevo con la cuota de ese día.
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <button onClick={() => setPorQuitar(null)}
+                  className="flex-1 rounded-xl py-2 font-['Archivo'] font-bold text-[12px] bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300">
+                  Cancelar
+                </button>
+                <button onClick={() => confirmar.mutate({ userId: porQuitar.user_id, confirmado: false })}
+                  disabled={confirmar.isPending}
+                  className="flex-1 rounded-xl py-2 font-['Archivo'] font-bold text-[12px] text-white bg-rose-500 disabled:opacity-50 flex items-center justify-center gap-1.5">
+                  {confirmar.isPending ? <Loader2 size={13} className="animate-spin" /> : null} Quitar el pago
+                </button>
+              </div>
+            </div>
+          )}
+
+          <HistorialPagos leagueId={leagueId} gente={gente} />
         </>
       )}
     </div>
+  )
+}
+
+/* Lo carga recién cuando alguien lo abre: casi nadie lo mira, y así un error
+   (por ejemplo, la 109 sin aplicar) aparece solo a quien lo pidió, dicho. */
+function HistorialPagos({ leagueId, gente }) {
+  const [abierto, setAbierto] = useState(false)
+  return (
+    <details className="mt-3" onToggle={(e) => setAbierto(e.currentTarget.open)}>
+      <summary className="cursor-pointer flex items-center gap-1.5 font-['JetBrains_Mono'] text-[10px] uppercase tracking-[0.12em] text-[var(--text-muted,#8A8A8A)]">
+        <History size={11} /> Historial de pagos
+      </summary>
+      {abierto && <ListaHistorial leagueId={leagueId} gente={gente} />}
+    </details>
+  )
+}
+
+function ListaHistorial({ leagueId, gente }) {
+  const { data: filas = [], isLoading, isError, refetch } = useConsultaDelUsuario({
+    queryKey: ['historial_pagos', leagueId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('historial_pagos')
+        .select('id, user_id, accion, monto, moneda, por, created_at, sembrada')
+        .eq('league_id', leagueId)
+        .order('created_at', { ascending: false })
+        .limit(50)
+      if (error) throw error
+      return data || []
+    },
+  })
+  if (isLoading) return <p role="status" className="text-[11px] mt-2">Cargando historial…</p>
+  if (isError) return <div className="mt-2"><ErrorState compact title="No pudimos cargar el historial de pagos"
+    description="Revisá tu conexión y reintentá." onRetry={refetch} /></div>
+  if (!filas.length) return <p className="text-[11px] text-[var(--text-muted,#8A8A8A)] mt-2">Todavía no hay movimientos.</p>
+  const nombres = Object.fromEntries((gente || []).map((g) => [g.user_id, g.display_name]))
+  return (
+    <ul className="mt-2 space-y-1.5" aria-label="Movimientos de pagos">
+      {filas.map((f) => {
+        const m = describirMovimiento(f, nombres)
+        return (
+          <li key={f.id} className="text-[11px] text-slate-700 dark:text-slate-300">
+            <span>{m.texto}</span>
+            {m.monto && <span className="font-['JetBrains_Mono'] font-bold"> · {m.monto}</span>}
+            <span className="block font-['JetBrains_Mono'] text-[9.5px] text-[var(--text-muted,#8A8A8A)]">
+              {m.cuando}{m.nota && ` · ${m.nota}`}
+            </span>
+          </li>
+        )
+      })}
+    </ul>
   )
 }
 

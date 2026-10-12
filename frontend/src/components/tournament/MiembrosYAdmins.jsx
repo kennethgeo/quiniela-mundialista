@@ -19,6 +19,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useConsultaDelUsuario } from '../../hooks/useConsultaDelUsuario'
 import { Users, Crown, Shield, Loader2, UserMinus, AlertTriangle } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
+import { plata } from '../../lib/historialPagos'
 
 export default function MiembrosYAdmins({ leagueId }) {
   const qc = useQueryClient()
@@ -62,6 +63,26 @@ export default function MiembrosYAdmins({ leagueId }) {
     onSuccess: () => { setError(null); setPorExpulsar(null); refrescar() },
     onError: (e) => { setError(e.message); setPorExpulsar(null) },
   })
+
+  /* Expulsar a quien tiene un pago confirmado lo borra de la quiniela (B10):
+     se dice ANTES, con el monto, y que queda en el historial (migración 109).
+     Antes el aviso no lo mencionaba y el pago desaparecía sin rastro. */
+  const pagoDeQuienSale = useConsultaDelUsuario({
+    queryKey: ['pago_de_miembro', leagueId, porExpulsar?.user_id ?? null],
+    enabled: !!leagueId && !!porExpulsar,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('league_members')
+        .select('pago_confirmado_at, pago_confirmado_monto, pago_confirmado_moneda')
+        .eq('league_id', leagueId)
+        .eq('user_id', porExpulsar.user_id)
+        .maybeSingle()
+      if (error) throw error
+      return data
+    },
+  })
+  const pago = pagoDeQuienSale.data
+  const conPago = !!pago?.pago_confirmado_at
 
   if (isLoading) return null
 
@@ -137,7 +158,8 @@ export default function MiembrosYAdmins({ leagueId }) {
 
       {/* Expulsar borra predicciones: se confirma antes, no se deshace. */}
       {porExpulsar && (
-        <div className="mt-3 rounded-xl p-3 border" style={{ background: 'rgba(255,90,90,.08)', borderColor: 'rgba(255,90,90,.3)' }}>
+        <div role="dialog" aria-label={`Sacar a ${porExpulsar.display_name}`}
+          className="mt-3 rounded-xl p-3 border" style={{ background: 'rgba(255,90,90,.08)', borderColor: 'rgba(255,90,90,.3)' }}>
           <div className="flex items-start gap-2 mb-2">
             <AlertTriangle size={14} className="text-rose-500 shrink-0 mt-0.5" />
             <p className="text-[11.5px] text-slate-700 dark:text-slate-200">
@@ -146,12 +168,27 @@ export default function MiembrosYAdmins({ leagueId }) {
               tendría que volver a entrar con el código y predecir de nuevo lo que no esté cerrado.
             </p>
           </div>
+          {pagoDeQuienSale.isLoading && (
+            <p role="status" className="text-[11px] text-slate-600 dark:text-slate-300 mb-2">Comprobando si tiene un pago confirmado…</p>
+          )}
+          {pagoDeQuienSale.isError && (
+            <p role="alert" className="text-[11px] text-rose-500 mb-2">
+              No pudimos comprobar si tiene un pago confirmado. Si lo tiene, igual queda registrado en el historial de pagos.
+            </p>
+          )}
+          {conPago && (
+            <p className="text-[11.5px] font-bold text-rose-600 dark:text-rose-400 mb-2">
+              {porExpulsar.display_name} tiene un pago confirmado de {plata(pago.pago_confirmado_monto, pago.pago_confirmado_moneda)}:
+              quedará registrado en el historial de pagos, pero deja de contar en lo recaudado.
+            </p>
+          )}
           <div className="flex gap-2">
             <button onClick={() => setPorExpulsar(null)}
               className="flex-1 rounded-xl py-2 font-['Archivo'] font-bold text-[12px] bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300">
               Cancelar
             </button>
-            <button onClick={() => expulsar.mutate(porExpulsar.user_id)} disabled={expulsar.isPending}
+            <button onClick={() => expulsar.mutate(porExpulsar.user_id)}
+              disabled={expulsar.isPending || pagoDeQuienSale.isLoading}
               className="flex-1 rounded-xl py-2 font-['Archivo'] font-bold text-[12px] text-white bg-rose-500 disabled:opacity-50 flex items-center justify-center gap-1.5">
               {expulsar.isPending ? <Loader2 size={13} className="animate-spin" /> : null} Sacar
             </button>
