@@ -1,16 +1,15 @@
 {
   "_comentario": [
-    "Corpus compartido de casos de puntaje. Lo corren LOS DOS motores:",
-    "  · frontend/src/lib/scoring.test.js   (vitest)",
-    "  · backend/tests/test_scoring.py      (pytest)",
+    "Corpus de casos de puntaje. Lo corre backend/tests/test_scoring.py en cada",
+    "CI contra el motor ÚNICO (backend/app/services/scoring.py).",
     "",
-    "Existe porque la lógica de puntaje está duplicada en JS y Python y el",
-    "CLAUDE.md exige que sean idénticas — pero nada lo verificaba. Este archivo",
-    "es el contrato: si los dos motores no dan lo mismo para un caso, el CI falla.",
+    "Es la red que protege el puntaje: si un cambio en el motor mueve el",
+    "resultado de cualquiera de estos casos, el CI falla. No se toca para que",
+    "pase una prueba: si un caso falla, el que está mal es el motor (o la regla",
+    "cambió y entonces hay que cambiar también CLAUDE.md).",
     "",
-    "Todos los casos usan el puntaje por defecto (3 exacto / 1 resultado) para",
-    "que sean comparables entre motores. La configuración por quiniela se prueba",
-    "aparte, porque hoy los motores NO coinciden ahí (ver los tests marcados).",
+    "Todos los casos usan el puntaje por defecto (3 exacto / 1 resultado). La",
+    "configuración por quiniela se prueba aparte, en TestPuntajePorQuiniela.",
     "",
     "Las reglas de penales salen de CLAUDE.md, sección 'Eliminatoria — penales'."
   ],
@@ -163,6 +162,59 @@
       "real": { "home": 0, "away": 0 },
       "penales": { "va": true, "ganador_real": "Local" },
       "esperado": 3
+    },
+
+    {
+      "nombre": "penales: predijo victoria de la VISITA y la visita avanza en la tanda",
+      "pred": { "home_goals_pred": 1, "away_goals_pred": 3 },
+      "real": { "home": 1, "away": 1 },
+      "penales": { "va": true, "ganador_real": "Visita" },
+      "esperado": 1
+    },
+    {
+      "nombre": "penales: predijo victoria de la visita, la visita avanza, con comodin x2",
+      "pred": { "home_goals_pred": 1, "away_goals_pred": 3, "use_powerup_x2": true },
+      "real": { "home": 1, "away": 1 },
+      "penales": { "va": true, "ganador_real": "Visita" },
+      "esperado": 2
+    },
+    {
+      "nombre": "penales sin ganador cargado: el empate exacto vale 3 y la tanda no suma",
+      "pred": { "home_goals_pred": 0, "away_goals_pred": 0, "penalties_winner_pred": "Local" },
+      "real": { "home": 0, "away": 0 },
+      "penales": { "va": true, "ganador_real": null },
+      "esperado": 3
+    },
+    {
+      "nombre": "penales sin ganador cargado: predijo ganador y no consta que avance",
+      "pred": { "home_goals_pred": 3, "away_goals_pred": 1 },
+      "real": { "home": 1, "away": 1 },
+      "penales": { "va": true, "ganador_real": null },
+      "esperado": 0
+    },
+    {
+      "nombre": "penales: empate exacto 0-0, fallo la tanda, con comodin x2",
+      "pred": {
+        "home_goals_pred": 0, "away_goals_pred": 0,
+        "penalties_winner_pred": "Visita", "use_powerup_x2": true
+      },
+      "real": { "home": 0, "away": 0 },
+      "penales": { "va": true, "ganador_real": "Local" },
+      "esperado": 6
+    },
+    {
+      "nombre": "eliminatoria SIN penales (una ida): empate exacto con eleccion de tanda vale 3, sin el +1",
+      "pred": { "home_goals_pred": 1, "away_goals_pred": 1, "penalties_winner_pred": "Local" },
+      "real": { "home": 1, "away": 1 },
+      "penales": { "va": false, "ganador_real": null },
+      "esperado": 3
+    },
+    {
+      "nombre": "eliminatoria SIN penales (una ida): empate no exacto con eleccion de tanda vale 1, sin el +1",
+      "pred": { "home_goals_pred": 0, "away_goals_pred": 0, "penalties_winner_pred": "Local" },
+      "real": { "home": 2, "away": 2 },
+      "penales": { "va": false, "ganador_real": null },
+      "esperado": 1
     }
   ]
 }
