@@ -3,6 +3,7 @@
 import io
 import secrets
 import time
+from typing import Optional
 
 from fastapi import APIRouter, Body, Depends, HTTPException
 
@@ -12,36 +13,6 @@ from app.services.supabase_client import get_supabase
 from app.services.scoring import calculate_and_update_scores
 
 router = APIRouter(prefix="/api/admin", tags=["Administración"])
-
-
-# --- Match tolerante de nombres (igual que scoring.js) -----------------------
-import re as _re
-import unicodedata as _ud
-
-
-def _norm_name(s: str) -> str:
-    s = _ud.normalize("NFD", s or "")
-    s = "".join(c for c in s if _ud.category(c) != "Mn")
-    return _re.sub(r"\s+", " ", s.lower().strip())
-
-
-def _champion_matches(actual: str, pick: str) -> bool:
-    a, p = _norm_name(actual), _norm_name(pick)
-    return bool(a) and bool(p) and a == p
-
-
-def _scorer_matches(actual: str, pick: str) -> bool:
-    a, p = _norm_name(actual), _norm_name(pick)
-    if not a or not p:
-        return False
-    if a == p or (len(a) >= 3 and a in p) or (len(p) >= 3 and p in a):
-        return True
-    la, lp = a.split()[-1], p.split()[-1]
-    if len(la) >= 3 and _re.search(r"\b" + _re.escape(la) + r"\b", p):
-        return True
-    if len(lp) >= 3 and _re.search(r"\b" + _re.escape(lp) + r"\b", a):
-        return True
-    return False
 
 
 @router.post("/update-match")
@@ -630,58 +601,100 @@ async def set_tournament_globals(
     return {"status": "ok", "tournament": res.data[0]}
 
 
+REALES = ("actual_champion", "actual_top_scorer", "actual_top_assist")
+
+
 @router.post("/calc-tournament-globals")
 async def calc_tournament_globals(
     tournament_id: int = Body(..., embed=True),
+    league_id: Optional[str] = Body(None, embed=True),
+    dry_run: bool = Body(False, embed=True),
+    esperado: Optional[dict] = Body(None, embed=True),
     admin: dict = Depends(require_admin),
 ):
-    """Reparte los 12 pts de campeón/goleador de UN torneo, usando su campeón/
-    goleador reales y match tolerante (acentos/apellido; goleador admite varios
-    separados por coma). Idempotente."""
+    """Reparte campeón/goleador/asistidor de UNA quiniela, o muestra quién
+    acertaría sin escribir nada (`dry_run`).
+
+    - `league_id` es OBLIGATORIO para repartir: los reales viven en el torneo y
+      la liga tica corre temporada tras temporada sobre el mismo, así que sin
+      filtro se reescribirían las globales de una temporada ya cerrada.
+    - Con `dry_run` y sin `league_id` devuelve la vista previa de cada quiniela
+      del torneo, más la lista de equipos (la misma que ve la persona al
+      elegir campeón) para el selector del panel.
+    - `esperado` son los reales que el admin vio en la vista previa: si cambiaron
+      desde entonces, no se reparte (409). Lo que se confirma es lo que se vio.
+
+    La comparación es por nombre completo y alias EXACTOS (`reparto_globales`).
+    Idempotente.
+    """
+    from app.services import reparto_globales as rg
+
+    if not dry_run and not league_id:
+        raise HTTPException(status_code=400, detail="Elegí la quiniela en la que se reparte")
+
     supabase = get_supabase()
-    t = (supabase.table("tournaments").select("actual_champion, actual_top_scorer, actual_top_assist")
-         .eq("id", tournament_id).single().execute().data) or {}
-    champ = t.get("actual_champion")
-    scorers = [s.strip() for s in _re.split(r"[,;/]", t.get("actual_top_scorer") or "") if s.strip()]
-    assisters = [s.strip() for s in _re.split(r"[,;/]", t.get("actual_top_assist") or "") if s.strip()]
-    if not champ and not scorers and not assisters:
+    filas_t = (supabase.table("tournaments").select(", ".join(REALES))
+               .eq("id", tournament_id).execute().data) or []
+    if not filas_t:
+        raise HTTPException(status_code=404, detail="Torneo no encontrado")
+    reales = filas_t[0]
+
+    if not dry_run and esperado is not None:
+        for k in REALES:
+            if (esperado.get(k) or "").strip() != (reales.get(k) or "").strip():
+                raise HTTPException(
+                    status_code=409,
+                    detail="Los reales cambiaron desde la vista previa: volvé a revisarla")
+
+    q = (supabase.table("leagues").select("id, name, champion_points, scorer_points, assist_points")
+         .eq("tournament_id", tournament_id))
+    if league_id:
+        q = q.eq("id", league_id)
+    ligas = q.order("name").execute().data or []
+    if league_id and not ligas:
+        raise HTTPException(status_code=404, detail="Esa quiniela no es de este torneo")
+
+    def _preds(lid):
+        return (supabase.table("tournament_predictions")
+                .select("id, user_id, league_id, champion_team, top_scorer_name, top_assist_name, "
+                        "champion_points, top_scorer_points, top_assist_points")
+                .eq("tournament_id", tournament_id).eq("league_id", lid)
+                .execute().data or [])
+
+    def _vista(liga, calculo):
+        resto = {k: v for k, v in calculo.items() if k != "filas"}
+        return {"league_id": liga["id"], "nombre": liga.get("name"), **resto}
+
+    if dry_run:
+        partidos = (supabase.table("matches").select("home_team, away_team")
+                    .eq("tournament_id", tournament_id).execute().data or [])
+        equipos = sorted({n for m in partidos for n in (m.get("home_team"), m.get("away_team")) if n},
+                         key=rg.normalizar)
+        return {
+            "status": "ok", "dry_run": True, "reales": reales, "equipos": equipos,
+            "ligas": [_vista(liga, rg.calcular(reales, _preds(liga["id"]), liga)) for liga in ligas],
+        }
+
+    if not any((reales.get(k) or "").strip() for k in REALES):
         return {"status": "ok", "message": "Sin campeón/goleador/asistidor definidos", "updated": 0}
 
-    preds = (supabase.table("tournament_predictions")
-             .select("id, user_id, league_id, champion_team, top_scorer_name, top_assist_name, "
-                     "champion_points, top_scorer_points, top_assist_points")
-             .eq("tournament_id", tournament_id).execute().data or [])
-
-    # Puntos de campeón/goleador/asistidor configurables por quiniela.
-    league_ids = list({p.get("league_id") for p in preds if p.get("league_id")})
-    lcfg = {}
-    if league_ids:
-        for r in (supabase.table("leagues").select("id, champion_points, scorer_points, assist_points")
-                  .in_("id", league_ids).execute().data or []):
-            lcfg[r["id"]] = r
-
+    liga = ligas[0]
+    calculo = rg.calcular(reales, _preds(liga["id"]), liga)
     updated = 0
     users = set()
-    for p in preds:
-        cfg = lcfg.get(p.get("league_id")) or {}
-        champ_pts = cfg.get("champion_points", 12) if cfg.get("champion_points") is not None else 12
-        scorer_pts = cfg.get("scorer_points", 12) if cfg.get("scorer_points") is not None else 12
-        assist_pts = cfg.get("assist_points", 12) if cfg.get("assist_points") is not None else 12
-        cp = champ_pts if (champ and p.get("champion_team") and _champion_matches(champ, p["champion_team"])) else 0
-        sp = scorer_pts if (p.get("top_scorer_name") and any(_scorer_matches(n, p["top_scorer_name"]) for n in scorers)) else 0
-        ap = assist_pts if (p.get("top_assist_name") and any(_scorer_matches(n, p["top_assist_name"]) for n in assisters)) else 0
-        if (cp != (p.get("champion_points") or 0) or sp != (p.get("top_scorer_points") or 0)
-                or ap != (p.get("top_assist_points") or 0)):
-            supabase.table("tournament_predictions").update(
-                {"champion_points": cp, "top_scorer_points": sp, "top_assist_points": ap}).eq("id", p["id"]).execute()
-            updated += 1
-            users.add(p["user_id"])
+    for f in calculo["filas"]:
+        if not f["cambia"]:
+            continue
+        (supabase.table("tournament_predictions").update(f["puntos"])
+         .eq("id", f["id"]).eq("league_id", liga["id"]).execute())
+        updated += 1
+        users.add(f["user_id"])
     for uid in users:
         try:
             supabase.rpc("recompute_user_total", {"p_user_id": uid}).execute()
         except Exception:  # noqa: BLE001
             pass
-    return {"status": "ok", "updated": updated, "users": len(users)}
+    return {"status": "ok", "updated": updated, "users": len(users), "liga": _vista(liga, calculo)}
 
 
 @router.post("/create-match")

@@ -1,0 +1,211 @@
+{
+ "status": "ok",
+ "dry_run": true,
+ "reales": {
+  "actual_champion": "Saprissa",
+  "actual_top_scorer": "Bancy Hernández",
+  "actual_top_assist": "Elías Aguilar"
+ },
+ "equipos": [
+  "AD San Carlos",
+  "Alajuelense",
+  "Cartaginés",
+  "Escorpiones Belén",
+  "Herediano",
+  "Inter de San Carlos",
+  "Pérez Zeledón",
+  "Puntarenas FC",
+  "Saprissa",
+  "Sporting San José"
+ ],
+ "ligas": [
+  {
+   "league_id": "2df51e3a-60a0-4824-a7aa-98b25c6e8350",
+   "nombre": "Bundestica",
+   "puntos": {
+    "campeon": 10,
+    "goleador": 10,
+    "asistidor": 8
+   },
+   "predicciones": 15,
+   "cambiarian": 11,
+   "campeon": {
+    "real": "Saprissa",
+    "aciertan": 7,
+    "picks": [
+     {
+      "pick": "Saprissa",
+      "personas": 7,
+      "acierta": true
+     },
+     {
+      "pick": "Alajuelense",
+      "personas": 6,
+      "acierta": false
+     },
+     {
+      "pick": "Cartaginés",
+      "personas": 1,
+      "acierta": false
+     },
+     {
+      "pick": "Herediano",
+      "personas": 1,
+      "acierta": false
+     }
+    ]
+   },
+   "goleador": {
+    "real": "Bancy Hernández",
+    "aciertan": 0,
+    "picks": [
+     {
+      "pick": "Marcel Hernandez",
+      "personas": 7,
+      "acierta": false
+     },
+     {
+      "pick": "Ronaldo Cisneros",
+      "personas": 5,
+      "acierta": false
+     },
+     {
+      "pick": "Marcel Hernández",
+      "personas": 2,
+      "acierta": false
+     },
+     {
+      "pick": "Newton Williams",
+      "personas": 1,
+      "acierta": false
+     }
+    ]
+   },
+   "asistidor": {
+    "real": "Elías Aguilar",
+    "aciertan": 8,
+    "picks": [
+     {
+      "pick": "Elías Aguilar",
+      "personas": 8,
+      "acierta": true
+     },
+     {
+      "pick": "Mariano Torres",
+      "personas": 4,
+      "acierta": false
+     },
+     {
+      "pick": "Juanpi",
+      "personas": 1,
+      "acierta": false
+     },
+     {
+      "pick": "Luis Paradela",
+      "personas": 1,
+      "acierta": false
+     },
+     {
+      "pick": "Roan Wilson",
+      "personas": 1,
+      "acierta": false
+     }
+    ]
+   }
+  },
+  {
+   "league_id": "c1a05a7a-0000-4000-8000-000000000001",
+   "nombre": "Clausura 2027",
+   "puntos": {
+    "campeon": 12,
+    "goleador": 12,
+    "asistidor": 12
+   },
+   "predicciones": 15,
+   "cambiarian": 11,
+   "campeon": {
+    "real": "Saprissa",
+    "aciertan": 7,
+    "picks": [
+     {
+      "pick": "Saprissa",
+      "personas": 7,
+      "acierta": true
+     },
+     {
+      "pick": "Alajuelense",
+      "personas": 6,
+      "acierta": false
+     },
+     {
+      "pick": "Cartaginés",
+      "personas": 1,
+      "acierta": false
+     },
+     {
+      "pick": "Herediano",
+      "personas": 1,
+      "acierta": false
+     }
+    ]
+   },
+   "goleador": {
+    "real": "Bancy Hernández",
+    "aciertan": 0,
+    "picks": [
+     {
+      "pick": "Marcel Hernandez",
+      "personas": 7,
+      "acierta": false
+     },
+     {
+      "pick": "Ronaldo Cisneros",
+      "personas": 5,
+      "acierta": false
+     },
+     {
+      "pick": "Marcel Hernández",
+      "personas": 2,
+      "acierta": false
+     },
+     {
+      "pick": "Newton Williams",
+      "personas": 1,
+      "acierta": false
+     }
+    ]
+   },
+   "asistidor": {
+    "real": "Elías Aguilar",
+    "aciertan": 8,
+    "picks": [
+     {
+      "pick": "Elías Aguilar",
+      "personas": 8,
+      "acierta": true
+     },
+     {
+      "pick": "Mariano Torres",
+      "personas": 4,
+      "acierta": false
+     },
+     {
+      "pick": "Juanpi",
+      "personas": 1,
+      "acierta": false
+     },
+     {
+      "pick": "Luis Paradela",
+      "personas": 1,
+      "acierta": false
+     },
+     {
+      "pick": "Roan Wilson",
+      "personas": 1,
+      "acierta": false
+     }
+    ]
+   }
+  }
+ ]
+}
