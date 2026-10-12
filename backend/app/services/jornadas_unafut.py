@@ -295,8 +295,14 @@ def firma_de_diferencias(diferencias: list) -> str:
 
 
 def firma_de_saques(atrasados: list) -> str:
-    """Igual, para los saques atrasados contra UNAFUT."""
-    return "|".join(sorted(f"{a['match_id']}:{a['nuestro']}>{a['unafut']}" for a in atrasados))
+    """Igual, para los saques atrasados contra UNAFUT.
+
+    Lleva el partido y la hora de UNAFUT, NO la nuestra: los horarios
+    provisorios de ESPN (21:00Z) se van moviendo a medida que se confirman, y
+    con la nuestra en la firma cada movimiento era un push nuevo al admin
+    aunque el partido siguiera igual de atrasado. Si UNAFUT mueve el saque, o
+    entra o sale un partido de la lista, sí se vuelve a avisar."""
+    return "|".join(sorted(f"{a['match_id']}>{a['unafut']}" for a in atrasados))
 
 
 # `tournaments.unafut_aviso_firma` guarda las DOS firmas (jornadas y saques)

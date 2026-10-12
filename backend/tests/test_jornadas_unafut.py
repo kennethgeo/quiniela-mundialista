@@ -430,3 +430,90 @@ def test_el_sync_busca_el_x2_aunque_la_oficial_coincida_con_la_calculada():
     d = sync._usar_jornada_oficial(base, parsed, snap)
     assert parsed[0]["matchday"] == 12
     assert d and d[0]["aplicada"] is False
+
+
+# ── Revisión de la vigésima auditoría ──────────────────────────────────────
+
+def test_el_boton_del_panel_lee_la_firma_y_no_repite_el_aviso(monkeypatch):
+    """«Sync partidos» (POST /admin/sync-espn) manda el torneo con solo id,
+    fuente y liga. Sin leer `unafut_aviso_firma` de la base, cada pulsación
+    volvía a mandarle al admin el mismo aviso de jornadas."""
+    import copy
+    from datetime import datetime, timezone
+    import app.services.espn_tournament_sync as sync
+    from test_penales_y_series_espn import EVENTOS, _Base, _Cliente
+
+    enviados = []
+
+    async def falso_push(_db, ids, titulo, cuerpo, url="/"):
+        enviados.append((ids, cuerpo))
+        return 1
+
+    async def falso_puntaje(*_a):
+        return None
+    monkeypatch.setattr(sync, "broadcast_push_to_users", falso_push)
+    monkeypatch.setattr(sync, "calculate_and_update_scores", falso_puntaje)
+    monkeypatch.setattr(sync, "partidos_sin_puntuar", lambda *_a, **_k: set())
+    ev = copy.deepcopy(EVENTOS["762650"])
+    ev["season"]["slug"] = "apertura"          # fase regular: lleva jornada
+    ev["status"]["type"].update({"name": "STATUS_SCHEDULED", "state": "pre", "completed": False})
+    monkeypatch.setattr(sync.httpx, "AsyncClient", lambda *a, **k: _Cliente([ev]))
+    # Con un ×2 puesto: la oficial (3) no se aplica y se avisa como trabada.
+    guardado = {"id": 7, "tournament_id": 2, "external_id": ev["id"], "status": "pending",
+                "home_goals_actual": None, "away_goals_actual": None, "score_locked": False,
+                "kickoff_at": ev["date"], "phase": "groups", "home_team": "Saprissa",
+                "away_team": "Alajuelense", "matchday": 1, "jornada_oficial": 3,
+                "goes_to_penalties": False, "penalties_winner_real": None}
+    base = _Base({"matches": [guardado],
+                  "predictions": [{"match_id": 7, "use_powerup_x2": True}],
+                  "users": [{"id": "admin", "is_admin": True}], "leagues": [],
+                  "tournaments": [{"id": 2, "unafut_league_slug": "costarica",
+                                   "unafut_competition_id": "2373",
+                                   "unafut_jornadas_at": datetime.now(timezone.utc).isoformat(),
+                                   "unafut_aviso_firma": ""}]})
+    boton = {"id": 2, "external_ref": "crc.1", "source": "espn"}   # lo que manda admin.py
+
+    primera = asyncio.run(sync.sync_espn_tournament(base, dict(boton)))
+    assert primera["avisos_unafut"]["jornadas"] == "enviado"
+    assert base.tablas["tournaments"][0]["unafut_aviso_firma"]
+    segunda = asyncio.run(sync.sync_espn_tournament(base, dict(boton)))
+    assert segunda["avisos_unafut"]["jornadas"] == "sin-cambios"
+    assert len(enviados) == 1, "el botón repitió el aviso al admin"
+
+
+def test_si_falla_una_ronda_de_unafut_no_cuenta_como_refresco_completo():
+    """Una ronda que falla corta el refresco: si se la saltara, la tanda
+    parcial actualizaría `unafut_jornadas_at` y no se volvería a intentar en
+    6 horas, con jornadas oficiales que faltan."""
+    import pytest
+    from app.services.jornadas_unafut import refrescar_jornadas_oficiales, traer_jornadas
+    from test_penales_y_series_espn import _Base
+
+    class ClienteConFallo(_ClienteUnafut):
+        async def get(self, url, params=None):
+            resp = await super().get(url, params)
+            if url.endswith("/7"):
+                class Caida:
+                    def raise_for_status(self):
+                        raise RuntimeError("502 Bad Gateway")
+                return Caida()
+            return resp
+
+    with pytest.raises(RuntimeError):
+        asyncio.run(traer_jornadas(ClienteConFallo(), "costarica", "2373"))
+    base = _Base({"matches": [], "tournaments": [{"id": 2, "unafut_jornadas_at": None}]})
+    torneo = {"id": 2, "unafut_league_slug": "costarica", "unafut_competition_id": "2373"}
+    info = asyncio.run(refrescar_jornadas_oficiales(base, ClienteConFallo(), torneo))
+    assert "error" in info
+    assert base.tablas["tournaments"][0]["unafut_jornadas_at"] is None
+
+
+def test_la_firma_de_saques_no_cambia_si_solo_se_mueve_el_horario_de_espn():
+    """Los horarios provisorios de ESPN se van confirmando: si el partido sigue
+    atrasado, no es un aviso nuevo. Si UNAFUT mueve el suyo, sí."""
+    from app.services.jornadas_unafut import firma_de_saques
+    a = {"match_id": 308, "partido": "x", "nuestro": "2026-10-26T00:00:00+00:00",
+         "unafut": "2026-10-25T22:00:00+00:00", "minutos": 120}
+    assert firma_de_saques([a]) == firma_de_saques([dict(a, nuestro="2026-10-26T03:00:00+00:00",
+                                                         minutos=300)])
+    assert firma_de_saques([a]) != firma_de_saques([dict(a, unafut="2026-10-25T23:00:00+00:00")])

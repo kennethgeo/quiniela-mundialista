@@ -20,6 +20,8 @@ import json
 import sys
 from pathlib import Path
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import app.services.espn_tournament_sync as sync  # noqa: E402
@@ -159,8 +161,18 @@ class _R:
 class _Consulta:
     def __init__(self, base, tabla):
         self.base, self.tabla, self.filtros, self.accion = base, tabla, [], ("select", None)
+        self.columnas = None
 
-    def select(self, *_a, **_k):
+    def select(self, columnas="*", **_k):
+        # Como PostgREST: devuelve SOLO las columnas pedidas. La versión
+        # anterior devolvía la fila entera pidiera lo que pidiera, y con eso
+        # quitar las columnas de penales del snapshot seguía en verde.
+        if columnas.strip() != "*":
+            self.columnas = [c.strip() for c in columnas.split(",")]
+        fallos = self.base.fallos_de_lectura.get(self.tabla, 0)
+        if fallos:
+            self.base.fallos_de_lectura[self.tabla] = fallos - 1
+            raise RuntimeError("503 Service Unavailable")   # un error pasajero cualquiera
         return self
 
     def eq(self, col, val):
@@ -202,12 +214,15 @@ class _Consulta:
         if tipo == "update":
             for f in elegidas:
                 f.update(dato)
+        if tipo == "select" and self.columnas:
+            elegidas = [{k: v for k, v in f.items() if k in self.columnas} for f in elegidas]
         return _R(copy.deepcopy(elegidas))
 
 
 class _Base:
-    def __init__(self, tablas):
+    def __init__(self, tablas, fallos_de_lectura=None):
         self.tablas, self.upserts = tablas, []
+        self.fallos_de_lectura = dict(fallos_de_lectura or {})
 
     def table(self, nombre):
         return _Consulta(self, nombre)
@@ -241,7 +256,7 @@ class _Cliente:
         return _Respuesta({"events": copy.deepcopy(self.eventos)})
 
 
-def _correr_sync(monkeypatch, eventos, guardados, torneo=None):
+def _correr_sync(monkeypatch, eventos, guardados, torneo=None, fallos_de_lectura=None):
     puntuados = []
 
     async def falso_puntaje(_db, mid):
@@ -252,7 +267,8 @@ def _correr_sync(monkeypatch, eventos, guardados, torneo=None):
     monkeypatch.setattr(sync.httpx, "AsyncClient", lambda *a, **k: _Cliente(eventos))
     torneo = torneo or {"id": 9, "external_ref": "uefa.euro", "unafut_aviso_firma": None}
     base = _Base({"matches": guardados, "leagues": [], "users": [],
-                  "tournaments": [{k: v for k, v in torneo.items() if k != "external_ref"}]})
+                  "tournaments": [{k: v for k, v in torneo.items() if k != "external_ref"}]},
+                 fallos_de_lectura)
     salida = asyncio.run(sync.sync_espn_tournament(base, torneo))
     por_eid = {f["external_id"]: f for f in base.tablas["matches"]}
     return salida, por_eid, puntuados, base
@@ -298,3 +314,26 @@ def test_el_sync_no_toca_un_partido_congelado(monkeypatch):
     assert por_eid["703936"]["goes_to_penalties"] is False
     assert all(f["external_id"] != "703936" for lote in base.upserts for f in lote)
     assert 3 not in puntuados
+
+
+def test_si_falla_la_lectura_de_lo_guardado_no_se_escribe_nada(monkeypatch):
+    """Revisión de la vigésima auditoría: había un select de respaldo que
+    entraba con CUALQUIER error y no traía ni `score_locked` ni los penales.
+    Con un 503 pasajero el upsert reescribía goes_to_penalties=False encima de
+    la tanda marcada a mano y pisaba el congelado. Ahora la pasada se corta."""
+    eventos = [EVENTOS["762650"], EVENTOS["703936"]]
+    guardados = [_guardado(5, "762650", (2, 2), True, "Saprissa"),
+                 _guardado(3, "703936", (1, 0), False, None, bloqueado=True)]
+    with pytest.raises(RuntimeError):
+        _correr_sync(monkeypatch, eventos, guardados, fallos_de_lectura={"matches": 1})
+    assert guardados[0]["goes_to_penalties"] is True
+    assert guardados[0]["penalties_winner_real"] == "Saprissa"
+    assert (guardados[1]["home_goals_actual"], guardados[1]["away_goals_actual"]) == (1, 0)
+
+
+def test_el_doble_devuelve_solo_las_columnas_pedidas():
+    """Si el doble fuera más permisivo que PostgREST, quitar una columna del
+    select del snapshot no haría caer ninguna prueba."""
+    base = _Base({"matches": [_guardado(5, "762650", (2, 2), True, "Saprissa")]})
+    fila = base.table("matches").select("id, external_id").execute().data[0]
+    assert fila == {"id": 5, "external_id": "762650"}

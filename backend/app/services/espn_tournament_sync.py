@@ -621,26 +621,28 @@ async def sync_espn_tournament(supabase, tournament, full=False) -> dict:
 
     # Snapshot de lo existente (para saber qué cambió y re-puntuar, y como
     # contexto de fechas para que la numeración de jornada no cambie entre
-    # corridas parciales — ver _assign_stages). score_locked es una columna
-    # nueva; si la migración que la crea todavía no corrió, cae a la versión
-    # anterior en vez de romper el sync de este torneo.
+    # corridas parciales — ver _assign_stages). Se lee más abajo, después del
+    # refresco de UNAFUT, para ver la jornada oficial recién guardada.
     # La jornada OFICIAL de UNAFUT, refrescada cada 6 h (ver jornadas_unafut).
     tournament = _completar_datos_unafut(supabase, tournament)
     info_unafut = None
     if hay_que_refrescar(tournament):
         info_unafut = await _refrescar_unafut(supabase, tournament)
 
-    try:
-        existing = (supabase.table("matches")
-                    .select("id, external_id, status, home_goals_actual, away_goals_actual, "
-                            "score_locked, kickoff_at, phase, home_team, away_team, "
-                            "matchday, jornada_oficial, goes_to_penalties, penalties_winner_real")
-                    .eq("tournament_id", tid).execute().data or [])
-    except Exception:  # noqa: BLE001
-        existing = (supabase.table("matches")
-                    .select("id, external_id, status, home_goals_actual, away_goals_actual, "
-                            "kickoff_at, phase, home_team, away_team")
-                    .eq("tournament_id", tid).execute().data or [])
+    # SIN respaldo, a propósito (vigésima auditoría, revisión): había un select
+    # de repuesto, de cuando `score_locked` podía no existir, que entraba con
+    # CUALQUIER error —un 5xx o un timeout pasajero— y no traía `score_locked`
+    # ni las columnas de penales. En esa pasada el upsert pisaba los congelados
+    # con lo de ESPN y reescribía goes_to_penalties=False encima de una tanda
+    # marcada a mano; el trigger de la 91 borraba la firma y la recuperación
+    # repuntuaba sin el +1 del pase. Las columnas existen en producción
+    # (comprobado el 12 oct 2026): si la lectura falla, se corta la pasada
+    # —los dos llamadores lo atrapan— y la próxima la hace entera.
+    existing = (supabase.table("matches")
+                .select("id, external_id, status, home_goals_actual, away_goals_actual, "
+                        "score_locked, kickoff_at, phase, home_team, away_team, "
+                        "matchday, jornada_oficial, goes_to_penalties, penalties_winner_real")
+                .eq("tournament_id", tid).execute().data or [])
     snap = {m["external_id"]: m for m in existing if m.get("external_id")}
 
     history = [m for m in existing if m.get("phase") == "groups"]
