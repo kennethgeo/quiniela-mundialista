@@ -636,14 +636,26 @@ async def notify_daily_league(
     suyos = {}
     for e in reclamadas:
         suyos.setdefault(e["user_id"], []).append(e["partido"])
+    candidatas_por_persona = {}
+    for e in entregas:
+        candidatas_por_persona[e["user_id"]] = candidatas_por_persona.get(e["user_id"], 0) + 1
     mensajes = {}
     for uid_destino, lista in suyos.items():
-        mensajes.update(armar_mensajes(
+        suyo = armar_mensajes(
             lista,
             [{"league_id": league_id, "user_id": uid_destino,
               "tournament_id": liga["tournament_id"]}],
             predicciones,
-        ))
+        )
+        # Si a esta persona ya se le había avisado parte de lo de hoy, «Hoy hay
+        # 1 partido» sería falso: hoy se juegan más. Se dice que son NUEVOS
+        # (revisión de la vigésima auditoría).
+        if uid_destino in suyo and len(lista) < candidatas_por_persona.get(uid_destino, 0):
+            n = len(lista)
+            cabeza = "⚽ 1 partido nuevo hoy" if n == 1 else f"⚽ {n} partidos nuevos hoy"
+            resto = suyo[uid_destino]["title"].split(" · ", 1)
+            suyo[uid_destino]["title"] = cabeza + (f" · {resto[1]}" if len(resto) > 1 else "")
+        mensajes.update(suyo)
 
     resultado = await enviar_push_personalizado(supabase, mensajes, detallado=True)
     por_usuario = resultado.pop("por_usuario", {})

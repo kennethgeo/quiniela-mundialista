@@ -198,15 +198,32 @@ def resultado_de_entrega(estado: dict | None) -> tuple[bool, str | None]:
     perdidos = estado.get("expirados", 0) + estado.get("llave_vieja", 0)
     if estado.get("enviados", 0) > 0:
         if estado.get("fallidos", 0) or perdidos:
-            return True, "entrega-parcial"
+            return True, _con_motivos("entrega-parcial", estado)
         return True, None
     if estado.get("fallidos", 0):
         # Le queda al menos un dispositivo que falló por otra causa: ese sí
         # merece el reintento.
-        return False, "push-fallido"
+        return False, _con_motivos("push-fallido", estado)
     if estado.get("sin_dispositivo") or perdidos:
         return False, "sin-dispositivo-vigente"
     return False, "push-fallido"
+
+
+LARGO_MAXIMO_ERROR = 120  # el CHECK de `last_error` (migración 82)
+
+
+def _con_motivos(base: str, estado: dict) -> str:
+    """`push-fallido:apple-http-400,wns-http-401` (revisión de Codex, 12 oct
+    2026). Los motivos son categorías cerradas de `notifications.FalloDePush`
+    —proveedor y código, nunca el endpoint ni el mensaje—; se recortan para
+    no pasar el CHECK de la columna, que tumbaría el cierre del reclamo."""
+    motivos = sorted({str(m) for m in estado.get("motivos") or [] if m})
+    if not motivos:
+        return base
+    texto = f"{base}:{','.join(motivos)}"
+    if len(texto) > LARGO_MAXIMO_ERROR:
+        texto = texto[:LARGO_MAXIMO_ERROR - 3] + "..."
+    return texto
 
 
 def cerrar_reclamos(

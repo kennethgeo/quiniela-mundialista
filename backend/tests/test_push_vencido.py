@@ -59,7 +59,8 @@ def test_un_endpoint_muerto_se_reconoce(estado, monkeypatch):
 
 def test_un_error_del_servidor_no_borra_el_endpoint(monkeypatch):
     """Un 500 es un fallo pasajero del proveedor: el dispositivo sigue vivo."""
-    assert _envio_que_falla_con(500, monkeypatch) is False
+    r = _envio_que_falla_con(500, monkeypatch)
+    assert not r and isinstance(r, notif.FalloDePush) and r.categoria == "otro-http-500"
 
 
 def test_sin_respuesta_no_revienta(monkeypatch):
@@ -67,7 +68,8 @@ def test_sin_respuesta_no_revienta(monkeypatch):
         raise _excepcion(None)
     monkeypatch.setattr(notif, "webpush", webpush_falso)
     monkeypatch.setattr(notif, "_get_vapid_private_key", lambda: "clave")
-    assert notif.send_push_notification({"endpoint": "https://x", "keys": {}}, {}) is False
+    r = notif.send_push_notification({"endpoint": "https://x", "keys": {}}, {})
+    assert not r and r.categoria == "otro-sin-respuesta"
 
 
 def test_si_falla_borrar_un_endpoint_muerto_igual_se_devuelve_el_detalle(monkeypatch):

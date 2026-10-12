@@ -10,6 +10,8 @@ import logging
 import sys
 from pathlib import Path
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import app.services.scoring as scoring  # noqa: E402
@@ -110,6 +112,44 @@ def test_si_no_llega_a_nadie_queda_un_error_en_el_log(monkeypatch, caplog):
         r = _correr(scoring.alertar_puntajes_trabados(db))
     assert r["enviados"] == 0
     assert any("no llegó a ningún dispositivo" in m for m in caplog.messages)
+
+
+# Revisión de Codex (12 oct 2026): que el envío no reviente no es que haya
+# llegado. Con 0 entregas sin excepción el reclamo quedaba anotado y la alerta
+# se callaba 20 h. Las tres formas de «no llegó» sueltan el reclamo; solo una
+# entrega de verdad lo conserva.
+@pytest.mark.parametrize("devuelve", [0, None], ids=["cero-entregas", "sin-dispositivos"])
+def test_si_no_llega_a_nadie_se_suelta_el_reclamo(monkeypatch, devuelve):
+    _espiar_push(monkeypatch, devuelve=devuelve)
+    db = FalsaBase([{"match_id": 3, "partido": "A vs B", "avisos": 1},
+                    {"match_id": 4, "partido": "C vs D", "avisos": 2}])
+    r = _correr(scoring.alertar_puntajes_trabados(db))
+    assert r["enviados"] == 0 and r.get("error") == "sin-entrega"
+    assert ("soltar_alertas_de_puntaje", {"p_ids": [3, 4]}) in db.llamadas
+
+
+def test_si_llego_a_alguien_NO_se_suelta(monkeypatch):
+    """La otra mitad: con una entrega, las 20 h de silencio son lo correcto."""
+    _espiar_push(monkeypatch, devuelve=1)
+    db = FalsaBase([{"match_id": 3, "partido": "A vs B", "avisos": 1}])
+    r = _correr(scoring.alertar_puntajes_trabados(db))
+    assert r["enviados"] == 1 and "error" not in r
+    assert not any(n == "soltar_alertas_de_puntaje" for n, _ in db.llamadas)
+
+
+def test_si_tampoco_se_puede_soltar_no_revienta(monkeypatch, caplog):
+    _espiar_push(monkeypatch, devuelve=0)
+
+    class NoSuelta(FalsaBase):
+        def rpc(self, nombre, args):
+            if nombre == "soltar_alertas_de_puntaje":
+                raise RuntimeError("sin red")
+            return super().rpc(nombre, args)
+
+    with caplog.at_level(logging.ERROR):
+        r = _correr(scoring.alertar_puntajes_trabados(NoSuelta([{"match_id": 3, "partido": "A vs B"}])))
+    assert r["enviados"] == 0
+    assert any("Tampoco se pudo soltar" in m for m in caplog.messages)
 
 
 def test_el_aviso_sale_antes_de_que_la_recuperacion_suelte_el_partido():

@@ -23,7 +23,12 @@ const NUEVO = 'https://web.push.apple.com/QNuevo'
 
 /* Navegador con permiso dado, una suscripción viva en `VIEJO` hecha con la
    llave `llave` ('vieja' | 'actual') y la marca de que esta cuenta los pidió.
-   `subscribe` anota la llave con la que se pidió el alta. */
+   `subscribe` anota la llave con la que se pidió el alta.
+
+   Como un navegador de verdad: la suscripción SOBREVIVE a recargar (vive en
+   `sessionStorage`), y `subscribe` con una suscripción viva de la misma llave
+   devuelve ESA, no otra. Cada suscripción realmente nueva tiene su propio
+   endpoint (`NUEVO`, `NUEVO-2`…) y se cuenta en `prueba:creadas`. */
 async function navegador (page, llave) {
   await page.addInitScript(([id, llave, actualB64, viejo, nuevo]) => {
     localStorage.setItem('tutorial_seen', 'true')
@@ -36,18 +41,27 @@ async function navegador (page, llave) {
     const actual = bytes(actualB64)
     // Otra llave P-256 válida en forma: 65 bytes que empiezan con 0x04.
     const vieja = Uint8Array.from(actual, (b, i) => (i === 0 ? b : (b + 1) % 256))
-    const crear = (endpoint, llaveBytes) => ({
-      endpoint,
-      // Como en un navegador real: un ArrayBuffer.
-      options: { applicationServerKey: llaveBytes.buffer.slice(0) },
-      unsubscribe: async () => {
-        sessionStorage.setItem('prueba:baja', endpoint)
-        if (vigente?.endpoint === endpoint) vigente = null
-        return true
-      },
-      toJSON: () => ({ endpoint, keys: { p256dh: 'a', auth: 'b' } }),
-    })
-    let vigente = crear(viejo, llave === 'vieja' ? vieja : actual)
+    const guardarVigente = (v) => sessionStorage.setItem('prueba:vigente',
+      JSON.stringify(v ? { endpoint: v.endpoint, llave: v.llave } : null))
+    const crear = (endpoint, llaveNombre) => {
+      const llaveBytes = llaveNombre === 'vieja' ? vieja : actual
+      return {
+        endpoint,
+        llave: llaveNombre,
+        // Como en un navegador real: un ArrayBuffer.
+        options: { applicationServerKey: llaveBytes.buffer.slice(0) },
+        unsubscribe: async () => {
+          sessionStorage.setItem('prueba:baja', endpoint)
+          if (vigente?.endpoint === endpoint) { vigente = null; guardarVigente(null) }
+          return true
+        },
+        toJSON: () => ({ endpoint, keys: { p256dh: 'a', auth: 'b' } }),
+      }
+    }
+    const guardado = sessionStorage.getItem('prueba:vigente')
+    let vigente = guardado === null
+      ? crear(viejo, llave)
+      : (JSON.parse(guardado) && crear(JSON.parse(guardado).endpoint, JSON.parse(guardado).llave))
     Object.defineProperty(Notification, 'permission', { get: () => 'granted', configurable: true })
     const reg = { pushManager: {
       getSubscription: async () => vigente,
@@ -55,7 +69,12 @@ async function navegador (page, llave) {
         const pedida = btoa(String.fromCharCode(...new Uint8Array(opciones.applicationServerKey)))
           .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
         sessionStorage.setItem('prueba:llaveAlta', pedida)
-        vigente = crear(nuevo, new Uint8Array(opciones.applicationServerKey))
+        const nombre = pedida === actualB64 ? 'actual' : 'otra'
+        if (vigente && vigente.llave === nombre) return vigente
+        const n = Number(sessionStorage.getItem('prueba:creadas') || 0) + 1
+        sessionStorage.setItem('prueba:creadas', String(n))
+        vigente = crear(n === 1 ? nuevo : `${nuevo}-${n}`, nombre)
+        guardarVigente(vigente)
         return vigente
       },
     } }
@@ -69,9 +88,12 @@ async function navegador (page, llave) {
 /* La tabla `push_subscriptions` con la RLS de verdad para lo que importa: el
    GET por (user_id, endpoint) devuelve la fila solo si existe; el POST la
    crea y el DELETE la borra. */
-async function base (page, filas) {
+async function base (page, filas, { altaFalla = false } = {}) {
   const pedidos = { altas: [], bajas: [] }
-  await interceptarSupabase(page, { '/rest/v1/users': PERFIL })
+  await interceptarSupabase(page, {
+    '/rest/v1/users': PERFIL,
+    '/rest/v1/user_stats_view': null,
+  })
   await page.route('**://pruebas.supabase.co/rest/v1/push_subscriptions**', (route) => {
     const req = route.request()
     const url = new URL(req.url())
@@ -79,6 +101,14 @@ async function base (page, filas) {
     if (req.method() === 'POST') {
       const fila = JSON.parse(req.postData())
       pedidos.altas.push(fila.endpoint)
+      if (altaFalla) {
+        // Lo que responde PostgREST cuando la lista blanca de la 105 no
+        // conoce el endpoint: un fallo que se repite en cada intento.
+        return route.fulfill({
+          status: 400, contentType: 'application/json',
+          body: JSON.stringify({ code: '23514', message: 'new row for relation "push_subscriptions" violates check constraint "push_endpoint_conocido"' }),
+        })
+      }
       filas.add(fila.endpoint)
       return route.fulfill({ status: 201, contentType: 'application/json', body: '[]' })
     }
@@ -140,4 +170,44 @@ test('si el backend borró la fila (dispositivo muerto), se suscribe DE NUEVO en
   expect(pedidos.altas).not.toContain(VIEJO)
   expect(pedidos.altas).toContain(NUEVO)
   await expect(decidioNoOfrecer(page)).toHaveCount(1)
+})
+
+/* Revisión de la vigésima auditoría: si guardar la suscripción NUEVA falla
+   siempre (un 23514 de la lista blanca, que no está comprobada contra todos
+   los navegadores), cada apertura daba de baja la recién creada y creaba
+   otra. Ahora se recuerda que esa no se pudo guardar y se reintenta guardar
+   LA MISMA. */
+test('si guardar la suscripción nueva falla, la próxima apertura reintenta guardar ESA y no crea otra', async ({ page }) => {
+  await sinRedExterna(page)
+  await conSesion(page)
+  await navegador(page, 'actual')
+  const pedidos = await base(page, new Set(), { altaFalla: true })
+  await page.goto('/')
+  await expect.poll(() => pedidos.altas.includes(NUEVO), { timeout: 10000 }).toBe(true)
+  // No quedó activo: se le ofrece activar (y ahí verá el error).
+  await expect(page.getByRole('button', { name: 'Activar avisos' })).toBeVisible({ timeout: 10000 })
+  expect(await sesion(page, 'prueba:creadas')).toBe('1')
+  const antes = pedidos.altas.length
+
+  await page.reload()
+  await expect(page.getByRole('button', { name: 'Activar avisos' })).toBeVisible({ timeout: 10000 })
+  await expect.poll(() => pedidos.altas.length, { timeout: 10000 }).toBeGreaterThan(antes)
+  await page.waitForTimeout(500)
+  expect(await sesion(page, 'prueba:creadas')).toBe('1')
+  expect(await sesion(page, 'prueba:baja')).toBe(VIEJO)
+  for (const e of pedidos.altas.slice(antes)) expect(e).toBe(NUEVO)
+})
+
+/* Y el Perfil decide IGUAL que el Hub: antes, con la fila borrada por el
+   backend, volvía a guardar el endpoint muerto. */
+test('el Perfil, con la fila borrada por el backend, también suscribe de nuevo', async ({ page }) => {
+  await sinRedExterna(page)
+  await conSesion(page)
+  await navegador(page, 'actual')
+  const pedidos = await base(page, new Set())
+  await page.goto('/profile')
+  await expect(page.getByText('Avisos activados', { exact: true })).toBeVisible({ timeout: 15000 })
+  expect(pedidos.altas).toContain(NUEVO)
+  expect(pedidos.altas).not.toContain(VIEJO)
+  expect(await sesion(page, 'prueba:baja')).toBe(VIEJO)
 })

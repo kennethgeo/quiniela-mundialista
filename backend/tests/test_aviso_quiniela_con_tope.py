@@ -264,7 +264,8 @@ def test_a_quien_le_fallo_se_le_puede_reintentar_con_otro_toque(entorno):
 
 def test_un_partido_nuevo_del_dia_si_se_avisa(entorno):
     """Lo ya avisado no se repite, pero un partido que aparece después (el
-    sync lo trae a media mañana) sí, y el texto cuenta solo ese."""
+    sync lo trae a media mañana) sí. El texto cuenta solo ese y lo dice NUEVO:
+    «Hoy hay 1 partido» sería falso, hoy se juegan tres."""
     tocar, enviados, _ = entorno
     base = Base()
     tocar(base)
@@ -275,8 +276,16 @@ def test_un_partido_nuevo_del_dia_si_se_avisa(entorno):
         "status": "pending"})
     tocar(base)
     assert len(enviados) == 4
-    assert all(p["title"].startswith("⚽ Hoy hay 1 partido") for _, p in enviados)
+    assert all(p["title"].startswith("⚽ 1 partido nuevo hoy · ") for _, p in enviados)
+    assert not any("Hoy hay" in p["title"] for _, p in enviados)
     assert all("Herediano vs Liberia" in p["body"] for _, p in enviados)
+
+
+def test_el_primer_aviso_del_dia_sigue_diciendo_hoy_hay(entorno):
+    """Sin nada avisado antes, el título es el del resumen de siempre."""
+    tocar, enviados, _ = entorno
+    tocar(Base())
+    assert all(p["title"].startswith("⚽ Hoy hay 2 partidos · ") for _, p in enviados)
 
 
 def test_un_torneo_terminado_no_avisa(entorno):

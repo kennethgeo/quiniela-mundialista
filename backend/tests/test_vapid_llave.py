@@ -111,7 +111,8 @@ def test_sin_llave_legible_no_se_intenta_enviar(monkeypatch, tmp_path):
     _reiniciar(monkeypatch, "basura")
     llamadas = []
     monkeypatch.setattr(notif, "webpush", lambda **k: llamadas.append(k))
-    assert notif.send_push_notification({"endpoint": "https://x", "keys": {}}, {"title": "t"}) is False
+    r = notif.send_push_notification({"endpoint": "https://x", "keys": {}}, {"title": "t"})
+    assert not r and r.categoria == "sin-llave-vapid"
     assert llamadas == []
 
 
