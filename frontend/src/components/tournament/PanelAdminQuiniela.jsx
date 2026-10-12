@@ -131,7 +131,7 @@ export default function PanelAdminQuiniela({ leagueId, nombreQuiniela, matches =
           reemplazarlo. Decirlo evita que alguien lo mande tres veces. */}
       <p className="text-[10px] text-[var(--text-muted,#8A8A8A)] mt-2.5">
         El aviso automático sale todos los días a las 6:00 am. Este botón es por
-        si querés reforzarlo.
+        si querés reforzarlo: a cada persona le llega una sola vez por partido.
       </p>
 
       {resultado && (
@@ -139,10 +139,18 @@ export default function PanelAdminQuiniela({ leagueId, nombreQuiniela, matches =
           style={{ background: 'rgba(46,211,183,.10)' }}>
           <Check size={14} className="text-accent shrink-0 mt-0.5" />
           <p className="text-[11.5px] text-slate-700 dark:text-slate-200">
-            {resultado.partidos === 0
+            {resultado.partidos === 0 || resultado.mensaje
               ? resultado.mensaje
               : <>Aviso enviado a <strong>{resultado.enviados}</strong> dispositivo(s)
                   de <strong>{resultado.personas}</strong> persona(s).
+                  {/* Una vez por persona y partido (vigésima auditoría): a
+                      quien ya lo recibió no se le repite, lo toque quien lo
+                      toque. Decirlo evita que se toque otra vez «por las dudas». */}
+                  {resultado.ya_avisados > 0 && (
+                    <span className="block text-[10.5px] text-[var(--text-muted,#8A8A8A)] mt-0.5">
+                      {resultado.ya_avisados} ya lo habían recibido: no se les repite.
+                    </span>
+                  )}
                   {resultado.sin_dispositivo > 0 && (
                     <span className="block text-[10.5px] text-[var(--text-muted,#8A8A8A)] mt-0.5">
                       {resultado.sin_dispositivo} no tienen las notificaciones activadas.

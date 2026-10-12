@@ -22,19 +22,9 @@ import {
   soportaPush, activarPush, desactivarPush, guardarSuscripcion, swListo,
   cuentaPidioAvisos, marcarAvisosDeCuenta, registrada, reemplazarAjena,
   urlBase64ToUint8Array, VAPID_PUBLIC_KEY, estadoPermiso, necesitaInstalarPrimero, cerrandoSesion,
+  llaveDistinta,
 } from '../../lib/notificaciones'
 import { situacionAvisos, olvidarPospuesto } from '../../lib/avisoPush'
-
-/* ¿La llave de la suscripción difiere POSITIVAMENTE de la actual? Si no se
-   puede saber (el navegador no la expone) devolvemos false para NO migrar: si
-   no, se re-suscribiría en cada carga y los endpoints cambiarían sin parar. */
-function llaveDistinta (existente, actual) {
-  if (!existente) return false
-  const a = new Uint8Array(existente)
-  if (a.length !== actual.length) return true
-  for (let i = 0; i < a.length; i++) if (a[i] !== actual[i]) return true
-  return false
-}
 
 export default function PushNotificationToggle () {
   const { profile } = useAuth()

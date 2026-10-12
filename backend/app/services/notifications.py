@@ -146,10 +146,75 @@ def send_push_notification(subscription_info, payload_data, ttl: int = TTL_POR_D
         # quedaban para siempre (cuarta auditoría, hallazgo 4).
         if ex.response is not None and ex.response.status_code in (404, 410):
             return "expired"
-        return False
+        return clasificar_rechazo_de_llave(ex.response)
     except Exception as e:
         logger.error(f"Error inesperado enviando push: {e}")
         return False
+
+
+# El proveedor dice que la suscripción se hizo con OTRA llave pública.
+#
+# POR QUÉ (vigésima auditoría, 11 oct 2026): el recordatorio del partido 293
+# salió con `vapid: ok` y le llegó a 7 de 8 personas. Al octavo, un iPhone
+# suscrito el 13 de junio, Apple le respondía 400 `VapidPkHashMismatch`; y dos
+# Windows de junio daban 401 en WNS. Son dispositivos que se suscribieron con
+# la llave de antes: no les va a llegar NADA nunca, pero la fila existe, así
+# que el backend los reintentaba cada 15 minutos y la app no se enteraba.
+LLAVE_VIEJA = "llave-vieja"            # Apple lo dice con todas las letras
+LLAVE_RECHAZADA = "llave-rechazada"    # 401/403: casi seguro lo mismo
+
+
+def clasificar_rechazo_de_llave(respuesta):
+    """``LLAVE_VIEJA`` / ``LLAVE_RECHAZADA`` si el rechazo es de llave, o False.
+
+    SOLO con ``estado_vapid() == 'ok'``. Si la llave propia estuviera mal
+    ('ilegible', 'no-coincide'), TODOS los proveedores rechazarían TODOS los
+    envíos, y tomar eso por «dispositivos viejos» borraría la suscripción de
+    todo el grupo. Con la llave propia confirmada, el que no calza es el
+    dispositivo.
+
+    El 401/403 se separa del `VapidPkHashMismatch` de Apple porque es menos
+    preciso: también lo da un JWT mal armado (el `aud` cruzado del 28 sep
+    daba exactamente eso), y `estado_vapid` no lo ve. Por eso quien borra
+    exige además que en el mismo envío algún dispositivo SÍ haya aceptado el
+    aviso (`borrables`).
+    """
+    if respuesta is None:
+        return False
+    estado = respuesta.status_code
+    if estado == 400:
+        try:
+            cuerpo = respuesta.text or ""
+        except Exception:  # noqa: BLE001
+            cuerpo = ""
+        clase = LLAVE_VIEJA if "VapidPkHashMismatch" in cuerpo else None
+    elif estado in (401, 403):
+        clase = LLAVE_RECHAZADA
+    else:
+        clase = None
+    if clase is None or estado_vapid() != "ok":
+        return False
+    return clase
+
+
+def borrables(resultados, hubo_entrega: bool) -> list:
+    """Qué endpoints se borran después de un envío.
+
+    resultados: [(endpoint, resultado de send_push_notification)]
+
+    404/410 y el `VapidPkHashMismatch` de Apple se borran siempre. Un 401/403
+    solo si en el MISMO envío algún dispositivo recibió el aviso: eso prueba
+    que nuestro JWT sirve, así que el rechazo es del dispositivo. Sin esa
+    prueba se conserva y se reintenta — perder la suscripción de todo el
+    grupo por un fallo nuestro no se arregla solo; un reintento de más, sí.
+    """
+    fuera = []
+    for endpoint, resultado in resultados:
+        if resultado in ("expired", LLAVE_VIEJA):
+            fuera.append(endpoint)
+        elif resultado == LLAVE_RECHAZADA and hubo_entrega:
+            fuera.append(endpoint)
+    return fuera
 
 async def broadcast_push_to_users(supabase, user_ids: list, title: str, body: str, url: str = "/"):
     """Envía un push a todos los dispositivos de los usuarios especificados."""
@@ -169,9 +234,9 @@ async def broadcast_push_to_users(supabase, user_ids: list, title: str, body: st
         "url": url
     }
     
-    expired_endpoints = []
+    resultados = []
     success_count = 0
-    
+
     for sub in subs:
         sub_info = {
             "endpoint": sub["endpoint"],
@@ -180,19 +245,19 @@ async def broadcast_push_to_users(supabase, user_ids: list, title: str, body: st
                 "auth": sub["auth"]
             }
         }
-        
+
         # En un hilo: `webpush` es síncrono y el backend corre con un solo
         # worker; un proveedor lento congelaba sync, puntaje y API a la vez.
         result = await asyncio.to_thread(send_push_notification, sub_info, payload)
-        if result == "expired":
-            expired_endpoints.append(sub["endpoint"])
-        elif result is True:
+        resultados.append((sub["endpoint"], result))
+        if result is True:
             success_count += 1
-            
-    # Limpiar endpoints expirados
-    if expired_endpoints:
-        supabase.table("push_subscriptions").delete().in_("endpoint", expired_endpoints).execute()
-        
+
+    # Limpiar endpoints muertos o suscritos con una llave vieja
+    fuera = borrables(resultados, success_count > 0)
+    if fuera:
+        supabase.table("push_subscriptions").delete().in_("endpoint", fuera).execute()
+
     return success_count
 
 
@@ -246,24 +311,40 @@ async def enviar_push_personalizado(supabase, mensajes: dict, detallado: bool = 
         por_usuario.setdefault(s["user_id"], []).append(s)
 
     enviados = 0
-    expirados = []
-    detalle = {}
+    resultados_por_usuario = {}
     for user_id, payload in mensajes.items():
-        suscripciones = por_usuario.get(user_id, [])
-        suyo = {"enviados": 0, "fallidos": 0, "expirados": 0,
-                "sin_dispositivo": not suscripciones}
-        for sub in suscripciones:
+        resultados_por_usuario[user_id] = []
+        for sub in por_usuario.get(user_id, []):
             info = {
                 "endpoint": sub["endpoint"],
                 "keys": {"p256dh": sub["p256dh"], "auth": sub["auth"]},
             }
             resultado = await asyncio.to_thread(send_push_notification, info, payload, ttl=ttl)
-            if resultado == "expired":
-                expirados.append(sub["endpoint"])
-                suyo["expirados"] += 1
-            elif resultado is True:
+            resultados_por_usuario[user_id].append((sub["endpoint"], resultado))
+            if resultado is True:
                 enviados += 1
+
+    # Qué se borra se decide con el envío ENTERO a la vista: un 401/403 solo
+    # cuenta como llave vieja si algún otro dispositivo sí recibió (`borrables`).
+    fuera = set(borrables(
+        [r for lista in resultados_por_usuario.values() for r in lista], enviados > 0))
+
+    detalle = {}
+    llave_vieja_total = 0
+    for user_id, lista in resultados_por_usuario.items():
+        suyo = {"enviados": 0, "fallidos": 0, "expirados": 0, "llave_vieja": 0,
+                "sin_dispositivo": not lista}
+        for endpoint, resultado in lista:
+            if resultado is True:
                 suyo["enviados"] += 1
+            elif resultado == "expired":
+                suyo["expirados"] += 1
+            elif endpoint in fuera:
+                # Se borra: a esta persona no le queda ese dispositivo. Si era
+                # el único, el reclamo se cierra como «sin-dispositivo-vigente»
+                # y no se reintenta para siempre.
+                suyo["llave_vieja"] += 1
+                llave_vieja_total += 1
             else:
                 suyo["fallidos"] += 1
         detalle[user_id] = suyo
@@ -273,16 +354,18 @@ async def enviar_push_personalizado(supabase, mensajes: dict, detallado: bool = 
     # llegaba a cerrar los reclamos: a los 5 minutos se reenviaba el aviso
     # también a quien SÍ lo recibió (quinta auditoría, hallazgo 4). Se deja
     # rastro y se sigue; la próxima vez que falle ese endpoint se reintenta.
-    if expirados:
+    if fuera:
         try:
-            supabase.table("push_subscriptions").delete().in_("endpoint", expirados).execute()
+            supabase.table("push_subscriptions").delete().in_("endpoint", sorted(fuera)).execute()
         except Exception:  # noqa: BLE001
-            logger.exception("No se pudieron borrar %d suscripciones vencidas", len(expirados))
+            logger.exception("No se pudieron borrar %d suscripciones vencidas", len(fuera))
 
     salida = {
         "enviados": enviados,
         "sin_dispositivo": len([u for u in ids if u not in por_usuario]),
     }
+    if llave_vieja_total:
+        salida["llave_vieja"] = llave_vieja_total
     if detallado:
         salida["por_usuario"] = detalle
     return salida

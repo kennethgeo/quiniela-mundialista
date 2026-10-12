@@ -106,12 +106,40 @@ export async function guardarSuscripcion (userId, subscription) {
    se quedaba sin los suyos (revisión del 11 oct 2026). Se da de baja la ajena
    y se suscribe esta. Devuelve si quedó activo. */
 export async function reemplazarAjena (userId, sub) {
-  try { await sub.unsubscribe() } catch { return false }
+  return suscribirDeNuevo(userId, sub)
+}
+
+/* Da de baja `vieja`, suscribe de nuevo con la llave ACTUAL y lo guarda.
+   Devuelve si quedó activo; lanza si falla el guardado (quien llama decide).
+   Con `borrarFilaVieja` borra después la fila del endpoint viejo de esta
+   cuenta: si no se pudiera, el backend la borra solo al primer rechazo
+   (vigésima auditoría). */
+async function suscribirDeNuevo (userId, vieja, { borrarFilaVieja = false } = {}) {
+  const endpointViejo = vieja.endpoint
+  try { await vieja.unsubscribe() } catch { return false }
   const nueva = await resuscribirSiLosPidio(userId)
   if (!nueva) return false
   await guardarSuscripcion(userId, nueva)
   marcarAvisosDeCuenta(userId, true)
+  if (borrarFilaVieja && endpointViejo && endpointViejo !== nueva.endpoint) {
+    try {
+      await supabase.from('push_subscriptions').delete().eq('user_id', userId).eq('endpoint', endpointViejo)
+    } catch { /* la limpia el backend */ }
+  }
   return true
+}
+
+/* ¿La llave de la suscripción difiere POSITIVAMENTE de la actual? Si no se
+   puede saber (el navegador no la expone) devolvemos false para NO migrar: si
+   no, se re-suscribiría en cada carga y los endpoints cambiarían sin parar.
+   Vive acá y no en el Perfil (vigésima auditoría): el Hub también tiene que
+   migrar, y la comparación escrita dos veces es el error de siempre. */
+export function llaveDistinta (existente, actual = urlBase64ToUint8Array(VAPID_PUBLIC_KEY)) {
+  if (!existente) return false
+  const a = new Uint8Array(existente)
+  if (a.length !== actual.length) return true
+  for (let i = 0; i < a.length; i++) if (a[i] !== actual[i]) return true
+  return false
 }
 
 /** ¿La base tiene este endpoint a nombre de esta cuenta? Lanza si no se puede saber. */
@@ -152,11 +180,20 @@ export async function avisosActivos (userId) {
   // nadie entra al Perfil: la persona creía tener avisos y no le llegaba nada.
   // Mismas condiciones que el Perfil: permiso dado, esta cuenta los pidió acá
   // y no los apagó, y no hay un cierre de sesión en curso.
-  if (!sub) sub = await resuscribirSiLosPidio(userId)
+  let recien = false
+  if (!sub) { sub = await resuscribirSiLosPidio(userId); recien = !!sub }
   if (!sub) return false
   try {
     if (await registrada(userId, sub.endpoint)) {
       marcarAvisosDeCuenta(userId, true)
+      // LLAVE VIEJA (vigésima auditoría): un iPhone suscrito en junio seguía
+      // con fila y suscripción, y Apple rechazaba cada aviso con
+      // `VapidPkHashMismatch`. Fila y navegador decían «activo» y no llegaba
+      // nada. El Perfil ya migraba; el Hub, que es donde entra la gente, no.
+      if (!recien && llaveDistinta(sub.options?.applicationServerKey) &&
+          estadoPermiso() === 'granted' && !cerrandoSesion()) {
+        return await suscribirDeNuevo(userId, sub, { borrarFilaVieja: true })
+      }
       return true
     }
     // Durante un cierre de sesión no se re-registra nada (undécima auditoría).
@@ -167,6 +204,19 @@ export async function avisosActivos (userId) {
     if (!cuentaPidioAvisos(userId)) {
       try { await sub.unsubscribe() } catch { /* se reintenta la próxima vez */ }
       return false
+    }
+    // Esta cuenta los pidió acá, el navegador tiene suscripción y la base no
+    // tiene la fila. Lo más probable es que la haya borrado el backend porque
+    // el proveedor la rechazó (vencida, o con la llave vieja): volver a
+    // guardar el MISMO endpoint traería de vuelta una fila muerta que el
+    // próximo envío borra otra vez. Se suscribe de nuevo (vigésima auditoría).
+    // Si la suscripción la acabamos de crear, no: esa es nueva.
+    if (!recien && estadoPermiso() === 'granted') {
+      try {
+        return await suscribirDeNuevo(userId, sub)
+      } catch {
+        return false
+      }
     }
     try {
       await guardarSuscripcion(userId, sub)
