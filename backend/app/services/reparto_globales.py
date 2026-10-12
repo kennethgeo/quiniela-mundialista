@@ -35,12 +35,23 @@ SEPARADORES_EQUIPO = r"[,;]"
 PUNTOS_POR_DEFECTO = 12
 
 
+# El iPhone cambia «'» por «’» al escribir (puntuación inteligente), y en
+# `players` hay «N'Golo Kanté», «Ange N'Guessan» e «Ian O'Rourke»: sin esto,
+# quien lo escribió desde el celular quedaba en 0 contra el real escrito en la
+# compu. Los guiones («Marc-Oliver Kempf», «Trent Alexander-Arnold») se leen
+# como espacio: con o sin guion es la misma persona.
+_APOSTROFOS = re.compile(r"[\u2018\u2019\u02bc\u00b4`]")
+_GUIONES = re.compile(r"[-\u2010\u2011\u2012\u2013\u2014]")
+
+
 def normalizar(texto: Optional[str]) -> str:
     """Sin tildes, en minúsculas, sin espacios a los costados y con los de
-    adentro colapsados. Es lo único que se le perdona a una pick: «Marcel
-    Hernandez», «Marcel Hernández» y «Marcel Hernández » son la misma persona."""
+    adentro colapsados, apóstrofos unificados y guiones como espacio. Es lo
+    único que se le perdona a una pick: «Marcel Hernandez», «Marcel Hernández»
+    y «Marcel Hernández » son la misma persona."""
     s = unicodedata.normalize("NFD", texto or "")
     s = "".join(c for c in s if unicodedata.category(c) != "Mn")
+    s = _GUIONES.sub(" ", _APOSTROFOS.sub("'", s))
     return re.sub(r"\s+", " ", s.lower().strip())
 
 

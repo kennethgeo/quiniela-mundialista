@@ -20,10 +20,14 @@ import { conSesion, interceptarSupabase, sinRedExterna, USUARIO } from './apoyo.
 
 // Trae DOS quinielas sobre el mismo torneo (Bundestica y la temporada
 // siguiente): con dos, el panel no puede elegir por su cuenta.
-const VISTA = JSON.parse(readFileSync(new URL('./datos/globales_vista_previa.json', import.meta.url), 'utf8'))
+const leer = (nombre) => JSON.parse(readFileSync(new URL(`./datos/${nombre}`, import.meta.url), 'utf8'))
+const VISTA = leer('globales_vista_previa.json')
+// Con las globales ABIERTAS el backend no manda picks ni aciertos (también
+// generada por el backend real y atada con la misma prueba de igualdad).
+const VISTA_ABIERTAS = leer('globales_vista_previa_abiertas.json')
 const BUNDESTICA = VISTA.ligas.find((l) => l.nombre === 'Bundestica').league_id
 
-async function abrirPanel (page) {
+async function abrirPanel (page, { vista = VISTA, reparto } = {}) {
   await sinRedExterna(page)
   await conSesion(page)
   await page.addInitScript(() => {
@@ -33,7 +37,7 @@ async function abrirPanel (page) {
     '/rest/v1/users': { id: USUARIO.id, display_name: 'Admin', avatar_url: null, is_admin: true },
     '/rest/v1/tournaments': [{
       id: 2, name: 'Primera División de Costa Rica', ...VISTA.reales,
-      predictions_locked: true, predictions_force_open: false,
+      predictions_locked: !vista.abiertas, predictions_force_open: !!vista.abiertas,
     }],
     '/rest/v1/rpc/my_groups': [],
   })
@@ -48,7 +52,8 @@ async function abrirPanel (page) {
     const responder = (status, body) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) })
     if (ruta === 'set-tournament-globals') return responder(200, { status: 'ok' })
     if (ruta === 'calc-tournament-globals') {
-      if (cuerpo.dry_run) return responder(200, VISTA)
+      if (cuerpo.dry_run) return responder(200, vista)
+      if (reparto) return responder(...reparto)
       if (!cuerpo.league_id) return responder(400, { detail: 'Elegí la quiniela en la que se reparte' })
       return responder(200, { status: 'ok', updated: 11, users: 11, liga: VISTA.ligas[0] })
     }
@@ -125,5 +130,41 @@ test('si se cambia un nombre, no se reparte hasta volver a mirar', async ({ page
   await expect(page.getByText('Cambiaste los reales')).toBeVisible()
   await expect(page.getByTestId('vista-previa')).toHaveCount(0)
   await expect(repartir).toBeDisabled()
+  expect(repartos(llamadas)).toEqual([])
+})
+
+test('cambiar el campeón sin guardar tampoco deja repartir', async ({ page }) => {
+  // El campeón es un selector, no un campo de texto: si la comparación de
+  // `vigente` lo dejara afuera, se repartiría con un campeón distinto del que
+  // muestra la pantalla.
+  const llamadas = await abrirPanel(page)
+  await page.getByLabel('Quiniela donde se reparte').selectOption({ label: 'Bundestica' })
+  const repartir = page.getByRole('button', { name: /Repartir/ })
+  await expect(repartir).toBeEnabled()
+
+  await page.getByLabel('Campeón real').selectOption('Alajuelense')
+  await expect(page.getByText('Cambiaste los reales')).toBeVisible()
+  await expect(page.getByTestId('vista-previa')).toHaveCount(0)
+  await expect(repartir).toBeDisabled()
+  expect(repartos(llamadas)).toEqual([])
+})
+
+test('si el backend rechaza el reparto, el admin lo ve', async ({ page }) => {
+  const detalle = 'Los reales cambiaron desde la vista previa: volvé a revisarla'
+  await abrirPanel(page, { reparto: [409, { detail: detalle }] })
+  await page.getByLabel('Quiniela donde se reparte').selectOption({ label: 'Bundestica' })
+  page.once('dialog', (d) => d.accept())
+  await page.getByRole('button', { name: 'Repartir en «Bundestica»' }).click()
+  await expect(page.getByRole('status')).toContainText(detalle)
+})
+
+test('con las globales abiertas no hay vista previa ni reparto', async ({ page }) => {
+  const llamadas = await abrirPanel(page, { vista: VISTA_ABIERTAS })
+  await page.getByLabel('Quiniela donde se reparte').selectOption({ label: 'Bundestica' })
+  await expect(page.getByTestId('globales-abiertas')).toContainText('Las globales siguen abiertas')
+  await expect(page.getByTestId('vista-previa')).toHaveCount(0)
+  await expect(page.getByRole('button', { name: /Repartir/ })).toBeDisabled()
+  // El selector del campeón sigue funcionando: la lista de equipos sí viene.
+  await expect(page.getByLabel('Campeón real').locator('option')).toHaveCount(VISTA_ABIERTAS.equipos.length + 1)
   expect(repartos(llamadas)).toEqual([])
 })

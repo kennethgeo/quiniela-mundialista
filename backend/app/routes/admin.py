@@ -4,6 +4,7 @@ import io
 import secrets
 import time
 from typing import Optional
+from uuid import UUID
 
 from fastapi import APIRouter, Body, Depends, HTTPException
 
@@ -607,7 +608,7 @@ REALES = ("actual_champion", "actual_top_scorer", "actual_top_assist")
 @router.post("/calc-tournament-globals")
 async def calc_tournament_globals(
     tournament_id: int = Body(..., embed=True),
-    league_id: Optional[str] = Body(None, embed=True),
+    league_id: Optional[UUID] = Body(None, embed=True),
     dry_run: bool = Body(False, embed=True),
     esperado: Optional[dict] = Body(None, embed=True),
     admin: dict = Depends(require_admin),
@@ -622,15 +623,30 @@ async def calc_tournament_globals(
       del torneo, más la lista de equipos (la misma que ve la persona al
       elegir campeón) para el selector del panel.
     - `esperado` son los reales que el admin vio en la vista previa: si cambiaron
-      desde entonces, no se reparte (409). Lo que se confirma es lo que se vio.
+      desde entonces, no se reparte (409). Lo que se confirma es lo que se vio,
+      y por eso es OBLIGATORIO al repartir.
+    - Mientras las globales sigan ABIERTAS (`tournament_predictions_open`, el
+      mismo criterio que la RLS de `tournament_predictions`) la vista previa no
+      trae las picks ni cuántos aciertan, y no se reparte. El admin global
+      también juega: ver qué eligió el grupo con las globales abiertas es
+      poder cambiar la suya sabiendo. Este endpoint corre con `service_role`,
+      que salta la RLS, así que la regla se repite acá llamando a la MISMA
+      función, no copiando su condición.
 
     La comparación es por nombre completo y alias EXACTOS (`reparto_globales`).
     Idempotente.
     """
     from app.services import reparto_globales as rg
 
-    if not dry_run and not league_id:
+    lid = str(league_id) if league_id else None
+    if not dry_run and not lid:
         raise HTTPException(status_code=400, detail="Elegí la quiniela en la que se reparte")
+    if not dry_run:
+        if esperado is None:
+            raise HTTPException(status_code=400,
+                                detail="Falta lo que se vio en la vista previa: revisala antes de repartir")
+        if any(not isinstance(esperado.get(k), (str, type(None))) for k in REALES):
+            raise HTTPException(status_code=400, detail="La vista previa enviada no es válida")
 
     supabase = get_supabase()
     filas_t = (supabase.table("tournaments").select(", ".join(REALES))
@@ -639,7 +655,22 @@ async def calc_tournament_globals(
         raise HTTPException(status_code=404, detail="Torneo no encontrado")
     reales = filas_t[0]
 
-    if not dry_run and esperado is not None:
+    # Si no se puede saber si siguen abiertas, no se muestra ni se reparte:
+    # tratarlo como «cerradas» destaparía justo lo que hay que cuidar.
+    try:
+        abiertas = (supabase.rpc("tournament_predictions_open", {"p_tid": tournament_id})
+                    .execute().data)
+    except Exception:  # noqa: BLE001
+        abiertas = None
+    if not isinstance(abiertas, bool):
+        raise HTTPException(status_code=503,
+                            detail="No se pudo comprobar si las globales siguen abiertas")
+
+    if not dry_run:
+        if abiertas:
+            raise HTTPException(
+                status_code=409,
+                detail="Las globales de este torneo siguen abiertas: cerralas antes de repartir")
         for k in REALES:
             if (esperado.get(k) or "").strip() != (reales.get(k) or "").strip():
                 raise HTTPException(
@@ -648,10 +679,10 @@ async def calc_tournament_globals(
 
     q = (supabase.table("leagues").select("id, name, champion_points, scorer_points, assist_points")
          .eq("tournament_id", tournament_id))
-    if league_id:
-        q = q.eq("id", league_id)
+    if lid:
+        q = q.eq("id", lid)
     ligas = q.order("name").execute().data or []
-    if league_id and not ligas:
+    if lid and not ligas:
         raise HTTPException(status_code=404, detail="Esa quiniela no es de este torneo")
 
     def _preds(lid):
@@ -670,8 +701,15 @@ async def calc_tournament_globals(
                     .eq("tournament_id", tournament_id).execute().data or [])
         equipos = sorted({n for m in partidos for n in (m.get("home_team"), m.get("away_team")) if n},
                          key=rg.normalizar)
+        if abiertas:
+            # Ni las picks ni cuántos aciertan: ni siquiera se leen.
+            return {
+                "status": "ok", "dry_run": True, "abiertas": True, "reales": reales, "equipos": equipos,
+                "ligas": [{"league_id": liga["id"], "nombre": liga.get("name"),
+                           "puntos": rg.calcular(reales, [], liga)["puntos"]} for liga in ligas],
+            }
         return {
-            "status": "ok", "dry_run": True, "reales": reales, "equipos": equipos,
+            "status": "ok", "dry_run": True, "abiertas": False, "reales": reales, "equipos": equipos,
             "ligas": [_vista(liga, rg.calcular(reales, _preds(liga["id"]), liga)) for liga in ligas],
         }
 

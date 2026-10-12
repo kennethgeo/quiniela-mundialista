@@ -1,6 +1,7 @@
 {
  "status": "ok",
  "dry_run": true,
+ "abiertas": false,
  "reales": {
   "actual_champion": "Saprissa",
   "actual_top_scorer": "Bancy Hernández",

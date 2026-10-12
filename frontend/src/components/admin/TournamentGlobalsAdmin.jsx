@@ -11,7 +11,10 @@
      salvo que se agregue como alias, y eso solo se nota mirando la lista.
    - Se reparte en la quiniela que se elige: la liga tica corre temporada tras
      temporada sobre el mismo torneo, y repartir en todas reescribiría las
-     globales de una temporada ya cerrada. */
+     globales de una temporada ya cerrada.
+   - Mientras las globales sigan ABIERTAS el backend no manda las picks (la RLS
+     tampoco se las muestra a nadie, y el admin global también juega): no hay
+     vista previa ni reparto hasta cerrarlas. */
 import { useState, useEffect, useRef } from 'react'
 import { Crown, Save, Calculator, Lock, Unlock, Loader2, CheckCircle2, AlertTriangle, LockOpen, Check, X } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
@@ -127,6 +130,8 @@ export default function TournamentGlobalsAdmin() {
   const liga = (vista?.ligas || []).find((l) => l.league_id === leagueId) || null
   const equipos = vista?.equipos || []
   const campeonFueraDeLista = !!limpio(champion) && !equipos.includes(champion)
+  const abiertas = !!vista?.abiertas
+  const puedeRepartir = !!liga && vigente && !abiertas
 
   const save = async () => {
     try {
@@ -139,7 +144,7 @@ export default function TournamentGlobalsAdmin() {
   }
 
   const calc = async () => {
-    if (!liga || !vigente) return
+    if (!puedeRepartir) return
     const linea = (c) => {
       const d = liga[c.clave]
       return limpio(d?.real) ? `${c.titulo}: ${d.aciertan} de ${liga.predicciones} aciertan` : `${c.titulo}: sin definir`
@@ -235,7 +240,13 @@ export default function TournamentGlobalsAdmin() {
           <p className="text-xs font-semibold text-amber-500 flex items-center gap-1.5 mb-3"><AlertTriangle size={13} /> Cambiaste los reales: guardá para ver quién acierta antes de repartir.</p>
         )}
 
-        {liga && vigente && (
+        {vista && vigente && abiertas && (
+          <p className="text-xs font-semibold text-amber-500 flex items-center gap-1.5 mb-3" data-testid="globales-abiertas">
+            <Lock size={13} /> Las globales siguen abiertas: la vista previa se ve al cerrarlas, y recién ahí se puede repartir.
+          </p>
+        )}
+
+        {puedeRepartir && (
           <div className="space-y-2 mb-4" data-testid="vista-previa">
             <p className="text-xs text-slate-500">{liga.predicciones} predicciones en «{liga.nombre}» · cambian {liga.cambiarian}</p>
             {CATEGORIAS.map(c => (
@@ -244,7 +255,7 @@ export default function TournamentGlobalsAdmin() {
           </div>
         )}
 
-        <button onClick={calc} disabled={busy || !liga || !vigente}
+        <button onClick={calc} disabled={busy || !puedeRepartir}
           className="w-full flex items-center justify-center gap-2 text-sm font-bold py-2.5 rounded-xl bg-accent text-slate-950 hover:bg-accent-light disabled:opacity-50">
           {busy ? <Loader2 size={15} className="animate-spin" /> : <Calculator size={15} />} {liga ? `Repartir en «${liga.nombre}»` : 'Repartir puntos'}
         </button>

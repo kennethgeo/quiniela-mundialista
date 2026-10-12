@@ -8,6 +8,7 @@ homónimos que de verdad juegan en la liga tica.
 import asyncio
 import copy
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
@@ -20,6 +21,7 @@ from app.services import reparto_globales as rg  # noqa: E402
 
 BUNDESTICA = "2df51e3a-60a0-4824-a7aa-98b25c6e8350"
 CLAUSURA = "c1a05a7a-0000-4000-8000-000000000001"
+CHAMPIONS = "c4a3b1e0-0000-4000-8000-000000000006"
 
 # (campeón, goleador, asistidor, cuántas personas): agrupado de producción.
 _PICKS_BUNDESTICA = [
@@ -209,25 +211,45 @@ class _Rpc:
 
     def execute(self):
         self.base.rpcs.append((self.nombre, self.args))
+        if self.nombre == "tournament_predictions_open":
+            if self.base.falla_abiertas:
+                raise RuntimeError("PGRST002")
+            return _R(self.base.globales_abiertas(self.args["p_tid"]))
         return _R(None)
 
 
 class Base:
     def __init__(self, reales):
+        # Bloqueo y apertura forzada como los tiene HOY el torneo 2 en
+        # producción (locked y force_open en true: cerradas).
         self.tablas = {
-            "tournaments": [{"id": 2, **reales}],
+            "tournaments": [{"id": 2, "predictions_locked": True, "predictions_force_open": True,
+                             **reales}],
             "leagues": [
                 {"id": BUNDESTICA, "name": "Bundestica", "tournament_id": 2, **LIGA_CFG},
                 {"id": CLAUSURA, "name": "Clausura 2027", "tournament_id": 2,
                  "champion_points": 12, "scorer_points": 12, "assist_points": 12},
-                {"id": "otra", "name": "Champions 26-27", "tournament_id": 6,
+                {"id": CHAMPIONS, "name": "Champions 26-27", "tournament_id": 6,
                  "champion_points": 12, "scorer_points": 12, "assist_points": 12},
             ],
             "tournament_predictions": _predicciones(BUNDESTICA, "b") + _predicciones(CLAUSURA, "c"),
-            "matches": [{"id": i, "tournament_id": 2, "home_team": a, "away_team": b}
+            "matches": [{"id": i, "tournament_id": 2, "home_team": a, "away_team": b,
+                         "kickoff_at": f"2026-07-{24 + i // 2:02d}T02:00:00+00:00"}
                         for i, (a, b) in enumerate(zip(EQUIPOS_TICA, EQUIPOS_TICA[1:] + EQUIPOS_TICA[:1]))],
         }
         self.escrituras, self.rpcs = [], []
+        self.falla_abiertas = False
+
+    def globales_abiertas(self, tid):
+        """La MISMA condición que `tournament_predictions_open` en producción
+        (migración 47): no bloqueadas Y (forzadas O antes del primer saque; un
+        torneo sin partidos está abierto)."""
+        t = next((f for f in self.tablas["tournaments"] if f["id"] == tid), {})
+        saques = [datetime.fromisoformat(m["kickoff_at"]) for m in self.tablas["matches"]
+                  if m["tournament_id"] == tid and m.get("kickoff_at")]
+        antes_del_primero = not saques or datetime.now(timezone.utc) < min(saques)
+        return (not (t.get("predictions_locked") or False)
+                and bool(t.get("predictions_force_open") or antes_del_primero))
 
     def table(self, t): return _Q(self, t)
     def rpc(self, n, a): return _Rpc(self, n, a)
@@ -242,8 +264,15 @@ def _calc(base, monkeypatch, **kw):
     kw.setdefault("tournament_id", 2)
     kw.setdefault("league_id", None)
     kw.setdefault("dry_run", False)
-    kw.setdefault("esperado", None)
+    if "esperado" not in kw:
+        # Lo que manda el panel: los reales que mostró la vista previa.
+        t = base.tablas["tournaments"][0]
+        kw["esperado"] = None if kw["dry_run"] else {k: t.get(k) for k in admin_mod.REALES}
     return asyncio.run(admin_mod.calc_tournament_globals(admin={"sub": "admin"}, **kw))
+
+
+def _recalculos(base):
+    return [a for n, a in base.rpcs if n == "recompute_user_total"]
 
 
 def test_repartir_sin_elegir_quiniela_no_escribe(monkeypatch):
@@ -267,7 +296,7 @@ def test_repartir_una_quiniela_no_toca_la_otra_temporada(monkeypatch):
     assert sum(p["top_scorer_points"] for p in clau) == 5 * 12
     assert sum(p["top_assist_points"] for p in clau) == 4 * 12
     assert r["liga"]["league_id"] == CLAUSURA and r["updated"] == len(tocadas)
-    assert {a["p_user_id"] for _n, a in base.rpcs} == {p["user_id"] for p in clau if p["id"] in tocadas}
+    assert {a["p_user_id"] for a in _recalculos(base)} == {p["user_id"] for p in clau if p["id"] in tocadas}
 
 
 def test_repartir_es_idempotente(monkeypatch):
@@ -281,7 +310,7 @@ def test_repartir_es_idempotente(monkeypatch):
 def test_una_quiniela_de_otro_torneo_se_rechaza(monkeypatch):
     base = Base(REALES_CLAUSURA)
     with pytest.raises(HTTPException) as e:
-        _calc(base, monkeypatch, league_id="otra")
+        _calc(base, monkeypatch, league_id=CHAMPIONS)
     assert e.value.status_code == 404
     assert base.escrituras == []
 
@@ -290,7 +319,8 @@ def test_la_vista_previa_no_escribe_y_muestra_cada_quiniela(monkeypatch):
     base = Base({"actual_champion": "Saprissa", "actual_top_scorer": "Bancy Hernández",
                  "actual_top_assist": "Elías Aguilar"})
     r = _calc(base, monkeypatch, dry_run=True)
-    assert base.escrituras == [] and base.rpcs == []
+    assert base.escrituras == [] and _recalculos(base) == []
+    assert r["abiertas"] is False
     assert [l["nombre"] for l in r["ligas"]] == ["Bundestica", "Clausura 2027"]
     b = r["ligas"][0]
     assert b["league_id"] == BUNDESTICA and "filas" not in b
@@ -360,7 +390,125 @@ def test_el_doble_del_panel_es_lo_que_devuelve_el_backend(monkeypatch):
 
     base = Base({"actual_champion": "Saprissa", "actual_top_scorer": "Bancy Hernández",
                  "actual_top_assist": "Elías Aguilar"})
+    datos = Path(__file__).resolve().parents[2] / "frontend" / "tests" / "ui" / "datos"
     r = _calc(base, monkeypatch, dry_run=True)
-    ruta = (Path(__file__).resolve().parents[2] / "frontend" / "tests" / "ui" / "datos"
-            / "globales_vista_previa.json")
-    assert r == json.loads(ruta.read_text(encoding="utf-8"))
+    assert r == json.loads((datos / "globales_vista_previa.json").read_text(encoding="utf-8"))
+    # Y la de las globales abiertas, que el panel muestra sin picks.
+    base.tablas["tournaments"][0].update({"predictions_locked": False, "predictions_force_open": True})
+    r = _calc(base, monkeypatch, dry_run=True)
+    assert r == json.loads((datos / "globales_vista_previa_abiertas.json").read_text(encoding="utf-8"))
+
+
+# --- Globales abiertas: ni se miran ni se reparten ---------------------------
+
+def _abrir(base):
+    """Temporada nueva sobre el torneo 2: el admin desbloquea y fuerza la
+    apertura para que el grupo cargue sus globales (lo que hoy hace el panel)."""
+    base.tablas["tournaments"][0].update({"predictions_locked": False, "predictions_force_open": True})
+    assert base.globales_abiertas(2)
+
+
+def test_el_doble_de_abiertas_es_la_condicion_de_produccion():
+    # Los valores reales del 11 oct 2026: torneo 2 locked+force → cerradas.
+    base = Base(REALES_CLAUSURA)
+    assert base.globales_abiertas(2) is False
+    # Desbloqueado pero sin forzar, con el torneo ya empezado: cerradas.
+    base.tablas["tournaments"][0].update({"predictions_locked": False, "predictions_force_open": False})
+    assert base.globales_abiertas(2) is False
+    # Un torneo sin partidos está abierto (COALESCE a 'infinity').
+    base.tablas["matches"] = []
+    assert base.globales_abiertas(2) is True
+
+
+def test_la_vista_previa_con_las_globales_abiertas_no_destapa_picks(monkeypatch):
+    """La RLS de `tournament_predictions` no le deja ver al admin global las
+    globales ajenas mientras están abiertas, y el admin global también juega.
+    El backend corre con `service_role` y salta esa RLS: la vista previa no
+    puede ser la puerta lateral."""
+    base = Base({"actual_champion": None, "actual_top_scorer": None, "actual_top_assist": None})
+    _abrir(base)
+    r = _calc(base, monkeypatch, dry_run=True)
+    assert r["abiertas"] is True
+    assert ("tournament_predictions_open", {"p_tid": 2}) in base.rpcs
+    for liga in r["ligas"]:
+        assert set(liga) == {"league_id", "nombre", "puntos"}, liga
+    # Ni siquiera se leen.
+    texto = repr(r)
+    for pick in ("Marcel", "Cisneros", "Elías Aguilar", "Newton"):
+        assert pick not in texto
+    # Lo que el panel necesita para elegir el campeón sí viene.
+    assert r["equipos"] == EQUIPOS_TICA
+    assert [l["nombre"] for l in r["ligas"]] == ["Bundestica", "Clausura 2027"]
+
+
+def test_con_las_globales_abiertas_no_se_reparte(monkeypatch):
+    base = Base(REALES_CLAUSURA)
+    _abrir(base)
+    with pytest.raises(HTTPException) as e:
+        _calc(base, monkeypatch, league_id=CLAUSURA)
+    assert e.value.status_code == 409 and "abiertas" in e.value.detail
+    assert base.escrituras == [] and _recalculos(base) == []
+
+
+def test_si_no_se_sabe_si_estan_abiertas_no_se_muestra_ni_se_reparte(monkeypatch):
+    base = Base(REALES_CLAUSURA)
+    base.falla_abiertas = True
+    for kw in ({"dry_run": True}, {"league_id": CLAUSURA}):
+        with pytest.raises(HTTPException) as e:
+            _calc(base, monkeypatch, **kw)
+        assert e.value.status_code == 503
+    assert base.escrituras == []
+
+
+# --- Lo que tiene que traer un reparto ---------------------------------------
+
+def test_repartir_sin_lo_que_se_vio_no_escribe(monkeypatch):
+    base = Base(REALES_CLAUSURA)
+    with pytest.raises(HTTPException) as e:
+        _calc(base, monkeypatch, league_id=CLAUSURA, esperado=None)
+    assert e.value.status_code == 400
+    with pytest.raises(HTTPException) as e:
+        _calc(base, monkeypatch, league_id=CLAUSURA, esperado={"actual_champion": 1})
+    assert e.value.status_code == 400
+    assert base.escrituras == []
+
+
+def test_por_http_los_datos_mal_formados_son_error_del_cliente(monkeypatch):
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    base = Base(REALES_CLAUSURA)
+    monkeypatch.setattr(admin_mod, "get_supabase", lambda: base)
+    app = FastAPI()
+    app.include_router(admin_mod.router)
+    app.dependency_overrides[admin_mod.require_admin] = lambda: {"sub": "admin"}
+    cli = TestClient(app, raise_server_exceptions=False)
+
+    r = cli.post("/api/admin/calc-tournament-globals",
+                 json={"tournament_id": 2, "league_id": "bundestica", "esperado": REALES_CLAUSURA})
+    assert r.status_code == 422, r.text
+    r = cli.post("/api/admin/calc-tournament-globals",
+                 json={"tournament_id": 2, "league_id": CLAUSURA, "esperado": {"actual_champion": 1}})
+    assert r.status_code == 400, r.text
+    r = cli.post("/api/admin/calc-tournament-globals", json={"tournament_id": 2, "league_id": CLAUSURA})
+    assert r.status_code == 400, r.text
+    assert base.escrituras == []
+
+
+# --- Apóstrofos y guiones (nombres reales de `players`) ----------------------
+
+@pytest.mark.parametrize("real,pick", [
+    ("N'Golo Kanté", "N’Golo Kanté"),     # el iPhone escribe ’
+    ("Ange N'Guessan", "Ange N‘Guessan"),
+    ("Ian O’Rourke", "Ian O'Rourke"),     # y al revés: el admin desde el iPhone
+    ("Marc-Oliver Kempf", "Marc Oliver Kempf"),
+    ("Trent Alexander-Arnold", "trent alexander arnold"),
+    ("Aaron Wan-Bissaka", "Aaron Wan–Bissaka"),
+])
+def test_apostrofos_y_guiones_no_dejan_a_nadie_en_cero(real, pick):
+    assert rg.acierta(rg.alias(real, rg.SEPARADORES_JUGADOR), pick)
+
+
+def test_los_guiones_no_vuelven_a_abrir_los_apellidos():
+    assert not rg.acierta(rg.alias("Trent Alexander-Arnold", rg.SEPARADORES_JUGADOR), "Arnold")
+    assert not rg.acierta(rg.alias("Lee Han-Beom", rg.SEPARADORES_JUGADOR), "Hwang In-Beom")
