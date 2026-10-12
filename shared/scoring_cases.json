@@ -179,14 +179,14 @@
       "esperado": 2
     },
     {
-      "nombre": "penales sin ganador cargado: el empate exacto vale 3 y la tanda no suma",
+      "nombre": "penales sin ganador cargado (asi llega hoy una ida empatada): el empate exacto vale 3 y la tanda no suma",
       "pred": { "home_goals_pred": 0, "away_goals_pred": 0, "penalties_winner_pred": "Local" },
       "real": { "home": 0, "away": 0 },
       "penales": { "va": true, "ganador_real": null },
       "esperado": 3
     },
     {
-      "nombre": "penales sin ganador cargado: predijo ganador y no consta que avance",
+      "nombre": "penales sin ganador cargado (asi llega hoy una ida empatada): predijo ganador y no consta que avance",
       "pred": { "home_goals_pred": 3, "away_goals_pred": 1 },
       "real": { "home": 1, "away": 1 },
       "penales": { "va": true, "ganador_real": null },
@@ -203,14 +203,14 @@
       "esperado": 6
     },
     {
-      "nombre": "eliminatoria SIN penales (una ida): empate exacto con eleccion de tanda vale 3, sin el +1",
+      "nombre": "eliminatoria SIN penales (90/120, o el admin desmarco la tanda): empate exacto con eleccion de tanda vale 3, sin el +1",
       "pred": { "home_goals_pred": 1, "away_goals_pred": 1, "penalties_winner_pred": "Local" },
       "real": { "home": 1, "away": 1 },
       "penales": { "va": false, "ganador_real": null },
       "esperado": 3
     },
     {
-      "nombre": "eliminatoria SIN penales (una ida): empate no exacto con eleccion de tanda vale 1, sin el +1",
+      "nombre": "eliminatoria SIN penales (90/120, o el admin desmarco la tanda): empate no exacto con eleccion de tanda vale 1, sin el +1",
       "pred": { "home_goals_pred": 0, "away_goals_pred": 0, "penalties_winner_pred": "Local" },
       "real": { "home": 2, "away": 2 },
       "penales": { "va": false, "ganador_real": null },
