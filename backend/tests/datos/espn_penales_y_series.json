@@ -1,0 +1,1471 @@
+{
+ "_fuente": "Scoreboard REAL de ESPN bajado el 12 oct 2026, recortado a los campos que lee _parse_event (details vacío). 'es': con lang=es&region=es, como lo pide el sync (crc.1 202405/202412/202505/202512, uefa.champions 202503, uefa.euro 202407). 'en': crc.1 202505 sin lang, donde las notas vienen en inglés.",
+ "es": [
+  {
+   "id": "735709",
+   "date": "2025-05-11T22:00Z",
+   "season": {
+    "slug": "clausura---playoff-semifinals"
+   },
+   "status": {
+    "displayClock": "90'",
+    "type": {
+     "name": "STATUS_FULL_TIME",
+     "state": "post",
+     "completed": true,
+     "shortDetail": "F"
+    }
+   },
+   "competitions": [
+    {
+     "notes": [
+      {
+       "text": "Ida",
+       "headline": "Ida",
+       "type": "event"
+      }
+     ],
+     "venue": {
+      "fullName": "Estadio Ricardo Saprissa"
+     },
+     "details": [],
+     "competitors": [
+      {
+       "homeAway": "home",
+       "team": {
+        "id": "858",
+        "displayName": "Saprissa",
+        "name": "Saprissa",
+        "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/858.png"
+       },
+       "score": "4",
+       "shootoutScore": null,
+       "winner": true
+      },
+      {
+       "homeAway": "away",
+       "team": {
+        "id": "862",
+        "displayName": "Herediano",
+        "name": "Herediano",
+        "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/862.png"
+       },
+       "score": "0",
+       "shootoutScore": null,
+       "winner": false
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "735710",
+   "date": "2025-05-12T01:00Z",
+   "season": {
+    "slug": "clausura---playoff-semifinals"
+   },
+   "status": {
+    "displayClock": "90'",
+    "type": {
+     "name": "STATUS_FULL_TIME",
+     "state": "post",
+     "completed": true,
+     "shortDetail": "F"
+    }
+   },
+   "competitions": [
+    {
+     "notes": [
+      {
+       "text": "Ida",
+       "headline": "Ida",
+       "type": "event"
+      }
+     ],
+     "venue": {
+      "fullName": "Estadio Lito Pérez"
+     },
+     "details": [],
+     "competitors": [
+      {
+       "homeAway": "home",
+       "team": {
+        "id": "7237",
+        "displayName": "Puntarenas FC",
+        "name": "Puntarenas FC",
+        "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/7237.png"
+       },
+       "score": "0",
+       "shootoutScore": null,
+       "winner": false
+      },
+      {
+       "homeAway": "away",
+       "team": {
+        "id": "2057",
+        "displayName": "Alajuelense",
+        "name": "Alajuelense",
+        "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/2057.png"
+       },
+       "score": "0",
+       "shootoutScore": null,
+       "winner": false
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "735711",
+   "date": "2025-05-15T00:45Z",
+   "season": {
+    "slug": "clausura---playoff-semifinals"
+   },
+   "status": {
+    "displayClock": "120'",
+    "type": {
+     "name": "STATUS_FINAL_PEN",
+     "state": "post",
+     "completed": true,
+     "shortDetail": "MF - Pens"
+    }
+   },
+   "competitions": [
+    {
+     "notes": [
+      {
+       "text": "Juego de Vuelta - Alajuelense avanza 1-0 en el global",
+       "headline": "Juego de Vuelta - Alajuelense avanza 1-0 en el global",
+       "type": "event"
+      }
+     ],
+     "venue": {
+      "fullName": "Alejandro Morera Soto"
+     },
+     "details": [],
+     "competitors": [
+      {
+       "homeAway": "home",
+       "team": {
+        "id": "2057",
+        "displayName": "Alajuelense",
+        "name": "Alajuelense",
+        "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/2057.png"
+       },
+       "score": "1",
+       "shootoutScore": null,
+       "winner": true
+      },
+      {
+       "homeAway": "away",
+       "team": {
+        "id": "7237",
+        "displayName": "Puntarenas FC",
+        "name": "Puntarenas FC",
+        "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/7237.png"
+       },
+       "score": "0",
+       "shootoutScore": null,
+       "winner": false
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "735712",
+   "date": "2025-05-15T02:45Z",
+   "season": {
+    "slug": "clausura---playoff-semifinals"
+   },
+   "status": {
+    "displayClock": "90'",
+    "type": {
+     "name": "STATUS_FULL_TIME",
+     "state": "post",
+     "completed": true,
+     "shortDetail": "F"
+    }
+   },
+   "competitions": [
+    {
+     "notes": [
+      {
+       "text": "Juego de Vuelta - Saprissa avanza 4-2 en el global",
+       "headline": "Juego de Vuelta - Saprissa avanza 4-2 en el global",
+       "type": "event"
+      }
+     ],
+     "venue": {
+      "fullName": "Estadio Carlos Alvarado"
+     },
+     "details": [],
+     "competitors": [
+      {
+       "homeAway": "home",
+       "team": {
+        "id": "862",
+        "displayName": "Herediano",
+        "name": "Herediano",
+        "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/862.png"
+       },
+       "score": "2",
+       "shootoutScore": null,
+       "winner": false
+      },
+      {
+       "homeAway": "away",
+       "team": {
+        "id": "858",
+        "displayName": "Saprissa",
+        "name": "Saprissa",
+        "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/858.png"
+       },
+       "score": "0",
+       "shootoutScore": null,
+       "winner": true
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "735794",
+   "date": "2025-05-18T21:00Z",
+   "season": {
+    "slug": "clausura---playoff-finals"
+   },
+   "status": {
+    "displayClock": "90'",
+    "type": {
+     "name": "STATUS_FULL_TIME",
+     "state": "post",
+     "completed": true,
+     "shortDetail": "F"
+    }
+   },
+   "competitions": [
+    {
+     "notes": [
+      {
+       "text": "Ida",
+       "headline": "Ida",
+       "type": "event"
+      }
+     ],
+     "venue": {
+      "fullName": "Estadio Ricardo Saprissa"
+     },
+     "details": [],
+     "competitors": [
+      {
+       "homeAway": "home",
+       "team": {
+        "id": "858",
+        "displayName": "Saprissa",
+        "name": "Saprissa",
+        "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/858.png"
+       },
+       "score": "3",
+       "shootoutScore": null,
+       "winner": false
+      },
+      {
+       "homeAway": "away",
+       "team": {
+        "id": "2057",
+        "displayName": "Alajuelense",
+        "name": "Alajuelense",
+        "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/2057.png"
+       },
+       "score": "3",
+       "shootoutScore": null,
+       "winner": false
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "735795",
+   "date": "2025-05-22T02:00Z",
+   "season": {
+    "slug": "clausura---playoff-finals"
+   },
+   "status": {
+    "displayClock": "90'",
+    "type": {
+     "name": "STATUS_FULL_TIME",
+     "state": "post",
+     "completed": true,
+     "shortDetail": "F"
+    }
+   },
+   "competitions": [
+    {
+     "notes": [
+      {
+       "text": "Juego de Vuelta - Alajuelense Gana 4-3 en el global",
+       "headline": "Juego de Vuelta - Alajuelense Gana 4-3 en el global",
+       "type": "event"
+      }
+     ],
+     "venue": {
+      "fullName": "Alejandro Morera Soto"
+     },
+     "details": [],
+     "competitors": [
+      {
+       "homeAway": "home",
+       "team": {
+        "id": "2057",
+        "displayName": "Alajuelense",
+        "name": "Alajuelense",
+        "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/2057.png"
+       },
+       "score": "1",
+       "shootoutScore": null,
+       "winner": true
+      },
+      {
+       "homeAway": "away",
+       "team": {
+        "id": "858",
+        "displayName": "Saprissa",
+        "name": "Saprissa",
+        "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/858.png"
+       },
+       "score": "0",
+       "shootoutScore": null,
+       "winner": false
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "735927",
+   "date": "2025-05-25T23:00Z",
+   "season": {
+    "slug": "clausura---grand-finals"
+   },
+   "status": {
+    "displayClock": "90'",
+    "type": {
+     "name": "STATUS_FULL_TIME",
+     "state": "post",
+     "completed": true,
+     "shortDetail": "F"
+    }
+   },
+   "competitions": [
+    {
+     "notes": [
+      {
+       "text": "Ida",
+       "headline": "Ida",
+       "type": "event"
+      }
+     ],
+     "venue": {
+      "fullName": "Estadio Nacional de Costa Rica"
+     },
+     "details": [],
+     "competitors": [
+      {
+       "homeAway": "home",
+       "team": {
+        "id": "2057",
+        "displayName": "Alajuelense",
+        "name": "Alajuelense",
+        "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/2057.png"
+       },
+       "score": "0",
+       "shootoutScore": null,
+       "winner": false
+      },
+      {
+       "homeAway": "away",
+       "team": {
+        "id": "862",
+        "displayName": "Herediano",
+        "name": "Herediano",
+        "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/862.png"
+       },
+       "score": "0",
+       "shootoutScore": null,
+       "winner": false
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "735928",
+   "date": "2025-05-29T02:00Z",
+   "season": {
+    "slug": "clausura---grand-finals"
+   },
+   "status": {
+    "displayClock": "90'",
+    "type": {
+     "name": "STATUS_FULL_TIME",
+     "state": "post",
+     "completed": true,
+     "shortDetail": "F"
+    }
+   },
+   "competitions": [
+    {
+     "notes": [
+      {
+       "text": "Juego de Vuelta - Herediano Gana 1-0 en el global",
+       "headline": "Juego de Vuelta - Herediano Gana 1-0 en el global",
+       "type": "event"
+      }
+     ],
+     "venue": {
+      "fullName": "Estadio Carlos Alvarado"
+     },
+     "details": [],
+     "competitors": [
+      {
+       "homeAway": "home",
+       "team": {
+        "id": "862",
+        "displayName": "Herediano",
+        "name": "Herediano",
+        "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/862.png"
+       },
+       "score": "1",
+       "shootoutScore": null,
+       "winner": true
+      },
+      {
+       "homeAway": "away",
+       "team": {
+        "id": "2057",
+        "displayName": "Alajuelense",
+        "name": "Alajuelense",
+        "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/2057.png"
+       },
+       "score": "0",
+       "shootoutScore": null,
+       "winner": false
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "762470",
+   "date": "2025-12-11T02:00Z",
+   "season": {
+    "slug": "apertura---playoff-semifinals"
+   },
+   "status": {
+    "displayClock": "90'",
+    "type": {
+     "name": "STATUS_FULL_TIME",
+     "state": "post",
+     "completed": true,
+     "shortDetail": "F"
+    }
+   },
+   "competitions": [
+    {
+     "notes": [
+      {
+       "text": "Ida",
+       "headline": "Ida",
+       "type": "event"
+      }
+     ],
+     "venue": {
+      "fullName": "Estadio Edgardo Baltodano Briceño"
+     },
+     "details": [],
+     "competitors": [
+      {
+       "homeAway": "home",
+       "team": {
+        "id": "9361",
+        "displayName": "Municipal Liberia",
+        "name": "Municipal Liberia",
+        "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/9361.png"
+       },
+       "score": "1",
+       "shootoutScore": null,
+       "winner": false
+      },
+      {
+       "homeAway": "away",
+       "team": {
+        "id": "2057",
+        "displayName": "Alajuelense",
+        "name": "Alajuelense",
+        "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/2057.png"
+       },
+       "score": "1",
+       "shootoutScore": null,
+       "winner": false
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "762472",
+   "date": "2025-12-14T22:00Z",
+   "season": {
+    "slug": "apertura---playoff-semifinals"
+   },
+   "status": {
+    "displayClock": "90'",
+    "type": {
+     "name": "STATUS_FULL_TIME",
+     "state": "post",
+     "completed": true,
+     "shortDetail": "F"
+    }
+   },
+   "competitions": [
+    {
+     "notes": [
+      {
+       "text": "Juego de Vuelta - Saprissa avanza 4-2 en el global",
+       "headline": "Juego de Vuelta - Saprissa avanza 4-2 en el global",
+       "type": "event"
+      }
+     ],
+     "venue": {
+      "fullName": "Estadio Ricardo Saprissa"
+     },
+     "details": [],
+     "competitors": [
+      {
+       "homeAway": "home",
+       "team": {
+        "id": "858",
+        "displayName": "Saprissa",
+        "name": "Saprissa",
+        "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/858.png"
+       },
+       "score": "2",
+       "shootoutScore": null,
+       "winner": true
+      },
+      {
+       "homeAway": "away",
+       "team": {
+        "id": "7239",
+        "displayName": "Cartaginés",
+        "name": "Cartaginés",
+        "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/7239.png"
+       },
+       "score": "1",
+       "shootoutScore": null,
+       "winner": false
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "762650",
+   "date": "2025-12-18T02:00Z",
+   "season": {
+    "slug": "apertura---playoff-finals"
+   },
+   "status": {
+    "displayClock": "90'",
+    "type": {
+     "name": "STATUS_FULL_TIME",
+     "state": "post",
+     "completed": true,
+     "shortDetail": "F"
+    }
+   },
+   "competitions": [
+    {
+     "notes": [],
+     "venue": {
+      "fullName": "Estadio Ricardo Saprissa"
+     },
+     "details": [],
+     "competitors": [
+      {
+       "homeAway": "home",
+       "team": {
+        "id": "858",
+        "displayName": "Saprissa",
+        "name": "Saprissa",
+        "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/858.png"
+       },
+       "score": "2",
+       "shootoutScore": null,
+       "winner": false
+      },
+      {
+       "homeAway": "away",
+       "team": {
+        "id": "2057",
+        "displayName": "Alajuelense",
+        "name": "Alajuelense",
+        "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/2057.png"
+       },
+       "score": "2",
+       "shootoutScore": null,
+       "winner": false
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "762651",
+   "date": "2025-12-21T01:00Z",
+   "season": {
+    "slug": "apertura---playoff-finals"
+   },
+   "status": {
+    "displayClock": "90'",
+    "type": {
+     "name": "STATUS_FULL_TIME",
+     "state": "post",
+     "completed": true,
+     "shortDetail": "F"
+    }
+   },
+   "competitions": [
+    {
+     "notes": [],
+     "venue": {
+      "fullName": "Alejandro Morera Soto"
+     },
+     "details": [],
+     "competitors": [
+      {
+       "homeAway": "home",
+       "team": {
+        "id": "2057",
+        "displayName": "Alajuelense",
+        "name": "Alajuelense",
+        "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/2057.png"
+       },
+       "score": "3",
+       "shootoutScore": null,
+       "winner": true
+      },
+      {
+       "homeAway": "away",
+       "team": {
+        "id": "858",
+        "displayName": "Saprissa",
+        "name": "Saprissa",
+        "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/858.png"
+       },
+       "score": "1",
+       "shootoutScore": null,
+       "winner": false
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "692526",
+   "date": "2024-05-11T22:00Z",
+   "season": {
+    "slug": "clausura"
+   },
+   "status": {
+    "displayClock": "90'",
+    "type": {
+     "name": "STATUS_FULL_TIME",
+     "state": "post",
+     "completed": true,
+     "shortDetail": "F"
+    }
+   },
+   "competitions": [
+    {
+     "notes": [],
+     "venue": {
+      "fullName": "Estadio Lito Pérez"
+     },
+     "details": [],
+     "competitors": [
+      {
+       "homeAway": "home",
+       "team": {
+        "id": "7237",
+        "displayName": "Puntarenas FC",
+        "name": "Puntarenas FC",
+        "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/7237.png"
+       },
+       "score": "1",
+       "shootoutScore": null,
+       "winner": false
+      },
+      {
+       "homeAway": "away",
+       "team": {
+        "id": "7239",
+        "displayName": "Cartaginés",
+        "name": "Cartaginés",
+        "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/7239.png"
+       },
+       "score": "1",
+       "shootoutScore": null,
+       "winner": true
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "702491",
+   "date": "2024-05-19T02:00Z",
+   "season": {
+    "slug": "clausura---playoff-semifinals"
+   },
+   "status": {
+    "displayClock": "120'",
+    "type": {
+     "name": "STATUS_FINAL_PEN",
+     "state": "post",
+     "completed": true,
+     "shortDetail": "MF - Pens"
+    }
+   },
+   "competitions": [
+    {
+     "notes": [
+      {
+       "text": "Juego de Vuelta - Empatados en el global - Alajuelense avanza 2-0 en tiros de penal",
+       "headline": "Juego de Vuelta - Empatados en el global - Alajuelense avanza 2-0 en tiros de penal",
+       "type": "event"
+      }
+     ],
+     "venue": {
+      "fullName": "Estadio Carlos Alvarado"
+     },
+     "details": [],
+     "competitors": [
+      {
+       "homeAway": "home",
+       "team": {
+        "id": "862",
+        "displayName": "Herediano",
+        "name": "Herediano",
+        "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/862.png"
+       },
+       "score": "1",
+       "shootoutScore": 0,
+       "winner": false
+      },
+      {
+       "homeAway": "away",
+       "team": {
+        "id": "2057",
+        "displayName": "Alajuelense",
+        "name": "Alajuelense",
+        "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/2057.png"
+       },
+       "score": "0",
+       "shootoutScore": 2,
+       "winner": true
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "723983",
+   "date": "2024-12-12T02:00Z",
+   "season": {
+    "slug": "apertura---playoff-semifinals"
+   },
+   "status": {
+    "displayClock": "90'",
+    "type": {
+     "name": "STATUS_FULL_TIME",
+     "state": "post",
+     "completed": true,
+     "shortDetail": "F"
+    }
+   },
+   "competitions": [
+    {
+     "notes": [
+      {
+       "text": "Juego de Vuelta - Herediano avanza 4-2 en el global",
+       "headline": "Juego de Vuelta - Herediano avanza 4-2 en el global",
+       "type": "event"
+      }
+     ],
+     "venue": {
+      "fullName": "Alejandro Morera Soto"
+     },
+     "details": [],
+     "competitors": [
+      {
+       "homeAway": "home",
+       "team": {
+        "id": "2057",
+        "displayName": "Alajuelense",
+        "name": "Alajuelense",
+        "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/2057.png"
+       },
+       "score": "2",
+       "shootoutScore": null,
+       "winner": false
+      },
+      {
+       "homeAway": "away",
+       "team": {
+        "id": "862",
+        "displayName": "Herediano",
+        "name": "Herediano",
+        "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/862.png"
+       },
+       "score": "2",
+       "shootoutScore": null,
+       "winner": true
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "733144",
+   "date": "2025-03-11T17:45Z",
+   "season": {
+    "slug": "round-of-16"
+   },
+   "status": {
+    "displayClock": "90'+3'",
+    "type": {
+     "name": "STATUS_FULL_TIME",
+     "state": "post",
+     "completed": true,
+     "shortDetail": "F"
+    }
+   },
+   "competitions": [
+    {
+     "notes": [
+      {
+       "text": "Juego de Vuelta - Barcelona avanza 4-1 en el global",
+       "headline": "Juego de Vuelta - Barcelona avanza 4-1 en el global",
+       "type": "event"
+      }
+     ],
+     "venue": {
+      "fullName": "Estadi Olímpic Lluís Companys"
+     },
+     "details": [],
+     "competitors": [
+      {
+       "homeAway": "home",
+       "team": {
+        "id": "83",
+        "displayName": "Barcelona",
+        "name": "Barcelona",
+        "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/83.png"
+       },
+       "score": "3",
+       "shootoutScore": null,
+       "winner": true
+      },
+      {
+       "homeAway": "away",
+       "team": {
+        "id": "1929",
+        "displayName": "Benfica",
+        "name": "Benfica",
+        "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/1929.png"
+       },
+       "score": "1",
+       "shootoutScore": null,
+       "winner": false
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "733605",
+   "date": "2025-03-11T20:00Z",
+   "season": {
+    "slug": "round-of-16"
+   },
+   "status": {
+    "displayClock": "120'",
+    "type": {
+     "name": "STATUS_FINAL_PEN",
+     "state": "post",
+     "completed": true,
+     "shortDetail": "MF - Pens"
+    }
+   },
+   "competitions": [
+    {
+     "notes": [
+      {
+       "text": "Juego de Vuelta - Empatados en el global - Paris Saint-Germain avanza 4-1 en tiros de penal",
+       "headline": "Juego de Vuelta - Empatados en el global - Paris Saint-Germain avanza 4-1 en tiros de penal",
+       "type": "event"
+      }
+     ],
+     "venue": {
+      "fullName": "Anfield"
+     },
+     "details": [],
+     "competitors": [
+      {
+       "homeAway": "home",
+       "team": {
+        "id": "364",
+        "displayName": "Liverpool",
+        "name": "Liverpool",
+        "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/364.png"
+       },
+       "score": "0",
+       "shootoutScore": 1,
+       "winner": false
+      },
+      {
+       "homeAway": "away",
+       "team": {
+        "id": "160",
+        "displayName": "Paris Saint-Germain",
+        "name": "Paris Saint-Germain",
+        "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/160.png"
+       },
+       "score": "1",
+       "shootoutScore": 4,
+       "winner": true
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "733607",
+   "date": "2025-03-12T20:00Z",
+   "season": {
+    "slug": "round-of-16"
+   },
+   "status": {
+    "displayClock": "90'+4'",
+    "type": {
+     "name": "STATUS_FULL_TIME",
+     "state": "post",
+     "completed": true,
+     "shortDetail": "F"
+    }
+   },
+   "competitions": [
+    {
+     "notes": [
+      {
+       "text": "Juego de Vuelta - Arsenal avanza 9-3 en el global",
+       "headline": "Juego de Vuelta - Arsenal avanza 9-3 en el global",
+       "type": "event"
+      }
+     ],
+     "venue": {
+      "fullName": "Emirates Stadium"
+     },
+     "details": [],
+     "competitors": [
+      {
+       "homeAway": "home",
+       "team": {
+        "id": "359",
+        "displayName": "Arsenal",
+        "name": "Arsenal",
+        "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/359.png"
+       },
+       "score": "2",
+       "shootoutScore": null,
+       "winner": true
+      },
+      {
+       "homeAway": "away",
+       "team": {
+        "id": "148",
+        "displayName": "PSV Eindhoven",
+        "name": "PSV Eindhoven",
+        "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/148.png"
+       },
+       "score": "2",
+       "shootoutScore": null,
+       "winner": false
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "733606",
+   "date": "2025-03-12T20:00Z",
+   "season": {
+    "slug": "round-of-16"
+   },
+   "status": {
+    "displayClock": "120'",
+    "type": {
+     "name": "STATUS_FINAL_PEN",
+     "state": "post",
+     "completed": true,
+     "shortDetail": "MF - Pens"
+    }
+   },
+   "competitions": [
+    {
+     "notes": [
+      {
+       "text": "Juego de Vuelta - Empatados en el global - Real Madrid avanza 4-2 en tiros de penal",
+       "headline": "Juego de Vuelta - Empatados en el global - Real Madrid avanza 4-2 en tiros de penal",
+       "type": "event"
+      }
+     ],
+     "venue": {
+      "fullName": "Riyadh Air Metropolitano"
+     },
+     "details": [],
+     "competitors": [
+      {
+       "homeAway": "home",
+       "team": {
+        "id": "1068",
+        "displayName": "Atlético de Madrid",
+        "name": "Atlético Madrid",
+        "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/1068.png"
+       },
+       "score": "1",
+       "shootoutScore": 2,
+       "winner": false
+      },
+      {
+       "homeAway": "away",
+       "team": {
+        "id": "86",
+        "displayName": "Real Madrid",
+        "name": "Real Madrid",
+        "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/86.png"
+       },
+       "score": "0",
+       "shootoutScore": 4,
+       "winner": true
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "703936",
+   "date": "2024-07-01T19:00Z",
+   "season": {
+    "slug": "round-of-16"
+   },
+   "status": {
+    "displayClock": "120'",
+    "type": {
+     "name": "STATUS_FINAL_PEN",
+     "state": "post",
+     "completed": true,
+     "shortDetail": "MF - Pens"
+    }
+   },
+   "competitions": [
+    {
+     "notes": [
+      {
+       "text": "Portugal avanza 3-0 en tiros de penal",
+       "headline": "Portugal avanza 3-0 en tiros de penal",
+       "type": "event"
+      }
+     ],
+     "venue": {
+      "fullName": "Deutsche Bank Park"
+     },
+     "details": [],
+     "competitors": [
+      {
+       "homeAway": "home",
+       "team": {
+        "id": "482",
+        "displayName": "Portugal",
+        "name": "Portugal",
+        "logo": "https://a.espncdn.com/i/teamlogos/countries/500/por.png"
+       },
+       "score": "0",
+       "shootoutScore": 3,
+       "winner": true
+      },
+      {
+       "homeAway": "away",
+       "team": {
+        "id": "472",
+        "displayName": "Eslovenia",
+        "name": "Eslovenia",
+        "logo": "https://a.espncdn.com/i/teamlogos/countries/500/svn.png"
+       },
+       "score": "0",
+       "shootoutScore": 0,
+       "winner": false
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "703940",
+   "date": "2024-07-05T19:00Z",
+   "season": {
+    "slug": "quarterfinals"
+   },
+   "status": {
+    "displayClock": "120'",
+    "type": {
+     "name": "STATUS_FINAL_PEN",
+     "state": "post",
+     "completed": true,
+     "shortDetail": "MF - Pens"
+    }
+   },
+   "competitions": [
+    {
+     "notes": [
+      {
+       "text": "Francia avanza 5-3 en tiros de penal",
+       "headline": "Francia avanza 5-3 en tiros de penal",
+       "type": "event"
+      }
+     ],
+     "venue": {
+      "fullName": "Volksparkstadion"
+     },
+     "details": [],
+     "competitors": [
+      {
+       "homeAway": "home",
+       "team": {
+        "id": "482",
+        "displayName": "Portugal",
+        "name": "Portugal",
+        "logo": "https://a.espncdn.com/i/teamlogos/countries/500/por.png"
+       },
+       "score": "0",
+       "shootoutScore": 3,
+       "winner": false
+      },
+      {
+       "homeAway": "away",
+       "team": {
+        "id": "478",
+        "displayName": "Francia",
+        "name": "Francia",
+        "logo": "https://a.espncdn.com/i/teamlogos/countries/500/fra.png"
+       },
+       "score": "0",
+       "shootoutScore": 5,
+       "winner": true
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "703941",
+   "date": "2024-07-06T16:00Z",
+   "season": {
+    "slug": "quarterfinals"
+   },
+   "status": {
+    "displayClock": "120'",
+    "type": {
+     "name": "STATUS_FINAL_PEN",
+     "state": "post",
+     "completed": true,
+     "shortDetail": "MF - Pens"
+    }
+   },
+   "competitions": [
+    {
+     "notes": [
+      {
+       "text": "Inglaterra avanza 5-3 en tiros de penal",
+       "headline": "Inglaterra avanza 5-3 en tiros de penal",
+       "type": "event"
+      }
+     ],
+     "venue": {
+      "fullName": "Merkur Spiel-Arena"
+     },
+     "details": [],
+     "competitors": [
+      {
+       "homeAway": "home",
+       "team": {
+        "id": "448",
+        "displayName": "Inglaterra",
+        "name": "Inglaterra",
+        "logo": "https://a.espncdn.com/i/teamlogos/countries/500/eng.png"
+       },
+       "score": "1",
+       "shootoutScore": 5,
+       "winner": true
+      },
+      {
+       "homeAway": "away",
+       "team": {
+        "id": "475",
+        "displayName": "Suiza",
+        "name": "Suiza",
+        "logo": "https://a.espncdn.com/i/teamlogos/countries/500/sui.png"
+       },
+       "score": "1",
+       "shootoutScore": 3,
+       "winner": false
+      }
+     ]
+    }
+   ]
+  }
+ ],
+ "en": [
+  {
+   "id": "735709",
+   "date": "2025-05-11T22:00Z",
+   "season": {
+    "slug": "clausura---playoff-semifinals"
+   },
+   "status": {
+    "displayClock": "90'",
+    "type": {
+     "name": "STATUS_FULL_TIME",
+     "state": "post",
+     "completed": true,
+     "shortDetail": "FT"
+    }
+   },
+   "competitions": [
+    {
+     "notes": [
+      {
+       "text": "1st Leg",
+       "headline": "1st Leg",
+       "type": "event"
+      }
+     ],
+     "venue": {
+      "fullName": "Estadio Ricardo Saprissa"
+     },
+     "details": [],
+     "competitors": [
+      {
+       "homeAway": "home",
+       "team": {
+        "id": "858",
+        "displayName": "Saprissa",
+        "name": "Saprissa",
+        "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/858.png"
+       },
+       "score": "4",
+       "shootoutScore": null,
+       "winner": true
+      },
+      {
+       "homeAway": "away",
+       "team": {
+        "id": "862",
+        "displayName": "Herediano",
+        "name": "Herediano",
+        "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/862.png"
+       },
+       "score": "0",
+       "shootoutScore": null,
+       "winner": false
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "735711",
+   "date": "2025-05-15T00:45Z",
+   "season": {
+    "slug": "clausura---playoff-semifinals"
+   },
+   "status": {
+    "displayClock": "120'",
+    "type": {
+     "name": "STATUS_FINAL_PEN",
+     "state": "post",
+     "completed": true,
+     "shortDetail": "FT-Pens"
+    }
+   },
+   "competitions": [
+    {
+     "notes": [
+      {
+       "text": "2nd Leg - Alajuelense advance 1-0 on aggregate",
+       "headline": "2nd Leg - Alajuelense advance 1-0 on aggregate",
+       "type": "event"
+      }
+     ],
+     "venue": {
+      "fullName": "Alejandro Morera Soto"
+     },
+     "details": [],
+     "competitors": [
+      {
+       "homeAway": "home",
+       "team": {
+        "id": "2057",
+        "displayName": "Alajuelense",
+        "name": "Alajuelense",
+        "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/2057.png"
+       },
+       "score": "1",
+       "shootoutScore": null,
+       "winner": true
+      },
+      {
+       "homeAway": "away",
+       "team": {
+        "id": "7237",
+        "displayName": "Puntarenas FC",
+        "name": "Puntarenas FC",
+        "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/7237.png"
+       },
+       "score": "0",
+       "shootoutScore": null,
+       "winner": false
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "735712",
+   "date": "2025-05-15T02:45Z",
+   "season": {
+    "slug": "clausura---playoff-semifinals"
+   },
+   "status": {
+    "displayClock": "90'",
+    "type": {
+     "name": "STATUS_FULL_TIME",
+     "state": "post",
+     "completed": true,
+     "shortDetail": "FT"
+    }
+   },
+   "competitions": [
+    {
+     "notes": [
+      {
+       "text": "2nd Leg - Saprissa advance 4-2 on aggregate",
+       "headline": "2nd Leg - Saprissa advance 4-2 on aggregate",
+       "type": "event"
+      }
+     ],
+     "venue": {
+      "fullName": "Estadio Carlos Alvarado"
+     },
+     "details": [],
+     "competitors": [
+      {
+       "homeAway": "home",
+       "team": {
+        "id": "862",
+        "displayName": "Herediano",
+        "name": "Herediano",
+        "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/862.png"
+       },
+       "score": "2",
+       "shootoutScore": null,
+       "winner": false
+      },
+      {
+       "homeAway": "away",
+       "team": {
+        "id": "858",
+        "displayName": "Saprissa",
+        "name": "Saprissa",
+        "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/858.png"
+       },
+       "score": "0",
+       "shootoutScore": null,
+       "winner": true
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "735795",
+   "date": "2025-05-22T02:00Z",
+   "season": {
+    "slug": "clausura---playoff-finals"
+   },
+   "status": {
+    "displayClock": "90'",
+    "type": {
+     "name": "STATUS_FULL_TIME",
+     "state": "post",
+     "completed": true,
+     "shortDetail": "FT"
+    }
+   },
+   "competitions": [
+    {
+     "notes": [
+      {
+       "text": "2nd Leg - Alajuelense win 4-3 on aggregate",
+       "headline": "2nd Leg - Alajuelense win 4-3 on aggregate",
+       "type": "event"
+      }
+     ],
+     "venue": {
+      "fullName": "Alejandro Morera Soto"
+     },
+     "details": [],
+     "competitors": [
+      {
+       "homeAway": "home",
+       "team": {
+        "id": "2057",
+        "displayName": "Alajuelense",
+        "name": "Alajuelense",
+        "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/2057.png"
+       },
+       "score": "1",
+       "shootoutScore": null,
+       "winner": true
+      },
+      {
+       "homeAway": "away",
+       "team": {
+        "id": "858",
+        "displayName": "Saprissa",
+        "name": "Saprissa",
+        "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/858.png"
+       },
+       "score": "0",
+       "shootoutScore": null,
+       "winner": false
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

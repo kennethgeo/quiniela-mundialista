@@ -8,16 +8,22 @@ nombre. Trae equipos y posiciones en español (lang=es).
 El Mundial (torneo #1) NO pasa por acá — tiene su propio sync (live_sync.py).
 """
 
-from datetime import datetime, timedelta, timezone
-
+import asyncio
 import logging
+import re
+from datetime import datetime, timedelta, timezone
 
 import httpx
 
 from app.services.jornadas_unafut import (
+    SEGUNDOS_PARA_REFRESCAR,
     aplicar_jornada_oficial,
     firma_de_diferencias,
+    firma_de_saques,
     hay_que_refrescar,
+    juntar_firmas,
+    partes_de_firma,
+    partidos_a_mover,
     refrescar_jornadas_oficiales,
 )
 from app.services.notifications import broadcast_push_to_users
@@ -92,14 +98,42 @@ def _es_eliminatoria(stage_base):
     return bool(stage_base) and stage_base not in _FASES_REGULARES
 
 
+# El tramo de una serie de ida y vuelta, sacado de la NOTA de ESPN. La nota no
+# es una etiqueta: es una frase, y después del partido trae el resultado
+# adentro. Comprobado con el scoreboard real (crc.1 y uefa.champions,
+# 2024-2025): con `lang=es`, que es como lo pide el sync, llega «Ida» y «Juego
+# de Vuelta - Saprissa avanza 4-2 en el global»; sin `lang`, «1st Leg» y «2nd
+# Leg - Saprissa advance 4-2 on aggregate». Un partido único trae a veces
+# «Portugal avanza 3-0 en tiros de penal».
+#
+# Antes la nota entraba CRUDA en `stage` («Semifinal · Juego de Vuelta -
+# Saprissa avanza…»). Las jornadas y los chips agrupan por `stage`, así que
+# cada vuelta terminada se volvía una jornada propia de un partido —con ganador
+# y racha propios— y mostraba el resultado del global como spoiler. Ahora solo
+# sale «Ida», «Vuelta» o nada: lo que no se reconoce NO se copia, porque
+# cualquier variante nueva volvería a partir la jornada.
+_IDA = re.compile(r"^\s*(1st\s+leg|(juego\s+de\s+|partido\s+de\s+)?ida)\b", re.IGNORECASE)
+_VUELTA = re.compile(r"^\s*(2nd\s+leg|(juego\s+de\s+|partido\s+de\s+)?vuelta)\b", re.IGNORECASE)
+
+
+def _tramo_de_la_nota(texto) -> str:
+    """'Ida', 'Vuelta' o '' (nunca el texto crudo de ESPN)."""
+    t = texto or ""
+    if _IDA.match(t):
+        return "Ida"
+    if _VUELTA.match(t):
+        return "Vuelta"
+    return ""
+
+
 def _stage_from_event(ev):
-    """(stage_base, leg). stage_base es la fase (o None si es liga regular)."""
+    """(stage_base, leg). stage_base es la fase (o None si es liga regular);
+    leg es 'Ida', 'Vuelta' o ''."""
     slug = ((ev.get("season") or {}).get("slug") or "").lower()
     leg = ""
     for n in (ev["competitions"][0].get("notes") or []):
-        t = (n.get("text") or "").strip()
-        if t:
-            leg = t
+        leg = _tramo_de_la_nota(n.get("text"))
+        if leg:
             break
     base = None
     for key, lbl in _STAGE_KEYS:
@@ -149,6 +183,12 @@ def _parse_event(ev):
             "own_goal": bool(det.get("ownGoal")),
         })
 
+    home_goals, away_goals = _to_int(h.get("score")), _to_int(a.get("score"))
+    ganador_penales = _ganador_de_la_tanda(
+        _name, status, stage_base, home_goals, away_goals,
+        [(h, h["team"].get("displayName") or h["team"].get("name")),
+         (a, a["team"].get("displayName") or a["team"].get("name"))])
+
     return {
         "external_id": str(ev.get("id")),
         "home_team": h["team"].get("displayName") or h["team"].get("name") or "?",
@@ -162,13 +202,55 @@ def _parse_event(ev):
         "venue": ((comp.get("venue") or {}).get("fullName")) or None,
         "kickoff_at": ev.get("date"),
         "status": status,
-        "home_goals": _to_int(h.get("score")),
-        "away_goals": _to_int(a.get("score")),
+        "home_goals": home_goals,
+        "away_goals": away_goals,
         "minute": minute,
         "events": events,
         "stage_base": stage_base,   # None = liga regular
         "leg": leg,                 # "Ida"/"Vuelta"/"" (dos partidos)
+        # Solo True con una tanda REAL (ver _ganador_de_la_tanda). False NO
+        # significa «no hubo penales»: significa «ESPN no lo dice», y por eso
+        # el upsert conserva lo que ya estaba (pudo marcarlo el admin a mano).
+        "goes_to_penalties": ganador_penales is not None,
+        "penalties_winner_real": ganador_penales,
     }
+
+
+def _ganador_de_la_tanda(status_name, status, stage_base, home_goals, away_goals, competidores):
+    """El equipo que pasó por penales, o None si no hubo una tanda que contar.
+
+    POR QUÉ: la detección automática de penales vivía solo en `live_sync`, que
+    lee únicamente el Mundial. En la liga tica y en la Champions nadie marcaba
+    `goes_to_penalties`, y si el admin se olvidaba de hacerlo a mano en una
+    semifinal o una final, quien predijo empate y acertó el pase perdía su +1
+    (2 con ×2), y quien predijo ganador perdía el punto por el equipo que pasa.
+
+    Hacen falta las TRES cosas, y cada una tiene un partido real detrás:
+      · Una tanda de verdad: estado `STATUS_FINAL_PEN` o un `shootoutScore`.
+      · Empate en el partido (90/120). La etiqueta de ESPN miente a veces:
+        Alajuelense–Puntarenas (735711, semifinal del Clausura 2025) viene
+        «FT-Pens» y fue un 1-0 REAL con gol en la prórroga. Y una vuelta
+        Liverpool 0-1 PSG (733605) se definió por penales en el GLOBAL, no en
+        ese partido. Ninguno de los dos se marca, y los goles NUNCA se tocan:
+        restarle la tanda o sumar periodos convertía el 1-0 real en un 0-0.
+      · Eliminatoria: en la fase regular no hay penales.
+    Y el partido tiene que haber terminado con un ganador marcado
+    (`winner=true`): a mitad de la tanda, o sin ganador, no se marca nada y
+    queda el respaldo manual del admin.
+
+    El nombre es el MISMO que se guarda en home_team/away_team, que es contra
+    lo que compara el motor la elección de quién pasa.
+    """
+    if status != "finished" or not _es_eliminatoria(stage_base):
+        return None
+    if home_goals is None or home_goals != away_goals:
+        return None
+    hubo_tanda = (status_name == "STATUS_FINAL_PEN"
+                  or any(c.get("shootoutScore") is not None for c, _ in competidores))
+    if not hubo_tanda:
+        return None
+    ganadores = [nombre for c, nombre in competidores if c.get("winner") is True and nombre]
+    return ganadores[0] if len(ganadores) == 1 else None
 
 
 def _assign_stages(parsed, history=None):
@@ -317,6 +399,33 @@ async def _season_window(client, league, now):
         return None
 
 
+def _columnas_de_penales(p: dict, guardado) -> dict:
+    """Lo que el upsert escribe en `goes_to_penalties`/`penalties_winner_real`.
+
+    Una tanda real detectada manda. Si ESPN no dice nada, se reescribe lo que
+    YA estaba: el form de admin es el respaldo manual y no pone `score_locked`,
+    así que escribir False en cada pasada le borraría al minuto una tanda
+    marcada a mano. Va en TODAS las filas (y no solo en las que tienen tanda)
+    porque en un upsert en lote las filas tienen que traer las mismas columnas:
+    postgrest-py manda `default_to_null=True`, y una columna que a una fila le
+    falta se escribe NULL. Los congelados (`score_locked`) ni siquiera llegan acá.
+    """
+    if p.get("goes_to_penalties"):
+        return {"goes_to_penalties": True, "penalties_winner_real": p.get("penalties_winner_real")}
+    g = guardado or {}
+    return {"goes_to_penalties": bool(g.get("goes_to_penalties")),
+            "penalties_winner_real": g.get("penalties_winner_real")}
+
+
+def _penales_cambiaron(p: dict, guardado) -> bool:
+    """¿La tanda que trae ESPN es distinta de la guardada? Dispara el re-puntaje."""
+    if not p.get("goes_to_penalties"):
+        return False
+    g = guardado or {}
+    return (not g.get("goes_to_penalties")
+            or (g.get("penalties_winner_real") or None) != p.get("penalties_winner_real"))
+
+
 def congelados_terminados(snap: dict, frozen_ids: set) -> list:
     """Los partidos que el admin CONGELÓ (score_locked) y ya terminaron.
 
@@ -351,10 +460,12 @@ def partidos_sin_predicciones(supabase, match_ids) -> list:
 
 
 def _usar_jornada_oficial(supabase, parsed, snap) -> list:
-    """Aplica la jornada de UNAFUT donde es seguro (ver jornadas_unafut)."""
-    candidatos = [snap[p["external_id"]]["id"] for p in parsed
-                  if p.get("matchday") is not None and p["external_id"] in snap
-                  and snap[p["external_id"]].get("jornada_oficial") not in (None, p["matchday"])]
+    """Aplica la jornada de UNAFUT donde es seguro (ver jornadas_unafut).
+
+    Los ×2 se buscan en los partidos que se MOVERÍAN respecto de la jornada
+    guardada, no solo donde la oficial difiere de la calculada: si las dos
+    fuentes se movían a la vez, el ×2 cambiaba de bolsa sin que nadie mirara."""
+    candidatos = partidos_a_mover(parsed, snap)
     con_x2 = set()
     if candidatos:
         try:
@@ -366,29 +477,104 @@ def _usar_jornada_oficial(supabase, parsed, snap) -> list:
     return aplicar_jornada_oficial(parsed, snap, con_x2)
 
 
-async def _avisar_jornadas(supabase, tournament, diferencias) -> None:
-    """Push al admin global cuando cambian las diferencias con UNAFUT. Nunca lanza."""
-    firma = firma_de_diferencias(diferencias)
-    if firma == (tournament.get("unafut_aviso_firma") or ""):
-        return
+async def _aviso_con_firma(supabase, tournament, cual: str, firma: str, titulo: str, cuerpo: str) -> str:
+    """Push al admin global, sin repetirlo mientras la firma no cambie. Nunca lanza.
+
+    `cual` es 'jornadas' o 'saques': las dos firmas viven juntas en
+    `unafut_aviso_firma` (ver jornadas_unafut.juntar_firmas).
+
+    · La firma se guarda SOLO si salió al menos un push. Antes se guardaba en
+      cuanto volvía la llamada, y `broadcast_push_to_users` no lanza: con la
+      llave VAPID rota (hasta el 11 oct) o el admin sin dispositivo, el aviso
+      quedaba «dado» sin haber llegado y no se intentaba nunca más.
+    · Sin diferencias, la firma se LIMPIA (''): si después vuelven las mismas,
+      se vuelve a avisar.
+    Devuelve 'sin-cambios', 'enviado', 'limpiada', 'sin-envio' o 'error'.
+    """
+    jornadas, saques = partes_de_firma(tournament.get("unafut_aviso_firma"))
+    if firma == (jornadas if cual == "jornadas" else saques):
+        return "sin-cambios"
+    nueva = juntar_firmas(firma, saques) if cual == "jornadas" else juntar_firmas(jornadas, firma)
+    try:
+        if firma:
+            logger.warning(cuerpo)
+            admins = [u["id"] for u in (supabase.table("users").select("id")
+                                        .eq("is_admin", True).execute().data or [])]
+            enviados = await broadcast_push_to_users(supabase, admins, titulo, cuerpo, url="/admin")
+            if not enviados:
+                logger.warning("El aviso «%s» no le llegó a ningún dispositivo del admin: "
+                               "se reintenta en la próxima pasada", titulo)
+                return "sin-envio"
+        supabase.table("tournaments").update({"unafut_aviso_firma": nueva}).eq("id", tournament["id"]).execute()
+        tournament["unafut_aviso_firma"] = nueva
+        return "enviado" if firma else "limpiada"
+    except Exception:  # noqa: BLE001
+        logger.exception("No se pudo avisar al admin (%s)", titulo)
+        return "error"
+
+
+async def _avisar_jornadas(supabase, tournament, diferencias) -> str:
+    """Push al admin global cuando cambian las diferencias con UNAFUT."""
     aplicadas = [d for d in diferencias if d["aplicada"]]
     trabadas = [d for d in diferencias if not d["aplicada"]]
     partes = []
     if aplicadas:
         partes.append(f"{len(aplicadas)} corregida(s) a la jornada oficial")
     if trabadas:
+        def _tramo(d):
+            origen = d["guardada"] if d.get("guardada") is not None else d["calculada"]
+            destino = d["oficial"] if d.get("oficial") is not None else d["calculada"]
+            return f"{d['partido']} J{origen}→J{destino}"
         partes.append(f"{len(trabadas)} SIN tocar (ya empezó o tiene ×2): "
-                      + ", ".join(f"{d['partido']} J{d['calculada']}→J{d['oficial']}" for d in trabadas[:3]))
+                      + ", ".join(_tramo(d) for d in trabadas[:3]))
     cuerpo = "Jornadas distintas de UNAFUT: " + "; ".join(partes) + "."
-    logger.warning(cuerpo)
+    return await _aviso_con_firma(supabase, tournament, "jornadas", firma_de_diferencias(diferencias),
+                                  "📅 Jornadas vs UNAFUT", cuerpo)
+
+
+async def _avisar_saques(supabase, tournament, atrasados) -> str:
+    """Push al admin global si un saque nuestro es más tarde que el de UNAFUT.
+
+    Con el nuestro atrasado, el cierre de predicciones y el destape (T-15)
+    llegarían tarde: las predicciones seguirían abiertas con el partido ya
+    empezado. No se toca `kickoff_at`: no se sabe qué fuente acierta."""
+    detalle = ", ".join(f"{a['partido']} (+{a['minutos']} min)" for a in atrasados[:3])
+    cuerpo = (f"{len(atrasados)} partido(s) con el saque de ESPN más tarde que el de UNAFUT: "
+              f"{detalle}. Las predicciones cierran con el de ESPN.")
+    return await _aviso_con_firma(supabase, tournament, "saques", firma_de_saques(atrasados),
+                                  "⏰ Saques vs UNAFUT", cuerpo)
+
+
+async def _refrescar_unafut(supabase, tournament):
+    """El refresco de UNAFUT con un tope TOTAL: si tarda, se sigue sin él."""
     try:
-        admins = [u["id"] for u in (supabase.table("users").select("id")
-                                    .eq("is_admin", True).execute().data or [])]
-        await broadcast_push_to_users(supabase, admins, "📅 Jornadas vs UNAFUT", cuerpo, url="/admin")
-        supabase.table("tournaments").update({"unafut_aviso_firma": firma}).eq("id", tournament["id"]).execute()
-        tournament["unafut_aviso_firma"] = firma
-    except Exception:  # noqa: BLE001
-        logger.exception("No se pudo avisar de las diferencias de jornada")
+        async with httpx.AsyncClient(timeout=20.0) as client_unafut:
+            return await asyncio.wait_for(
+                refrescar_jornadas_oficiales(supabase, client_unafut, tournament),
+                timeout=SEGUNDOS_PARA_REFRESCAR)
+    except asyncio.TimeoutError:
+        logger.warning("UNAFUT tardó más de %s s (torneo %s): se sigue sin el refresco",
+                       SEGUNDOS_PARA_REFRESCAR, tournament.get("id"))
+        return {"error": f"UNAFUT tardó más de {SEGUNDOS_PARA_REFRESCAR} s"}
+    except Exception as exc:  # noqa: BLE001 - UNAFUT nunca tumba el sync
+        return {"error": f"{type(exc).__name__}: {exc}"}
+
+
+def _completar_datos_unafut(supabase, tournament: dict) -> dict:
+    """El botón «Sync partidos» del panel manda el torneo con solo id, fuente y
+    liga: sin esto no refrescaba UNAFUT nunca y, sin la firma guardada, repetía
+    el aviso al admin en cada pulsación."""
+    if "unafut_aviso_firma" in tournament:
+        return tournament
+    try:
+        filas = (supabase.table("tournaments")
+                 .select("unafut_league_slug, unafut_competition_id, unafut_jornadas_at, unafut_aviso_firma")
+                 .eq("id", tournament["id"]).execute().data or [])
+        if filas and isinstance(filas[0], dict):
+            return {**tournament, **filas[0]}
+    except Exception:  # noqa: BLE001 - sin esos datos, se sigue sin UNAFUT
+        pass
+    return tournament
 
 
 async def sync_espn_tournament(supabase, tournament, full=False) -> dict:
@@ -435,35 +621,40 @@ async def sync_espn_tournament(supabase, tournament, full=False) -> dict:
 
     # Snapshot de lo existente (para saber qué cambió y re-puntuar, y como
     # contexto de fechas para que la numeración de jornada no cambie entre
-    # corridas parciales — ver _assign_stages). score_locked es una columna
-    # nueva; si la migración que la crea todavía no corrió, cae a la versión
-    # anterior en vez de romper el sync de este torneo.
+    # corridas parciales — ver _assign_stages). Se lee más abajo, después del
+    # refresco de UNAFUT, para ver la jornada oficial recién guardada.
     # La jornada OFICIAL de UNAFUT, refrescada cada 6 h (ver jornadas_unafut).
+    tournament = _completar_datos_unafut(supabase, tournament)
     info_unafut = None
     if hay_que_refrescar(tournament):
-        async with httpx.AsyncClient(timeout=20.0) as client_unafut:
-            info_unafut = await refrescar_jornadas_oficiales(supabase, client_unafut, tournament)
+        info_unafut = await _refrescar_unafut(supabase, tournament)
 
-    try:
-        existing = (supabase.table("matches")
-                    .select("id, external_id, status, home_goals_actual, away_goals_actual, "
-                            "score_locked, kickoff_at, phase, home_team, away_team, "
-                            "matchday, jornada_oficial")
-                    .eq("tournament_id", tid).execute().data or [])
-    except Exception:  # noqa: BLE001
-        existing = (supabase.table("matches")
-                    .select("id, external_id, status, home_goals_actual, away_goals_actual, "
-                            "kickoff_at, phase, home_team, away_team")
-                    .eq("tournament_id", tid).execute().data or [])
+    # SIN respaldo, a propósito (vigésima auditoría, revisión): había un select
+    # de repuesto, de cuando `score_locked` podía no existir, que entraba con
+    # CUALQUIER error —un 5xx o un timeout pasajero— y no traía `score_locked`
+    # ni las columnas de penales. En esa pasada el upsert pisaba los congelados
+    # con lo de ESPN y reescribía goes_to_penalties=False encima de una tanda
+    # marcada a mano; el trigger de la 91 borraba la firma y la recuperación
+    # repuntuaba sin el +1 del pase. Las columnas existen en producción
+    # (comprobado el 12 oct 2026): si la lectura falla, se corta la pasada
+    # —los dos llamadores lo atrapan— y la próxima la hace entera.
+    existing = (supabase.table("matches")
+                .select("id, external_id, status, home_goals_actual, away_goals_actual, "
+                        "score_locked, kickoff_at, phase, home_team, away_team, "
+                        "matchday, jornada_oficial, goes_to_penalties, penalties_winner_real")
+                .eq("tournament_id", tid).execute().data or [])
     snap = {m["external_id"]: m for m in existing if m.get("external_id")}
 
     history = [m for m in existing if m.get("phase") == "groups"]
     _assign_stages(parsed, history)
     diferencias_jornada = []
+    avisos_unafut = {}
     if any(m.get("jornada_oficial") is not None for m in existing):
         diferencias_jornada = _usar_jornada_oficial(supabase, parsed, snap)
-        if diferencias_jornada:
-            await _avisar_jornadas(supabase, tournament, diferencias_jornada)
+        # También sin diferencias: así se limpia la firma y, si vuelven, se avisa.
+        avisos_unafut["jornadas"] = await _avisar_jornadas(supabase, tournament, diferencias_jornada)
+    if info_unafut and "saques_atrasados" in info_unafut:
+        avisos_unafut["saques"] = await _avisar_saques(supabase, tournament, info_unafut["saques_atrasados"])
     # Lo que el admin fijó a mano manda sobre la fuente: un walkover que ESPN
     # sigue mostrando como jugado, o un marcador cambiado por un fallo oficial
     # (alineación indebida) que ESPN nunca va a reflejar.
@@ -499,6 +690,7 @@ async def sync_espn_tournament(supabase, tournament, full=False) -> dict:
         "phase": "knockout" if _es_eliminatoria(p.get("stage_base")) else "groups",
         "stage": p.get("stage"),
         "events_json": p["events"],
+        **_columnas_de_penales(p, snap.get(p["external_id"])),
     } for p in parsed if p["external_id"] not in frozen_ids]
 
     if rows:
@@ -541,6 +733,8 @@ async def sync_espn_tournament(supabase, tournament, full=False) -> dict:
                 or old.get("status") != "finished"
                 or old.get("home_goals_actual") != p["home_goals"]
                 or old.get("away_goals_actual") != p["away_goals"]
+                # …o ESPN acaba de decir quién pasó por penales.
+                or _penales_cambiaron(p, old)
                 # …o quedó a medio puntuar en una corrida anterior.
                 or mid in pendientes
             )
@@ -603,9 +797,19 @@ async def sync_espn_tournament(supabase, tournament, full=False) -> dict:
         except Exception as exc:  # noqa: BLE001
             limpieza_error = str(exc)
 
-    return {"tournament_id": tid, "matches": len(rows), "scored": scored,
-            "removed_old": removed, "kept_old_with_predictions": kept,
-            "cleanup_error": limpieza_error, "scoring_errors": fallos}
+    salida = {"tournament_id": tid, "matches": len(rows), "scored": scored,
+              "removed_old": removed, "kept_old_with_predictions": kept,
+              "cleanup_error": limpieza_error, "scoring_errors": fallos}
+    # Lo de UNAFUT va en la respuesta, que queda en net._http_response: los
+    # registros de Vercel duran una hora y era el único rastro de un refresco
+    # que fallaba o de un aviso que no salía.
+    if info_unafut is not None:
+        salida["unafut"] = info_unafut
+    if diferencias_jornada:
+        salida["jornadas_vs_unafut"] = diferencias_jornada
+    if avisos_unafut:
+        salida["avisos_unafut"] = avisos_unafut
+    return salida
 
 
 async def sync_all_espn_tournaments(supabase) -> dict:
