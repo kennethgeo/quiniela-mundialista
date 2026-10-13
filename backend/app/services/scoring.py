@@ -24,11 +24,14 @@ Eliminatoria que se define por penales (goes_to_penalties, empate en 90/120):
   avanzó (penalties_winner_real vacío), 0. El marcador no cuenta.
 - Sin penales (se definió en 90/120, o el admin desmarcó la tanda): exacto /
   correcto como siempre, y la elección de la tanda no suma nada.
-- Una IDA que termina empatada llega hoy del live-sync como
-  goes_to_penalties SIN ganador (marca penales en todo empate de eliminatoria
-  y ESPN no da ganador en una ida). Con el ganador vacío da lo mismo que sin
-  penales: el empate puntúa por su marcador sin el +1, y quien predijo un
-  ganador ya había fallado el resultado.
+- Quién marca la tanda: en el Mundial, el live-sync (todo empate de
+  eliminatoria se define por penales); en los demás torneos, el sync de ESPN
+  solo cuando hubo una tanda REAL en ese partido (auditoría 20), y el form de
+  admin como respaldo manual. Una IDA empatada no tiene tanda: llega con
+  goes_to_penalties falso y puntúa por su marcador, sin el +1.
+- Penales marcados pero sin ganador cargado (penalties_winner_real vacío):
+  el empate puntúa por su marcador sin el +1, y quien predijo un ganador
+  da 0 hasta que conste quién avanzó.
 
 Modalidad Solo_Ganador (la app guarda siempre «Marcador»; queda por las filas viejas):
 - Acertás el resultado → points_correct; fallás → 0. Con penales solo puntúa

@@ -137,3 +137,18 @@ for (const [stage, esperada] of [['Semifinal · Ida', null], ['Semifinal · Vuel
     expect(guardados.find((f) => f.match_id === SEGUNDO)).toMatchObject({ penalties_winner_pred: null })
   })
 }
+
+/* La tarjeta, con una tanda vieja guardada en la ida (revisión de la
+   vigésima auditoría): sin esta prueba, volver a mandar la elección anterior
+   pasaba con todo en verde. Solo LLENAR cubría la predicción previa. */
+test('la tarjeta en la ida: al actualizar una predicción con tanda vieja, la tanda va null', async ({ page }) => {
+  const guardados = await montar(page, 'Semifinal · Ida', { predicciones: [previa] })
+  const actualizar = page.getByRole('button', { name: 'Actualizar predicción' })
+  await expect(actualizar).toBeEnabled()
+  await expect(pregunta(page)).toHaveCount(0)
+  await actualizar.click()
+  await expect.poll(() => guardados.length).toBe(1)
+  expect(guardados[0]).toMatchObject({
+    match_id: ID, home_goals_pred: 1, away_goals_pred: 1, penalties_winner_pred: null,
+  })
+})
