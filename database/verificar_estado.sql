@@ -355,11 +355,21 @@ WHERE n.nspname = 'public' AND c.relkind = 'r'
     OR has_table_privilege('anon', c.oid, 'DELETE'))
 ORDER BY c.relname;
 
-\echo '=== 7. Vistas alcanzables por anon (saltan la RLS) ==='
-SELECT c.relname AS vista
+\echo '=== 7. Vistas que saltan la RLS y el cliente puede leer (tiene que salir vacía) ==='
+-- Una vista corre con los permisos de quien la creó salvo `security_invoker`,
+-- y una vista materializada no tiene RLS nunca. Se miran anon Y authenticated:
+-- desde la 109 una vista nueva ya no nace legible, pero un GRANT a mano la
+-- abriría y esta sección es la que lo ve (revisión del 13 oct 2026: antes
+-- miraba solo anon). Hoy `user_stats_view` es legible por authenticated y NO
+-- sale acá porque es `security_invoker`: respeta la RLS de sus tablas.
+SELECT c.relname AS vista, c.relkind,
+       has_table_privilege('anon', c.oid, 'SELECT') AS anon,
+       has_table_privilege('authenticated', c.oid, 'SELECT') AS authenticated
 FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
-WHERE n.nspname = 'public' AND c.relkind = 'v'
-  AND has_table_privilege('anon', c.oid, 'SELECT')
+WHERE n.nspname = 'public' AND c.relkind IN ('v', 'm')
+  AND (has_table_privilege('anon', c.oid, 'SELECT')
+    OR (has_table_privilege('authenticated', c.oid, 'SELECT')
+        AND (c.relkind = 'm' OR NOT COALESCE(c.reloptions @> ARRAY['security_invoker=true'], false))))
 ORDER BY c.relname;
 
 \echo '=== 8. Políticas de predictions (una sola de SELECT, con filtro por liga) ==='
@@ -801,7 +811,8 @@ GROUP BY 1, 2 ORDER BY 3 DESC;
 -- Lo que crea `postgres` (las migraciones y el editor SQL) hereda estos
 -- privilegios. Antes de la 109 una función nueva nacía ejecutable por anon y
 -- por PUBLIC (aunque fuera SECURITY DEFINER) y una tabla nueva escribible por
--- los usuarios. Tiene que salir VACÍA, y la última fila de abajo `true`.
+-- los usuarios; y una vista nueva legible por ellos, saltándose la RLS.
+-- Tiene que salir VACÍA, y la última fila de abajo `true`.
 SELECT d.defaclnamespace::regnamespace::text AS esquema, d.defaclobjtype AS tipo,
        CASE WHEN a.grantee = 0 THEN 'PUBLIC' ELSE a.grantee::regrole::text END AS a_quien,
        a.privilege_type
@@ -810,7 +821,8 @@ WHERE d.defaclrole = 'postgres'::regrole
   AND (d.defaclnamespace = 0 OR d.defaclnamespace = 'public'::regnamespace)
   AND ( a.grantee = 'anon'::regrole
      OR (d.defaclobjtype = 'f' AND a.grantee IN (0::oid, 'authenticated'::regrole::oid))
-     OR (d.defaclobjtype = 'r' AND a.grantee = 'authenticated'::regrole AND a.privilege_type <> 'SELECT')
+     -- Tampoco SELECT: una vista nueva salta la RLS (revisión del 13 oct 2026).
+     OR (d.defaclobjtype = 'r' AND a.grantee = 'authenticated'::regrole)
      OR (d.defaclobjtype = 'S' AND a.grantee = 'authenticated'::regrole AND a.privilege_type = 'UPDATE') )
 ORDER BY 1, 2, 3, 4;
 -- Sin la fila global de funciones (esquema 0), PUBLIC conserva el EXECUTE

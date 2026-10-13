@@ -70,11 +70,18 @@
 --    que lo olvide quedaba expuesta. Ahora nace cerrado y cada migración
 --    OTORGA lo que la app necesita (que es lo que ya hacen todas).
 --    `service_role` conserva sus privilegios por defecto: el backend no
---    cambia. `authenticated` conserva SELECT en tablas nuevas (gobernado por
---    la RLS) y USAGE en secuencias (para que un INSERT permitido funcione).
---    Ensayado en producción (12 oct 2026, revertido): una función nueva nace
---    `{postgres=X, service_role=X}`, una tabla `authenticated=r` y una
---    secuencia `authenticated=rU`. OJO: esto cubre lo que crea `postgres`
+--    cambia. `authenticated` conserva solo USAGE en secuencias (para que un
+--    INSERT que se le otorgue funcione). Tampoco nace con SELECT, y no es un
+--    detalle (revisión del 13 oct): una VISTA corre con los permisos de quien
+--    la creó y SALTA la RLS, así que una vista nueva legible por
+--    `authenticated` le mostraría a cualquier usuario lo que la tabla le
+--    esconde; y una tabla nueva sin RLS quedaría entera a la vista. Lo que la
+--    app lee lleva su `GRANT SELECT` explícito (como `historial_pagos` acá).
+--    Ensayado en producción (12 oct 2026, revertido) con la versión que
+--    todavía dejaba SELECT: una función nueva nace `{postgres=X,
+--    service_role=X}`, una tabla `authenticated=r` y una secuencia
+--    `authenticated=rU`. Sin SELECT, comprobado en un Postgres local: la tabla
+--    y la vista de prueba nacen sin nada para el cliente. OJO: esto cubre lo que crea `postgres`
 --    (migraciones y editor SQL). Lo que crea `supabase_admin` sigue naciendo
 --    abierto en `public` y `postgres` no puede cambiarlo; no lo usa nadie acá.
 --    Y el `REVOKE … FROM PUBLIC` global vale para TODOS los esquemas: una
@@ -101,6 +108,14 @@
 --      `users_select_authenticated`, que se crea si faltara.
 --    · La lectura pública de `matches` se deja como está (decisión del dueño
 --      pendiente; son datos públicos de fútbol).
+--
+-- CUÁNDO APLICARLA: fuera de la ventana de un partido. Toma candados
+-- exclusivos sobre `predictions`, `users` y `league_members`. Los pide en el
+-- mismo orden que un guardado (primero `predictions`, sección 2), así que lo
+-- frecuente no se traba. Salir y expulsar los toman al revés y ningún orden
+-- cubre todo: si coinciden, Postgres cancela uno de los dos sin dejar nada a
+-- medias. Con `lock_timeout` de 10 s, si algo la hace esperar, falla y se
+-- reintenta en vez de quedarse con las tablas tomadas.
 -- =============================================================================
 
 BEGIN;
@@ -119,7 +134,33 @@ SELECT set_config('m109.huella_miembros',
        set_config('m109.predicciones',
          (SELECT count(*) FROM public.predictions)::text, true);
 
--- 3 (va primero: lo que crea esta misma migración ya nace cerrado) ------------
+-- 2 (va PRIMERO: candados en el mismo orden que un guardado) ----------------
+-- Un guardado toma `predictions` y después `league_members` (a_membresia_viva)
+-- y `users` (el total); `aplicar_puntaje`, igual. Si la migración tomara antes
+-- `users` (DROP POLICY) o `league_members` (los triggers) y recién al final
+-- `predictions`, un guardado en el medio se traba con ella y Postgres cancela
+-- el guardado (reproducido con dos conexiones en la revisión del 13 oct).
+-- Pidiendo `predictions` primero, el guardado espera y entra.
+ALTER POLICY predictions_insert_own_unlocked ON public.predictions
+  WITH CHECK ((auth.uid() = user_id) AND is_league_member(league_id) AND (EXISTS ( SELECT 1
+     FROM (matches m
+       JOIN leagues l ON ((l.tournament_id = m.tournament_id)))
+    WHERE ((m.id = predictions.match_id) AND (l.id = predictions.league_id)))) AND ( SELECT ((((m.kickoff_at - '00:15:00'::interval) > now()) AND (m.destapado_at IS NULL) AND (m.status <> ALL (ARRAY['finished'::text, 'cancelled'::text, 'postponed'::text, 'in_progress'::text]))) OR (COALESCE(m.predictions_force_open, false) AND (m.status = 'pending'::text)))
+     FROM matches m
+    WHERE (m.id = predictions.match_id)));
+
+ALTER POLICY predictions_update_own_unlocked ON public.predictions
+  USING ((auth.uid() = user_id) AND ( SELECT ((((m.kickoff_at - '00:15:00'::interval) > now()) AND (m.destapado_at IS NULL) AND (m.status <> ALL (ARRAY['finished'::text, 'cancelled'::text, 'postponed'::text, 'in_progress'::text]))) OR (COALESCE(m.predictions_force_open, false) AND (m.status = 'pending'::text)))
+     FROM matches m
+    WHERE (m.id = predictions.match_id)))
+  WITH CHECK ((auth.uid() = user_id) AND is_league_member(league_id) AND (EXISTS ( SELECT 1
+     FROM (matches m
+       JOIN leagues l ON ((l.tournament_id = m.tournament_id)))
+    WHERE ((m.id = predictions.match_id) AND (l.id = predictions.league_id)))) AND ( SELECT ((((m.kickoff_at - '00:15:00'::interval) > now()) AND (m.destapado_at IS NULL) AND (m.status <> ALL (ARRAY['finished'::text, 'cancelled'::text, 'postponed'::text, 'in_progress'::text]))) OR (COALESCE(m.predictions_force_open, false) AND (m.status = 'pending'::text)))
+     FROM matches m
+    WHERE (m.id = predictions.match_id)));
+
+-- 3 (antes de crear nada: lo que crea esta misma migración ya nace cerrado) ---
 ALTER DEFAULT PRIVILEGES FOR ROLE postgres
   REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC;
 ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
@@ -127,7 +168,7 @@ ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
 ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
   REVOKE ALL ON TABLES FROM anon;
 ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
-  REVOKE INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON TABLES FROM authenticated;
+  REVOKE SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON TABLES FROM authenticated;
 ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
   REVOKE ALL ON SEQUENCES FROM anon;
 ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
@@ -284,26 +325,6 @@ WITH copiadas AS (
 )
 SELECT set_config('m109.copiadas', (SELECT count(*) FROM copiadas)::text, true);
 
--- 2 ---------------------------------------------------------------------------
-ALTER POLICY predictions_insert_own_unlocked ON public.predictions
-  WITH CHECK ((auth.uid() = user_id) AND is_league_member(league_id) AND (EXISTS ( SELECT 1
-     FROM (matches m
-       JOIN leagues l ON ((l.tournament_id = m.tournament_id)))
-    WHERE ((m.id = predictions.match_id) AND (l.id = predictions.league_id)))) AND ( SELECT ((((m.kickoff_at - '00:15:00'::interval) > now()) AND (m.destapado_at IS NULL) AND (m.status <> ALL (ARRAY['finished'::text, 'cancelled'::text, 'postponed'::text, 'in_progress'::text]))) OR (COALESCE(m.predictions_force_open, false) AND (m.status = 'pending'::text)))
-     FROM matches m
-    WHERE (m.id = predictions.match_id)));
-
-ALTER POLICY predictions_update_own_unlocked ON public.predictions
-  USING ((auth.uid() = user_id) AND ( SELECT ((((m.kickoff_at - '00:15:00'::interval) > now()) AND (m.destapado_at IS NULL) AND (m.status <> ALL (ARRAY['finished'::text, 'cancelled'::text, 'postponed'::text, 'in_progress'::text]))) OR (COALESCE(m.predictions_force_open, false) AND (m.status = 'pending'::text)))
-     FROM matches m
-    WHERE (m.id = predictions.match_id)))
-  WITH CHECK ((auth.uid() = user_id) AND is_league_member(league_id) AND (EXISTS ( SELECT 1
-     FROM (matches m
-       JOIN leagues l ON ((l.tournament_id = m.tournament_id)))
-    WHERE ((m.id = predictions.match_id) AND (l.id = predictions.league_id)))) AND ( SELECT ((((m.kickoff_at - '00:15:00'::interval) > now()) AND (m.destapado_at IS NULL) AND (m.status <> ALL (ARRAY['finished'::text, 'cancelled'::text, 'postponed'::text, 'in_progress'::text]))) OR (COALESCE(m.predictions_force_open, false) AND (m.status = 'pending'::text)))
-     FROM matches m
-    WHERE (m.id = predictions.match_id)));
-
 -- Comprobaciones ---------------------------------------------------------------
 DO $comprobar$
 DECLARE
@@ -401,8 +422,7 @@ BEGIN
                 AND (d.defaclnamespace = 0 OR d.defaclnamespace = 'public'::regnamespace)
                 AND (a.grantee = 'anon'::regrole
                      OR (d.defaclobjtype = 'f' AND a.grantee IN (0::oid, 'authenticated'::regrole::oid))
-                     OR (d.defaclobjtype = 'r' AND a.grantee = 'authenticated'::regrole
-                         AND a.privilege_type NOT IN ('SELECT'))
+                     OR (d.defaclobjtype = 'r' AND a.grantee = 'authenticated'::regrole)
                      OR (d.defaclobjtype = 'S' AND a.grantee = 'authenticated'::regrole
                          AND a.privilege_type = 'UPDATE'))) THEN
     RAISE EXCEPTION '109: pg_default_acl sigue concediendo de más al cliente'; END IF;
@@ -417,6 +437,9 @@ BEGIN
     RAISE EXCEPTION '109: corré la migración como postgres (los privilegios por defecto son de ese rol)'; END IF;
   EXECUTE 'CREATE FUNCTION public.zz_109_prueba() RETURNS int LANGUAGE sql SECURITY DEFINER AS $f$ SELECT 1 $f$';
   EXECUTE 'CREATE TABLE public.zz_109_prueba (id bigserial PRIMARY KEY, x int)';
+  -- Una vista corre con los permisos de quien la creó y SALTA la RLS: si
+  -- naciera legible, mostraría a cualquier usuario lo que la tabla le esconde.
+  EXECUTE 'CREATE VIEW public.zz_109_vista AS SELECT id FROM public.zz_109_prueba';
   IF has_function_privilege('anon', 'public.zz_109_prueba()', 'EXECUTE')
      OR has_function_privilege('authenticated', 'public.zz_109_prueba()', 'EXECUTE')
      OR EXISTS (SELECT 1 FROM pg_proc p, aclexplode(COALESCE(p.proacl, acldefault('f', p.proowner))) a
@@ -426,6 +449,9 @@ BEGIN
     RAISE EXCEPTION '109: se le quitó de más al backend'; END IF;
   IF has_table_privilege('anon', 'public.zz_109_prueba', 'SELECT')
      OR has_table_privilege('anon', 'public.zz_109_prueba', 'INSERT')
+     OR has_table_privilege('authenticated', 'public.zz_109_prueba', 'SELECT')
+     OR has_table_privilege('authenticated', 'public.zz_109_vista', 'SELECT')
+     OR has_table_privilege('anon', 'public.zz_109_vista', 'SELECT')
      OR has_table_privilege('authenticated', 'public.zz_109_prueba', 'INSERT')
      OR has_table_privilege('authenticated', 'public.zz_109_prueba', 'UPDATE')
      OR has_table_privilege('authenticated', 'public.zz_109_prueba', 'DELETE')
@@ -438,6 +464,7 @@ BEGIN
                    OR has_table_privilege('anon', 'public.zz_109_prueba', 'MAINTAIN')$q$ INTO b;
     IF b THEN RAISE EXCEPTION '109: una tabla nueva nace con MAINTAIN para el cliente'; END IF;
   END IF;
+  EXECUTE 'DROP VIEW public.zz_109_vista';
   EXECUTE 'DROP TABLE public.zz_109_prueba';
   EXECUTE 'DROP FUNCTION public.zz_109_prueba()';
 
