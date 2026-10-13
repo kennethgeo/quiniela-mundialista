@@ -31,8 +31,8 @@ const persona = (id, nombre, extra) => ({
   estado: 'pendiente', ...extra,
 })
 
-const pozo = ({ soyAdmin, yo = {} }) => ({
-  cuota: 10000, moneda: 'CRC', reparto: [{ puesto: 1, porcentaje: 65 }, { puesto: 2, porcentaje: 35 }],
+const pozo = ({ soyAdmin, yo = {}, reparto = [{ puesto: 1, porcentaje: 65 }, { puesto: 2, porcentaje: 35 }] }) => ({
+  cuota: 10000, moneda: 'CRC', reparto,
   soy_admin: soyAdmin, miembros: 4, pagados: 2, al_dia: 1, pozo_total: 40000, recaudado: 15000, faltan: 25000,
   gente: [
     persona(BETO, 'Beto', { confirmado: true, monto: 10000, falta: 0, al_dia: true, estado: 'pagado' }),
@@ -42,7 +42,7 @@ const pozo = ({ soyAdmin, yo = {} }) => ({
   ],
 })
 
-async function abrir (page, { soyAdmin = false, yo, rpc = {} } = {}) {
+async function abrir (page, { soyAdmin = false, yo, reparto, rpc = {} } = {}) {
   await sinRedExterna(page)
   await conSesion(page)
   await page.addInitScript(() => {
@@ -57,11 +57,11 @@ async function abrir (page, { soyAdmin = false, yo, rpc = {} } = {}) {
       points_adjustment: 0, is_admin: false, created_at: '2026-01-01', updated_at: '2026-01-01',
     },
     'rpc/my_groups': [grupo(soyAdmin)], 'rpc/quiniela_por_id': grupo(soyAdmin),
-    'rpc/league_pozo': pozo({ soyAdmin, yo }),
+    'rpc/league_pozo': pozo({ soyAdmin, yo, reparto }),
     '/rest/v1/historial_pagos': [],
   })
   const llamadas = []
-  for (const nombre of ['avisar_abono', 'avisar_pago', 'confirmar_abono', 'confirmar_pago']) {
+  for (const nombre of ['avisar_abono', 'avisar_pago', 'confirmar_abono', 'confirmar_pago', 'set_league_pozo']) {
     await page.route(`**/rest/v1/rpc/${nombre}*`, async (r) => {
       llamadas.push({ nombre, cuerpo: JSON.parse(r.request().postData() || '{}') })
       if (rpc[nombre]) return r.fulfill(rpc[nombre])
@@ -174,4 +174,66 @@ test('el pozo se comparte como imagen', async ({ page }) => {
   // Firma PNG: es una imagen de verdad, no un archivo vacío.
   expect([...bytes.subarray(0, 8)]).toEqual([137, 80, 78, 71, 13, 10, 26, 10])
   expect(bytes.length).toBeGreaterThan(10000)
+})
+
+/* EL REPARTO EN MONTOS (pedido del dueño, 13 oct 2026): «no es %, sino un monto
+   específico ya convenido con anterioridad». */
+const premios = (page) => page.locator('[data-reparto]')
+
+test('los premios en montos fijos se ven tal cual, sin porcentaje', async ({ page }) => {
+  await abrir(page, { reparto: [{ puesto: 1, monto: 25000 }, { puesto: 2, monto: 10000 }] })
+  await expect(premios(page).getByText('Premios', { exact: true })).toBeVisible()
+  await expect(premios(page).locator('[data-puesto="1"]')).toHaveText(/1º\s*₡25\D?000/)
+  await expect(premios(page).locator('[data-puesto="2"]')).toHaveText(/2º\s*₡10\D?000/)
+  await expect(premios(page).getByText('Montos acordados por el grupo.')).toBeVisible()
+  await expect(premios(page).getByText('%')).toHaveCount(0)
+  // 35 000 de un pozo completo de 40 000: no se avisa nada.
+  await expect(premios(page).getByText(/pozo completo es/)).toHaveCount(0)
+})
+
+test('si los premios pasan el pozo completo, se avisa', async ({ page }) => {
+  await abrir(page, { reparto: [{ puesto: 1, monto: 30000 }, { puesto: 2, monto: 20000 }] })
+  await expect(premios(page).getByText(/Los premios suman ₡50\D?000 y el pozo completo es ₡40\D?000/)).toBeVisible()
+})
+
+test('los porcentajes de antes se siguen viendo como reparto estimado', async ({ page }) => {
+  await abrir(page)
+  await expect(premios(page).getByText('Reparto estimado')).toBeVisible()
+  await expect(premios(page).locator('[data-puesto="1"]')).toHaveText(/1º\s*·\s*65%\s*₡26\D?000/)
+})
+
+test('un admin pasa el reparto a montos fijos y se guardan los montos', async ({ page }) => {
+  const { llamadas } = await abrir(page, { soyAdmin: true })
+  await page.getByTitle('Configurar').click()
+  // Lo guardado está en porcentajes: el editor arranca ahí.
+  await expect(page.getByRole('radio', { name: 'Porcentajes' })).toHaveAttribute('aria-checked', 'true')
+  await page.getByRole('radio', { name: 'Montos fijos' }).click()
+  // Parte del equivalente sobre el pozo completo (40 000).
+  await expect(page.getByLabel('Monto del 1º puesto')).toHaveValue('26000')
+  await expect(page.getByLabel('Monto del 2º puesto')).toHaveValue('14000')
+  await page.getByLabel('Monto del 1º puesto').fill('25000')
+  await page.getByLabel('Monto del 2º puesto').fill('10000')
+  await page.getByRole('button', { name: '+ agregar puesto' }).click()
+  await page.getByLabel('Monto del 3º puesto').fill('5000')
+  await page.getByRole('button', { name: 'Guardar' }).click()
+  await expect.poll(() => llamadas.length).toBe(1)
+  expect(llamadas[0]).toEqual({
+    nombre: 'set_league_pozo',
+    cuerpo: {
+      p_league_id: LIGA, p_cuota: 10000, p_moneda: 'CRC',
+      p_reparto: [{ puesto: 1, monto: 25000 }, { puesto: 2, monto: 10000 }, { puesto: 3, monto: 5000 }],
+    },
+  })
+})
+
+test('un puesto vacío en el medio no se guarda', async ({ page }) => {
+  const { llamadas } = await abrir(page, { soyAdmin: true, reparto: [{ puesto: 1, monto: 25000 }, { puesto: 2, monto: 10000 }] })
+  await page.getByTitle('Configurar').click()
+  await expect(page.getByRole('radio', { name: 'Montos fijos' })).toHaveAttribute('aria-checked', 'true')
+  await page.getByRole('button', { name: '+ agregar puesto' }).click()
+  await page.getByLabel('Monto del 3º puesto').fill('5000')
+  await page.getByLabel('Monto del 2º puesto').fill('')
+  await expect(page.getByRole('alert').filter({ hasText: /2º quedó sin monto/ })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Guardar' })).toBeDisabled()
+  expect(llamadas).toEqual([])
 })

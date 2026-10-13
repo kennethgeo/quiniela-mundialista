@@ -76,7 +76,9 @@
 --
 -- VERSIÓN 13 (13 oct 2026), migración 110: el pago en partes —avisar la mitad,
 -- confirmarla con el total visto, el doble toque rechazado y el abono que deja
--- al día— con lo que dicen el pozo y el historial. Necesita la 109 y la 110.
+-- al día— con lo que dicen el pozo y el historial; y el reparto en MONTOS
+-- fijos (se guarda, el pozo lo devuelve, mezclado con porcentajes no).
+-- Necesita la 109 y la 110.
 --
 -- CÓMO SE USA: antes y después de cada migración, y como ENSAYO (la migración
 -- sin BEGIN/COMMIT + esta prueba, en un solo envío: el RAISE final revierte
@@ -841,6 +843,24 @@ BEGIN
   EXCEPTION WHEN others THEN
     IF sqlerrm = 'HUMO_OK' THEN r := r || E'✓ pago en partes: aviso, confirmación con lo visto, doble toque rechazado, abono\n'; ok := ok + 1;
     ELSE r := r || '✗ pago en partes: ' || sqlerrm || E'\n'; mal := mal + 1; END IF;
+    SET LOCAL ROLE authenticated; END;
+
+  -- ===== (110) el reparto en MONTOS fijos (lo acordado de antemano) se guarda
+  -- tal cual y el pozo lo devuelve; mezclarlo con porcentajes se rechaza.
+  BEGIN
+    PERFORM set_config('request.jwt.claims', json_build_object('sub', v_creador, 'role','authenticated')::text, true);
+    PERFORM public.set_league_pozo(v_liga, v_cuota, v_moneda, '[{"puesto":1,"monto":12345},{"puesto":2,"monto":678.5}]'::jsonb);
+    IF (public.league_pozo(v_liga)->'reparto')
+       IS DISTINCT FROM '[{"puesto":1,"monto":12345},{"puesto":2,"monto":678.5}]'::jsonb THEN
+      RAISE EXCEPTION 'el reparto en montos no quedó o el pozo no lo devuelve: %', public.league_pozo(v_liga)->'reparto'; END IF;
+    BEGIN PERFORM public.set_league_pozo(v_liga, v_cuota, v_moneda, '[{"puesto":1,"monto":100},{"puesto":2,"porcentaje":10}]'::jsonb);
+      RAISE EXCEPTION 'HUMO_ABIERTO';
+    EXCEPTION WHEN others THEN IF sqlerrm <> 'El reparto va todo en montos o todo en porcentajes, no mezclado' THEN
+      RAISE EXCEPTION 'mezcla: %', sqlerrm; END IF; END;
+    RAISE EXCEPTION 'HUMO_OK';
+  EXCEPTION WHEN others THEN
+    IF sqlerrm = 'HUMO_OK' THEN r := r || E'✓ reparto en montos fijos: se guarda, el pozo lo devuelve, mezclado no\n'; ok := ok + 1;
+    ELSE r := r || '✗ reparto en montos: ' || sqlerrm || E'\n'; mal := mal + 1; END IF;
     SET LOCAL ROLE authenticated; END;
 
   -- ===== P4 reglas y puntaje SE GUARDAN con el torneo sin empezar

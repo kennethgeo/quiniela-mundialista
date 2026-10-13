@@ -14,7 +14,7 @@
 
 import { fotoDeEstadio } from './estadios'
 import { plata as plataCard } from './historialPagos'
-import { estadoDe as estadoDelPozo, resumen as resumenDelPozo } from './pozo'
+import { estadoDe as estadoDelPozo, repartoDe as repartoDelPozo, resumen as resumenDelPozo } from './pozo'
 
 const FONDO = '#0C0C0C'
 const BORDE = '#262626'
@@ -702,7 +702,8 @@ export async function renderPozoCard({ nombreQuiniela, pozo }) {
   const r = resumenDelPozo(pozo)
   const moneda = pozo?.moneda
   const gente = Array.isArray(pozo?.gente) ? pozo.gente : []
-  const reparto = Array.isArray(pozo?.reparto) ? pozo.reparto.filter((x) => Number(x.porcentaje) > 0) : []
+  const premios = repartoDelPozo(pozo)
+  const reparto = premios.filas
 
   const Y_CAJA = 208
   const ALTO_CAJA = 196
@@ -763,28 +764,30 @@ export async function renderPozoCard({ nombreQuiniela, pozo }) {
   ctx.font = "20px 'Archivo', sans-serif"
   ctx.fillText(r.faltan > 0 ? `Faltan ${plataCard(r.faltan, moneda)}` : 'Están todos al día', MARGEN + 28, Y_CAJA + 182)
 
-  // ── Reparto estimado ──
+  // ── Premios: montos acordados o porcentajes del pozo completo ──
   if (reparto.length) {
+    const montos = premios.modo === 'montos'
     ctx.fillStyle = MUTED
     ctx.font = "bold 20px 'JetBrains Mono', monospace"
     ctx.letterSpacing = '3px'
-    ctx.fillText('REPARTO ESTIMADO', MARGEN, yReparto + 24)
+    ctx.fillText(montos ? 'PREMIOS' : 'REPARTO ESTIMADO', MARGEN, yReparto + 24)
     ctx.letterSpacing = '0px'
     reparto.forEach((x, i) => {
       const y = yReparto + 46 + i * ALTO_REP + 26
       ctx.textAlign = 'left'
       ctx.fillStyle = TEXTO
       ctx.font = "600 24px 'Archivo', sans-serif"
-      ctx.fillText(`${x.puesto}º · ${x.porcentaje}%`, MARGEN, y)
+      ctx.fillText(x.porcentaje != null ? `${x.puesto}º · ${x.porcentaje}%` : `${x.puesto}º`, MARGEN, y)
       ctx.textAlign = 'right'
       ctx.fillStyle = ORO
       ctx.font = "bold 26px 'JetBrains Mono', monospace"
-      ctx.fillText(plataCard(r.total * (Number(x.porcentaje) / 100), moneda), ANCHO - MARGEN, y)
+      ctx.fillText(plataCard(x.monto, moneda), ANCHO - MARGEN, y)
     })
     ctx.textAlign = 'left'
     ctx.fillStyle = MUTED
     ctx.font = "18px 'Archivo', sans-serif"
-    ctx.fillText('Sobre el pozo completo, asumiendo que pagan todos.', MARGEN, yReparto + 46 + reparto.length * ALTO_REP + 22)
+    ctx.fillText(montos ? 'Montos acordados por el grupo.' : 'Sobre el pozo completo, asumiendo que pagan todos.',
+      MARGEN, yReparto + 46 + reparto.length * ALTO_REP + 22)
   }
 
   // ── Quién pagó ──

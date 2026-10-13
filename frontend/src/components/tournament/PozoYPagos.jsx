@@ -22,16 +22,10 @@ import { ErrorState } from '../ui/StatePanel'
 import { supabase } from '../../lib/supabase'
 import { describirMovimiento, plata } from '../../lib/historialPagos'
 import {
-  conAbonos, detalleDe, estadoDe, etiquetaDe, faltaDe, montoDe, montoDelAviso,
-  opcionesDeMonto, resumen, textoParaCompartir, validarMonto,
+  conAbonos, convertirReparto, detalleDe, estadoDe, etiquetaDe, faltaDe, montoDe, montoDelAviso,
+  opcionesDeMonto, repartoDe, repartoParaGuardar, resumen, textoParaCompartir, validarMonto,
 } from '../../lib/pozo'
 import { renderPozoCard, compartirImagen } from '../../lib/shareCard'
-
-const REPARTO_DEFECTO = [
-  { puesto: 1, porcentaje: 60 },
-  { puesto: 2, porcentaje: 30 },
-  { puesto: 3, porcentaje: 10 },
-]
 
 const ordinal = (n) => `${n}º`
 
@@ -148,7 +142,7 @@ export default function PozoYPagos({ leagueId, nombreQuiniela = 'Quiniela' }) {
           }} />
       </div>}
       {editando ? (
-        <Config leagueId={leagueId} inicial={{ cuota, moneda, reparto }}
+        <Config leagueId={leagueId} inicial={{ cuota, moneda, reparto, total: r.total }}
           onListo={() => { setEditando(false); refrescar() }} onCancelar={() => setEditando(false)} />
       ) : sinConfigurar ? (
         <p className="text-[11.5px] text-[var(--text-muted,#8A8A8A)] mt-1">
@@ -179,27 +173,8 @@ export default function PozoYPagos({ leagueId, nombreQuiniela = 'Quiniela' }) {
             {r.faltan > 0 && ` · faltan ${plata(r.faltan, moneda)}`}
           </p>
 
-          {/* Reparto estimado */}
-          {Array.isArray(reparto) && reparto.length > 0 && (
-            <div className="rounded-xl bg-slate-50 dark:bg-[#0C0C0C] border border-slate-200 dark:border-[#262626] p-2.5 mb-3">
-              <p className="font-['JetBrains_Mono'] text-[9px] uppercase tracking-[0.12em] text-[var(--text-muted,#8A8A8A)] mb-1.5">
-                Reparto estimado
-              </p>
-              {reparto.map((x) => (
-                <div key={x.puesto} className="flex items-center justify-between py-0.5">
-                  <span className="text-[11.5px] text-slate-700 dark:text-slate-300">
-                    {ordinal(x.puesto)} <span className="text-[var(--text-muted,#8A8A8A)]">· {x.porcentaje}%</span>
-                  </span>
-                  <span className="font-['JetBrains_Mono'] font-bold text-[12px] text-slate-900 dark:text-[#F3F1EA]">
-                    {plata(r.total * (x.porcentaje / 100), moneda)}
-                  </span>
-                </div>
-              ))}
-              <p className="text-[9.5px] text-[var(--text-muted,#8A8A8A)] mt-1">
-                Calculado sobre el pozo completo, asumiendo que pagan todos.
-              </p>
-            </div>
-          )}
+          {/* Premios: montos acordados o porcentajes del pozo */}
+          <Premios reparto={repartoDe(data)} moneda={moneda} />
 
           {/* Mi estado */}
           {yo && (
@@ -531,24 +506,66 @@ function Dato({ etiqueta, valor, color }) {
   )
 }
 
+function Premios({ reparto, moneda }) {
+  if (!reparto.filas.length) return null
+  const montos = reparto.modo === 'montos'
+  return (
+    <div className="rounded-xl bg-slate-50 dark:bg-[#0C0C0C] border border-slate-200 dark:border-[#262626] p-2.5 mb-3"
+      data-reparto={reparto.modo}>
+      <p className="font-['JetBrains_Mono'] text-[9px] uppercase tracking-[0.12em] text-[var(--text-muted,#8A8A8A)] mb-1.5">
+        {montos ? 'Premios' : 'Reparto estimado'}
+      </p>
+      {reparto.filas.map((x) => (
+        <div key={x.puesto} className="flex items-center justify-between py-0.5" data-puesto={x.puesto}>
+          <span className="text-[11.5px] text-slate-700 dark:text-slate-300">
+            {ordinal(x.puesto)}
+            {x.porcentaje != null && <span className="text-[var(--text-muted,#8A8A8A)]"> · {x.porcentaje}%</span>}
+          </span>
+          <span className="font-['JetBrains_Mono'] font-bold text-[12px] text-slate-900 dark:text-[#F3F1EA]">
+            {plata(x.monto, moneda)}
+          </span>
+        </div>
+      ))}
+      <p className="text-[9.5px] text-[var(--text-muted,#8A8A8A)] mt-1">
+        {montos
+          ? 'Montos acordados por el grupo.'
+          : 'Calculado sobre el pozo completo, asumiendo que pagan todos.'}
+      </p>
+      {reparto.excede && (
+        <p className="flex items-start gap-1 text-[10.5px] text-amber-600 dark:text-amber-400 mt-1">
+          <AlertTriangle size={12} className="mt-px shrink-0" />
+          Los premios suman {plata(reparto.suma, moneda)} y el pozo completo es {plata(reparto.total, moneda)}.
+        </p>
+      )}
+    </div>
+  )
+}
+
 function Config({ leagueId, inicial, onListo, onCancelar }) {
   const [cuota, setCuota] = useState(inicial.cuota || '')
   const [moneda, setMoneda] = useState(inicial.moneda || 'CRC')
-  const [reparto, setReparto] = useState(
-    Array.isArray(inicial.reparto) && inicial.reparto.length ? inicial.reparto : REPARTO_DEFECTO,
+  const guardado = Array.isArray(inicial.reparto) ? inicial.reparto : []
+  // Sin nada guardado arranca en montos: es lo que el grupo acuerda de antemano.
+  const [modo, setModo] = useState(
+    guardado.length && !guardado.some((x) => x?.monto != null) ? 'porcentajes' : 'montos',
   )
+  const [valores, setValores] = useState(() => {
+    const v = [...guardado].sort((a, b) => Number(a.puesto) - Number(b.puesto))
+      .map((x) => String(x?.monto ?? x?.porcentaje ?? ''))
+    return v.length ? v : ['', '', '']
+  })
   const [error, setError] = useState(null)
+  const total = Number(inicial.total || 0)
 
+  const listo = repartoParaGuardar(valores, modo)
   const guardar = useMutation({
     mutationFn: async () => {
-      const limpio = reparto
-        .map((r) => ({ puesto: Number(r.puesto), porcentaje: Number(r.porcentaje) }))
-        .filter((r) => r.puesto > 0 && r.porcentaje > 0)
+      if (listo.error) throw new Error(listo.error)
       const { error } = await supabase.rpc('set_league_pozo', {
         p_league_id: leagueId,
         p_cuota: Number(cuota) || 0,
         p_moneda: moneda,
-        p_reparto: limpio.length ? limpio : null,
+        p_reparto: listo.reparto,
       })
       if (error) throw error
     },
@@ -556,7 +573,14 @@ function Config({ leagueId, inicial, onListo, onCancelar }) {
     onError: (e) => setError(e.message),
   })
 
-  const suma = reparto.reduce((s, r) => s + (Number(r.porcentaje) || 0), 0)
+  const cambiarModo = (nuevo) => {
+    if (nuevo === modo) return
+    setValores(convertirReparto(valores, nuevo, total))
+    setModo(nuevo)
+    setError(null)
+  }
+  const sumaMontos = modo === 'montos' && listo.reparto ? listo.reparto.reduce((s, x) => s + x.monto, 0) : 0
+  const sumaPorc = valores.reduce((s, v) => s + (Number(v) || 0), 0)
 
   return (
     <div className="mt-2 space-y-2.5">
@@ -577,27 +601,43 @@ function Config({ leagueId, inicial, onListo, onCancelar }) {
       </div>
 
       <div>
-        <label className="block text-[10px] font-bold text-[var(--text-muted,#8A8A8A)] uppercase mb-1">
-          Reparto · suma {suma}%
-        </label>
-        {reparto.map((r, i) => (
+        <p className="block text-[10px] font-bold text-[var(--text-muted,#8A8A8A)] uppercase mb-1">Premios</p>
+        <div role="radiogroup" aria-label="Cómo se reparte" className="flex gap-1.5 mb-2">
+          {[['montos', 'Montos fijos'], ['porcentajes', 'Porcentajes']].map(([clave, texto]) => (
+            <button key={clave} type="button" role="radio" aria-checked={modo === clave} onClick={() => cambiarModo(clave)}
+              className={`flex-1 rounded-lg py-1.5 font-['Archivo'] font-bold text-[11px] border ${modo === clave
+                ? 'bg-accent/15 border-accent text-accent'
+                : 'bg-slate-100 dark:bg-white/5 border-transparent text-slate-600 dark:text-slate-300'}`}>
+              {texto}
+            </button>
+          ))}
+        </div>
+        {valores.map((v, i) => (
           <div key={i} className="flex items-center gap-2 mb-1.5">
-            <span className="w-10 text-[12px] text-slate-600 dark:text-slate-300">{ordinal(r.puesto)}</span>
-            <input type="number" inputMode="numeric" min="0" max="100" value={r.porcentaje}
-              onChange={(e) => setReparto(reparto.map((x, j) => j === i ? { ...x, porcentaje: e.target.value } : x))}
+            <span className="w-10 text-[12px] text-slate-600 dark:text-slate-300">{ordinal(i + 1)}</span>
+            {modo === 'montos' && <span className="text-[12px] text-[var(--text-muted,#8A8A8A)]">{moneda === 'USD' ? '$' : '₡'}</span>}
+            <input type="number" inputMode="decimal" min="0" step="any" value={v}
+              aria-label={`${modo === 'montos' ? 'Monto' : 'Porcentaje'} del ${ordinal(i + 1)} puesto`}
+              onChange={(e) => setValores(valores.map((x, j) => j === i ? e.target.value : x))}
               className="flex-1 bg-slate-100 dark:bg-[#0C0C0C] border border-slate-200 dark:border-[#262626] rounded-lg px-2 py-1.5 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-accent" />
-            <span className="text-[12px] text-[var(--text-muted,#8A8A8A)]">%</span>
-            <button onClick={() => setReparto(reparto.filter((_, j) => j !== i))}
-              className="text-rose-500 p-1" title="Quitar puesto"><X size={13} /></button>
+            {modo === 'porcentajes' && <span className="text-[12px] text-[var(--text-muted,#8A8A8A)]">%</span>}
+            <button type="button" onClick={() => setValores(valores.filter((_, j) => j !== i))}
+              className="text-rose-500 p-1" aria-label={`Quitar el ${ordinal(i + 1)} puesto`}><X size={13} /></button>
           </div>
         ))}
-        <button onClick={() => setReparto([...reparto, { puesto: reparto.length + 1, porcentaje: 0 }])}
+        <button type="button" onClick={() => setValores([...valores, ''])}
           className="text-[11px] font-bold text-accent">+ agregar puesto</button>
-        {suma > 100 && (
-          <p className="text-[10.5px] text-rose-500 mt-1">
-            Suma más de 100%: estarías repartiendo plata que no existe.
+        <p className="text-[10.5px] text-[var(--text-muted,#8A8A8A)] mt-1">
+          {modo === 'montos'
+            ? `Suman ${plata(sumaMontos, moneda)}${total > 0 ? ` · el pozo completo es ${plata(total, moneda)}` : ''}.`
+            : `Suman ${Math.round(sumaPorc * 10) / 10}% del pozo completo.`}
+        </p>
+        {modo === 'montos' && total > 0 && sumaMontos > total && (
+          <p className="text-[10.5px] text-amber-600 dark:text-amber-400 mt-0.5">
+            Los premios pasan el pozo completo: revisá que sea lo acordado.
           </p>
         )}
+        {listo.error && <p role="alert" className="text-[10.5px] text-rose-500 mt-1">{listo.error}</p>}
       </div>
 
       {error && <p className="text-[11px] text-rose-500">{error}</p>}
@@ -607,7 +647,7 @@ function Config({ leagueId, inicial, onListo, onCancelar }) {
           className="flex-1 rounded-xl py-2 font-['Archivo'] font-bold text-[12px] bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300">
           Cancelar
         </button>
-        <button onClick={() => guardar.mutate()} disabled={guardar.isPending || suma > 100}
+        <button onClick={() => guardar.mutate()} disabled={guardar.isPending || !!listo.error}
           className="flex-1 rounded-xl py-2 font-['Archivo'] font-bold text-[12px] text-[#06231d] bg-accent disabled:opacity-50 flex items-center justify-center gap-1.5">
           {guardar.isPending ? <Loader2 size={13} className="animate-spin" /> : null} Guardar
         </button>

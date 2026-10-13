@@ -95,6 +95,74 @@ export function detalleDe (g, cuota, moneda) {
   return partes.join(' · ')
 }
 
+/** El reparto de premios, listo para mostrar.
+ *
+ *  Puede venir en MONTOS fijos (lo que el grupo acordó de antemano, pedido del
+ *  dueño del 13 oct 2026) o en PORCENTAJES sobre el pozo completo (lo de
+ *  antes). La base no deja mezclarlos (migración 110). Un porcentaje se pasa
+ *  a plata con el pozo completo; un monto se muestra tal cual.
+ *
+ *  `excede`: los montos suman más que el pozo completo. La base no lo impide
+ *  —el pozo cambia con cada persona que entra o sale—, así que se avisa. */
+export function repartoDe (pozo) {
+  const total = Number(pozo?.pozo_total || 0)
+  const crudo = Array.isArray(pozo?.reparto) ? pozo.reparto : []
+  const modo = crudo.some((x) => x?.monto != null) ? 'montos' : 'porcentajes'
+  const filas = crudo
+    .map((x) => {
+      const puesto = Number(x?.puesto)
+      if (modo === 'montos') return { puesto, monto: Number(x?.monto || 0), porcentaje: null }
+      const porcentaje = Number(x?.porcentaje || 0)
+      return { puesto, monto: total * porcentaje / 100, porcentaje }
+    })
+    .filter((x) => x.puesto > 0 && x.monto > 0)
+    .sort((a, b) => a.puesto - b.puesto)
+  const suma = filas.reduce((s, x) => s + x.monto, 0)
+  return { modo, filas, suma, total, excede: modo === 'montos' && total > 0 && suma > total }
+}
+
+/** Del editor a lo que guarda `set_league_pozo`. `valores` son los textos de
+ *  cada fila, en orden: la fila i es el puesto i+1 (así no quedan puestos
+ *  repetidos ni saltos al quitar uno). Las filas vacías del final se ignoran;
+ *  una vacía en el medio es un error, porque dejaría un puesto sin premio
+ *  entre dos que sí tienen. Devuelve { reparto } (null = sin reparto) o
+ *  { error }. */
+export function repartoParaGuardar (valores, modo) {
+  const nums = (valores || []).map((v) => {
+    const t = String(v ?? '').trim()
+    return t === '' ? 0 : Number(t)
+  })
+  if (nums.some((n) => !Number.isFinite(n) || n < 0)) return { error: 'Cada puesto lleva un número mayor que cero' }
+  let ultimo = nums.length - 1
+  while (ultimo >= 0 && nums[ultimo] === 0) ultimo--
+  const usados = nums.slice(0, ultimo + 1)
+  const hueco = usados.findIndex((n) => n === 0)
+  if (hueco !== -1) return { error: `El ${hueco + 1}º quedó sin ${modo === 'montos' ? 'monto' : 'porcentaje'}: completalo o quitalo` }
+  if (!usados.length) return { reparto: null }
+  if (modo === 'montos') {
+    const montos = usados.map((n) => Math.round(n * 100) / 100)
+    if (montos.some((m) => m <= 0 || m > 100000000)) return { error: 'Un monto está fuera de rango' }
+    return { reparto: montos.map((monto, i) => ({ puesto: i + 1, monto })) }
+  }
+  if (usados.some((p) => p > 100)) return { error: 'Un porcentaje no puede pasar de 100' }
+  if (usados.reduce((s, p) => s + p, 0) > 100) return { error: 'Los porcentajes suman más de 100' }
+  return { reparto: usados.map((porcentaje, i) => ({ puesto: i + 1, porcentaje })) }
+}
+
+/** Al cambiar de montos a porcentajes (o al revés) en el editor, los valores
+ *  se pasan a su equivalente con el pozo completo, para que el admin parta de
+ *  lo que el grupo ya veía. Sin pozo (cuota 0) quedan vacíos. */
+export function convertirReparto (valores, haciaModo, total) {
+  const t = Number(total || 0)
+  return (valores || []).map((v) => {
+    const n = Number(String(v ?? '').trim())
+    if (!t || !Number.isFinite(n) || n <= 0) return ''
+    return haciaModo === 'montos'
+      ? String(Math.round(t * n / 100))
+      : String(Math.round(n / t * 1000) / 10)
+  })
+}
+
 /** Pie de foto de la imagen compartida: viaja con el enlace a la pestaña. */
 export function textoParaCompartir (pozo, nombreQuiniela, url) {
   const r = resumen(pozo)

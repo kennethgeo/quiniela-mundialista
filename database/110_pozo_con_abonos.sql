@@ -11,6 +11,7 @@
 -- sus permisos) y el registro del historial. El bloque final compara una
 -- huella de `league_members` y la cantidad de filas del historial tomadas al
 -- empezar. Idempotente: corre dos veces seguidas.
+-- También: el reparto del pozo puede ir en MONTOS fijos (sección 5b).
 -- =============================================================================
 --
 -- EL MODELO, y por qué este y no otro
@@ -349,11 +350,93 @@ BEGIN
   );
 END; $function$;
 
+-- 5b. El reparto en MONTOS fijos ------------------------------------------------
+-- Pedido del dueño (13 oct 2026): «el reparto estimado no es %, sino un monto
+-- específico ya convenido con anterioridad». Cada puesto puede llevar
+-- `porcentaje` (lo de antes, sobre el pozo completo) o `monto` (lo acordado),
+-- nunca los dos, y todos los puestos del mismo tipo. Lo que ya está guardado
+-- (Bundestica: 65 % y 35 %) NO se toca: lo cambia el admin desde el editor.
+-- La suma de los montos no se ata al pozo en la base —el pozo cambia con cada
+-- persona que entra o sale—; la pantalla avisa si se pasa.
+CREATE OR REPLACE FUNCTION public.set_league_pozo(p_league_id uuid, p_cuota numeric, p_moneda text, p_reparto jsonb)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $function$
+DECLARE
+  v_uid uuid := auth.uid();
+  v_suma numeric;
+  v_n int;
+  v_distintos int;
+  v_con_monto int;
+  v_con_porcentaje int;
+BEGIN
+  IF v_uid IS NULL THEN RAISE EXCEPTION 'No autenticado'; END IF;
+  IF NOT public.es_admin_liga(p_league_id, v_uid) THEN
+    RAISE EXCEPTION 'Solo un administrador puede configurar el pozo';
+  END IF;
+  IF COALESCE(p_cuota, 0) < 0 THEN RAISE EXCEPTION 'La cuota no puede ser negativa'; END IF;
+  IF COALESCE(p_cuota, 0) > 100000000 THEN RAISE EXCEPTION 'La cuota es absurdamente alta'; END IF;
+  IF COALESCE(NULLIF(btrim(p_moneda), ''), 'CRC') NOT IN ('CRC', 'USD') THEN
+    RAISE EXCEPTION 'Moneda no soportada';
+  END IF;
+
+  IF p_reparto IS NOT NULL THEN
+    IF jsonb_typeof(p_reparto) <> 'array' THEN
+      RAISE EXCEPTION 'El reparto tiene que ser una lista de puestos';
+    END IF;
+
+    IF EXISTS (SELECT 1 FROM jsonb_array_elements(p_reparto) e
+               WHERE jsonb_typeof(e) <> 'object'
+                  OR (e->>'puesto') IS NULL OR (e->>'puesto') !~ '^[0-9]+$' OR (e->>'puesto')::int < 1
+                  -- Uno y solo uno de los dos.
+                  OR ((e ? 'porcentaje') = (e ? 'monto'))
+                  OR ((e ? 'porcentaje') AND ((e->>'porcentaje') IS NULL
+                        OR (e->>'porcentaje') !~ '^[0-9]+(\.[0-9]+)?$'
+                        OR (e->>'porcentaje')::numeric > 100))
+                  OR ((e ? 'monto') AND ((e->>'monto') IS NULL
+                        OR (e->>'monto') !~ '^[0-9]+(\.[0-9]{1,2})?$'
+                        OR (e->>'monto')::numeric <= 0
+                        OR (e->>'monto')::numeric > 100000000))) THEN
+      RAISE EXCEPTION 'Cada puesto necesita un número entero >= 1 y, o un porcentaje entre 0 y 100, o un monto mayor que cero';
+    END IF;
+
+    SELECT count(*), count(DISTINCT (e->>'puesto')),
+           count(*) FILTER (WHERE e ? 'monto'), count(*) FILTER (WHERE e ? 'porcentaje'),
+           COALESCE(SUM((e->>'porcentaje')::numeric) FILTER (WHERE e ? 'porcentaje'), 0)
+      INTO v_n, v_distintos, v_con_monto, v_con_porcentaje, v_suma
+    FROM jsonb_array_elements(p_reparto) e;
+
+    IF v_distintos <> v_n THEN
+      RAISE EXCEPTION 'Hay puestos repetidos en el reparto';
+    END IF;
+    IF v_con_monto > 0 AND v_con_porcentaje > 0 THEN
+      RAISE EXCEPTION 'El reparto va todo en montos o todo en porcentajes, no mezclado';
+    END IF;
+    IF v_suma > 100 THEN
+      RAISE EXCEPTION 'El reparto suma % por ciento y no puede pasar de 100', v_suma;
+    END IF;
+  END IF;
+
+  UPDATE public.leagues SET
+    cuota = COALESCE(p_cuota, 0),
+    moneda = COALESCE(NULLIF(btrim(p_moneda), ''), 'CRC'),
+    premios_reparto = p_reparto
+  WHERE id = p_league_id;
+END; $function$;
+
 -- 6. Permisos: lo nuevo nace cerrado (109); se otorga lo que la app llama. ------
 REVOKE ALL ON FUNCTION public.avisar_abono(uuid, numeric) FROM PUBLIC, anon;
 REVOKE ALL ON FUNCTION public.confirmar_abono(uuid, uuid, numeric, numeric) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.avisar_abono(uuid, numeric) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.confirmar_abono(uuid, uuid, numeric, numeric) TO authenticated;
+-- Las redefinidas ya tienen su permiso en producción (CREATE OR REPLACE lo
+-- conserva), pero en una base nueva nacerían cerradas por la 109: se dice.
+REVOKE ALL ON FUNCTION public.avisar_pago(uuid, boolean), public.league_pozo(uuid),
+  public.set_league_pozo(uuid, numeric, text, jsonb) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.avisar_pago(uuid, boolean), public.league_pozo(uuid),
+  public.set_league_pozo(uuid, numeric, text, jsonb) TO authenticated;
 
 -- Comprobaciones ---------------------------------------------------------------
 DO $comprobar$
@@ -380,8 +463,9 @@ BEGIN
     RAISE EXCEPTION '110: quedó algo abierto de más'; END IF;
   -- Las redefinidas conservan su permiso (CREATE OR REPLACE).
   IF NOT has_function_privilege('authenticated', 'public.avisar_pago(uuid,boolean)', 'EXECUTE')
-     OR NOT has_function_privilege('authenticated', 'public.league_pozo(uuid)', 'EXECUTE') THEN
-    RAISE EXCEPTION '110: avisar_pago o league_pozo perdieron el permiso del cliente'; END IF;
+     OR NOT has_function_privilege('authenticated', 'public.league_pozo(uuid)', 'EXECUTE')
+     OR NOT has_function_privilege('authenticated', 'public.set_league_pozo(uuid,numeric,text,jsonb)', 'EXECUTE') THEN
+    RAISE EXCEPTION '110: avisar_pago, league_pozo o set_league_pozo sin permiso del cliente'; END IF;
   -- El cliente no escribe la columna nueva (la 85 le quitó toda escritura).
   IF has_column_privilege('authenticated', 'public.league_members', 'pago_avisado_monto', 'UPDATE')
      OR has_column_privilege('authenticated', 'public.league_members', 'pago_avisado_monto', 'INSERT') THEN

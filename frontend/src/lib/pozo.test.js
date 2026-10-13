@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
-  conAbonos, detalleDe, estadoDe, etiquetaDe, faltaDe, montoDelAviso, opcionesDeMonto,
-  resumen, textoParaCompartir, validarMonto,
+  conAbonos, convertirReparto, detalleDe, estadoDe, etiquetaDe, faltaDe, montoDelAviso, opcionesDeMonto,
+  repartoDe, repartoParaGuardar, resumen, textoParaCompartir, validarMonto,
 } from './pozo'
 
 /* Las filas tienen la forma de `league_pozo` con la migración 110 (y sin ella,
@@ -94,5 +94,62 @@ describe('el resumen del encabezado', () => {
     const t = textoParaCompartir({ moneda: 'CRC', miembros: 17, al_dia: 14, pozo_total: 170000, recaudado: 140000 },
       'Bundestica', 'https://app/q/1?tab=pozo')
     expect(t).toMatch(/^Pozo de Bundestica: ₡140.?000 de ₡170.?000 · 14 de 17 al día\nhttps:\/\/app\/q\/1\?tab=pozo$/)
+  })
+})
+
+describe('el reparto de premios', () => {
+  it('en montos fijos se muestra lo acordado, no un porcentaje del pozo', () => {
+    const r = repartoDe({ pozo_total: 170000, reparto: [{ puesto: 2, monto: 50000 }, { puesto: 1, monto: 100000 }] })
+    expect(r.modo).toBe('montos')
+    expect(r.filas).toEqual([
+      { puesto: 1, monto: 100000, porcentaje: null },
+      { puesto: 2, monto: 50000, porcentaje: null },
+    ])
+    expect(r).toMatchObject({ suma: 150000, total: 170000, excede: false })
+  })
+
+  it('avisa si los montos pasan el pozo completo', () => {
+    expect(repartoDe({ pozo_total: 100000, reparto: [{ puesto: 1, monto: 80000 }, { puesto: 2, monto: 30000 }] }).excede).toBe(true)
+  })
+
+  it('los porcentajes de antes se siguen pasando a plata con el pozo completo', () => {
+    const r = repartoDe({ pozo_total: 170000, reparto: [{ puesto: 1, porcentaje: 65 }, { puesto: 2, porcentaje: 35 }] })
+    expect(r.modo).toBe('porcentajes')
+    expect(r.filas).toEqual([
+      { puesto: 1, monto: 110500, porcentaje: 65 },
+      { puesto: 2, monto: 59500, porcentaje: 35 },
+    ])
+    expect(r.excede).toBe(false)
+  })
+
+  it('sin reparto no hay filas', () => {
+    expect(repartoDe({ pozo_total: 1000, reparto: null }).filas).toEqual([])
+  })
+})
+
+describe('el editor del reparto', () => {
+  it('guarda montos con el puesto según la fila', () => {
+    expect(repartoParaGuardar(['100000', '50000', ''], 'montos')).toEqual({
+      reparto: [{ puesto: 1, monto: 100000 }, { puesto: 2, monto: 50000 }],
+    })
+  })
+
+  it('guarda porcentajes, y no deja pasar de 100', () => {
+    expect(repartoParaGuardar(['60', '40'], 'porcentajes')).toEqual({
+      reparto: [{ puesto: 1, porcentaje: 60 }, { puesto: 2, porcentaje: 40 }],
+    })
+    expect(repartoParaGuardar(['60', '50'], 'porcentajes').error).toMatch(/más de 100/)
+  })
+
+  it('un puesto vacío entre dos con premio es un error; todo vacío es sin reparto', () => {
+    expect(repartoParaGuardar(['100000', '', '20000'], 'montos').error).toMatch(/2º quedó sin monto/)
+    expect(repartoParaGuardar(['', ''], 'montos')).toEqual({ reparto: null })
+    expect(repartoParaGuardar(['-5'], 'montos').error).toBeTruthy()
+  })
+
+  it('al cambiar de modo parte del equivalente con el pozo completo', () => {
+    expect(convertirReparto(['65', '35'], 'montos', 170000)).toEqual(['110500', '59500'])
+    expect(convertirReparto(['110500', '59500'], 'porcentajes', 170000)).toEqual(['65', '35'])
+    expect(convertirReparto(['65'], 'montos', 0)).toEqual([''])
   })
 })
