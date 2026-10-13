@@ -74,6 +74,10 @@
 -- rechazan a alguien de afuera con su mensaje; y atrasar el saque después del
 -- destape no reabre la edición (106).
 --
+-- VERSIÓN 13 (13 oct 2026), migración 110: el pago en partes —avisar la mitad,
+-- confirmarla con el total visto, el doble toque rechazado y el abono que deja
+-- al día— con lo que dicen el pozo y el historial. Necesita la 109 y la 110.
+--
 -- CÓMO SE USA: antes y después de cada migración, y como ENSAYO (la migración
 -- sin BEGIN/COMMIT + esta prueba, en un solo envío: el RAISE final revierte
 -- todo). Una línea con ✗ se mira ANTES de seguir.
@@ -803,6 +807,40 @@ BEGIN
   EXCEPTION WHEN others THEN
     IF sqlerrm = 'HUMO_OK' THEN r := r || E'✓ confirmar pago: autor, monto y moneda; ni el propio ni un no-admin\n'; ok := ok + 1;
     ELSE r := r || '✗ confirmar pago: ' || sqlerrm || E'\n'; mal := mal + 1; END IF;
+    SET LOCAL ROLE authenticated; END;
+
+  -- ===== (110) un pago EN PARTES: avisar la mitad, confirmarla con el total
+  -- visto, el doble toque se rechaza, y el resto deja al día (con su abono
+  -- en el historial). Todo se revierte con el paso.
+  BEGIN
+    PERFORM set_config('request.jwt.claims', json_build_object('sub', v_socio, 'role','authenticated')::text, true);
+    PERFORM public.avisar_abono(v_liga, round(v_cuota / 2, 2));
+    SELECT x INTO j FROM jsonb_array_elements(public.league_pozo(v_liga)->'gente') x WHERE x->>'user_id' = v_socio::text;
+    IF (j->>'aviso_monto')::numeric IS DISTINCT FROM round(v_cuota / 2, 2) OR j->>'estado' <> 'pendiente' THEN
+      RAISE EXCEPTION 'el aviso de la mitad no quedó: %', j; END IF;
+    PERFORM set_config('request.jwt.claims', json_build_object('sub', v_creador, 'role','authenticated')::text, true);
+    j := public.confirmar_abono(v_liga, v_socio, round(v_cuota / 2, 2), 0);
+    IF (j->>'monto_total')::numeric IS DISTINCT FROM round(v_cuota / 2, 2) OR (j->>'al_dia')::boolean THEN
+      RAISE EXCEPTION 'confirmar la mitad devolvió %', j; END IF;
+    BEGIN PERFORM public.confirmar_abono(v_liga, v_socio, round(v_cuota / 2, 2), 0); RAISE EXCEPTION 'HUMO_ABIERTO';
+    EXCEPTION WHEN others THEN IF sqlerrm NOT LIKE 'El pago de esta persona cambió mientras tanto%' THEN
+      RAISE EXCEPTION 'doble confirmación: %', sqlerrm; END IF; END;
+    j := public.confirmar_abono(v_liga, v_socio, v_cuota - round(v_cuota / 2, 2), round(v_cuota / 2, 2));
+    IF NOT (j->>'al_dia')::boolean THEN RAISE EXCEPTION 'el resto no lo dejó al día: %', j; END IF;
+    j := public.league_pozo(v_liga);
+    IF (j->>'recaudado')::numeric IS DISTINCT FROM v_recaudado + v_cuota THEN
+      RAISE EXCEPTION 'el pozo dice % y tendría que decir %', j->>'recaudado', v_recaudado + v_cuota; END IF;
+    RESET ROLE;
+    SELECT count(*) INTO n FROM public.historial_pagos
+     WHERE league_id = v_liga AND user_id = v_socio AND por = v_creador
+       AND ((accion = 'confirmado' AND monto = round(v_cuota / 2, 2))
+         OR (accion = 'abono' AND monto_total = v_cuota));
+    SET LOCAL ROLE authenticated;
+    IF n <> 2 THEN RAISE EXCEPTION 'el historial tiene % de 2 movimientos del pago en partes', n; END IF;
+    RAISE EXCEPTION 'HUMO_OK';
+  EXCEPTION WHEN others THEN
+    IF sqlerrm = 'HUMO_OK' THEN r := r || E'✓ pago en partes: aviso, confirmación con lo visto, doble toque rechazado, abono\n'; ok := ok + 1;
+    ELSE r := r || '✗ pago en partes: ' || sqlerrm || E'\n'; mal := mal + 1; END IF;
     SET LOCAL ROLE authenticated; END;
 
   -- ===== P4 reglas y puntaje SE GUARDAN con el torneo sin empezar

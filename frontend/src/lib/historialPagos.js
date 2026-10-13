@@ -29,6 +29,8 @@ export function describirMovimiento(fila, nombres = {}) {
   const monto = fila.monto != null ? plata(fila.monto, fila.moneda) : null
   let texto
   if (fila.accion === 'confirmado') texto = `${autor} confirmó el pago de ${persona}`
+  // (110) Un abono suma a un pago ya confirmado: el monto es lo que se sumó.
+  else if (fila.accion === 'abono') texto = `${autor} confirmó un abono de ${persona}`
   else if (fila.accion === 'quitado') texto = `${autor} quitó el pago confirmado de ${persona}`
   else if (fila.accion === 'borrado') texto = `${autor} sacó de la quiniela a ${persona}, que tenía el pago confirmado`
   else texto = `${persona}: ${fila.accion}`
@@ -36,6 +38,8 @@ export function describirMovimiento(fila, nombres = {}) {
     texto,
     monto,
     cuando: fecha(fila.created_at),
-    nota: fila.sembrada ? 'confirmado antes de que existiera el historial' : null,
+    nota: fila.sembrada
+      ? 'confirmado antes de que existiera el historial'
+      : (fila.accion === 'abono' && fila.monto_total != null ? `total ${plata(fila.monto_total, fila.moneda)}` : null),
   }
 }

@@ -49,6 +49,8 @@ FROM unnest(ARRAY[
   '_tally_rule_proposal',
   'accept_group_rules',
   'avisar_pago',
+  'avisar_abono',                     -- 110
+  'confirmar_abono',                  -- 110
   'cancel_rule_proposal',
   'cast_rule_vote',
   'check_powerup_limit',
@@ -166,6 +168,8 @@ WHERE n.nspname = 'public'
   '_tally_rule_proposal',
   'accept_group_rules',
   'avisar_pago',
+  'avisar_abono',                     -- 110
+  'confirmar_abono',                  -- 110
   'cancel_rule_proposal',
   'cast_rule_vote',
   'check_powerup_limit',
@@ -273,6 +277,8 @@ SELECT x AS sin_permiso
 FROM unnest(ARRAY[
     'accept_group_rules',
   'avisar_pago',
+  'avisar_abono',                     -- 110
+  'confirmar_abono',                  -- 110
   'cancel_rule_proposal',
   'cast_rule_vote',
   'confirmar_pago',

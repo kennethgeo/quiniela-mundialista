@@ -1,0 +1,177 @@
+/* EL POZO EN SU PESTAÑA, CON PAGOS PARCIALES (pedido del dueño, 13 oct 2026).
+
+   Lo que pidió: una pestaña propia, fuera de Reglas, donde el grupo vea quién
+   pagó y quién no; que se pueda avisar un pago parcial —la mitad o un monto
+   cualquiera— que confirma un admin de la quiniela; y que se pueda compartir
+   como imagen.
+
+   Se afirma sobre lo que la persona VE y sobre lo que se LLAMA a la base (con
+   qué monto y con qué total visto: es lo que impide sumar dos veces). Los
+   datos tienen la forma de `league_pozo` con la migración 110. */
+import { readFileSync } from 'node:fs'
+import { expect, test } from '@playwright/test'
+import { conSesion, interceptarSupabase, sinRedExterna, USUARIO } from './apoyo.js'
+
+const LIGA = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaab'
+const BETO = '00000000-0000-4000-8000-0000000000b2'
+const CARO = '00000000-0000-4000-8000-0000000000c2'
+const DANI = '00000000-0000-4000-8000-0000000000d2'
+
+const grupo = (esAdmin) => ({
+  id: LIGA, name: 'Bundestica', tournament_id: 2, invitation_code: '6BE60F',
+  powerup_limit: 2, points_exact: 3, points_correct: 1, champion_points: 12,
+  scorer_points: 12, assist_points: 12, rules: 'Reglas.', rules_accepted: true,
+  soy_creador: esAdmin, is_admin: esAdmin, members_count: 4,
+  tournament_kind: 'league', tournament_status: 'active', tournament_ref: 'crc.1',
+})
+
+const persona = (id, nombre, extra) => ({
+  user_id: id, display_name: nombre, avatar_url: null, es_admin: false, soy_yo: false,
+  aviso: false, aviso_monto: null, confirmado: false, monto: null, falta: 10000, al_dia: false,
+  estado: 'pendiente', ...extra,
+})
+
+const pozo = ({ soyAdmin, yo = {} }) => ({
+  cuota: 10000, moneda: 'CRC', reparto: [{ puesto: 1, porcentaje: 65 }, { puesto: 2, porcentaje: 35 }],
+  soy_admin: soyAdmin, miembros: 4, pagados: 2, al_dia: 1, pozo_total: 40000, recaudado: 15000, faltan: 25000,
+  gente: [
+    persona(BETO, 'Beto', { confirmado: true, monto: 10000, falta: 0, al_dia: true, estado: 'pagado' }),
+    persona(CARO, 'Caro', { confirmado: true, monto: 5000, falta: 5000, estado: 'parcial' }),
+    persona(DANI, 'Dani', { aviso: true, aviso_monto: 5000 }),
+    persona(USUARIO.id, 'Prueba', { soy_yo: true, es_admin: soyAdmin, ...yo }),
+  ],
+})
+
+async function abrir (page, { soyAdmin = false, yo, rpc = {} } = {}) {
+  await sinRedExterna(page)
+  await conSesion(page)
+  await page.addInitScript(() => {
+    localStorage.setItem('tutorial_seen', 'true'); localStorage.setItem('pwaPromptDismissed', 'true')
+  })
+  await page.route('**/_backend/api/**', (r) => r.fulfill({
+    status: 200, contentType: 'application/json', body: '{"groups":[]}',
+  }))
+  await interceptarSupabase(page, {
+    '/rest/v1/users': {
+      id: USUARIO.id, display_name: 'Prueba', avatar_url: null, total_points: 3,
+      points_adjustment: 0, is_admin: false, created_at: '2026-01-01', updated_at: '2026-01-01',
+    },
+    'rpc/my_groups': [grupo(soyAdmin)], 'rpc/quiniela_por_id': grupo(soyAdmin),
+    'rpc/league_pozo': pozo({ soyAdmin, yo }),
+    '/rest/v1/historial_pagos': [],
+  })
+  const llamadas = []
+  for (const nombre of ['avisar_abono', 'avisar_pago', 'confirmar_abono', 'confirmar_pago']) {
+    await page.route(`**/rest/v1/rpc/${nombre}*`, async (r) => {
+      llamadas.push({ nombre, cuerpo: JSON.parse(r.request().postData() || '{}') })
+      if (rpc[nombre]) return r.fulfill(rpc[nombre])
+      return r.fulfill({ status: 200, contentType: 'application/json', body: 'null' })
+    })
+  }
+  await page.goto(`/q/${LIGA}?tab=pozo`)
+  await expect(page.getByText('Pozo y pagos')).toBeVisible()
+  // Anclas que solo existen con los datos ya pintados: una ausencia antes de
+  // esto no significaría nada.
+  await expect(fila(page, 'Dani')).toBeVisible()
+  return { llamadas }
+}
+
+const fila = (page, nombre) => page.locator(`[data-persona="${nombre}"]`)
+
+test('el pozo tiene su pestaña y ya no vive en Reglas', async ({ page }) => {
+  await abrir(page)
+  await expect(page.getByRole('button', { name: 'Pozo' })).toBeVisible()
+  await page.getByRole('button', { name: 'Reglas' }).click()
+  await expect(page.getByRole('button', { name: /El pozo y los pagos tienen su pestaña/ })).toBeVisible()
+  await expect(page.getByText('Pozo y pagos')).toHaveCount(0)
+  // El enlace lleva de vuelta.
+  await page.getByRole('button', { name: /El pozo y los pagos tienen su pestaña/ }).click()
+  await expect(page.getByText('Pozo y pagos')).toBeVisible()
+})
+
+test('el grupo ve quién pagó, quién pagó una parte y quién avisó', async ({ page }) => {
+  await abrir(page)
+  await expect(fila(page, 'Beto').getByText('pagó', { exact: true })).toBeVisible()
+  await expect(fila(page, 'Caro').getByText(/de ₡10\D?000 · falta ₡5\D?000/)).toBeVisible()
+  await expect(fila(page, 'Dani').getByText(/avisó ₡5\D?000 · falta confirmar/)).toBeVisible()
+  await expect(page.getByText(/1 de 4 al día · faltan ₡25\D?000/)).toBeVisible()
+  // Sin ser admin no hay botones de confirmar en las filas.
+  await expect(page.locator('[data-persona] button')).toHaveCount(0)
+})
+
+test('un miembro avisa que pagó la mitad', async ({ page }) => {
+  const { llamadas } = await abrir(page)
+  await page.getByRole('button', { name: 'Avisar un pago' }).click()
+  await page.getByRole('radio', { name: /La mitad · ₡5\D?000/ }).click()
+  await page.getByRole('button', { name: 'Avisar', exact: true }).click()
+  await expect.poll(() => llamadas.length).toBe(1)
+  expect(llamadas[0]).toEqual({ nombre: 'avisar_abono', cuerpo: { p_league_id: LIGA, p_monto: 5000 } })
+})
+
+test('un monto escrito a mano: más de lo que falta no se manda', async ({ page }) => {
+  const { llamadas } = await abrir(page)
+  await page.getByRole('button', { name: 'Avisar un pago' }).click()
+  await page.getByRole('radio', { name: 'Otro monto' }).click()
+  await page.getByRole('spinbutton', { name: 'Monto' }).fill('20000')
+  await page.getByRole('button', { name: 'Avisar', exact: true }).click()
+  await expect(page.getByRole('alert').filter({ hasText: /Falta ₡10\D?000/ })).toBeVisible()
+  await page.waitForTimeout(300)
+  expect(llamadas).toEqual([])
+
+  await page.getByRole('spinbutton', { name: 'Monto' }).fill('3500')
+  await page.getByRole('button', { name: 'Avisar', exact: true }).click()
+  await expect.poll(() => llamadas.length).toBe(1)
+  expect(llamadas[0].cuerpo).toEqual({ p_league_id: LIGA, p_monto: 3500 })
+})
+
+test('quien ya avisó ve cuánto y que falta confirmar, y puede retirarlo', async ({ page }) => {
+  const { llamadas } = await abrir(page, { yo: { aviso: true, aviso_monto: 4000 } })
+  await expect(page.getByText(/Avisaste ₡4\D?000 · falta que lo confirme un admin/)).toBeVisible()
+  await page.getByRole('button', { name: 'Retirar aviso' }).click()
+  await expect.poll(() => llamadas.length).toBe(1)
+  expect(llamadas[0]).toEqual({ nombre: 'avisar_pago', cuerpo: { p_league_id: LIGA, p_avisar: false } })
+})
+
+test('un admin confirma lo que avisó alguien, con el total que vio', async ({ page }) => {
+  const { llamadas } = await abrir(page, { soyAdmin: true })
+  await fila(page, 'Dani').getByRole('button', { name: /confirmar ₡5\D?000/ }).click()
+  await expect.poll(() => llamadas.length).toBe(1)
+  expect(llamadas[0]).toEqual({
+    nombre: 'confirmar_abono',
+    cuerpo: { p_league_id: LIGA, p_user_id: DANI, p_monto: 5000, p_total_visto: 0 },
+  })
+})
+
+test('un admin registra el resto de quien pagó la mitad', async ({ page }) => {
+  const { llamadas } = await abrir(page, { soyAdmin: true })
+  await fila(page, 'Caro').getByRole('button', { name: 'registrar' }).click()
+  await page.getByRole('radio', { name: /Lo que falta · ₡5\D?000/ }).click()
+  await page.getByRole('button', { name: 'Confirmar', exact: true }).click()
+  await expect.poll(() => llamadas.length).toBe(1)
+  expect(llamadas[0]).toEqual({
+    nombre: 'confirmar_abono',
+    cuerpo: { p_league_id: LIGA, p_user_id: CARO, p_monto: 5000, p_total_visto: 5000 },
+  })
+})
+
+test('si la base rechaza (otro admin ya lo confirmó), se dice por qué', async ({ page }) => {
+  const mensaje = 'El pago de esta persona cambió mientras tanto (ahora tiene 5000.00 confirmado). Actualizá y volvé a intentar.'
+  await abrir(page, {
+    soyAdmin: true,
+    rpc: { confirmar_abono: { status: 400, contentType: 'application/json', body: JSON.stringify({ code: 'P0001', message: mensaje }) } },
+  })
+  await fila(page, 'Dani').getByRole('button', { name: /confirmar ₡5\D?000/ }).click()
+  await expect(page.getByRole('alert').filter({ hasText: 'cambió mientras tanto' })).toBeVisible()
+})
+
+test('el pozo se comparte como imagen', async ({ page }) => {
+  await abrir(page)
+  const descarga = page.waitForEvent('download')
+  await page.getByRole('button', { name: 'COMPARTIR' }).click()
+  const d = await descarga
+  expect(d.suggestedFilename()).toBe('pozo-bundestica.png')
+  const bytes = readFileSync(await d.path())
+  // Firma PNG: es una imagen de verdad, no un archivo vacío.
+  expect([...bytes.subarray(0, 8)]).toEqual([137, 80, 78, 71, 13, 10, 26, 10])
+  expect(bytes.length).toBeGreaterThan(10000)
+})

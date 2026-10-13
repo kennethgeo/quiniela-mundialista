@@ -42,6 +42,13 @@ describe('historial de pagos', () => {
     expect(describirMovimiento(fila(), nombres).cuando).toMatch(/12:10/)
   })
 
+  it('un abono (110) dice lo que se sumó y el total que quedó', () => {
+    const m = describirMovimiento(fila({ accion: 'abono', monto: 5000, monto_total: 10000 }), nombres)
+    expect(m.texto).toBe('Ana confirmó un abono de Beto')
+    expect(m.monto).toMatch(/^₡5.?000$/)
+    expect(m.nota).toMatch(/^total ₡10.?000$/)
+  })
+
   it('los pagos copiados al crear el historial se marcan', () => {
     expect(describirMovimiento(fila({ sembrada: true }), nombres).nota).toMatch(/antes de que existiera/)
     expect(describirMovimiento(fila(), nombres).nota).toBeNull()

@@ -592,6 +592,8 @@ DECLARE
     -- ayudantes internos que invocan funciones SECURITY DEFINER, así que
     -- corren como el dueño. Darles EXECUTE solo agrandaría la superficie.
     'cupos_por_jornada', 'set_powerup_limits', 'fases_del_torneo',
+    -- Migración 110 (pozo con abonos parciales): las llama la pestaña Pozo.
+    'avisar_abono', 'confirmar_abono',
     -- Estas cuatro NO las llama ningún cliente, pero viven DENTRO de políticas
     -- RLS, donde se evalúan como quien consulta. Sin EXECUTE se caen todas las
     -- lecturas que dependen de esas políticas.

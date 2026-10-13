@@ -4,7 +4,7 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useConsultaDelUsuario } from '../hooks/useConsultaDelUsuario'
 import { motion, AnimatePresence } from 'motion/react'
-import { ArrowLeft, CalendarDays, ListOrdered, Copy, Check, Trophy, GitBranch, BarChart3, Shield, ScrollText, Loader2, Pencil, Lock, Trash2, AlertTriangle, Vote, ThumbsUp, ThumbsDown, X, Home, ChevronRight, Target, Gift, MessageCircle, LayoutGrid, Zap, ShieldCheck, Eye, Share2} from 'lucide-react'
+import { ArrowLeft, CalendarDays, ListOrdered, Copy, Check, Trophy, GitBranch, BarChart3, Shield, ScrollText, Loader2, Pencil, Lock, Trash2, AlertTriangle, Vote, ThumbsUp, ThumbsDown, X, Home, ChevronRight, Target, Gift, MessageCircle, LayoutGrid, Zap, ShieldCheck, Eye, Share2, Wallet } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import { useToast } from '../components/ui/Toast'
@@ -403,6 +403,9 @@ export default function GroupPage() {
         <TabBtn active={tab === 'home'} onClick={() => setTab('home')} icon={Home} label="Resumen" innerRef={tab === 'home' ? pestanaActiva : null} />
         <TabBtn active={tab === 'matches'} onClick={() => setTab('matches')} icon={CalendarDays} label="Partidos" innerRef={tab === 'matches' ? pestanaActiva : null} />
         <TabBtn active={tab === 'table'} onClick={() => setTab('table')} icon={ListOrdered} label="Tabla" innerRef={tab === 'table' ? pestanaActiva : null} />
+        {/* El pozo tiene pestaña propia (pedido del dueño, 13 oct 2026): antes
+            vivía al fondo de Reglas y había que bajar para ver quién pagó. */}
+        <TabBtn active={tab === 'pozo'} onClick={() => setTab('pozo')} icon={Wallet} label="Pozo" innerRef={tab === 'pozo' ? pestanaActiva : null} />
         <TabBtn active={tab === 'historico'} onClick={() => setTab('historico')} icon={LayoutGrid} label="Histórico" innerRef={tab === 'historico' ? pestanaActiva : null} />
         {!isCup && <TabBtn active={tab === 'teams'} onClick={() => setTab('teams')} icon={Shield} label="Posiciones" innerRef={tab === 'teams' ? pestanaActiva : null} />}
         {/* Solo el Mundial tiene bracket dedicado; el resto ve sus fases en Partidos */}
@@ -534,14 +537,21 @@ export default function GroupPage() {
           matches={resolved} soyAdminGlobal={!!profile?.is_admin} />
       )}
 
+      {tab === 'pozo' && <PozoYPagos leagueId={group.id} nombreQuiniela={group.name} />}
+
       {tab === 'rules' && (
         <>
           <RulesPanel group={group} tournamentStarted={tournamentStarted} showToast={showToast}
           onSalir={() => setPidiendoSalir(true)}
             onDeleted={() => { queryClient.invalidateQueries({ queryKey: ['my_groups'] }); navigate('/') }} />
-          {/* Van en Reglas porque es material de confianza, como las votaciones. */}
-          <PozoYPagos leagueId={group.id} />
-          {/* Quién administra va junto al pozo: es quién puede confirmar pagos. */}
+          {/* El pozo se mudó a su pestaña: quien lo buscaba acá lo encuentra. */}
+          <button onClick={() => setTab('pozo')}
+            className="w-full mt-4 flex items-center gap-2.5 rounded-xl px-4 py-3 bg-white dark:bg-[#161616] border border-slate-200 dark:border-[#262626] text-left">
+            <Wallet size={16} className="text-accent shrink-0" />
+            <span className="flex-1 text-[12.5px] font-semibold text-slate-700 dark:text-[#F3F1EA]">El pozo y los pagos tienen su pestaña</span>
+            <span className="text-[11px] font-bold text-accent shrink-0">Ver →</span>
+          </button>
+          {/* Quién administra: es quién puede confirmar pagos y expulsar. */}
           <MiembrosYAdmins leagueId={group.id} />
           <HistorialAjustes tournamentId={tid} />
         </>

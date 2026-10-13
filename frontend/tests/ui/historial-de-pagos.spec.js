@@ -45,7 +45,11 @@ const HISTORIAL = [
     por: USUARIO.id, created_at: '2026-09-20T18:10:00+00:00', sembrada: false },
 ]
 
-async function abrir (page) {
+/* El pozo vive en su pestaña desde el 13 oct 2026; expulsar sigue en Reglas.
+   Este POZO tiene la forma de ANTES de la 110 (sin `al_dia`): así también se
+   prueba que la pantalla no se rompe si el frontend llega antes que la
+   migración —confirmar sigue siendo la cuota entera, de un toque—. */
+async function abrir (page, { tab = 'pozo' } = {}) {
   await sinRedExterna(page)
   await conSesion(page)
   await page.addInitScript(() => {
@@ -77,8 +81,9 @@ async function abrir (page) {
     expulsiones.push(JSON.parse(r.request().postData() || '{}'))
     return r.fulfill({ status: 204, body: '' })
   })
-  await page.goto(`/q/${LIGA}?tab=rules`)
-  await expect(page.getByText('Pozo y pagos')).toBeVisible()
+  await page.goto(`/q/${LIGA}?tab=${tab}`)
+  if (tab === 'pozo') await expect(page.getByText('Pozo y pagos')).toBeVisible()
+  else await expect(page.getByRole('button', { name: 'Sacar de la quiniela' }).first()).toBeVisible()
   return { confirmaciones, expulsiones }
 }
 
@@ -120,7 +125,7 @@ test.describe('«quitar» un pago confirmado', () => {
 
 test.describe('expulsar a quien pagó', () => {
   test('el aviso dice que tiene un pago confirmado, con el monto, y que queda en el historial', async ({ page }) => {
-    await abrir(page)
+    await abrir(page, { tab: 'rules' })
     await page.getByRole('button', { name: 'Sacar de la quiniela' }).first().click()
     const dialogo = page.getByRole('dialog', { name: 'Sacar a Beto' })
     await expect(dialogo).toBeVisible()
@@ -129,7 +134,7 @@ test.describe('expulsar a quien pagó', () => {
   })
 
   test('mientras no se sabe si pagó, «Sacar» no se puede tocar', async ({ page }) => {
-    const { expulsiones } = await abrir(page)
+    const { expulsiones } = await abrir(page, { tab: 'rules' })
     /* La red lenta es justo cuando el aviso llega tarde: si «Sacar» estuviera
        habilitado, el admin expulsaría sin haber visto que esa persona pagó. */
     let soltar
@@ -155,7 +160,7 @@ test.describe('expulsar a quien pagó', () => {
   })
 
   test('a quien no pagó no se le inventa un pago', async ({ page }) => {
-    const { expulsiones } = await abrir(page)
+    const { expulsiones } = await abrir(page, { tab: 'rules' })
     await page.getByRole('button', { name: 'Sacar de la quiniela' }).nth(1).click()
     const dialogo = page.getByRole('dialog', { name: 'Sacar a Caro' })
     await expect(dialogo).toBeVisible()

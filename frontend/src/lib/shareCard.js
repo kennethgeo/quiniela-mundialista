@@ -13,6 +13,8 @@
    sin ella. Un escudo que tarda no puede dejar al grupo sin su tarjeta. */
 
 import { fotoDeEstadio } from './estadios'
+import { plata as plataCard } from './historialPagos'
+import { estadoDe as estadoDelPozo, resumen as resumenDelPozo } from './pozo'
 
 const FONDO = '#0C0C0C'
 const BORDE = '#262626'
@@ -681,6 +683,155 @@ export async function renderMiTemporadaCard({ nombreQuiniela, p }) {
   ctx.fillStyle = ORO
   ctx.font = "bold 22px 'JetBrains Mono', monospace"
   ctx.fillText('TICO GAMES', ANCHO - MARGEN, alto - 36)
+
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('No se pudo generar la imagen'))), 'image/png')
+  })
+}
+
+/* Tarjeta del POZO: cuánto hay, cuánto falta y quién pagó.
+
+   Pedido del dueño (13 oct 2026): que se pueda mandar al grupo como imagen.
+   Muestra solo lo CONFIRMADO como pagado; un aviso sin confirmar se dice como
+   tal («avisó · sin confirmar»), para que la imagen no afirme algo que nadie
+   dio por bueno. No lleva predicciones ni nada que la app proteja.
+
+   pozo: lo que devuelve league_pozo(), tal cual. */
+export async function renderPozoCard({ nombreQuiniela, pozo }) {
+  await esperarFuentes()
+  const r = resumenDelPozo(pozo)
+  const moneda = pozo?.moneda
+  const gente = Array.isArray(pozo?.gente) ? pozo.gente : []
+  const reparto = Array.isArray(pozo?.reparto) ? pozo.reparto.filter((x) => Number(x.porcentaje) > 0) : []
+
+  const Y_CAJA = 208
+  const ALTO_CAJA = 196
+  const ALTO_REP = 42
+  const yReparto = Y_CAJA + ALTO_CAJA + 28
+  const altoReparto = reparto.length ? 46 + reparto.length * ALTO_REP + 34 : 0
+  const yLista = yReparto + altoReparto + 18
+  const ALTO_F = 58
+  const alto = yLista + 48 + gente.length * ALTO_F + 112
+
+  const escala = 2
+  const canvas = document.createElement('canvas')
+  canvas.width = ANCHO * escala
+  canvas.height = alto * escala
+  const ctx = canvas.getContext('2d')
+  ctx.scale(escala, escala)
+  ctx.fillStyle = FONDO
+  ctx.fillRect(0, 0, ANCHO, alto)
+
+  ctx.textBaseline = 'alphabetic'
+  ctx.textAlign = 'left'
+  ctx.fillStyle = MUTED
+  ctx.font = "bold 24px 'JetBrains Mono', monospace"
+  ctx.letterSpacing = '4px'
+  ctx.fillText((nombreQuiniela || '').toUpperCase(), MARGEN, 74)
+  ctx.letterSpacing = '0px'
+
+  ctx.fillStyle = TEXTO
+  ctx.font = "bold 56px 'Unbounded', sans-serif"
+  ctx.fillText('Pozo', MARGEN, 140)
+
+  ctx.fillStyle = MUTED
+  ctx.font = "22px 'Archivo', sans-serif"
+  ctx.fillText(`Cuota ${plataCard(pozo?.cuota, moneda)} · ${r.alDia} de ${r.miembros} al día`, MARGEN, 178)
+
+  // ── Lo recaudado, grande, con su barra ──
+  rect(ctx, MARGEN, Y_CAJA, ANCHO - MARGEN * 2, ALTO_CAJA, 18, 'rgba(255,255,255,.04)')
+  ctx.fillStyle = MUTED
+  ctx.font = "bold 20px 'JetBrains Mono', monospace"
+  ctx.letterSpacing = '3px'
+  ctx.fillText('RECAUDADO', MARGEN + 28, Y_CAJA + 44)
+  ctx.textAlign = 'right'
+  ctx.fillText('SI PAGAN TODOS', ANCHO - MARGEN - 28, Y_CAJA + 44)
+  ctx.letterSpacing = '0px'
+  ctx.textAlign = 'left'
+  ctx.fillStyle = TEAL
+  ctx.font = "bold 64px 'JetBrains Mono', monospace"
+  ctx.fillText(plataCard(r.recaudado, moneda), MARGEN + 28, Y_CAJA + 116)
+  ctx.textAlign = 'right'
+  ctx.fillStyle = TEXTO
+  ctx.font = "bold 40px 'JetBrains Mono', monospace"
+  ctx.fillText(plataCard(r.total, moneda), ANCHO - MARGEN - 28, Y_CAJA + 110)
+  const anchoBarra = ANCHO - MARGEN * 2 - 56
+  rect(ctx, MARGEN + 28, Y_CAJA + 140, anchoBarra, 14, 7, 'rgba(255,255,255,.08)')
+  if (r.avance > 0) rect(ctx, MARGEN + 28, Y_CAJA + 140, Math.max(anchoBarra * r.avance, 14), 14, 7, TEAL)
+  ctx.textAlign = 'left'
+  ctx.fillStyle = MUTED
+  ctx.font = "20px 'Archivo', sans-serif"
+  ctx.fillText(r.faltan > 0 ? `Faltan ${plataCard(r.faltan, moneda)}` : 'Están todos al día', MARGEN + 28, Y_CAJA + 182)
+
+  // ── Reparto estimado ──
+  if (reparto.length) {
+    ctx.fillStyle = MUTED
+    ctx.font = "bold 20px 'JetBrains Mono', monospace"
+    ctx.letterSpacing = '3px'
+    ctx.fillText('REPARTO ESTIMADO', MARGEN, yReparto + 24)
+    ctx.letterSpacing = '0px'
+    reparto.forEach((x, i) => {
+      const y = yReparto + 46 + i * ALTO_REP + 26
+      ctx.textAlign = 'left'
+      ctx.fillStyle = TEXTO
+      ctx.font = "600 24px 'Archivo', sans-serif"
+      ctx.fillText(`${x.puesto}º · ${x.porcentaje}%`, MARGEN, y)
+      ctx.textAlign = 'right'
+      ctx.fillStyle = ORO
+      ctx.font = "bold 26px 'JetBrains Mono', monospace"
+      ctx.fillText(plataCard(r.total * (Number(x.porcentaje) / 100), moneda), ANCHO - MARGEN, y)
+    })
+    ctx.textAlign = 'left'
+    ctx.fillStyle = MUTED
+    ctx.font = "18px 'Archivo', sans-serif"
+    ctx.fillText('Sobre el pozo completo, asumiendo que pagan todos.', MARGEN, yReparto + 46 + reparto.length * ALTO_REP + 22)
+  }
+
+  // ── Quién pagó ──
+  ctx.textAlign = 'left'
+  ctx.fillStyle = MUTED
+  ctx.font = "bold 20px 'JetBrains Mono', monospace"
+  ctx.letterSpacing = '3px'
+  ctx.fillText('QUIÉN PAGÓ', MARGEN, yLista + 24)
+  ctx.letterSpacing = '0px'
+  gente.forEach((g, i) => {
+    const y = yLista + 48 + i * ALTO_F
+    if (i % 2 === 0) rect(ctx, MARGEN, y, ANCHO - MARGEN * 2, ALTO_F - 6, 10, 'rgba(255,255,255,.03)')
+    const e = estadoDelPozo(g)
+    ctx.textAlign = 'left'
+    ctx.fillStyle = TEXTO
+    ctx.font = "600 25px 'Archivo', sans-serif"
+    ctx.fillText(recortar(ctx, g.display_name || '', 560), MARGEN + 18, y + 36)
+
+    ctx.textAlign = 'right'
+    if (e === 'pagado') {
+      ctx.fillStyle = TEAL
+      ctx.font = "bold 24px 'JetBrains Mono', monospace"
+      ctx.fillText('✓ pagó', ANCHO - MARGEN - 18, y + 36)
+    } else if (e === 'parcial') {
+      ctx.fillStyle = ORO
+      ctx.font = "bold 22px 'JetBrains Mono', monospace"
+      ctx.fillText(`${plataCard(g.monto, moneda)} de ${plataCard(pozo?.cuota, moneda)}`, ANCHO - MARGEN - 18, y + 36)
+    } else if (g.aviso) {
+      ctx.fillStyle = ORO
+      ctx.font = "20px 'JetBrains Mono', monospace"
+      ctx.fillText('avisó · sin confirmar', ANCHO - MARGEN - 18, y + 36)
+    } else {
+      ctx.fillStyle = MUTED
+      ctx.font = "20px 'JetBrains Mono', monospace"
+      ctx.fillText('pendiente', ANCHO - MARGEN - 18, y + 36)
+    }
+  })
+
+  ctx.textAlign = 'left'
+  ctx.fillStyle = MUTED
+  ctx.font = "500 20px 'Archivo', sans-serif"
+  ctx.fillText('La app no cobra ni reparte: solo lleva la cuenta.', MARGEN, alto - 40)
+
+  ctx.textAlign = 'right'
+  ctx.fillStyle = ORO
+  ctx.font = "bold 22px 'JetBrains Mono', monospace"
+  ctx.fillText('TICO GAMES', ANCHO - MARGEN, alto - 40)
 
   return new Promise((resolve, reject) => {
     canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('No se pudo generar la imagen'))), 'image/png')
