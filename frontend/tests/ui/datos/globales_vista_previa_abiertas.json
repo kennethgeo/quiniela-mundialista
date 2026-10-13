@@ -1,0 +1,42 @@
+{
+ "status": "ok",
+ "dry_run": true,
+ "abiertas": true,
+ "reales": {
+  "actual_champion": "Saprissa",
+  "actual_top_scorer": "Bancy Hernández",
+  "actual_top_assist": "Elías Aguilar"
+ },
+ "equipos": [
+  "AD San Carlos",
+  "Alajuelense",
+  "Cartaginés",
+  "Escorpiones Belén",
+  "Herediano",
+  "Inter de San Carlos",
+  "Pérez Zeledón",
+  "Puntarenas FC",
+  "Saprissa",
+  "Sporting San José"
+ ],
+ "ligas": [
+  {
+   "league_id": "2df51e3a-60a0-4824-a7aa-98b25c6e8350",
+   "nombre": "Bundestica",
+   "puntos": {
+    "campeon": 10,
+    "goleador": 10,
+    "asistidor": 8
+   }
+  },
+  {
+   "league_id": "c1a05a7a-0000-4000-8000-000000000001",
+   "nombre": "Clausura 2027",
+   "puntos": {
+    "campeon": 12,
+    "goleador": 12,
+    "asistidor": 12
+   }
+  }
+ ]
+}
