@@ -1,21 +1,44 @@
 """
-Motor de puntuación de la Quiniela Mundialista.
+Motor de puntuación de Tico Games. Es el ÚNICO: la copia en JS
+(lib/scoring.js) se borró el 21 sep 2026 porque no la importaba nadie. Las
+reglas de abajo son las de CLAUDE.md («Reglas de puntaje»), y los casos que
+las fijan están en shared/scoring_cases.json (los corre tests/test_scoring.py).
+Si este texto y el código no coinciden, manda CLAUDE.md: no «arreglar» el
+código para que calce con un comentario viejo.
 
-Reglas (Modalidad Marcador):
-- Marcador exacto (incluye empate exacto) → 3 pts.
-- Aciertas quién gana o que es empate, pero no el marcador → 1 pt.
-- Fallas el resultado (quién gana / empate) → 0 pts.
-- Penales: si predijiste un ganador pero el partido fue a penales (empate en
-  90'), 0 pts. Si predijiste empate y aciertas el ganador de penales, conservas
-  el punto; si lo fallas, 0.
+Modalidad Marcador (la que usa la app):
+- Marcador exacto (incluye el empate exacto) → points_exact (3 por defecto).
+- Acertás quién gana o que es empate, sin el marcador → points_correct (1).
+- Fallás el resultado → 0.
+- Sin marcador predicho → 0. No hay default 0-0.
 
-Modalidad Solo_Ganador:
-- Aciertas el resultado → 1 pt; fallas → 0.
+Eliminatoria que se define por penales (goes_to_penalties, empate en 90/120):
+- Predijiste EMPATE: el marcador del empate puntúa igual (exacto / correcto)
+  aunque falles la tanda. Si además acertás quién pasa
+  (penalties_winner_pred == penalties_winner_real), se suma +1 a la base.
+  Ese +1 es FIJO: no es points_correct ni cambia con la configuración.
+    0-0 exacto + tanda acertada = 4 · + fallada = 3 · + ×2 = 8
+    1-1 no exacto + tanda acertada = 2 · + fallada = 1 · + ×2 = 4
+- Predijiste un GANADOR: points_correct (1 por defecto) si el equipo que
+  elegiste es el que avanza en penales; si no, o si todavía no consta quién
+  avanzó (penalties_winner_real vacío), 0. El marcador no cuenta.
+- Sin penales (se definió en 90/120, o el admin desmarcó la tanda): exacto /
+  correcto como siempre, y la elección de la tanda no suma nada.
+- Quién marca la tanda: en el Mundial, el live-sync (todo empate de
+  eliminatoria se define por penales); en los demás torneos, el sync de ESPN
+  solo cuando hubo una tanda REAL en ese partido (auditoría 20), y el form de
+  admin como respaldo manual. Una IDA empatada no tiene tanda: llega con
+  goes_to_penalties falso y puntúa por su marcador, sin el +1.
+- Penales marcados pero sin ganador cargado (penalties_winner_real vacío):
+  el empate puntúa por su marcador sin el +1, y quien predijo un ganador
+  da 0 hasta que conste quién avanzó.
 
-Modificador: comodín x2 → duplica los puntos ganados (1→2, 3→6).
+Modalidad Solo_Ganador (la app guarda siempre «Marcador»; queda por las filas viejas):
+- Acertás el resultado → points_correct; fallás → 0. Con penales solo puntúa
+  quien predijo empate y acertó quién pasa.
 
-Es el ÚNICO motor de puntaje: la copia en JS (lib/scoring.js) se borró el
-21 sep 2026. Los casos que lo fijan están en shared/scoring_cases.json.
+Comodín ×2: duplica TODO lo que sumaste en el partido, incluido el +1 de la
+tanda (el +1 se suma a la base ANTES del ×2).
 """
 
 import logging

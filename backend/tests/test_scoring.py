@@ -1,9 +1,8 @@
-"""Tests del motor de puntaje (Python).
+"""Tests del motor de puntaje (Python), el ÚNICO que hay.
 
-Corre el corpus compartido de shared/scoring_cases.json, el mismo que corre el
-motor de JS en frontend/src/lib/scoring.test.js. Si los dos no dan lo mismo, el
-CI lo caza: es la única garantía real de que la lógica duplicada sigue siendo
-idéntica, que es lo que exige el CLAUDE.md.
+Corre el corpus de shared/scoring_cases.json contra backend/app/services/
+scoring.py. Ese corpus es la red que protege el puntaje: si un cambio en el
+motor mueve el resultado de cualquier caso, el CI falla.
 
 scoring.py importa app.services.notifications, que a su vez necesita pywebpush.
 Para no arrastrar todas las dependencias del backend solo para probar una
@@ -72,10 +71,11 @@ def test_comodin_sobre_un_fallo_sigue_siendo_cero():
 
 
 class TestPuntajePorQuiniela:
-    """El motor de Python SÍ respeta el puntaje configurado de cada quiniela.
+    """El motor respeta el puntaje configurado de cada quiniela.
 
-    El de JS no (tiene 3/1 hardcodeados): esa es la divergencia que documenta
-    el test equivalente en scoring.test.js y que la unificación tiene que cerrar.
+    El corpus usa siempre 3/1, así que acá viven los casos con otra
+    configuración (5/2): con 3/1 no se distingue «sumar 1» de «sumar
+    points_correct», y es justo la diferencia que hay que fijar en penales.
     """
 
     def test_usa_points_exact_de_la_config(self):
@@ -96,3 +96,22 @@ class TestPuntajePorQuiniela:
     def test_sin_config_cae_al_default_3_1(self):
         pred = dict(home_goals_pred=1, away_goals_pred=0)
         assert scoring.evaluate_prediction(pred, 1, 0, False, None, "Local", "Visita") == 3
+
+    def test_el_mas_uno_de_la_tanda_es_fijo_no_points_correct(self):
+        """Con 5/2, un 0-0 exacto con la tanda acertada vale 5 + 1 = 6, no 7.
+
+        El +1 por acertar quién pasa es fijo (CLAUDE.md, «Eliminatoria —
+        penales»). Si alguien lo cambia por points_correct, con 3/1 no se nota
+        —1 es 1— y el corpus entero sigue en verde: por eso este caso.
+        """
+        pred = dict(home_goals_pred=0, away_goals_pred=0, penalties_winner_pred="Local")
+        cfg = {"points_exact": 5, "points_correct": 2}
+        assert scoring.evaluate_prediction(pred, 0, 0, True, "Local", "Local", "Visita", config=cfg) == 6
+
+    def test_el_mas_uno_fijo_tambien_en_el_empate_no_exacto(self):
+        # 1-1 contra 2-2: points_correct (2) + 1 fijo = 3, y con ×2 = 6.
+        pred = dict(home_goals_pred=1, away_goals_pred=1, penalties_winner_pred="Local")
+        cfg = {"points_exact": 5, "points_correct": 2}
+        assert scoring.evaluate_prediction(pred, 2, 2, True, "Local", "Local", "Visita", config=cfg) == 3
+        con_x2 = dict(pred, use_powerup_x2=True)
+        assert scoring.evaluate_prediction(con_x2, 2, 2, True, "Local", "Local", "Visita", config=cfg) == 6
