@@ -357,10 +357,15 @@ async def broadcast_push_to_users(supabase, user_ids: list, title: str, body: st
         if result is True:
             success_count += 1
 
-    # Limpiar endpoints muertos o suscritos con una llave vieja
+    # Limpiar endpoints muertos o suscritos con una llave vieja. Es
+    # mantenimiento: si falla, el envío ya salió y no puede contarse como
+    # fallido (la alerta de puntajes lo reintentaría a quien ya lo recibió).
     fuera = borrables(resultados)
     if fuera:
-        supabase.table("push_subscriptions").delete().in_("endpoint", fuera).execute()
+        try:
+            supabase.table("push_subscriptions").delete().in_("endpoint", fuera).execute()
+        except Exception:  # noqa: BLE001
+            logger.exception("No se pudieron borrar %d suscripciones vencidas", len(fuera))
 
     return success_count
 

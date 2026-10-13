@@ -278,6 +278,16 @@ async def puntuar_pendientes(supabase) -> dict:
 # en la lista, porque después la puerta del cron se cierra y nadie llama.
 HORAS_PARA_ALERTAR = 6
 
+# Cada cuánto se repite un aviso que SÍ llegó: el `interval '20 hours'` de
+# `reclamar_alertas_de_puntaje` (104). Una prueba lee el SQL y ata los dos.
+HORAS_ENTRE_AVISOS = 20
+# Cuándo se reintenta uno que NO consta que haya llegado (revisión de la
+# auditoría 20): ni a la pasada siguiente —con el cron por minuto y un
+# proveedor que entrega pero responde tarde, el admin recibía el mismo aviso
+# una vez por minuto— ni 20 h después —la alerta callada justo cuando no
+# llegó—. Una hora.
+MINUTOS_PARA_REINTENTAR_ALERTA = 60
+
 
 async def alertar_puntajes_trabados(supabase) -> dict:
     """Avisa a los admins globales de los puntajes que no salen (B60).
@@ -317,31 +327,46 @@ async def alertar_puntajes_trabados(supabase) -> dict:
             supabase, admins, "⚠️ Puntajes sin calcular", cuerpo, url="/admin") or 0
     except Exception as exc:  # noqa: BLE001
         _log.exception("No se pudo mandar la alerta de puntajes trabados")
-        # El aviso no salió: se suelta el reclamo para reintentar en la pasada
-        # siguiente, en vez de quedar callado 20 h (auditoría 19, migración 106).
-        _soltar_alertas(supabase, filas)
+        # El aviso no consta: se reintenta en una hora en vez de quedar callado
+        # 20 h (auditoría 19, migración 106).
+        _reintentar_alerta_en_una_hora(supabase, filas)
         return {"partidos": [f.get("match_id") for f in filas], "enviados": 0,
                 "error": f"{type(exc).__name__}: {exc}"}
     if not enviados:
         # Que el envío no reviente NO es que haya llegado (revisión de Codex,
         # 12 oct 2026): un admin sin dispositivos, o con todos rechazados,
         # daba 0 sin excepción y el reclamo quedaba anotado 20 h —la alerta
-        # callada justo cuando no llegó—. Se suelta igual que una excepción.
-        # Las 20 h de silencio son solo para lo que SÍ llegó.
+        # callada justo cuando no llegó—. Las 20 h de silencio son solo para
+        # lo que SÍ llegó; lo demás se reintenta en una hora.
         _log.error("La alerta de puntajes trabados no llegó a ningún dispositivo de un admin; "
-                   "se reintenta en la próxima pasada")
-        _soltar_alertas(supabase, filas)
+                   "se reintenta en %d min", MINUTOS_PARA_REINTENTAR_ALERTA)
+        _reintentar_alerta_en_una_hora(supabase, filas)
         return {"partidos": [f.get("match_id") for f in filas], "enviados": 0,
                 "error": "sin-entrega"}
     return {"partidos": [f.get("match_id") for f in filas], "enviados": enviados}
 
 
-def _soltar_alertas(supabase, filas) -> None:
+def _reintentar_alerta_en_una_hora(supabase, filas) -> None:
+    """Deja el reclamo como si el último aviso hubiera sido hace
+    `HORAS_ENTRE_AVISOS` menos `MINUTOS_PARA_REINTENTAR_ALERTA`: la base lo
+    vuelve a entregar en esa hora, ni antes ni 20 h después.
+
+    No usa `soltar_alertas_de_puntaje` (106): esa deja reclamar en la pasada
+    SIGUIENTE, y con el cron por minuto un proveedor que entrega pero responde
+    tarde (ReadTimeout → 0 «enviados») repetía el aviso cada minuto. Solo toca
+    lo que esta pasada reclamó (últimos 10 min), como aquella.
+    """
+    from datetime import datetime, timedelta, timezone  # como el resto: import local
+    ahora = datetime.now(timezone.utc)
+    ultimo = ahora - timedelta(hours=HORAS_ENTRE_AVISOS) + timedelta(minutes=MINUTOS_PARA_REINTENTAR_ALERTA)
     try:
-        supabase.rpc("soltar_alertas_de_puntaje",
-                     {"p_ids": [f.get("match_id") for f in filas]}).execute()
+        (supabase.table("alertas_de_puntaje")
+         .update({"ultimo_aviso_at": ultimo.isoformat()})
+         .in_("match_id", [f.get("match_id") for f in filas])
+         .gt("ultimo_aviso_at", (ahora - timedelta(minutes=10)).isoformat())
+         .execute())
     except Exception:  # noqa: BLE001
-        _log.exception("Tampoco se pudo soltar el reclamo de la alerta")
+        _log.exception("Tampoco se pudo reprogramar el reclamo de la alerta")
 
 
 def _aplicar_puntaje(supabase, match: dict, puntos: list) -> str:

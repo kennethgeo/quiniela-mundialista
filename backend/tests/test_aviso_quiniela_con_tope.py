@@ -328,3 +328,63 @@ def test_quien_no_es_admin_sigue_sin_poder(entorno):
         tocar(Base(), quien=BETO)
     assert e.value.status_code == 404
     assert enviados == []
+
+
+# ── Revisión de la vigésima auditoría ───────────────────────────────────────
+
+def test_el_aviso_de_un_partido_nuevo_cuenta_lo_que_falta_de_TODO_el_dia(entorno):
+    """Ana predijo el 293 y no el 294. Aparece el 295 y Ana lo predice. El
+    segundo toque solo avisa el 295, pero a Ana le falta el 294: decirle «Ya
+    predijiste todo» en una quiniela por plata es decirle que terminó cuando
+    no terminó."""
+    tocar, enviados, _ = entorno
+    base = Base()
+    tocar(base)
+    enviados.clear()
+    base.tablas["matches"].append({
+        "id": 295, "tournament_id": 2, "home_team": "Herediano", "away_team": "Liberia",
+        "kickoff_at": (datetime.now(timezone.utc) + timedelta(hours=7)).isoformat(),
+        "status": "pending"})
+    base.tablas["predictions"].append({"user_id": ANA, "league_id": LIGA, "match_id": 295})
+    tocar(base)
+    titulos = dict(enviados)
+    assert titulos[ANA]["title"] == "⚽ 1 partido nuevo hoy · Te falta 1 por predecir"
+    assert titulos[BETO]["title"] == "⚽ 1 partido nuevo hoy · Te faltan 3 por predecir"
+
+
+def test_si_el_envio_revienta_los_reclamos_quedan_fallidos_y_se_puede_reintentar(entorno, monkeypatch):
+    """Antes quedaban `claimed`: el toque siguiente no los tomaba y el panel
+    decía «Ya les había llegado este aviso a todos» sin que saliera nada."""
+    tocar, enviados, _ = entorno
+    base = Base()
+    original = notif.enviar_push_personalizado
+
+    async def revienta(*_a, **_k):
+        raise RuntimeError("503 al leer push_subscriptions")
+    monkeypatch.setattr(notif, "enviar_push_personalizado", revienta)
+    with pytest.raises(HTTPException) as e:
+        tocar(base)
+    assert e.value.status_code == 502
+    assert {f["status"] for f in base.tablas["notification_deliveries"]} == {"failed"}
+
+    monkeypatch.setattr(notif, "enviar_push_personalizado", original)
+    r = tocar(base)
+    assert sorted(u for u, _ in enviados) == sorted([CREADOR, COADMIN, ANA, BETO])
+    assert r["enviados"] == 4
+
+
+def test_con_un_envio_en_curso_no_se_afirma_que_ya_llego(entorno):
+    """Otro admin tocó hace un instante y su envío sigue en vuelo (filas
+    `claimed`): el segundo no manda nada, pero tampoco dice que ya llegó."""
+    tocar, enviados, _ = entorno
+    base = Base()
+    ahora = datetime.now(timezone.utc)
+    for u in (CREADOR, COADMIN, ANA, BETO):
+        for m in (293, 294):
+            base.tablas["notification_deliveries"].append({
+                "user_id": u, "league_id": LIGA, "match_id": m, "tipo": "resumen-manual",
+                "status": "claimed", "claim_token": "otro", "claimed_at": ahora, "attempts": 1})
+    r = tocar(base)
+    assert enviados == []
+    assert "se está mandando ahora mismo" in r["mensaje"]
+    assert "Ya les había llegado" not in r["mensaje"]

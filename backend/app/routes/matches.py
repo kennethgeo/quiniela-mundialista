@@ -639,25 +639,37 @@ async def notify_daily_league(
     candidatas_por_persona = {}
     for e in entregas:
         candidatas_por_persona[e["user_id"]] = candidatas_por_persona.get(e["user_id"], 0) + 1
-    mensajes = {}
-    for uid_destino, lista in suyos.items():
-        suyo = armar_mensajes(
-            lista,
-            [{"league_id": league_id, "user_id": uid_destino,
-              "tournament_id": liga["tournament_id"]}],
-            predicciones,
-        )
-        # Si a esta persona ya se le había avisado parte de lo de hoy, «Hoy hay
-        # 1 partido» sería falso: hoy se juegan más. Se dice que son NUEVOS
-        # (revisión de la vigésima auditoría).
-        if uid_destino in suyo and len(lista) < candidatas_por_persona.get(uid_destino, 0):
-            n = len(lista)
-            cabeza = "⚽ 1 partido nuevo hoy" if n == 1 else f"⚽ {n} partidos nuevos hoy"
-            resto = suyo[uid_destino]["title"].split(" · ", 1)
-            suyo[uid_destino]["title"] = cabeza + (f" · {resto[1]}" if len(resto) > 1 else "")
-        mensajes.update(suyo)
+    # Del reclamo al cierre, todo dentro de un try: si algo revienta en el
+    # medio, los reclamos quedarían `claimed`, el toque siguiente no los
+    # volvería a tomar por 5 minutos y el panel diría «ya les llegó a todos»
+    # sin que haya salido nada (revisión de la vigésima auditoría). Se cierran
+    # como fallidos —que se pueden volver a reclamar— y se dice.
+    try:
+        mensajes = {}
+        for uid_destino, lista in suyos.items():
+            membresia = [{"league_id": league_id, "user_id": uid_destino,
+                          "tournament_id": liga["tournament_id"]}]
+            suyo = armar_mensajes(lista, membresia, predicciones)
+            # Si a esta persona ya se le había avisado parte de lo de hoy, «Hoy
+            # hay 1 partido» sería falso: hoy se juegan más. Se dice que son
+            # NUEVOS. Y la cola («te falta N») se cuenta sobre TODOS los
+            # abiertos de hoy, no solo los nuevos: con el 294 sin predecir y el
+            # nuevo ya predicho, decía «Ya predijiste todo» (revisión de la
+            # vigésima auditoría).
+            if uid_destino in suyo and len(lista) < candidatas_por_persona.get(uid_destino, 0):
+                n = len(lista)
+                cabeza = "⚽ 1 partido nuevo hoy" if n == 1 else f"⚽ {n} partidos nuevos hoy"
+                completo = armar_mensajes(abiertos, membresia, predicciones).get(uid_destino)
+                resto = (completo or suyo[uid_destino])["title"].split(" · ", 1)
+                suyo[uid_destino]["title"] = cabeza + (f" · {resto[1]}" if len(resto) > 1 else "")
+            mensajes.update(suyo)
 
-    resultado = await enviar_push_personalizado(supabase, mensajes, detallado=True)
+        resultado = await enviar_push_personalizado(supabase, mensajes, detallado=True)
+    except Exception:
+        logger.exception("Aviso a la quiniela: falló el envío después de reclamar")
+        cerrar_reclamos(supabase, tokens, {}, ahora=ahora)
+        raise HTTPException(status_code=502,
+                            detail="No se pudo mandar el aviso. Probá de nuevo en un rato.")
     por_usuario = resultado.pop("por_usuario", {})
     cierre = cerrar_reclamos(supabase, tokens, por_usuario, ahora=ahora)
 
@@ -675,7 +687,25 @@ async def notify_daily_league(
     }
     salida["sin_dispositivo"] = salida.get("sin_dispositivo", 0) + sin_dispositivo_previo
     if not mensajes and salida["ya_avisados"]:
+        # «Ya les llegó» solo si consta entregado. Un reclamo todavía `claimed`
+        # es de otro toque que está mandando ahora mismo (o de uno que se cayó
+        # y vence en 5 minutos): afirmar que llegó sería mentir.
         salida["mensaje"] = "Ya les había llegado este aviso a todos: no se repite."
+        try:
+            en_curso = (
+                supabase.table("notification_deliveries").select("user_id")
+                .eq("tipo", TIPO_RESUMEN_MANUAL).eq("league_id", league_id)
+                .eq("status", "claimed")
+                .in_("match_id", [p["id"] for p in abiertos]).limit(1000).execute().data or []
+            )
+        except Exception:
+            logger.exception("Aviso a la quiniela: no se pudo leer el estado de los reclamos")
+            en_curso = None
+        if en_curso is None:
+            salida["mensaje"] = "Ya se les mandó este aviso a todos (o se está mandando): no se repite."
+        elif en_curso:
+            salida["mensaje"] = ("Este aviso se está mandando ahora mismo (lo tocó otro admin): "
+                                 "no se repite. Si en unos minutos no llegó, volvé a tocar.")
     logger.info("Aviso a la quiniela: %s", salida)
     return salida
 
