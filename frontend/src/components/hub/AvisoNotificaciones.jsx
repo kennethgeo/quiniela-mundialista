@@ -44,7 +44,9 @@ export default function AvisoNotificaciones () {
       // «Activo» = suscripción en el navegador Y fila en la base a nombre de
       // esta cuenta (novena auditoría). Solo la primera dejaba callado el
       // aviso a quien el backend no le puede escribir.
-      const suscrito = p === 'granted' ? await avisosActivos(profile.id) : false
+      // `() => vigente`: si la pantalla se va (o cambia la cuenta) a mitad de
+      // la revisión, la librería deja de tocar el navegador, no solo el estado.
+      const suscrito = p === 'granted' ? await avisosActivos(profile.id, () => vigente) : false
       if (!vigente) return
       const s = situacionAvisos({
         soporta: soportaPush(), iosSinInstalar: necesitaInstalarPrimero(), permiso: p, suscrito,

@@ -10,31 +10,18 @@
    grupo no le llegaba ningún aviso. Con los avisos ya activos se achica a una
    línea de confirmación: una vez resuelto, no tiene por qué ocupar la pantalla.
 
-   Lo propio de este componente es la AUTO-SANACIÓN: si el permiso sigue
-   concedido pero la suscripción se perdió —pasa al actualizar la app o el
-   service worker— se vuelve a suscribir en silencio. Sin eso alguien se queda
-   sin avisos sin haber tocado nada y sin manera de notarlo. */
+   Al abrir corre la AUTO-SANACIÓN (`revisarAvisos`, la misma que el Hub): si
+   el permiso sigue concedido pero la suscripción se perdió —pasa al
+   actualizar la app o el service worker— se vuelve a suscribir en silencio.
+   Sin eso alguien se queda sin avisos sin haber tocado nada y sin manera de
+   notarlo. Lo propio de este componente es mostrar por qué no quedó activo. */
 import { useState, useEffect } from 'react'
 import { Bell, BellOff, Loader2, Check, Sun, Clock, Share, Lock } from 'lucide-react'
-import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import {
-  soportaPush, activarPush, desactivarPush, guardarSuscripcion, swListo,
-  cuentaPidioAvisos, marcarAvisosDeCuenta, registrada, reemplazarAjena,
-  urlBase64ToUint8Array, VAPID_PUBLIC_KEY, estadoPermiso, necesitaInstalarPrimero, cerrandoSesion,
+  soportaPush, activarPush, desactivarPush, revisarAvisos, estadoPermiso, necesitaInstalarPrimero,
 } from '../../lib/notificaciones'
 import { situacionAvisos, olvidarPospuesto } from '../../lib/avisoPush'
-
-/* ¿La llave de la suscripción difiere POSITIVAMENTE de la actual? Si no se
-   puede saber (el navegador no la expone) devolvemos false para NO migrar: si
-   no, se re-suscribiría en cada carga y los endpoints cambiarían sin parar. */
-function llaveDistinta (existente, actual) {
-  if (!existente) return false
-  const a = new Uint8Array(existente)
-  if (a.length !== actual.length) return true
-  for (let i = 0; i < a.length; i++) if (a[i] !== actual[i]) return true
-  return false
-}
 
 export default function PushNotificationToggle () {
   const { profile } = useAuth()
@@ -50,100 +37,21 @@ export default function PushNotificationToggle () {
   useEffect(() => {
     let vigente = true
 
+    /* La MISMA vía que el Hub (`revisarAvisos`, revisión de la vigésima
+       auditoría): antes el Perfil tenía su copia y, con la fila borrada por el
+       backend, volvía a guardar el mismo endpoint muerto mientras el Hub
+       suscribía de nuevo. Lo único propio de acá es mostrar el error. */
     const revisar = async () => {
+      if (!soportaPush()) { setLoading(false); setRevisado(true); return }
+      // Sin perfil todavía no se sabe de quién es nada: se espera a que llegue
+      // (el efecto vuelve a correr), sin dejar el botón en «Un momento…».
+      if (!profile?.id) { setLoading(false); return }
       try {
-        if (!soportaPush()) return
-        // Con límite: sin él, un service worker que nunca se pone listo
-        // dejaba el botón en «Un momento…» para siempre (novena auditoría).
-        const registration = await swListo()
-        if (!registration) {
-          if (vigente) {
-            setIsSubscribed(false)
-            setError('El navegador no terminó de preparar los avisos. Recargá la página y probá de nuevo.')
-          }
-          return
+        const { activo, error: aviso } = await revisarAvisos(profile.id, () => vigente)
+        if (vigente) {
+          setIsSubscribed(activo)
+          if (aviso) setError(aviso)
         }
-        const actual = urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
-        let sub = await registration.pushManager.getSubscription()
-
-        // Auto-sanación: permiso concedido pero sin suscripción.
-        // Nunca mientras se cierra sesión en esta u otra pestaña (undécima
-        // auditoría): re-suscribiría el dispositivo de quien se está yendo.
-        // Y solo para una cuenta que los PIDIÓ acá y no los desactivó: el
-        // permiso es del navegador, no de la persona (28 sep 2026).
-        if (!sub && profile?.id && Notification.permission === 'granted' && !cerrandoSesion() &&
-            cuentaPidioAvisos(profile.id)) {
-          try {
-            sub = await registration.pushManager.subscribe({
-              userVisibleOnly: true, applicationServerKey: actual,
-            })
-          } catch (e) { console.error('Auto-resuscripción falló:', e) }
-        }
-        if (!sub) { if (vigente) setIsSubscribed(false); return }
-
-        // Llave VAPID vieja: migrar.
-        if (profile?.id && Notification.permission === 'granted' &&
-            llaveDistinta(sub.options?.applicationServerKey, actual)) {
-          try {
-            const viejo = sub.endpoint
-            await sub.unsubscribe()
-            await supabase.from('push_subscriptions').delete().eq('endpoint', viejo)
-            sub = await registration.pushManager.subscribe({
-              userVisibleOnly: true, applicationServerKey: actual,
-            })
-          } catch (e) {
-            console.error('Error migrando suscripción push:', e)
-            if (vigente) setIsSubscribed(false)
-            return
-          }
-        }
-
-        // Por si se perdió la fila en la base. Es idempotente. Si falla, NO
-        // está activo: el backend manda a lo que hay en la base, no a lo que
-        // tiene el navegador. Antes el error iba solo a la consola y la
-        // tarjeta podía seguir diciendo «activados». Durante un cierre de
-        // sesión no se toca nada (undécima auditoría).
-        if (cerrandoSesion()) return
-        // Una suscripción viva que no es de esta cuenta y que esta cuenta no
-        // pidió es de otra persona: se da de baja, no se la apropia
-        // (auditoría 19). La propia (fila en la base) sigue como siempre.
-        if (profile?.id && !cuentaPidioAvisos(profile.id)) {
-          // `null` = no se pudo saber (red, 5xx, token). Eso NO es «es de otra
-          // persona»: antes contaba como ajena y daba de baja los avisos de
-          // quien los activó antes del 28 sep con solo abrir el Perfil con
-          // mala señal (10 oct 2026). Sin saber, no se toca nada.
-          const mia = await registrada(profile.id, sub.endpoint).catch(() => null)
-          if (mia === null) {
-            if (vigente) setIsSubscribed(false)
-            return
-          }
-          if (!mia) {
-            try { await sub.unsubscribe() } catch { /* se reintenta la próxima vez */ }
-            if (vigente) setIsSubscribed(false)
-            return
-          }
-        }
-        if (profile?.id) {
-          try {
-            try {
-              await guardarSuscripcion(profile.id, sub)
-            } catch (e) {
-              // Ajena pero esta cuenta los pidió acá: se reemplaza (11 oct 2026).
-              if (!e?.ajena || !(await reemplazarAjena(profile.id, sub))) throw e
-            }
-            marcarAvisosDeCuenta(profile.id, true)
-          } catch (e) {
-            console.error('No se pudo registrar la suscripción:', e)
-            if (vigente) {
-              setIsSubscribed(false)
-              setError(e?.message?.startsWith('Este dispositivo')
-                ? e.message
-                : 'No pudimos registrar este dispositivo. Tocá «Activar avisos» para reintentar.')
-            }
-            return
-          }
-        }
-        if (vigente) setIsSubscribed(true)
       } catch (err) {
         console.error('Error checking push subscription:', err)
         if (vigente) setIsSubscribed(false)

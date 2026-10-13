@@ -223,16 +223,20 @@ test('iPhone sin instalar: el aviso sale y explica que hay que instalar', async 
    a quien el backend no le puede escribir. */
 async function suscritoEnElNavegador (page) {
   await page.addInitScript(() => {
+    const crear = (endpoint) => ({
+      endpoint,
+      unsubscribe: async () => { window.__bajaNavegador = true; return true },
+      toJSON: () => ({ endpoint, keys: { p256dh: 'a', auth: 'b' } }),
+    })
+    let actual = crear('https://ejemplo/x')
     Object.defineProperty(navigator, 'serviceWorker', {
       configurable: true,
       get: () => ({
         ready: Promise.resolve({
           pushManager: {
-            getSubscription: async () => ({
-              endpoint: 'https://ejemplo/x',
-              unsubscribe: async () => { window.__bajaNavegador = true; return true },
-              toJSON: () => ({ endpoint: 'https://ejemplo/x', keys: { p256dh: 'a', auth: 'b' } }),
-            }),
+            getSubscription: async () => actual,
+            // Una suscripción nueva trae un endpoint nuevo, como en el navegador.
+            subscribe: async () => { actual = crear('https://ejemplo/nuevo'); return actual },
           },
         }),
       }),
@@ -256,15 +260,20 @@ test('suscrito en el navegador y sin fila, pero se puede guardar: se sana solo y
   await suscritoEnElNavegador(page)
   // La cuenta los activó en este dispositivo (auditoría 19): solo así se sana sola.
   await page.addInitScript((id) => localStorage.setItem(`avisosPush:activos:${id}`, '1'), USUARIO.id)
-  let insertados = 0
+  const insertados = []
   await page.route('**://pruebas.supabase.co/rest/v1/push_subscriptions**', (route) => {
-    if (route.request().method() === 'POST') insertados++
+    if (route.request().method() === 'POST') insertados.push(JSON.parse(route.request().postData()).endpoint)
     return route.fulfill({ status: route.request().method() === 'POST' ? 201 : 200, contentType: 'application/json', body: '[]' })
   })
   await page.goto('/')
   await expect(page.getByRole('heading', { name: 'Mis quinielas' })).toBeVisible({ timeout: 10000 })
   await expect(decidioNoOfrecer(page)).toHaveCount(1, { timeout: 10000 })
-  expect(insertados).toBeGreaterThan(0)
+  // Se sana con una suscripción NUEVA, no volviendo a guardar el endpoint
+  // cuya fila faltaba: casi siempre la borró el backend porque el proveedor
+  // lo rechazó, y volver a guardarlo traería una fila muerta (vigésima
+  // auditoría; ver llave-vieja-hub.spec.js).
+  expect(insertados).toContain('https://ejemplo/nuevo')
+  expect(insertados).not.toContain('https://ejemplo/x')
   await expect(aviso(page)).toHaveCount(0)
 })
 

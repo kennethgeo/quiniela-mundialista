@@ -296,16 +296,29 @@ async def alertar_puntajes_trabados(supabase) -> dict:
         _log.exception("No se pudo mandar la alerta de puntajes trabados")
         # El aviso no salió: se suelta el reclamo para reintentar en la pasada
         # siguiente, en vez de quedar callado 20 h (auditoría 19, migración 106).
-        try:
-            supabase.rpc("soltar_alertas_de_puntaje",
-                         {"p_ids": [f.get("match_id") for f in filas]}).execute()
-        except Exception:  # noqa: BLE001
-            _log.exception("Tampoco se pudo soltar el reclamo de la alerta")
+        _soltar_alertas(supabase, filas)
         return {"partidos": [f.get("match_id") for f in filas], "enviados": 0,
                 "error": f"{type(exc).__name__}: {exc}"}
     if not enviados:
-        _log.error("La alerta de puntajes trabados no llegó a ningún dispositivo de un admin")
+        # Que el envío no reviente NO es que haya llegado (revisión de Codex,
+        # 12 oct 2026): un admin sin dispositivos, o con todos rechazados,
+        # daba 0 sin excepción y el reclamo quedaba anotado 20 h —la alerta
+        # callada justo cuando no llegó—. Se suelta igual que una excepción.
+        # Las 20 h de silencio son solo para lo que SÍ llegó.
+        _log.error("La alerta de puntajes trabados no llegó a ningún dispositivo de un admin; "
+                   "se reintenta en la próxima pasada")
+        _soltar_alertas(supabase, filas)
+        return {"partidos": [f.get("match_id") for f in filas], "enviados": 0,
+                "error": "sin-entrega"}
     return {"partidos": [f.get("match_id") for f in filas], "enviados": enviados}
+
+
+def _soltar_alertas(supabase, filas) -> None:
+    try:
+        supabase.rpc("soltar_alertas_de_puntaje",
+                     {"p_ids": [f.get("match_id") for f in filas]}).execute()
+    except Exception:  # noqa: BLE001
+        _log.exception("Tampoco se pudo soltar el reclamo de la alerta")
 
 
 def _aplicar_puntaje(supabase, match: dict, puntos: list) -> str:

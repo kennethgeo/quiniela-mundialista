@@ -3,7 +3,7 @@ import { createContext, useContext, useState, useEffect, useCallback } from 'rea
 import { supabase } from '../lib/supabase'
 import { crearCargaDePerfil } from '../lib/cargaDePerfil'
 import { conLimite, describirFallo, registrarIntento } from '../lib/loginResiliente'
-import { olvidarDispositivo, bajaSinSesion, PRESUPUESTO_CIERRE_MS, marcarConservarAvisos, olvidarMarcaConservar, olvidarBajaPendiente, cancelarCierre } from '../lib/notificaciones'
+import { olvidarDispositivo, bajaSinSesion, PRESUPUESTO_CIERRE_MS, marcarConservarAvisos, olvidarMarcaConservar, olvidarBajaPendiente, cancelarCierre, fijarCuentaEnSesion } from '../lib/notificaciones'
 
 const AuthContext = createContext(null)
 
@@ -26,6 +26,9 @@ export function AuthProvider({ children }) {
     alFallar: () => console.warn('[perfil] No se pudo cargar el perfil de la sesión actual'),
   }))
   const asignarUsuario = useCallback((actual) => {
+    // Antes que React: una revisión de avisos de la cuenta anterior que siga
+    // esperando tiene que enterarse ya, no en el próximo render (Codex).
+    fijarCuentaEnSesion(actual?.id)
     if (cargaPerfil.cambiarUsuario(actual?.id)) setProfile(null)
     setUser(actual)
   }, [cargaPerfil])

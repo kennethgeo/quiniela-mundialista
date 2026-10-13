@@ -511,10 +511,22 @@ async def notify_daily_league(
     La comprobación se hace contra las tablas y no con es_admin_liga(): esa
     función mira auth.uid(), y el backend corre con service_role, donde
     auth.uid() es NULL — la RPC diría que no es admin siempre.
+
+    TOPE (vigésima auditoría): cada persona recibe este aviso UNA vez por
+    partido abierto de hoy, toque quien toque y las veces que sea. Lo arbitra
+    `claim_notification_deliveries` con el tipo «resumen-manual»; un envío que
+    falló se puede volver a reclamar con otro toque.
     """
     from datetime import datetime, timezone
-    from app.services.notifications import enviar_push_personalizado
-    from app.services.resumen_diario import armar_mensajes, ventana_del_dia
+    from app.services.notification_deliveries import (
+        TIPO_RESUMEN_MANUAL, cerrar_reclamos, reclamar_entregas,
+    )
+    from app.services.notifications import (
+        enviar_push_personalizado, usuarios_con_dispositivo,
+    )
+    from app.services.resumen_diario import (
+        armar_mensajes, entregas_recordatorio, ventana_del_dia,
+    )
 
     supabase = get_supabase()
     uid = user["sub"]
@@ -544,7 +556,21 @@ async def notify_daily_league(
         # esté probando UUIDs.
         raise HTTPException(status_code=404, detail="Quiniela no encontrada")
 
-    desde, hasta = ventana_del_dia(datetime.now(timezone.utc))
+    ahora = datetime.now(timezone.utc)
+
+    # Mismo corte que el resumen de las 6 am: una quiniela de un torneo
+    # TERMINADO no avisa nada (la liga tica reusa el mismo tournament_id
+    # temporada tras temporada).
+    activo = (
+        supabase.table("tournaments").select("id")
+        .eq("id", liga["tournament_id"]).neq("status", "finished")
+        .limit(1).execute().data or []
+    )
+    if not activo:
+        return {"status": "ok", "partidos": 0, "enviados": 0,
+                "mensaje": "El torneo de esta quiniela ya terminó"}
+
+    desde, hasta = ventana_del_dia(ahora)
     partidos = (
         supabase.table("matches")
         .select("id, tournament_id, home_team, away_team, kickoff_at, status")
@@ -558,6 +584,14 @@ async def notify_daily_league(
         return {"status": "ok", "partidos": 0, "enviados": 0,
                 "mensaje": "Hoy no hay partidos en esta quiniela"}
 
+    # Solo los que todavía se pueden predecir: es lo mismo que exige el
+    # reclamo en la base (82/108), y un aviso de un partido cerrado no le pide
+    # nada a nadie.
+    abiertos = [p for p in partidos if _sigue_abierto(p, ahora)]
+    if not abiertos:
+        return {"status": "ok", "partidos": len(partidos), "personas": 0, "enviados": 0,
+                "mensaje": "Las predicciones de los partidos de hoy ya cerraron"}
+
     filas = (
         supabase.table("league_members").select("league_id, user_id")
         .eq("league_id", league_id).limit(20000).execute().data or []
@@ -567,19 +601,100 @@ async def notify_daily_league(
     predicciones = (
         supabase.table("predictions").select("user_id, league_id, match_id")
         .eq("league_id", league_id)
-        .in_("match_id", [p["id"] for p in partidos]).limit(20000).execute().data or []
+        .in_("match_id", [p["id"] for p in abiertos]).limit(20000).execute().data or []
     )
 
-    mensajes = armar_mensajes(partidos, membresias, predicciones)
-    resultado = await enviar_push_personalizado(supabase, mensajes)
+    # Una UNIDAD por (persona, partido) para poder deduplicar contra la
+    # bitácora de la 82: el botón no tenía tope y cada toque —o cada uno de los
+    # admins— volvía a mandar el resumen a todo el grupo (vigésima auditoría).
+    entregas = entregas_recordatorio(abiertos, membresias, predicciones)
 
-    return {
+    # Quien no tiene dispositivo no se reclama: si se reclamara quedaría
+    # fallido, y el día que active los avisos no le llegaría este resumen
+    # hasta otro toque igual. Si la consulta falla se sigue sin filtrar.
+    sin_dispositivo_previo = 0
+    try:
+        con_dispositivo = usuarios_con_dispositivo(supabase, [e["user_id"] for e in entregas])
+        sin_dispositivo_previo = len({e["user_id"] for e in entregas} - con_dispositivo)
+        entregas = [e for e in entregas if e["user_id"] in con_dispositivo]
+    except Exception:
+        logger.exception("Aviso a la quiniela: no se pudo filtrar por dispositivo")
+
+    # SIN la bitácora NO se manda, al revés que el recordatorio del saque: este
+    # botón es un refuerzo del resumen de las 6 am, y mandar sin deduplicar es
+    # justo el agujero que esto cierra. Mejor un «probá de nuevo» que un grupo
+    # que apaga los avisos por repetidos.
+    try:
+        reclamadas, tokens = reclamar_entregas(supabase, entregas, TIPO_RESUMEN_MANUAL)
+    except Exception:
+        logger.exception("Aviso a la quiniela: falló el reclamo; no se envía nada")
+        raise HTTPException(status_code=503,
+                            detail="No se pudo registrar el envío. Probá de nuevo en un rato.")
+
+    # El texto sale de lo RECLAMADO: un partido que ya se le avisó a esa
+    # persona no se vuelve a contar.
+    suyos = {}
+    for e in reclamadas:
+        suyos.setdefault(e["user_id"], []).append(e["partido"])
+    candidatas_por_persona = {}
+    for e in entregas:
+        candidatas_por_persona[e["user_id"]] = candidatas_por_persona.get(e["user_id"], 0) + 1
+    mensajes = {}
+    for uid_destino, lista in suyos.items():
+        suyo = armar_mensajes(
+            lista,
+            [{"league_id": league_id, "user_id": uid_destino,
+              "tournament_id": liga["tournament_id"]}],
+            predicciones,
+        )
+        # Si a esta persona ya se le había avisado parte de lo de hoy, «Hoy hay
+        # 1 partido» sería falso: hoy se juegan más. Se dice que son NUEVOS
+        # (revisión de la vigésima auditoría).
+        if uid_destino in suyo and len(lista) < candidatas_por_persona.get(uid_destino, 0):
+            n = len(lista)
+            cabeza = "⚽ 1 partido nuevo hoy" if n == 1 else f"⚽ {n} partidos nuevos hoy"
+            resto = suyo[uid_destino]["title"].split(" · ", 1)
+            suyo[uid_destino]["title"] = cabeza + (f" · {resto[1]}" if len(resto) > 1 else "")
+        mensajes.update(suyo)
+
+    resultado = await enviar_push_personalizado(supabase, mensajes, detallado=True)
+    por_usuario = resultado.pop("por_usuario", {})
+    cierre = cerrar_reclamos(supabase, tokens, por_usuario, ahora=ahora)
+
+    candidatos = {e["user_id"] for e in entregas}
+    salida = {
+        **({"reclamos_sin_cerrar": cierre["sin_cerrar"]} if cierre["sin_cerrar"] else {}),
         "status": "ok",
         "quiniela": liga.get("name"),
         "partidos": len(partidos),
         "personas": len(mensajes),
+        # A quienes ya se les había mandado TODO lo de hoy: no se les repite.
+        "ya_avisados": len(candidatos - set(suyos)),
+        "omitidas_por_duplicado": len(entregas) - len(reclamadas),
         **resultado,
     }
+    salida["sin_dispositivo"] = salida.get("sin_dispositivo", 0) + sin_dispositivo_previo
+    if not mensajes and salida["ya_avisados"]:
+        salida["mensaje"] = "Ya les había llegado este aviso a todos: no se repite."
+    logger.info("Aviso a la quiniela: %s", salida)
+    return salida
+
+
+def _sigue_abierto(partido, ahora) -> bool:
+    """¿Todavía se puede predecir? (15 min antes del saque). El sync a veces
+    guarda la fecha sin zona: se asume UTC, como en el resto. Si no se puede
+    leer, se deja pasar y decide la base, que mira lo mismo."""
+    from datetime import datetime, timedelta  # como el resto del archivo: import local
+    if partido.get("status") in ("finished", "cancelled", "postponed"):
+        return False
+    texto = str(partido.get("kickoff_at") or "")
+    if texto and not (texto.endswith("Z") or "+" in texto[10:]):
+        texto += "Z"
+    try:
+        saque = datetime.fromisoformat(texto.replace("Z", "+00:00"))
+    except ValueError:
+        return True
+    return saque - timedelta(minutes=15) > ahora
 
 
 @router.post("/refresh-live")
