@@ -43,6 +43,27 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
   const [awayGoals, setAwayGoals] = useState(prediction?.away_goals_pred ?? 0)
   const [usePowerup, setUsePowerup] = useState(prediction?.use_powerup_x2 || false)
   const [penaltiesWinner, setPenaltiesWinner] = useState(prediction?.penalties_winner_pred || '')
+  /* Lo de arriba es el estado de EDICIÓN y nace de lo guardado. Si lo guardado
+     cambia después, se vuelve a tomar: la lista se dibuja sin esperar las
+     predicciones, y si llegaban tarde la tarjeta quedaba en 0-0 diciendo
+     «Actualizar predicción» — un toque PISABA lo guardado. Lo mismo al guardar
+     desde LLENAR. Se compara lo guardado de ESTE partido, así que una edición
+     sin guardar no se pierde por una relectura que no lo cambia. Lo destapó
+     `penales-en-la-ida.spec.js`, que fallaba una de cada veinte
+     (`tarjeta-sigue-lo-guardado.spec.js` lo fuerza). Ajuste durante el render,
+     no un efecto: así no se pinta ni un cuadro con los goles viejos. */
+  const guardado = prediction
+    ? [prediction.id, prediction.home_goals_pred, prediction.away_goals_pred,
+        prediction.penalties_winner_pred ?? '', prediction.use_powerup_x2 ? 1 : 0].join(':')
+    : 'sin'
+  const [guardadoVisto, setGuardadoVisto] = useState(guardado)
+  if (guardado !== guardadoVisto) {
+    setGuardadoVisto(guardado)
+    setHomeGoals(prediction?.home_goals_pred ?? 0)
+    setAwayGoals(prediction?.away_goals_pred ?? 0)
+    setUsePowerup(prediction?.use_powerup_x2 || false)
+    setPenaltiesWinner(prediction?.penalties_winner_pred || '')
+  }
   const [countdown, setCountdown] = useState('')
 
   /* Se usa kickoffDate, LA regla de parseo, en vez de una copia propia.
@@ -140,6 +161,7 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
 
   return (
     <motion.div
+      data-partido={match.id}
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ opacity: { duration: 0.3 }, y: { duration: 0.3 } }}
