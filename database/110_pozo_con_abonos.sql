@@ -57,6 +57,19 @@
 -- AVISAR (`avisar_abono`)
 --   · Solo el propio miembro, con un monto > 0 que no pase lo que le falta.
 --   · `avisar_pago(…, false)` (retirar el aviso) ahora borra también el monto.
+--
+-- REVISIÓN ADVERSARIAL (13–14 oct 2026), antes de aplicarla:
+--   · Un aviso VIEJO (anterior a la confirmación: `confirmar_pago` no lo
+--     borraba; en Bundestica hay 1) volvía a aparecer como nuevo si la cuota
+--     subía o se quitaba el pago, y se confirmaba con un toque. Ahora cuenta
+--     solo el aviso vigente (`_aviso_de_pago_vigente`, sección 2b), y
+--     `confirmar_pago` limpia lo que ya no vale. No se toca ninguna fila.
+--   · `confirmar_abono` recibe también el AVISO que el admin vio
+--     (`p_aviso_visto`): si la persona lo retiró o lo cambió, se rechaza en vez
+--     de registrar lo de antes o borrar el nuevo sin que nadie lo vea.
+--   · El reparto exige números de JSON: "01" pasaba como otro 1.er puesto.
+--   · La 109 se niega a volver a correr con la 110 aplicada (le quitaría al
+--     historial la rama 'abono').
 -- =============================================================================
 
 BEGIN;
@@ -162,6 +175,34 @@ END;
 $function$;
 REVOKE ALL ON FUNCTION public.registrar_historial_pago() FROM PUBLIC, anon, authenticated;
 
+-- 2b. Cuándo un aviso sigue VIGENTE ---------------------------------------------
+-- Revisión del 13 oct: `confirmar_pago` (el de antes) no borraba el aviso, así
+-- que hay avisos VIEJOS, anteriores a la confirmación (en Bundestica, 1). La
+-- primera versión de la 110 los escondía solo mientras la persona estuviera
+-- al día: si la cuota subía, o si se quitaba el pago, el aviso viejo volvía a
+-- aparecer como nuevo —«avisó ₡5.000 · falta confirmar»— y el admin lo
+-- confirmaba con un toque. Plata que nadie avisó. Reproducido en un Postgres
+-- local con la forma de esa fila.
+-- Vigente = tiene monto (solo lo pone `avisar_abono`, y confirmar lo borra), o
+-- no hay nada confirmado, o es POSTERIOR a la confirmación (un abono no mueve
+-- `pago_confirmado_at`, así que un aviso nuevo después de un abono se ve).
+-- Una sola definición: la usan `league_pozo`, `confirmar_abono` y
+-- `confirmar_pago`. No se toca ninguna fila: el aviso viejo queda guardado y
+-- deja de contar.
+CREATE OR REPLACE FUNCTION public._aviso_de_pago_vigente(p_avisado_at timestamptz,
+                                                         p_avisado_monto numeric,
+                                                         p_confirmado_at timestamptz)
+RETURNS boolean
+LANGUAGE sql
+IMMUTABLE
+AS $function$
+  SELECT p_avisado_at IS NOT NULL
+     AND (p_avisado_monto IS NOT NULL OR p_confirmado_at IS NULL OR p_avisado_at > p_confirmado_at)
+$function$;
+-- Interna: la llaman funciones SECURITY DEFINER. Nadie más.
+REVOKE ALL ON FUNCTION public._aviso_de_pago_vigente(timestamptz, numeric, timestamptz)
+  FROM PUBLIC, anon, authenticated;
+
 -- 3. Avisar un abono -------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.avisar_abono(p_league_id uuid, p_monto numeric)
 RETURNS void
@@ -218,9 +259,60 @@ BEGIN
   WHERE league_id = p_league_id AND user_id = v_uid;
 END; $function$;
 
+-- `confirmar_pago` (el de un toque, que usan la pantalla de antes y la caída
+-- sin la 110) ahora también resuelve el aviso: confirmar la cuota completa lo
+-- borra, y quitar un pago borra el aviso que ya no estaba vigente (si no,
+-- volvería a aparecer como nuevo). Un aviso vigente —hecho después— queda: es
+-- alguien diciendo que pagó, y quitar otro pago no lo desmiente. Lo demás es
+-- idéntico a producción (leído con pg_get_functiondef el 14 oct 2026).
+CREATE OR REPLACE FUNCTION public.confirmar_pago(p_league_id uuid, p_user_id uuid, p_confirmado boolean DEFAULT true)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $function$
+DECLARE v_uid uuid := auth.uid(); v_cuota numeric; v_moneda text;
+BEGIN
+  IF v_uid IS NULL THEN RAISE EXCEPTION 'No autenticado'; END IF;
+  IF NOT public.es_admin_liga(p_league_id, v_uid) THEN
+    RAISE EXCEPTION 'Solo un administrador puede confirmar pagos';
+  END IF;
+  IF p_user_id = v_uid THEN RAISE EXCEPTION 'No podés confirmar tu propio pago'; END IF;
+  -- Primero la quiniela (choca con borrarla y con cambiar la moneda), y la
+  -- cuota se lee DESPUÉS del bloqueo.
+  SELECT cuota, COALESCE(moneda, 'CRC') INTO v_cuota, v_moneda
+    FROM public.leagues WHERE id = p_league_id FOR SHARE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'Esa quiniela no existe'; END IF;
+  IF p_confirmado THEN
+    -- Solo si NO estaba confirmado: reconfirmar no toca monto, moneda, fecha ni autor.
+    UPDATE public.league_members SET
+      pago_confirmado_at     = now(),
+      pago_confirmado_por    = v_uid,
+      pago_confirmado_monto  = v_cuota,
+      pago_confirmado_moneda = v_moneda,
+      pago_avisado_at        = NULL,
+      pago_avisado_monto     = NULL
+    WHERE league_id = p_league_id AND user_id = p_user_id AND pago_confirmado_at IS NULL;
+  ELSE
+    UPDATE public.league_members SET
+      pago_confirmado_at = NULL, pago_confirmado_por = NULL,
+      pago_confirmado_monto = NULL, pago_confirmado_moneda = NULL,
+      pago_avisado_at = CASE WHEN public._aviso_de_pago_vigente(pago_avisado_at, pago_avisado_monto, pago_confirmado_at)
+                             THEN pago_avisado_at END,
+      pago_avisado_monto = CASE WHEN public._aviso_de_pago_vigente(pago_avisado_at, pago_avisado_monto, pago_confirmado_at)
+                                THEN pago_avisado_monto END
+    WHERE league_id = p_league_id AND user_id = p_user_id;
+  END IF;
+END; $function$;
+
 -- 4. Confirmar un abono ----------------------------------------------------------
+-- Una primera versión de esta migración tenía cuatro parámetros (sin el aviso
+-- visto). Nunca llegó a producción, pero si alguien la corrió, se borra: si no,
+-- quedarían las dos y la vieja seguiría confirmando sin mirar el aviso.
+DROP FUNCTION IF EXISTS public.confirmar_abono(uuid, uuid, numeric, numeric);
 CREATE OR REPLACE FUNCTION public.confirmar_abono(p_league_id uuid, p_user_id uuid,
-                                                  p_monto numeric, p_total_visto numeric)
+                                                  p_monto numeric, p_total_visto numeric,
+                                                  p_aviso_visto numeric)
 RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -234,6 +326,7 @@ DECLARE
   v_monto numeric := round(p_monto, 2);
   v_antes numeric;
   v_total numeric;
+  v_aviso numeric;
 BEGIN
   IF v_uid IS NULL THEN RAISE EXCEPTION 'No autenticado'; END IF;
   IF NOT public.es_admin_liga(p_league_id, v_uid) THEN
@@ -259,6 +352,18 @@ BEGIN
   -- confirmó este aviso (o fue un doble toque), sumar otra vez lo duplicaría.
   IF p_total_visto IS NULL OR round(p_total_visto, 2) <> v_antes THEN
     RAISE EXCEPTION 'El pago de esta persona cambió mientras tanto (ahora tiene % confirmado). Actualizá y volvé a intentar.', v_antes;
+  END IF;
+  -- Y el AVISO que vio (revisión del 13 oct): si la persona lo retiró, o lo
+  -- cambió porque pagó otra cosa, confirmar lo de antes registraría plata que
+  -- ya nadie afirma —o borraría sin que nadie lo vea el aviso nuevo—. Se
+  -- compara con el aviso tal como lo muestra `league_pozo`: el monto, o «lo
+  -- que falta» si no tiene; NULL si no se muestra ninguno. NULL en
+  -- `p_aviso_visto` = el admin no veía ningún aviso.
+  v_aviso := CASE WHEN public._aviso_de_pago_vigente(v_m.pago_avisado_at, v_m.pago_avisado_monto, v_m.pago_confirmado_at)
+                       AND v_antes < v_cuota
+                  THEN COALESCE(v_m.pago_avisado_monto, v_cuota - v_antes) END;
+  IF round(v_aviso, 2) IS DISTINCT FROM round(p_aviso_visto, 2) THEN
+    RAISE EXCEPTION 'El aviso de esta persona cambió mientras tanto. Actualizá y volvé a intentar.';
   END IF;
   v_total := v_antes + v_monto;
   IF v_total > v_cuota THEN
@@ -304,7 +409,9 @@ BEGIN
     SELECT u.id AS user_id, u.display_name, u.avatar_url,
            (u.id = v_l.admin_id OR lm.es_admin) AS es_admin,
            (u.id = v_uid) AS soy_yo,
-           lm.pago_avisado_at IS NOT NULL AS avisado,
+           -- Solo el aviso VIGENTE (2b): uno viejo, anterior a la confirmación,
+           -- no reaparece aunque la cuota suba o se quite el pago.
+           public._aviso_de_pago_vigente(lm.pago_avisado_at, lm.pago_avisado_monto, lm.pago_confirmado_at) AS avisado,
            lm.pago_avisado_monto AS avisado_monto,
            lm.pago_confirmado_at IS NOT NULL AS confirmado,
            -- Lo que se confirmó, no lo que la cuota dice HOY. Un pago de antes
@@ -327,8 +434,7 @@ BEGIN
          COALESCE(jsonb_agg(jsonb_build_object(
            'user_id', user_id, 'display_name', display_name, 'avatar_url', avatar_url,
            'es_admin', es_admin, 'soy_yo', soy_yo,
-           -- Un aviso de alguien que ya está al día es viejo (se confirmó con
-           -- el botón de antes, que no lo borraba): no se muestra.
+           -- Al día no hay nada que avisar (la cuota pudo bajar después).
            'aviso', avisado AND NOT al_dia,
            'aviso_monto', CASE WHEN avisado AND NOT al_dia THEN avisado_monto END,
            'confirmado', confirmado, 'monto', monto, 'falta', falta, 'al_dia', al_dia,
@@ -389,20 +495,23 @@ BEGIN
 
     IF EXISTS (SELECT 1 FROM jsonb_array_elements(p_reparto) e
                WHERE jsonb_typeof(e) <> 'object'
-                  OR (e->>'puesto') IS NULL OR (e->>'puesto') !~ '^[0-9]+$' OR (e->>'puesto')::int < 1
+                  -- NÚMEROS de JSON, no textos (revisión del 13 oct): con el
+                  -- texto, "01" pasaba como un 1.º puesto distinto de 1.
+                  OR jsonb_typeof(e->'puesto') IS DISTINCT FROM 'number'
+                  OR (e->>'puesto') !~ '^[0-9]{1,4}$' OR (e->>'puesto')::int < 1
                   -- Uno y solo uno de los dos.
                   OR ((e ? 'porcentaje') = (e ? 'monto'))
-                  OR ((e ? 'porcentaje') AND ((e->>'porcentaje') IS NULL
+                  OR ((e ? 'porcentaje') AND (jsonb_typeof(e->'porcentaje') IS DISTINCT FROM 'number'
                         OR (e->>'porcentaje') !~ '^[0-9]+(\.[0-9]+)?$'
                         OR (e->>'porcentaje')::numeric > 100))
-                  OR ((e ? 'monto') AND ((e->>'monto') IS NULL
+                  OR ((e ? 'monto') AND (jsonb_typeof(e->'monto') IS DISTINCT FROM 'number'
                         OR (e->>'monto') !~ '^[0-9]+(\.[0-9]{1,2})?$'
                         OR (e->>'monto')::numeric <= 0
                         OR (e->>'monto')::numeric > 100000000))) THEN
       RAISE EXCEPTION 'Cada puesto necesita un número entero >= 1 y, o un porcentaje entre 0 y 100, o un monto mayor que cero';
     END IF;
 
-    SELECT count(*), count(DISTINCT (e->>'puesto')),
+    SELECT count(*), count(DISTINCT (e->>'puesto')::int),
            count(*) FILTER (WHERE e ? 'monto'), count(*) FILTER (WHERE e ? 'porcentaje'),
            COALESCE(SUM((e->>'porcentaje')::numeric) FILTER (WHERE e ? 'porcentaje'), 0)
       INTO v_n, v_distintos, v_con_monto, v_con_porcentaje, v_suma
@@ -428,15 +537,17 @@ END; $function$;
 
 -- 6. Permisos: lo nuevo nace cerrado (109); se otorga lo que la app llama. ------
 REVOKE ALL ON FUNCTION public.avisar_abono(uuid, numeric) FROM PUBLIC, anon;
-REVOKE ALL ON FUNCTION public.confirmar_abono(uuid, uuid, numeric, numeric) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.confirmar_abono(uuid, uuid, numeric, numeric, numeric) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.avisar_abono(uuid, numeric) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.confirmar_abono(uuid, uuid, numeric, numeric) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.confirmar_abono(uuid, uuid, numeric, numeric, numeric) TO authenticated;
 -- Las redefinidas ya tienen su permiso en producción (CREATE OR REPLACE lo
 -- conserva), pero en una base nueva nacerían cerradas por la 109: se dice.
 REVOKE ALL ON FUNCTION public.avisar_pago(uuid, boolean), public.league_pozo(uuid),
-  public.set_league_pozo(uuid, numeric, text, jsonb) FROM PUBLIC, anon;
+  public.set_league_pozo(uuid, numeric, text, jsonb),
+  public.confirmar_pago(uuid, uuid, boolean) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.avisar_pago(uuid, boolean), public.league_pozo(uuid),
-  public.set_league_pozo(uuid, numeric, text, jsonb) TO authenticated;
+  public.set_league_pozo(uuid, numeric, text, jsonb),
+  public.confirmar_pago(uuid, uuid, boolean) TO authenticated;
 
 -- Comprobaciones ---------------------------------------------------------------
 DO $comprobar$
@@ -455,17 +566,33 @@ BEGIN
 
   -- Permisos: el cliente llama las dos nuevas; anon ninguna; el trigger nadie.
   IF NOT has_function_privilege('authenticated', 'public.avisar_abono(uuid,numeric)', 'EXECUTE')
-     OR NOT has_function_privilege('authenticated', 'public.confirmar_abono(uuid,uuid,numeric,numeric)', 'EXECUTE') THEN
+     OR NOT has_function_privilege('authenticated', 'public.confirmar_abono(uuid,uuid,numeric,numeric,numeric)', 'EXECUTE') THEN
     RAISE EXCEPTION '110: el cliente no puede avisar ni confirmar abonos'; END IF;
   IF has_function_privilege('anon', 'public.avisar_abono(uuid,numeric)', 'EXECUTE')
-     OR has_function_privilege('anon', 'public.confirmar_abono(uuid,uuid,numeric,numeric)', 'EXECUTE')
-     OR has_function_privilege('authenticated', 'public.registrar_historial_pago()', 'EXECUTE') THEN
+     OR has_function_privilege('anon', 'public.confirmar_abono(uuid,uuid,numeric,numeric,numeric)', 'EXECUTE')
+     OR has_function_privilege('authenticated', 'public.registrar_historial_pago()', 'EXECUTE')
+     OR has_function_privilege('authenticated', 'public._aviso_de_pago_vigente(timestamptz,numeric,timestamptz)', 'EXECUTE')
+     OR has_function_privilege('anon', 'public._aviso_de_pago_vigente(timestamptz,numeric,timestamptz)', 'EXECUTE') THEN
     RAISE EXCEPTION '110: quedó algo abierto de más'; END IF;
+  -- Una sola versión de confirmar_abono: la de cuatro parámetros no confirma
+  -- mirando el aviso.
+  IF (SELECT count(*) FROM pg_proc WHERE proname = 'confirmar_abono'
+        AND pronamespace = 'public'::regnamespace) <> 1 THEN
+    RAISE EXCEPTION '110: quedó más de una confirmar_abono'; END IF;
+  -- Cuándo un aviso sigue vigente (2b), con la forma de la fila real de
+  -- Bundestica: avisó el 20, se le confirmó el 21.
+  IF public._aviso_de_pago_vigente('2026-09-20', NULL, '2026-09-21')
+     OR NOT public._aviso_de_pago_vigente('2026-09-22', NULL, '2026-09-21')
+     OR NOT public._aviso_de_pago_vigente('2026-09-20', 5000, '2026-09-21')
+     OR NOT public._aviso_de_pago_vigente('2026-09-20', NULL, NULL)
+     OR public._aviso_de_pago_vigente(NULL, NULL, NULL) THEN
+    RAISE EXCEPTION '110: la regla del aviso vigente no da lo esperado'; END IF;
   -- Las redefinidas conservan su permiso (CREATE OR REPLACE).
   IF NOT has_function_privilege('authenticated', 'public.avisar_pago(uuid,boolean)', 'EXECUTE')
      OR NOT has_function_privilege('authenticated', 'public.league_pozo(uuid)', 'EXECUTE')
-     OR NOT has_function_privilege('authenticated', 'public.set_league_pozo(uuid,numeric,text,jsonb)', 'EXECUTE') THEN
-    RAISE EXCEPTION '110: avisar_pago, league_pozo o set_league_pozo sin permiso del cliente'; END IF;
+     OR NOT has_function_privilege('authenticated', 'public.set_league_pozo(uuid,numeric,text,jsonb)', 'EXECUTE')
+     OR NOT has_function_privilege('authenticated', 'public.confirmar_pago(uuid,uuid,boolean)', 'EXECUTE') THEN
+    RAISE EXCEPTION '110: avisar_pago, league_pozo, set_league_pozo o confirmar_pago sin permiso del cliente'; END IF;
   -- El cliente no escribe la columna nueva (la 85 le quitó toda escritura).
   IF has_column_privilege('authenticated', 'public.league_members', 'pago_avisado_monto', 'UPDATE')
      OR has_column_privilege('authenticated', 'public.league_members', 'pago_avisado_monto', 'INSERT') THEN

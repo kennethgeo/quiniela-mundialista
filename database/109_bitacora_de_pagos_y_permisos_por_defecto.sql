@@ -120,6 +120,24 @@
 
 BEGIN;
 
+-- GUARDA (13 oct 2026, revisión de la 110): la 110 redefine
+-- `registrar_historial_pago` con la rama 'abono'. Volver a correr ESTA
+-- migración pondría de vuelta la versión sin abonos, y cada abono quedaría
+-- como «quitado + confirmado» sin decir cuánto se sumó ni cuánto lleva cada
+-- quien. Corta la conexión como las guardas de la 61 y la 82: un RAISE solo
+-- se lo salta `psql -v ON_ERROR_ROLLBACK=on`.
+DO $guarda$
+BEGIN
+  -- `to_regclass` da NULL sin la tabla (primera corrida) y no hay fila.
+  IF EXISTS (SELECT 1 FROM pg_attribute
+              WHERE attrelid = to_regclass('public.historial_pagos')
+                AND attname = 'monto_total' AND NOT attisdropped) THEN
+    RAISE WARNING 'La 110 ya está aplicada: volver a correr la 109 le quitaría al historial los abonos. Se corta la conexión.';
+    PERFORM pg_terminate_backend(pg_backend_pid());
+  END IF;
+END
+$guarda$;
+
 -- Si una tabla caliente está tomada (un guardado largo, el sync), mejor fallar
 -- y reintentar que quedar en la cola con un candado exclusivo pedido: mientras
 -- espera, bloquea a todos los que lleguen después, lecturas incluidas.
