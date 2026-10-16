@@ -21,6 +21,7 @@ import { Zap, X, Loader2, Check, ListChecks } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { friendlySaveError } from '../../lib/saveError'
 import { ordenarLote } from '../../lib/loteJornada'
+import { tandaQueSeGuarda } from '../../lib/penales'
 
 const teamLabel = (t) => (t || '—')
 
@@ -69,8 +70,11 @@ export default function PredecirJornada({
         away_goals_pred: f.away,
         // La tanda de penales se sigue eligiendo en la tarjeta del partido: acá
         // no cabe sin volver la lista un formulario, y solo aplica a empates de
-        // eliminatoria. Se conserva lo que ya hubiera.
-        penalties_winner_pred: previas[f.match.id]?.penalties_winner_pred ?? null,
+        // eliminatoria que pueden ir a penales (no a una ida). Se conserva lo
+        // que ya hubiera, con la misma regla que la tarjeta (lib/penales.js):
+        // si el partido no puede ir a penales o ya no es un empate, va null.
+        penalties_winner_pred: tandaQueSeGuarda(f.match, f.home, f.away,
+          previas[f.match.id]?.penalties_winner_pred),
         use_powerup_x2: f.x2,
       })))
       const { error } = await supabase.from('predictions')

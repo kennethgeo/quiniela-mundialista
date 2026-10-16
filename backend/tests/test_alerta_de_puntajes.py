@@ -10,6 +10,8 @@ import logging
 import sys
 from pathlib import Path
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import app.services.scoring as scoring  # noqa: E402
@@ -53,14 +55,42 @@ class FalsaBase:
         self.trabados = list(trabados)
         self.falla_rpc = falla_rpc
         self.llamadas = []
+        self.reprogramadas = []
         self.users = [{"id": "admin", "is_admin": True}, {"id": "socio", "is_admin": False}]
 
     def rpc(self, nombre, args):
         return _Rpc(self, nombre, args)
 
     def table(self, nombre):
+        if nombre == "alertas_de_puntaje":
+            return _Reprogramar(self)
         assert nombre == "users"
         return _Q(list(self.users))
+
+
+class _Reprogramar:
+    """El UPDATE que deja la alerta para dentro de una hora. Anota lo pedido."""
+
+    def __init__(self, base):
+        self.base, self.pedido = base, {}
+
+    def update(self, cambios):
+        self.pedido["update"] = cambios
+        return self
+
+    def in_(self, col, vals):
+        self.pedido["in"] = (col, list(vals))
+        return self
+
+    def gt(self, col, val):
+        self.pedido["gt"] = (col, val)
+        return self
+
+    def execute(self):
+        if getattr(self.base, "falla_reprogramar", False):
+            raise RuntimeError("sin red")
+        self.base.reprogramadas.append(self.pedido)
+        return _R([])
 
 
 def _correr(coro):
@@ -112,6 +142,98 @@ def test_si_no_llega_a_nadie_queda_un_error_en_el_log(monkeypatch, caplog):
     assert any("no llegó a ningún dispositivo" in m for m in caplog.messages)
 
 
+# Revisión de Codex (12 oct 2026): que el envío no reviente no es que haya
+# llegado. Con 0 entregas sin excepción el reclamo quedaba anotado y la alerta
+# se callaba 20 h. Revisión de la auditoría 20: soltarlo del todo la repetía
+# en la pasada siguiente —un minuto, con el cron en día de partidos—, así que
+# lo que no consta que llegó se reintenta en UNA hora.
+def _una_hora_antes_de_volver(pedido):
+    from datetime import datetime, timedelta, timezone
+    ultimo = datetime.fromisoformat(pedido["update"]["ultimo_aviso_at"])
+    vuelve = ultimo + timedelta(hours=scoring.HORAS_ENTRE_AVISOS) - datetime.now(timezone.utc)
+    return timedelta(minutes=55) < vuelve <= timedelta(minutes=60)
+
+
+@pytest.mark.parametrize("devuelve", [0, None], ids=["cero-entregas", "sin-dispositivos"])
+def test_si_no_llega_a_nadie_se_reintenta_en_una_hora(monkeypatch, devuelve):
+    _espiar_push(monkeypatch, devuelve=devuelve)
+    db = FalsaBase([{"match_id": 3, "partido": "A vs B", "avisos": 1},
+                    {"match_id": 4, "partido": "C vs D", "avisos": 2}])
+    r = _correr(scoring.alertar_puntajes_trabados(db))
+    assert r["enviados"] == 0 and r.get("error") == "sin-entrega"
+    assert len(db.reprogramadas) == 1
+    pedido = db.reprogramadas[0]
+    assert pedido["in"] == ("match_id", [3, 4])
+    assert pedido["gt"][0] == "ultimo_aviso_at", "solo lo que ESTA pasada reclamó"
+    assert _una_hora_antes_de_volver(pedido)
+
+
+def test_si_llego_a_alguien_NO_se_reprograma(monkeypatch):
+    """La otra mitad: con una entrega, las 20 h de silencio son lo correcto."""
+    _espiar_push(monkeypatch, devuelve=1)
+    db = FalsaBase([{"match_id": 3, "partido": "A vs B", "avisos": 1}])
+    r = _correr(scoring.alertar_puntajes_trabados(db))
+    assert r["enviados"] == 1 and "error" not in r
+    assert db.reprogramadas == []
+
+
+def test_si_tampoco_se_puede_reprogramar_no_revienta(monkeypatch, caplog):
+    _espiar_push(monkeypatch, devuelve=0)
+    db = FalsaBase([{"match_id": 3, "partido": "A vs B"}])
+    db.falla_reprogramar = True
+    with caplog.at_level(logging.ERROR):
+        r = _correr(scoring.alertar_puntajes_trabados(db))
+    assert r["enviados"] == 0
+    assert any("Tampoco se pudo reprogramar" in m for m in caplog.messages)
+
+
+def test_un_proveedor_lento_no_repite_la_alerta_cada_minuto(monkeypatch):
+    """El caso de la revisión, con la semántica real del reclamo (104): el
+    proveedor entrega pero responde tarde, así que cada pasada ve 0 enviados.
+    Cinco pasadas de un minuto: antes, cinco avisos; ahora, uno."""
+    from datetime import datetime, timedelta, timezone
+    enviados = _espiar_push(monkeypatch, devuelve=0)
+
+    class ConReloj(FalsaBase):
+        """`reclamar_alertas_de_puntaje` de verdad: entrega el partido si nunca
+        se avisó o si el último aviso tiene más de 20 h, y anota now()."""
+
+        def __init__(self):
+            super().__init__()
+            self.ultimo = None
+
+        def rpc(self, nombre, args):
+            base = self
+
+            class _X:
+                def execute(self_inner):
+                    ahora = datetime.now(timezone.utc)
+                    if base.ultimo is None or base.ultimo < ahora - timedelta(hours=20):
+                        base.ultimo = ahora
+                        return _R([{"match_id": 297, "partido": "A vs B", "avisos": 1}])
+                    return _R([])
+            return _X()
+
+    db = ConReloj()
+
+    def aplicar_reprogramacion():
+        for pedido in db.reprogramadas:
+            db.ultimo = datetime.fromisoformat(pedido["update"]["ultimo_aviso_at"])
+        db.reprogramadas.clear()
+
+    for _ in range(5):
+        _correr(scoring.alertar_puntajes_trabados(db))
+        aplicar_reprogramacion()
+        db.ultimo -= timedelta(minutes=1)   # pasa un minuto
+    assert len(enviados) == 1
+
+
+def test_las_20_horas_son_las_del_reclamo():
+    sql = (RAIZ / "database" / "104_alerta_de_puntajes_y_anonimizar_cuentas.sql").read_text()
+    assert f"interval '{scoring.HORAS_ENTRE_AVISOS} hours'" in sql
+    assert scoring.MINUTOS_PARA_REINTENTAR_ALERTA < scoring.HORAS_ENTRE_AVISOS * 60
+
+
 def test_el_aviso_sale_antes_de_que_la_recuperacion_suelte_el_partido():
     assert scoring.HORAS_PARA_ALERTAR < scoring.DIAS_DE_RECUPERACION * 24
 
@@ -133,7 +255,7 @@ def test_la_alerta_usa_la_misma_lista_que_la_recuperacion():
     assert "ON CONFLICT" in funcion, "el reclamo tiene que ser atómico"
 
 
-def test_si_el_envio_revienta_se_suelta_el_reclamo(monkeypatch):
+def test_si_el_envio_revienta_se_reintenta_en_una_hora(monkeypatch):
     """Auditoría 19: antes el reclamo quedaba anotado y la alerta callaba 20 h."""
     async def revienta(*_a, **_k):
         raise RuntimeError("proveedor caído")
@@ -141,4 +263,5 @@ def test_si_el_envio_revienta_se_suelta_el_reclamo(monkeypatch):
     db = FalsaBase([{"match_id": 7, "partido": "A vs B", "avisos": 1}])
     r = _correr(scoring.alertar_puntajes_trabados(db))
     assert r["enviados"] == 0 and "error" in r
-    assert ("soltar_alertas_de_puntaje", {"p_ids": [7]}) in db.llamadas
+    assert len(db.reprogramadas) == 1 and db.reprogramadas[0]["in"] == ("match_id", [7])
+    assert _una_hora_antes_de_volver(db.reprogramadas[0])

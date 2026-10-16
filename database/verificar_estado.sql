@@ -49,6 +49,8 @@ FROM unnest(ARRAY[
   '_tally_rule_proposal',
   'accept_group_rules',
   'avisar_pago',
+  'avisar_abono',                     -- 110
+  'confirmar_abono',                  -- 110
   'cancel_rule_proposal',
   'cast_rule_vote',
   'check_powerup_limit',
@@ -144,6 +146,8 @@ FROM unnest(ARRAY[
   'marcar_destape',                    -- 106, función de trigger
   'cuenta_anonimizada',                -- 106, en la política de alta de push
   'soltar_alertas_de_puntaje',         -- 106, solo backend
+  'registrar_historial_pago',          -- 109, función de trigger
+  'historial_pagos_no_se_toca',        -- 109, función de trigger
   'prediccion_modificada',
   'partidos_pendientes_de_puntaje'
 ]::text[]) x
@@ -164,6 +168,8 @@ WHERE n.nspname = 'public'
   '_tally_rule_proposal',
   'accept_group_rules',
   'avisar_pago',
+  'avisar_abono',                     -- 110
+  'confirmar_abono',                  -- 110
   'cancel_rule_proposal',
   'cast_rule_vote',
   'check_powerup_limit',
@@ -259,6 +265,8 @@ WHERE n.nspname = 'public'
   'marcar_destape',                    -- 106, función de trigger
   'cuenta_anonimizada',                -- 106, en la política de alta de push
   'soltar_alertas_de_puntaje',         -- 106, solo backend
+  'registrar_historial_pago',          -- 109, función de trigger
+  'historial_pagos_no_se_toca',        -- 109, función de trigger
   'prediccion_modificada',
   'partidos_pendientes_de_puntaje'
 ]::text[])
@@ -269,6 +277,8 @@ SELECT x AS sin_permiso
 FROM unnest(ARRAY[
     'accept_group_rules',
   'avisar_pago',
+  'avisar_abono',                     -- 110
+  'confirmar_abono',                  -- 110
   'cancel_rule_proposal',
   'cast_rule_vote',
   'confirmar_pago',
@@ -345,11 +355,21 @@ WHERE n.nspname = 'public' AND c.relkind = 'r'
     OR has_table_privilege('anon', c.oid, 'DELETE'))
 ORDER BY c.relname;
 
-\echo '=== 7. Vistas alcanzables por anon (saltan la RLS) ==='
-SELECT c.relname AS vista
+\echo '=== 7. Vistas que saltan la RLS y el cliente puede leer (tiene que salir vacía) ==='
+-- Una vista corre con los permisos de quien la creó salvo `security_invoker`,
+-- y una vista materializada no tiene RLS nunca. Se miran anon Y authenticated:
+-- desde la 109 una vista nueva ya no nace legible, pero un GRANT a mano la
+-- abriría y esta sección es la que lo ve (revisión del 13 oct 2026: antes
+-- miraba solo anon). Hoy `user_stats_view` es legible por authenticated y NO
+-- sale acá porque es `security_invoker`: respeta la RLS de sus tablas.
+SELECT c.relname AS vista, c.relkind,
+       has_table_privilege('anon', c.oid, 'SELECT') AS anon,
+       has_table_privilege('authenticated', c.oid, 'SELECT') AS authenticated
 FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
-WHERE n.nspname = 'public' AND c.relkind = 'v'
-  AND has_table_privilege('anon', c.oid, 'SELECT')
+WHERE n.nspname = 'public' AND c.relkind IN ('v', 'm')
+  AND (has_table_privilege('anon', c.oid, 'SELECT')
+    OR (has_table_privilege('authenticated', c.oid, 'SELECT')
+        AND (c.relkind = 'm' OR NOT COALESCE(c.reloptions @> ARRAY['security_invoker=true'], false))))
 ORDER BY c.relname;
 
 \echo '=== 8. Políticas de predictions (una sola de SELECT, con filtro por liga) ==='
@@ -667,10 +687,21 @@ ORDER BY 1, 2;
 -- Decimoséptima auditoría (migración 102). TRUNCATE no pasa por la RLS: vacía
 -- la tabla entera. Supabase lo otorga por defecto a las tablas nuevas; la 102
 -- lo quitó de las actuales y de las futuras. Tiene que salir VACÍA.
-SELECT table_name, grantee, privilege_type
+-- La 109 suma MAINTAIN (PostgreSQL 17: VACUUM/ANALYZE/REINDEX/LOCK, que
+-- information_schema NO lista: se lee del ACL) y el TRUNCATE de service_role
+-- sobre membresías y quinielas (los triggers de fila, como el candado de
+-- pagos de la 92, no corren con TRUNCATE).
+SELECT table_name::text, grantee::text, privilege_type::text
 FROM information_schema.role_table_grants
 WHERE table_schema = 'public' AND grantee IN ('anon', 'authenticated')
   AND privilege_type IN ('TRUNCATE', 'TRIGGER', 'REFERENCES')
+UNION ALL
+SELECT c.relname::text, a.grantee::regrole::text, a.privilege_type
+FROM pg_class c, aclexplode(c.relacl) a
+WHERE c.relnamespace = 'public'::regnamespace
+  AND ( (a.privilege_type = 'MAINTAIN' AND a.grantee IN ('anon'::regrole, 'authenticated'::regrole))
+     OR (a.privilege_type = 'TRUNCATE' AND a.grantee = 'service_role'::regrole
+         AND c.relname IN ('league_members', 'leagues', 'historial_pagos')) )
 ORDER BY 1, 2, 3;
 
 \echo '=== 20. Alguien compensado DOS veces por el mismo ×2 anulado ==='
@@ -775,3 +806,58 @@ SELECT status, COALESCE(last_error, '—') AS motivo, count(*) AS filas, max(upd
 FROM public.notification_deliveries
 WHERE tipo = 'kickoff-45m' AND updated_at > now() - interval '24 hours'
 GROUP BY 1, 2 ORDER BY 3 DESC;
+
+\echo '=== 29. Privilegios por defecto que abren lo NUEVO al cliente (109) ==='
+-- Lo que crea `postgres` (las migraciones y el editor SQL) hereda estos
+-- privilegios. Antes de la 109 una función nueva nacía ejecutable por anon y
+-- por PUBLIC (aunque fuera SECURITY DEFINER) y una tabla nueva escribible por
+-- los usuarios; y una vista nueva legible por ellos, saltándose la RLS.
+-- Tiene que salir VACÍA, y la última fila de abajo `true`.
+SELECT d.defaclnamespace::regnamespace::text AS esquema, d.defaclobjtype AS tipo,
+       CASE WHEN a.grantee = 0 THEN 'PUBLIC' ELSE a.grantee::regrole::text END AS a_quien,
+       a.privilege_type
+FROM pg_default_acl d, aclexplode(d.defaclacl) a
+WHERE d.defaclrole = 'postgres'::regrole
+  AND (d.defaclnamespace = 0 OR d.defaclnamespace = 'public'::regnamespace)
+  AND ( a.grantee = 'anon'::regrole
+     OR (d.defaclobjtype = 'f' AND a.grantee IN (0::oid, 'authenticated'::regrole::oid))
+     -- Tampoco SELECT: una vista nueva salta la RLS (revisión del 13 oct 2026).
+     OR (d.defaclobjtype = 'r' AND a.grantee = 'authenticated'::regrole)
+     OR (d.defaclobjtype = 'S' AND a.grantee = 'authenticated'::regrole AND a.privilege_type = 'UPDATE') )
+ORDER BY 1, 2, 3, 4;
+-- Sin la fila global de funciones (esquema 0), PUBLIC conserva el EXECUTE
+-- IMPLÍCITO y la consulta de arriba no lo vería. Tiene que salir `true`.
+SELECT EXISTS (SELECT 1 FROM pg_default_acl d
+                WHERE d.defaclrole = 'postgres'::regrole AND d.defaclnamespace = 0
+                  AND d.defaclobjtype = 'f') AS public_sin_execute_por_defecto;
+
+\echo '=== 30. Pagos confirmados sin su fila en el historial (109) ==='
+-- Cada pago confirmado tiene que tener su 'confirmado' en `historial_pagos`
+-- (lo pone el trigger, o la siembra de la 109 para los de antes). Una fila acá
+-- es un pago confirmado por una vía que no pasó por el trigger (deshabilitado,
+-- borrado, o un `session_replication_role = replica`). Tiene que salir VACÍA.
+SELECT lm.league_id, lm.user_id, lm.pago_confirmado_at, lm.pago_confirmado_monto
+FROM public.league_members lm
+WHERE lm.pago_confirmado_at IS NOT NULL
+  AND NOT EXISTS (SELECT 1 FROM public.historial_pagos h
+                   WHERE h.league_id = lm.league_id AND h.user_id = lm.user_id
+                     AND h.accion = 'confirmado' AND h.confirmado_at_original = lm.pago_confirmado_at)
+ORDER BY 1, 2;
+-- Informativo: lo que el historial dice que pasó, por quiniela.
+SELECT l.name AS quiniela, h.accion, count(*) AS filas, sum(h.monto) AS monto,
+       count(*) FILTER (WHERE h.sembrada) AS sembradas, max(h.created_at) AS ultima
+FROM public.historial_pagos h LEFT JOIN public.leagues l ON l.id = h.league_id
+GROUP BY 1, 2 ORDER BY 1, 2;
+
+\echo '=== 31. Escritura de predicciones con el partido EN JUEGO (109) ==='
+-- Si el saque guardado está atrasado (ESPN y UNAFUT difieren), lo único que
+-- cierra las predicciones con el partido ya empezado es el estado. Las dos
+-- políticas de escritura tienen que excluir `in_progress`, y la de UPDATE
+-- también en el USING (ver §18). Tiene que salir VACÍA.
+SELECT policyname, cmd
+FROM pg_policies
+WHERE schemaname = 'public' AND tablename = 'predictions'
+  AND cmd IN ('INSERT', 'UPDATE', 'ALL')
+  AND NOT ('service_role' = ANY (roles))
+  AND ( COALESCE(with_check, '') NOT ILIKE '%in_progress%'
+     OR (cmd IN ('UPDATE', 'ALL') AND COALESCE(qual, '') NOT ILIKE '%in_progress%') );

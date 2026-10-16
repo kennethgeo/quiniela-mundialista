@@ -1,21 +1,44 @@
 """
-Motor de puntuación de la Quiniela Mundialista.
+Motor de puntuación de Tico Games. Es el ÚNICO: la copia en JS
+(lib/scoring.js) se borró el 21 sep 2026 porque no la importaba nadie. Las
+reglas de abajo son las de CLAUDE.md («Reglas de puntaje»), y los casos que
+las fijan están en shared/scoring_cases.json (los corre tests/test_scoring.py).
+Si este texto y el código no coinciden, manda CLAUDE.md: no «arreglar» el
+código para que calce con un comentario viejo.
 
-Reglas (Modalidad Marcador):
-- Marcador exacto (incluye empate exacto) → 3 pts.
-- Aciertas quién gana o que es empate, pero no el marcador → 1 pt.
-- Fallas el resultado (quién gana / empate) → 0 pts.
-- Penales: si predijiste un ganador pero el partido fue a penales (empate en
-  90'), 0 pts. Si predijiste empate y aciertas el ganador de penales, conservas
-  el punto; si lo fallas, 0.
+Modalidad Marcador (la que usa la app):
+- Marcador exacto (incluye el empate exacto) → points_exact (3 por defecto).
+- Acertás quién gana o que es empate, sin el marcador → points_correct (1).
+- Fallás el resultado → 0.
+- Sin marcador predicho → 0. No hay default 0-0.
 
-Modalidad Solo_Ganador:
-- Aciertas el resultado → 1 pt; fallas → 0.
+Eliminatoria que se define por penales (goes_to_penalties, empate en 90/120):
+- Predijiste EMPATE: el marcador del empate puntúa igual (exacto / correcto)
+  aunque falles la tanda. Si además acertás quién pasa
+  (penalties_winner_pred == penalties_winner_real), se suma +1 a la base.
+  Ese +1 es FIJO: no es points_correct ni cambia con la configuración.
+    0-0 exacto + tanda acertada = 4 · + fallada = 3 · + ×2 = 8
+    1-1 no exacto + tanda acertada = 2 · + fallada = 1 · + ×2 = 4
+- Predijiste un GANADOR: points_correct (1 por defecto) si el equipo que
+  elegiste es el que avanza en penales; si no, o si todavía no consta quién
+  avanzó (penalties_winner_real vacío), 0. El marcador no cuenta.
+- Sin penales (se definió en 90/120, o el admin desmarcó la tanda): exacto /
+  correcto como siempre, y la elección de la tanda no suma nada.
+- Quién marca la tanda: en el Mundial, el live-sync (todo empate de
+  eliminatoria se define por penales); en los demás torneos, el sync de ESPN
+  solo cuando hubo una tanda REAL en ese partido (auditoría 20), y el form de
+  admin como respaldo manual. Una IDA empatada no tiene tanda: llega con
+  goes_to_penalties falso y puntúa por su marcador, sin el +1.
+- Penales marcados pero sin ganador cargado (penalties_winner_real vacío):
+  el empate puntúa por su marcador sin el +1, y quien predijo un ganador
+  da 0 hasta que conste quién avanzó.
 
-Modificador: comodín x2 → duplica los puntos ganados (1→2, 3→6).
+Modalidad Solo_Ganador (la app guarda siempre «Marcador»; queda por las filas viejas):
+- Acertás el resultado → points_correct; fallás → 0. Con penales solo puntúa
+  quien predijo empate y acertó quién pasa.
 
-Es el ÚNICO motor de puntaje: la copia en JS (lib/scoring.js) se borró el
-21 sep 2026. Los casos que lo fijan están en shared/scoring_cases.json.
+Comodín ×2: duplica TODO lo que sumaste en el partido, incluido el +1 de la
+tanda (el +1 se suma a la base ANTES del ×2).
 """
 
 import logging
@@ -255,6 +278,16 @@ async def puntuar_pendientes(supabase) -> dict:
 # en la lista, porque después la puerta del cron se cierra y nadie llama.
 HORAS_PARA_ALERTAR = 6
 
+# Cada cuánto se repite un aviso que SÍ llegó: el `interval '20 hours'` de
+# `reclamar_alertas_de_puntaje` (104). Una prueba lee el SQL y ata los dos.
+HORAS_ENTRE_AVISOS = 20
+# Cuándo se reintenta uno que NO consta que haya llegado (revisión de la
+# auditoría 20): ni a la pasada siguiente —con el cron por minuto y un
+# proveedor que entrega pero responde tarde, el admin recibía el mismo aviso
+# una vez por minuto— ni 20 h después —la alerta callada justo cuando no
+# llegó—. Una hora.
+MINUTOS_PARA_REINTENTAR_ALERTA = 60
+
 
 async def alertar_puntajes_trabados(supabase) -> dict:
     """Avisa a los admins globales de los puntajes que no salen (B60).
@@ -294,18 +327,46 @@ async def alertar_puntajes_trabados(supabase) -> dict:
             supabase, admins, "⚠️ Puntajes sin calcular", cuerpo, url="/admin") or 0
     except Exception as exc:  # noqa: BLE001
         _log.exception("No se pudo mandar la alerta de puntajes trabados")
-        # El aviso no salió: se suelta el reclamo para reintentar en la pasada
-        # siguiente, en vez de quedar callado 20 h (auditoría 19, migración 106).
-        try:
-            supabase.rpc("soltar_alertas_de_puntaje",
-                         {"p_ids": [f.get("match_id") for f in filas]}).execute()
-        except Exception:  # noqa: BLE001
-            _log.exception("Tampoco se pudo soltar el reclamo de la alerta")
+        # El aviso no consta: se reintenta en una hora en vez de quedar callado
+        # 20 h (auditoría 19, migración 106).
+        _reintentar_alerta_en_una_hora(supabase, filas)
         return {"partidos": [f.get("match_id") for f in filas], "enviados": 0,
                 "error": f"{type(exc).__name__}: {exc}"}
     if not enviados:
-        _log.error("La alerta de puntajes trabados no llegó a ningún dispositivo de un admin")
+        # Que el envío no reviente NO es que haya llegado (revisión de Codex,
+        # 12 oct 2026): un admin sin dispositivos, o con todos rechazados,
+        # daba 0 sin excepción y el reclamo quedaba anotado 20 h —la alerta
+        # callada justo cuando no llegó—. Las 20 h de silencio son solo para
+        # lo que SÍ llegó; lo demás se reintenta en una hora.
+        _log.error("La alerta de puntajes trabados no llegó a ningún dispositivo de un admin; "
+                   "se reintenta en %d min", MINUTOS_PARA_REINTENTAR_ALERTA)
+        _reintentar_alerta_en_una_hora(supabase, filas)
+        return {"partidos": [f.get("match_id") for f in filas], "enviados": 0,
+                "error": "sin-entrega"}
     return {"partidos": [f.get("match_id") for f in filas], "enviados": enviados}
+
+
+def _reintentar_alerta_en_una_hora(supabase, filas) -> None:
+    """Deja el reclamo como si el último aviso hubiera sido hace
+    `HORAS_ENTRE_AVISOS` menos `MINUTOS_PARA_REINTENTAR_ALERTA`: la base lo
+    vuelve a entregar en esa hora, ni antes ni 20 h después.
+
+    No usa `soltar_alertas_de_puntaje` (106): esa deja reclamar en la pasada
+    SIGUIENTE, y con el cron por minuto un proveedor que entrega pero responde
+    tarde (ReadTimeout → 0 «enviados») repetía el aviso cada minuto. Solo toca
+    lo que esta pasada reclamó (últimos 10 min), como aquella.
+    """
+    from datetime import datetime, timedelta, timezone  # como el resto: import local
+    ahora = datetime.now(timezone.utc)
+    ultimo = ahora - timedelta(hours=HORAS_ENTRE_AVISOS) + timedelta(minutes=MINUTOS_PARA_REINTENTAR_ALERTA)
+    try:
+        (supabase.table("alertas_de_puntaje")
+         .update({"ultimo_aviso_at": ultimo.isoformat()})
+         .in_("match_id", [f.get("match_id") for f in filas])
+         .gt("ultimo_aviso_at", (ahora - timedelta(minutes=10)).isoformat())
+         .execute())
+    except Exception:  # noqa: BLE001
+        _log.exception("Tampoco se pudo reprogramar el reclamo de la alerta")
 
 
 def _aplicar_puntaje(supabase, match: dict, puntos: list) -> str:

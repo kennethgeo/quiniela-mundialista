@@ -77,6 +77,7 @@ export async function swListo (ms = LIMITE_SW_MS) {
 }
 
 const SW_NO_LISTO = 'El navegador no terminó de preparar los avisos. Recargá la página y probá de nuevo.'
+export const NO_SE_PUDO_REGISTRAR = 'No pudimos registrar este dispositivo. Tocá «Activar avisos» para reintentar.'
 
 /* Guardar la suscripción SIN borrar antes (novena auditoría). Antes era
    DELETE + INSERT en dos peticiones: si el INSERT fallaba después del DELETE,
@@ -105,13 +106,55 @@ export async function guardarSuscripcion (userId, subscription) {
    viva —le seguían llegando sus avisos a quien usa el celular— y esta cuenta
    se quedaba sin los suyos (revisión del 11 oct 2026). Se da de baja la ajena
    y se suscribe esta. Devuelve si quedó activo. */
-export async function reemplazarAjena (userId, sub) {
-  try { await sub.unsubscribe() } catch { return false }
-  const nueva = await resuscribirSiLosPidio(userId)
+export async function reemplazarAjena (userId, sub, vale = () => true) {
+  return suscribirDeNuevo(userId, sub, { vale })
+}
+
+/* Da de baja `vieja`, suscribe de nuevo con la llave ACTUAL y lo guarda.
+   Devuelve si quedó activo, o `null` si lo abandonó porque `vale()` dejó de
+   ser cierto (otra cuenta en la sesión, la pantalla se fue); lanza si falla
+   el guardado (quien llama decide).
+   Con `borrarFilaVieja` borra después la fila del endpoint viejo de esta
+   cuenta: si no se pudiera, el backend la borra solo al primer rechazo
+   (vigésima auditoría). */
+async function suscribirDeNuevo (userId, vieja, { borrarFilaVieja = false, vale = () => true } = {}) {
+  if (!vale()) return null
+  const endpointViejo = vieja.endpoint
+  try { await vieja.unsubscribe() } catch { return false }
+  if (!vale()) return null
+  const nueva = await resuscribirSiLosPidio(userId, vale)
+  if (!vale()) return null
   if (!nueva) return false
-  await guardarSuscripcion(userId, nueva)
+  try {
+    await guardarSuscripcion(userId, nueva)
+  } catch (e) {
+    if (!vale()) return null
+    // La suscripción nueva es BUENA: lo que falló es guardarla. Se recuerda
+    // para que la próxima apertura reintente guardar ESA y no cree otra.
+    if (!e?.ajena) recordarSinGuardar(userId, nueva.endpoint)
+    throw e
+  }
+  olvidarSinGuardar(userId)
   marcarAvisosDeCuenta(userId, true)
+  if (borrarFilaVieja && endpointViejo && endpointViejo !== nueva.endpoint && vale()) {
+    try {
+      await supabase.from('push_subscriptions').delete().eq('user_id', userId).eq('endpoint', endpointViejo)
+    } catch { /* la limpia el backend */ }
+  }
   return true
+}
+
+/* ¿La llave de la suscripción difiere POSITIVAMENTE de la actual? Si no se
+   puede saber (el navegador no la expone) devolvemos false para NO migrar: si
+   no, se re-suscribiría en cada carga y los endpoints cambiarían sin parar.
+   Vive acá y no en el Perfil (vigésima auditoría): el Hub también tiene que
+   migrar, y la comparación escrita dos veces es el error de siempre. */
+export function llaveDistinta (existente, actual = urlBase64ToUint8Array(VAPID_PUBLIC_KEY)) {
+  if (!existente) return false
+  const a = new Uint8Array(existente)
+  if (a.length !== actual.length) return true
+  for (let i = 0; i < a.length; i++) if (a[i] !== actual[i]) return true
+  return false
 }
 
 /** ¿La base tiene este endpoint a nombre de esta cuenta? Lanza si no se puede saber. */
@@ -138,43 +181,148 @@ export async function tieneSuscripcion () {
   return !!(await suscripcionLocal())
 }
 
+/* Una suscripción que ESTA app acaba de crear y no pudo guardar en la base
+   (revisión de la vigésima auditoría). Sin este recuerdo, la próxima apertura
+   la veía «sin fila» y la tomaba por un endpoint muerto que el backend borró:
+   la daba de baja y creaba otra, en CADA apertura, mientras el guardado
+   siguiera fallando (por ejemplo, un 23514 de `push_endpoint_conocido` con un
+   navegador que la lista no conoce). Con el recuerdo se reintenta guardar la
+   MISMA, que nunca se rechazó. */
+const claveSinGuardar = (userId) => `avisosPush:sinGuardar:${userId}`
+
+function recordarSinGuardar (userId, endpoint) {
+  try { localStorage.setItem(claveSinGuardar(userId), endpoint) } catch { /* modo privado */ }
+}
+function olvidarSinGuardar (userId) {
+  try { localStorage.removeItem(claveSinGuardar(userId)) } catch { /* modo privado */ }
+}
+function esSinGuardar (userId, endpoint) {
+  try { return !!endpoint && localStorage.getItem(claveSinGuardar(userId)) === endpoint } catch { return false }
+}
+
+/* `suscribirDeNuevo`/`reemplazarAjena` con lo que la pantalla tiene que decir.
+   `null` = se abandonó porque ya no es esta cuenta: no hay nada que decir. */
+async function reintentoConError (fn) {
+  try {
+    const ok = await fn()
+    if (ok === null) return { activo: false, error: null }
+    return { activo: ok, error: ok ? null : NO_SE_PUDO_REGISTRAR }
+  } catch (e) {
+    return { activo: false, error: e?.ajena ? e.message : NO_SE_PUDO_REGISTRAR }
+  }
+}
+
+/* LA CUENTA CON SESIÓN EN ESTA PESTAÑA, según AuthContext (revisión de
+   Codex, 12 oct 2026). `revisarAvisos` espera al service worker y a la base
+   varias veces, y nada de eso se cancela: si mientras tanto la cuenta A sale
+   y entra B, la vuelta vieja de A seguía y, al ver una suscripción que no era
+   de A, la daba de baja — era la de B — o la reemplazaba a nombre de A. La
+   pantalla tenía su `vigente`, pero solo frenaba el `setState`, no lo que la
+   librería hacía con el navegador. Ahora, después de CADA espera y antes de
+   tocar nada, se pregunta si la cuenta sigue siendo la misma. */
+let cuentaEnSesion = null
+
+export function fijarCuentaEnSesion (userId) {
+  cuentaEnSesion = userId ?? null
+}
+
+const esLaCuentaEnSesion = (userId) => !!userId && cuentaEnSesion === userId
+
 /* «Activo» exige las DOS mitades: suscripción en el navegador y fila en la
    base a nombre de esta cuenta. Solo la primera no sirve: el backend manda a
-   lo que hay en la base. Si falta la fila se intenta guardar en silencio
-   (auto-sanación); si eso falla, NO está activo y la pantalla lo ofrece.
-   Si ni siquiera se puede preguntar, tampoco se afirma que esté activo. */
-export async function avisosActivos (userId) {
-  if (!userId) return false
-  let sub = await suscripcionLocal()
+   lo que hay en la base. Si falta la fila se intenta sanar en silencio; si
+   eso falla, NO está activo y la pantalla lo ofrece.
+   Si ni siquiera se puede preguntar, tampoco se afirma que esté activo.
+
+   UNA SOLA VÍA para el Hub y el Perfil (revisión de la vigésima auditoría):
+   el Perfil tenía su propia copia y, con la fila borrada por el backend,
+   volvía a guardar el MISMO endpoint muerto mientras el Hub suscribía de
+   nuevo. Las dos pantallas decidían distinto sobre la misma situación.
+   Devuelve `{ activo, error }`; `error` es un texto para mostrar o null.
+
+   `sigueVigente` es de quien llama (la pantalla que se desmonta); la cuenta
+   en sesión la mira siempre (`esLaCuentaEnSesion`). Si cualquiera de las dos
+   deja de valer a mitad de camino, se abandona sin tocar nada. */
+export async function revisarAvisos (userId, sigueVigente = () => true) {
+  const nada = { activo: false, error: null }
+  if (!userId || !soportaPush()) return nada
+  const vale = () => esLaCuentaEnSesion(userId) && sigueVigente()
+  if (!vale()) return nada
+  const reg = await swListo()
+  if (!vale()) return nada
+  if (!reg) return { activo: false, error: SW_NO_LISTO }
+  let sub = null
+  try { sub = await reg.pushManager.getSubscription() } catch { sub = null }
+  if (!vale()) return nada
   // Auto-sanación TAMBIÉN en el Hub (10 oct 2026). Antes solo el Perfil
   // volvía a suscribir a quien había perdido la suscripción del navegador
   // (un service worker desregistrado, un cierre de sesión involuntario), y casi
   // nadie entra al Perfil: la persona creía tener avisos y no le llegaba nada.
-  // Mismas condiciones que el Perfil: permiso dado, esta cuenta los pidió acá
-  // y no los apagó, y no hay un cierre de sesión en curso.
-  if (!sub) sub = await resuscribirSiLosPidio(userId)
-  if (!sub) return false
+  // Condiciones: permiso dado, esta cuenta los pidió acá y no los apagó, y no
+  // hay un cierre de sesión en curso.
+  let recien = false
+  if (!sub) { sub = await resuscribirSiLosPidio(userId, vale); recien = !!sub }
+  if (!sub || !vale()) return nada
+  let mia
   try {
-    if (await registrada(userId, sub.endpoint)) {
-      marcarAvisosDeCuenta(userId, true)
-      return true
+    mia = await registrada(userId, sub.endpoint)
+  } catch {
+    // `registrada` no respondió: no se sabe de quién es. Eso NO es «es de
+    // otra persona» (10 oct 2026): sin saber, no se toca nada.
+    return nada
+  }
+  // La lectura es justo la espera larga: si en ese rato entró otra cuenta,
+  // «no es de A» es cierto y la suscripción es de B. No se toca.
+  if (!vale()) return nada
+  if (mia) {
+    olvidarSinGuardar(userId)
+    marcarAvisosDeCuenta(userId, true)
+    // LLAVE VIEJA (vigésima auditoría): un iPhone suscrito en junio seguía
+    // con fila y suscripción, y Apple rechazaba cada aviso con
+    // `VapidPkHashMismatch`. Fila y navegador decían «activo» y no llegaba
+    // nada. El Perfil ya migraba; el Hub, que es donde entra la gente, no.
+    if (!recien && llaveDistinta(sub.options?.applicationServerKey) &&
+        estadoPermiso() === 'granted' && !cerrandoSesion()) {
+      return await reintentoConError(() => suscribirDeNuevo(userId, sub, { borrarFilaVieja: true, vale }))
     }
-    // Durante un cierre de sesión no se re-registra nada (undécima auditoría).
-    if (cerrandoSesion()) return false
-    // Una suscripción que no es de esta cuenta y que esta cuenta no pidió es de
-    // OTRA persona (celular compartido): se da de baja, no se la apropia
-    // (auditoría 19). Sin suscripción, el backend ya no le escribe a la otra.
-    if (!cuentaPidioAvisos(userId)) {
-      try { await sub.unsubscribe() } catch { /* se reintenta la próxima vez */ }
-      return false
-    }
-    try {
-      await guardarSuscripcion(userId, sub)
-    } catch (e) {
-      if (!e?.ajena) throw e
-      return await reemplazarAjena(userId, sub)
-    }
-    return true
+    return { activo: true, error: null }
+  }
+  // Durante un cierre de sesión no se re-registra nada (undécima auditoría).
+  if (cerrandoSesion()) return nada
+  // Una suscripción que no es de esta cuenta y que esta cuenta no pidió es de
+  // OTRA persona (celular compartido): se da de baja, no se la apropia
+  // (auditoría 19). Sin suscripción, el backend ya no le escribe a la otra.
+  if (!cuentaPidioAvisos(userId)) {
+    try { await sub.unsubscribe() } catch { /* se reintenta la próxima vez */ }
+    return nada
+  }
+  // Esta cuenta los pidió acá, el navegador tiene suscripción y la base no
+  // tiene la fila. Lo más probable es que la haya borrado el backend porque
+  // el proveedor la rechazó (vencida, o con la llave vieja): volver a
+  // guardar el MISMO endpoint traería de vuelta una fila muerta que el
+  // próximo envío borra otra vez. Se suscribe de nuevo (vigésima auditoría).
+  // No si la suscripción es nueva: la que acabamos de crear, o una que
+  // creamos antes y no se pudo guardar (`esSinGuardar`). Esas se guardan.
+  if (!recien && estadoPermiso() === 'granted' && !esSinGuardar(userId, sub.endpoint)) {
+    return await reintentoConError(() => suscribirDeNuevo(userId, sub, { vale }))
+  }
+  try {
+    await guardarSuscripcion(userId, sub)
+  } catch (e) {
+    if (!vale()) return nada
+    if (e?.ajena) return await reintentoConError(() => reemplazarAjena(userId, sub, vale))
+    recordarSinGuardar(userId, sub.endpoint)
+    return { activo: false, error: NO_SE_PUDO_REGISTRAR }
+  }
+  olvidarSinGuardar(userId)
+  marcarAvisosDeCuenta(userId, true)
+  return { activo: true, error: null }
+}
+
+/** Lo que el Hub necesita: ¿quedó activo? */
+export async function avisosActivos (userId, sigueVigente = () => true) {
+  try {
+    return (await revisarAvisos(userId, sigueVigente)).activo
   } catch {
     return false
   }
@@ -202,16 +350,21 @@ export function cuentaPidioAvisos (userId) {
 }
 
 /** Vuelve a suscribir ESTE navegador si la cuenta los pidió acá y el permiso
- *  sigue dado. Devuelve la suscripción nueva o null. Nunca lanza. */
-export async function resuscribirSiLosPidio (userId) {
+ *  sigue dado. Devuelve la suscripción nueva o null. Nunca lanza.
+ *  `vale` se mira antes de suscribir: si ya entró otra cuenta, no se crea
+ *  nada a nombre de la anterior. */
+export async function resuscribirSiLosPidio (userId, vale = () => true) {
   try {
-    if (!userId || estadoPermiso() !== 'granted' || cerrandoSesion() || !cuentaPidioAvisos(userId)) return null
+    if (!userId || !vale() || estadoPermiso() !== 'granted' || cerrandoSesion() || !cuentaPidioAvisos(userId)) return null
     const reg = await swListo()
-    if (!reg) return null
-    return await reg.pushManager.subscribe({
+    if (!reg || !vale()) return null
+    const sub = await reg.pushManager.subscribe({
       userVisibleOnly: true,
       applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
     })
+    // Si cambió la cuenta mientras el navegador respondía, la suscripción
+    // (que es del dispositivo) queda para la revisión de la cuenta nueva.
+    return vale() ? sub : null
   } catch {
     return null
   }

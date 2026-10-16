@@ -14,7 +14,13 @@ logger = logging.getLogger(__name__)
 
 
 TIPO_RECORDATORIO_SAQUE = "kickoff-45m"
+# «Mandar el push a la quiniela» del panel de admin (vigésima auditoría): una
+# vez por persona, quiniela y partido, la toque quien la toque y las veces que
+# sea. La puerta del cron (`hay_avisos_por_reintentar`) filtra por el tipo del
+# recordatorio, así que estas filas no la abren.
+TIPO_RESUMEN_MANUAL = "resumen-manual"
 MINUTOS_PARA_RECLAMO_VENCIDO = 5
+HORAS_DE_REINTENTO = 2
 
 
 class DeduplicacionNoDisponible(RuntimeError):
@@ -57,15 +63,26 @@ def reintentos_pendientes(supabase, ahora: datetime | None = None) -> set[tuple[
 
     La RPC vuelve a validar membresía, predicción y cierre; esta lectura solo
     amplía la selección más allá de la ventana inicial.
+
+    SOLO LAS DE LAS ÚLTIMAS ``HORAS_DE_REINTENTO`` y las más nuevas primero
+    (vigésima auditoría). Las fallidas no se borran nunca, y la lectura las
+    traía TODAS, sin orden y cortadas en 1000: el día que la historia pasara de
+    1000 (con un VAPID roto son 8 por partido de Bundestica, una temporada), el
+    corte podía dejar afuera justo las de hoy, sin ningún aviso. Un reintento
+    solo sirve hasta 15 min antes del saque, y la fila nace entre 60 y 45 min
+    antes, así que nada útil tiene más de una hora sin tocarse.
     """
     ahora = ahora or datetime.now(timezone.utc)
     vencido_antes = ahora - timedelta(minutes=MINUTOS_PARA_RECLAMO_VENCIDO)
+    desde = ahora - timedelta(hours=HORAS_DE_REINTENTO)
     try:
         filas = (
             supabase.table("notification_deliveries")
             .select("user_id,league_id,match_id,status,claimed_at")
             .eq("tipo", TIPO_RECORDATORIO_SAQUE)
             .or_(f"status.eq.failed,and(status.eq.claimed,claimed_at.lt.{vencido_antes.isoformat()})")
+            .gt("updated_at", desde.isoformat())
+            .order("updated_at", desc=True)
             .limit(1000)
             .execute()
             .data
@@ -82,7 +99,9 @@ def reintentos_pendientes(supabase, ahora: datetime | None = None) -> set[tuple[
     }
 
 
-def reclamar_entregas(supabase, entregas: list[dict]) -> tuple[list[dict], dict[str, str]]:
+def reclamar_entregas(
+    supabase, entregas: list[dict], tipo: str = TIPO_RECORDATORIO_SAQUE,
+) -> tuple[list[dict], dict[str, str]]:
     """Reclama en una sola transacción y devuelve solo las filas ganadas.
 
     EL TOKEN ES POR PERSONA, no por unidad, y es deliberado: el push sale UNO
@@ -114,7 +133,7 @@ def reclamar_entregas(supabase, entregas: list[dict]) -> tuple[list[dict], dict[
     try:
         respuesta = supabase.rpc("claim_notification_deliveries", {
             "p_entregas": payload,
-            "p_tipo": TIPO_RECORDATORIO_SAQUE,
+            "p_tipo": tipo,
         }).execute()
     except Exception as exc:
         if _es_objeto_ausente(exc):
@@ -173,13 +192,38 @@ def resultado_de_entrega(estado: dict | None) -> tuple[bool, str | None]:
     justo lo que esta bitácora existe para evitar.
     """
     estado = estado or {}
+    # Un dispositivo suscrito con la llave vieja se BORRA igual que uno vencido
+    # (vigésima auditoría): cuenta como dispositivo perdido, no como fallo a
+    # reintentar. Si era el único, «sin-dispositivo-vigente».
+    perdidos = estado.get("expirados", 0) + estado.get("llave_vieja", 0)
     if estado.get("enviados", 0) > 0:
-        if estado.get("fallidos", 0) or estado.get("expirados", 0):
-            return True, "entrega-parcial"
+        if estado.get("fallidos", 0) or perdidos:
+            return True, _con_motivos("entrega-parcial", estado)
         return True, None
-    if estado.get("sin_dispositivo") or estado.get("expirados", 0):
+    if estado.get("fallidos", 0):
+        # Le queda al menos un dispositivo que falló por otra causa: ese sí
+        # merece el reintento.
+        return False, _con_motivos("push-fallido", estado)
+    if estado.get("sin_dispositivo") or perdidos:
         return False, "sin-dispositivo-vigente"
     return False, "push-fallido"
+
+
+LARGO_MAXIMO_ERROR = 120  # el CHECK de `last_error` (migración 82)
+
+
+def _con_motivos(base: str, estado: dict) -> str:
+    """`push-fallido:apple-http-400,wns-http-401` (revisión de Codex, 12 oct
+    2026). Los motivos son categorías cerradas de `notifications.FalloDePush`
+    —proveedor y código, nunca el endpoint ni el mensaje—; se recortan para
+    no pasar el CHECK de la columna, que tumbaría el cierre del reclamo."""
+    motivos = sorted({str(m) for m in estado.get("motivos") or [] if m})
+    if not motivos:
+        return base
+    texto = f"{base}:{','.join(motivos)}"
+    if len(texto) > LARGO_MAXIMO_ERROR:
+        texto = texto[:LARGO_MAXIMO_ERROR - 3] + "..."
+    return texto
 
 
 def cerrar_reclamos(

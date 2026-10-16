@@ -11,6 +11,7 @@ import { fotoDeEstadio } from '../../lib/estadios'
 import GolAnimado from './GolAnimado'
 import MatchStatusBadge from '../ui/MatchStatusBadge'
 import { kickoffDate, matchStatus, predictionDeadline } from '../../lib/matchStatus'
+import { puedeIrAPenales, tandaQueSeGuarda } from '../../lib/penales'
 
 const flagSrc = (url, code) => url || `https://flagcdn.com/w80/${(code || 'xx').toLowerCase()}.png`
 
@@ -42,6 +43,27 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
   const [awayGoals, setAwayGoals] = useState(prediction?.away_goals_pred ?? 0)
   const [usePowerup, setUsePowerup] = useState(prediction?.use_powerup_x2 || false)
   const [penaltiesWinner, setPenaltiesWinner] = useState(prediction?.penalties_winner_pred || '')
+  /* Lo de arriba es el estado de EDICIÓN y nace de lo guardado. Si lo guardado
+     cambia después, se vuelve a tomar: la lista se dibuja sin esperar las
+     predicciones, y si llegaban tarde la tarjeta quedaba en 0-0 diciendo
+     «Actualizar predicción» — un toque PISABA lo guardado. Lo mismo al guardar
+     desde LLENAR. Se compara lo guardado de ESTE partido, así que una edición
+     sin guardar no se pierde por una relectura que no lo cambia. Lo destapó
+     `penales-en-la-ida.spec.js`, que fallaba una de cada veinte
+     (`tarjeta-sigue-lo-guardado.spec.js` lo fuerza). Ajuste durante el render,
+     no un efecto: así no se pinta ni un cuadro con los goles viejos. */
+  const guardado = prediction
+    ? [prediction.id, prediction.home_goals_pred, prediction.away_goals_pred,
+        prediction.penalties_winner_pred ?? '', prediction.use_powerup_x2 ? 1 : 0].join(':')
+    : 'sin'
+  const [guardadoVisto, setGuardadoVisto] = useState(guardado)
+  if (guardado !== guardadoVisto) {
+    setGuardadoVisto(guardado)
+    setHomeGoals(prediction?.home_goals_pred ?? 0)
+    setAwayGoals(prediction?.away_goals_pred ?? 0)
+    setUsePowerup(prediction?.use_powerup_x2 || false)
+    setPenaltiesWinner(prediction?.penalties_winner_pred || '')
+  }
   const [countdown, setCountdown] = useState('')
 
   /* Se usa kickoffDate, LA regla de parseo, en vez de una copia propia.
@@ -70,7 +92,10 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
      está jugando: no nos llegó el resultado. Decirlo es lo único honesto —
      «en juego» doce horas después es lo que hizo que el dueño lo reportara. */
   const sinDatos = state.key === 'stale'
-  const isKnockout = match.phase !== 'groups'
+  /* «Quién pasa por penales» se pregunta solo si el partido PUEDE ir a
+     penales: eliminatoria y no una ida (lib/penales.js). En una ida no hay
+     tanda y la elección no puntúa nunca. */
+  const pideTanda = puedeIrAPenales(match)
   const isTiePredicted = homeGoals === awayGoals && homeGoals !== null
   const editable = state.canPredict
 
@@ -108,7 +133,7 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
       prediction_type: 'Marcador',
       home_goals_pred: homeGoals,
       away_goals_pred: awayGoals,
-      penalties_winner_pred: (isKnockout && isTiePredicted) ? penaltiesWinner : null,
+      penalties_winner_pred: tandaQueSeGuarda(match, homeGoals, awayGoals, penaltiesWinner),
       use_powerup_x2: usePowerup,
     })
   }
@@ -136,6 +161,7 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
 
   return (
     <motion.div
+      data-partido={match.id}
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ opacity: { duration: 0.3 }, y: { duration: 0.3 } }}
@@ -251,7 +277,7 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
       )}
 
       {/* Selector de penales (por jugar) */}
-      {editable && isKnockout && isTiePredicted && (
+      {editable && pideTanda && isTiePredicted && (
         <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="relative z-10 mt-3 p-3 bg-slate-50 dark:bg-[#0C0C0C] rounded-xl">
           <p className="text-[11px] text-center text-[var(--text-muted,#8A8A8A)] mb-2 font-medium">¿Quién gana en penales?</p>
           <div className="flex gap-2">
@@ -301,7 +327,7 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
 
           <button
             onClick={handleSave}
-            disabled={isLoading || (isKnockout && isTiePredicted && !penaltiesWinner)}
+            disabled={isLoading || (pideTanda && isTiePredicted && !penaltiesWinner)}
             className="flex-1 rounded-[9px] py-2.5 text-center font-['Archivo'] font-bold text-[11.5px] text-[#06231d] bg-gradient-to-r from-[#2ED3B7] to-[#26bfa5] active:scale-[0.98] transition disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {isLoading ? '…' : prediction ? 'Actualizar predicción' : 'Guardar predicción'}

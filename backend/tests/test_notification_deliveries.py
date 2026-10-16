@@ -18,6 +18,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app.services.notification_deliveries import (  # noqa: E402
+    HORAS_DE_REINTENTO,
     MINUTOS_PARA_RECLAMO_VENCIDO,
     TIPO_RECORDATORIO_SAQUE,
     DeduplicacionNoDisponible,
@@ -71,6 +72,14 @@ class _Tabla:
 
     def limit(self, n):
         self.pedido["limit"] = n
+        return self
+
+    def gt(self, campo, valor):
+        self.pedido.setdefault("gt", {})[campo] = valor
+        return self
+
+    def order(self, campo, desc=False):
+        self.pedido["order"] = (campo, desc)
         return self
 
     def update(self, cambios):
@@ -181,6 +190,13 @@ class TestResultadoDeEntrega:
         ({"enviados": 0, "sin_dispositivo": True}, (False, "sin-dispositivo-vigente")),
         ({"enviados": 0, "expirados": 1}, (False, "sin-dispositivo-vigente")),
         ({"enviados": 0, "fallidos": 3}, (False, "push-fallido")),
+        # Vigésima auditoría: un dispositivo con la llave vieja se BORRA. Si
+        # era el único, la persona queda sin dispositivo y no se reintenta
+        # para siempre; si tenía otro que recibió, es entrega parcial.
+        ({"enviados": 0, "llave_vieja": 1}, (False, "sin-dispositivo-vigente")),
+        ({"enviados": 1, "llave_vieja": 2}, (True, "entrega-parcial")),
+        # Le queda un dispositivo que falló por otra cosa: ese sí se reintenta.
+        ({"enviados": 0, "llave_vieja": 1, "fallidos": 1}, (False, "push-fallido")),
     ])
     def test_casos(self, estado, esperado):
         assert resultado_de_entrega(estado) == esperado
@@ -247,6 +263,18 @@ class TestReintentos:
         vencido = (AHORA - timedelta(minutes=MINUTOS_PARA_RECLAMO_VENCIDO)).isoformat()
         assert base.pedido["eq"] == {"tipo": TIPO_RECORDATORIO_SAQUE}
         assert base.pedido["or"] == f"status.eq.failed,and(status.eq.claimed,claimed_at.lt.{vencido})"
+
+    def test_solo_las_recientes_y_las_mas_nuevas_primero(self):
+        base = _Tabla(filas=[])
+        reintentos_pendientes(base, AHORA)
+        desde = (AHORA - timedelta(hours=HORAS_DE_REINTENTO)).isoformat()
+        assert base.pedido["gt"] == {"updated_at": desde}
+        assert base.pedido["order"] == ("updated_at", True)
+
+    def test_la_ventana_alcanza_para_todo_reintento_util(self):
+        """La fila nace a lo sumo 60 min antes del saque y se reintenta hasta
+        15 min antes: con menos de una hora la ventana cortaría reintentos."""
+        assert HORAS_DE_REINTENTO * 60 >= 60
 
     def test_devuelve_las_claves_tal_cual_las_usa_el_resto(self):
         base = _Tabla(filas=[{"user_id": ANA, "league_id": LIGA_A, "match_id": 7,
@@ -395,3 +423,85 @@ def test_la_108_ya_no_descarta_a_quien_predijo_y_conserva_lo_demas():
                            "NOT IN ('finished', 'cancelled', 'postponed')"):
         assert cuerpo.count(imprescindible) >= 1, imprescindible
     assert "GRANT EXECUTE ON FUNCTION public.claim_notification_deliveries(jsonb, text)\n  TO service_role" in sql
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# VIGÉSIMA AUDITORÍA (3.4): las fallidas no se borran nunca y la lectura las
+# traía TODAS, sin orden y cortadas en 1000. Este doble FILTRA de verdad, con la
+# semántica de PostgREST: los filtros se combinan con AND, sin `order` devuelve
+# el orden físico (el de inserción) y `limit` corta ahí. Con un doble que solo
+# anota, «la de hoy quedó afuera del corte» no se puede ver.
+# ─────────────────────────────────────────────────────────────────────────────
+class _BitacoraReal:
+    def __init__(self, filas):
+        self.filas = filas
+
+    def table(self, nombre):
+        assert nombre == "notification_deliveries"
+        return _ConsultaReal(self.filas)
+
+
+class _ConsultaReal:
+    def __init__(self, filas):
+        self.filas, self.tope, self.orden = list(filas), None, None
+
+    def select(self, _campos):
+        return self
+
+    def eq(self, campo, valor):
+        self.filas = [f for f in self.filas if f[campo] == valor]
+        return self
+
+    def or_(self, expr):
+        # Solo la forma que usa el código: fallidas, o reclamadas vencidas.
+        prefijo = "status.eq.failed,and(status.eq.claimed,claimed_at.lt."
+        assert expr.startswith(prefijo) and expr.endswith(")"), expr
+        vencido = expr[len(prefijo):-1]
+        self.filas = [f for f in self.filas if f["status"] == "failed"
+                      or (f["status"] == "claimed" and f["claimed_at"] < vencido)]
+        return self
+
+    def gt(self, campo, valor):
+        self.filas = [f for f in self.filas if f[campo] > valor]
+        return self
+
+    def order(self, campo, desc=False):
+        self.orden = (campo, desc)
+        return self
+
+    def limit(self, n):
+        self.tope = n
+        return self
+
+    def execute(self):
+        filas = self.filas
+        if self.orden:
+            filas = sorted(filas, key=lambda f: f[self.orden[0]], reverse=self.orden[1])
+        if self.tope is not None:
+            filas = filas[:self.tope]
+        return type("R", (), {"data": filas})()
+
+
+def _fallida(user, match, cuando):
+    return {"user_id": user, "league_id": LIGA_A, "match_id": match,
+            "tipo": TIPO_RECORDATORIO_SAQUE, "status": "failed",
+            "claimed_at": cuando.isoformat(), "updated_at": cuando.isoformat()}
+
+
+class TestReintentosConHistoria:
+
+    def test_la_fallida_de_hoy_no_queda_afuera_del_corte_por_la_historia(self):
+        """1000 fallidas de una temporada vieja y UNA de hace diez minutos.
+        Sin el filtro por fecha, el corte en 1000 la dejaba afuera y ese
+        reintento no se hacía nunca, sin ningún aviso."""
+        viejas = [_fallida(BETO, 1000 + i, AHORA - timedelta(days=200, minutes=i))
+                  for i in range(1000)]
+        hoy = _fallida(ANA, 7, AHORA - timedelta(minutes=10))
+        claves = reintentos_pendientes(_BitacoraReal([*viejas, hoy]), AHORA)
+        assert (ANA, LIGA_A, 7) in claves
+        assert not any(m >= 1000 for _u, _l, m in claves), "trajo historia que ya no sirve"
+
+    def test_una_fallida_de_hace_tres_horas_ya_no_se_reintenta(self):
+        """A esa altura su partido ya cerró: la base la rechazaría igual."""
+        vieja = _fallida(ANA, 7, AHORA - timedelta(hours=3))
+        assert reintentos_pendientes(_BitacoraReal([vieja]), AHORA) == set()

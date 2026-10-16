@@ -114,6 +114,59 @@ TTL_POR_DEFECTO = 6 * 60 * 60
 TIMEOUT_ENVIO = 10
 
 
+class FalloDePush:
+    """Un envío que no salió, con su causa en una categoría CERRADA.
+
+    POR QUÉ (revisión de Codex, 12 oct 2026): todo lo que no era 404/410 o
+    llave vieja volvía como `False`, y la bitácora guardaba «push-fallido».
+    Con una persona a la que el recordatorio no le llega, eso no decía si era
+    Apple o Windows, un 400 o un tiempo agotado. La categoría es
+    ``<proveedor>-http-<código>``, ``<proveedor>-timeout``,
+    ``<proveedor>-red``, ``<proveedor>-sin-respuesta``, ``sin-llave-vapid`` o
+    ``error-interno``: nunca el endpoint ni el mensaje del proveedor.
+
+    Es FALSO como booleano, igual que el `False` que reemplaza: quien pregunte
+    «¿salió?» con un `if` sigue recibiendo «no».
+    """
+    __slots__ = ("categoria",)
+
+    def __init__(self, categoria: str):
+        self.categoria = categoria
+
+    def __bool__(self):
+        return False
+
+    def __repr__(self):
+        return f"FalloDePush({self.categoria!r})"
+
+
+def proveedor_de(endpoint) -> str:
+    """'apple' | 'fcm' | 'mozilla' | 'wns' | 'otro'. Solo el servicio, nunca
+    el endpoint (que identifica al dispositivo)."""
+    host = origen_de(endpoint).split("://", 1)[-1].split(":", 1)[0]
+    if host == "push.apple.com" or host.endswith(".push.apple.com"):
+        return "apple"
+    if host in ("fcm.googleapis.com", "android.googleapis.com"):
+        return "fcm"
+    if host == "push.services.mozilla.com" or host.endswith(".push.services.mozilla.com"):
+        return "mozilla"
+    if host.endswith(".notify.windows.com"):
+        return "wns"
+    return "otro"
+
+
+def _categoria_de_excepcion(exc, proveedor: str) -> str:
+    # Por la jerarquía y no con `import requests`: el pywebpush de algunos
+    # entornos de prueba es un sustituto sin `requests`. `ConnectTimeout`
+    # hereda de las dos: cuenta como tiempo agotado.
+    nombres = {c.__name__ for c in type(exc).__mro__}
+    if "Timeout" in nombres:
+        return f"{proveedor}-timeout"
+    if "ConnectionError" in nombres:
+        return f"{proveedor}-red"
+    return "error-interno"
+
+
 def send_push_notification(subscription_info, payload_data, ttl: int = TTL_POR_DEFECTO):
     """Envía una notificación push web a una suscripción específica.
 
@@ -126,7 +179,8 @@ def send_push_notification(subscription_info, payload_data, ttl: int = TTL_POR_D
     """
     llave = _get_vapid_private_key()
     if llave is None:
-        return False
+        return FalloDePush("sin-llave-vapid")
+    proveedor = proveedor_de(subscription_info.get("endpoint"))
     try:
         webpush(
             subscription_info=subscription_info,
@@ -146,10 +200,125 @@ def send_push_notification(subscription_info, payload_data, ttl: int = TTL_POR_D
         # quedaban para siempre (cuarta auditoría, hallazgo 4).
         if ex.response is not None and ex.response.status_code in (404, 410):
             return "expired"
-        return False
+        clase = clasificar_rechazo_de_llave(ex.response, subscription_info.get("endpoint"))
+        if clase:
+            return clase
+        if ex.response is None:
+            return FalloDePush(f"{proveedor}-sin-respuesta")
+        try:
+            codigo = int(ex.response.status_code)
+        except (TypeError, ValueError):
+            return FalloDePush(f"{proveedor}-sin-respuesta")
+        return FalloDePush(f"{proveedor}-http-{codigo}")
     except Exception as e:
-        logger.error(f"Error inesperado enviando push: {e}")
+        categoria = _categoria_de_excepcion(e, proveedor)
+        if categoria == "error-interno":
+            logger.error(f"Error inesperado enviando push: {e}")
+        else:
+            logger.error("Push sin entregar: %s", categoria)
+        return FalloDePush(categoria)
+
+
+# El proveedor dice que la suscripción se hizo con OTRA llave pública.
+#
+# POR QUÉ (vigésima auditoría, 11 oct 2026): el recordatorio del partido 293
+# salió con `vapid: ok` y le llegó a 7 de 8 personas. Al octavo, un iPhone
+# suscrito el 13 de junio, Apple le respondía 400 `VapidPkHashMismatch`; y dos
+# Windows de junio daban 401 en WNS. Son dispositivos que se suscribieron con
+# la llave de antes: no les va a llegar NADA nunca, pero la fila existe, así
+# que el backend los reintentaba cada 15 minutos y la app no se enteraba.
+LLAVE_VIEJA = "llave-vieja"            # Apple lo dice con todas las letras
+LLAVE_RECHAZADA = "llave-rechazada"    # 401/403 fuera de Apple: probablemente lo mismo
+
+
+def origen_de(endpoint) -> str:
+    """El origen del servicio de push (``https://host``): es la unidad del
+    `aud` del JWT, así que es la unidad en la que «nuestro JWT sirve» se puede
+    comprobar. '' si no se puede leer."""
+    from urllib.parse import urlparse
+    try:
+        u = urlparse(str(endpoint or ""))
+    except ValueError:
+        return ""
+    if not u.scheme or not u.netloc:
+        return ""
+    return f"{u.scheme}://{u.netloc}".lower()
+
+
+def _es_apple(endpoint) -> bool:
+    return proveedor_de(endpoint) == "apple"
+
+
+def clasificar_rechazo_de_llave(respuesta, endpoint=None):
+    """``LLAVE_VIEJA`` / ``LLAVE_RECHAZADA`` si el rechazo es de llave, o False.
+
+    SOLO con ``estado_vapid() == 'ok'``. Si la llave propia estuviera mal
+    ('ilegible', 'no-coincide'), TODOS los proveedores rechazarían TODOS los
+    envíos, y tomar eso por «dispositivos viejos» borraría la suscripción de
+    todo el grupo. Con la llave propia confirmada, el que no calza es el
+    dispositivo.
+
+    APPLE solo cuenta con su 400 ``VapidPkHashMismatch``: es como Apple dice
+    «esta suscripción es de otra llave». Su 403 (``BadJwtToken``,
+    ``ExpiredJwtToken``) es SIEMPRE culpa de nuestro JWT —el `aud` cruzado del
+    28 sep daba exactamente eso— y nunca dice nada del dispositivo (revisión
+    de la vigésima auditoría).
+
+    El 401/403 de los demás (WNS, FCM, Mozilla) es menos preciso: también lo
+    da un JWT mal armado, y `estado_vapid` no lo ve. Por eso quien borra exige
+    además que en el mismo envío algún dispositivo DEL MISMO ORIGEN haya
+    aceptado el aviso (`borrables`).
+    """
+    if respuesta is None:
         return False
+    estado = respuesta.status_code
+    if estado == 400:
+        try:
+            cuerpo = respuesta.text or ""
+        except Exception:  # noqa: BLE001
+            cuerpo = ""
+        clase = LLAVE_VIEJA if "VapidPkHashMismatch" in cuerpo else None
+    elif estado in (401, 403) and not _es_apple(endpoint):
+        clase = LLAVE_RECHAZADA
+    else:
+        clase = None
+    if clase is None or estado_vapid() != "ok":
+        return False
+    return clase
+
+
+def borrables(resultados) -> list:
+    """Qué endpoints se borran después de un envío.
+
+    resultados: [(endpoint, resultado de send_push_notification)]
+
+    404/410 y el `VapidPkHashMismatch` de Apple se borran siempre. Un 401/403
+    solo si en el MISMO envío otro dispositivo del MISMO ORIGEN (mismo
+    servicio de push, que es la unidad del `aud`) recibió el aviso: eso prueba
+    que nuestro JWT sirve PARA ESE servicio, así que el rechazo es del
+    dispositivo.
+
+    POR QUÉ POR ORIGEN Y NO POR ENVÍO (revisión de la vigésima auditoría): la
+    primera versión aceptaba como prueba CUALQUIER entrega del envío, y eso no
+    cubría el caso que la motivó. Con el `aud` cruzado del 28 sep, FCM recibía
+    y Apple/WNS rechazaban: «alguien recibió» era cierto y se habrían borrado
+    todas las de Apple y WNS (hoy, 9 de 13). Un fallo de JWT afecta a un
+    servicio entero, así que la prueba tiene que ser de ese servicio.
+
+    Costo, dicho: un Windows viejo cuyo host no tiene otro dispositivo que
+    reciba no se borra acá y se sigue reintentando; lo migra el Hub al abrir
+    (`llaveDistinta`). Perder la suscripción de todo un proveedor por un fallo
+    nuestro no se arregla solo; un reintento de más, sí.
+    """
+    recibieron = {origen_de(e) for e, r in resultados if r is True}
+    recibieron.discard("")
+    fuera = []
+    for endpoint, resultado in resultados:
+        if resultado in ("expired", LLAVE_VIEJA):
+            fuera.append(endpoint)
+        elif resultado == LLAVE_RECHAZADA and origen_de(endpoint) in recibieron:
+            fuera.append(endpoint)
+    return fuera
 
 async def broadcast_push_to_users(supabase, user_ids: list, title: str, body: str, url: str = "/"):
     """Envía un push a todos los dispositivos de los usuarios especificados."""
@@ -169,9 +338,9 @@ async def broadcast_push_to_users(supabase, user_ids: list, title: str, body: st
         "url": url
     }
     
-    expired_endpoints = []
+    resultados = []
     success_count = 0
-    
+
     for sub in subs:
         sub_info = {
             "endpoint": sub["endpoint"],
@@ -180,20 +349,36 @@ async def broadcast_push_to_users(supabase, user_ids: list, title: str, body: st
                 "auth": sub["auth"]
             }
         }
-        
+
         # En un hilo: `webpush` es síncrono y el backend corre con un solo
         # worker; un proveedor lento congelaba sync, puntaje y API a la vez.
         result = await asyncio.to_thread(send_push_notification, sub_info, payload)
-        if result == "expired":
-            expired_endpoints.append(sub["endpoint"])
-        elif result is True:
+        resultados.append((sub["endpoint"], result))
+        if result is True:
             success_count += 1
-            
-    # Limpiar endpoints expirados
-    if expired_endpoints:
-        supabase.table("push_subscriptions").delete().in_("endpoint", expired_endpoints).execute()
-        
+
+    # Limpiar endpoints muertos o suscritos con una llave vieja. Es
+    # mantenimiento: si falla, el envío ya salió y no puede contarse como
+    # fallido (la alerta de puntajes lo reintentaría a quien ya lo recibió).
+    fuera = borrables(resultados)
+    if fuera:
+        try:
+            supabase.table("push_subscriptions").delete().in_("endpoint", fuera).execute()
+        except Exception:  # noqa: BLE001
+            logger.exception("No se pudieron borrar %d suscripciones vencidas", len(fuera))
+
     return success_count
+
+
+def motivo_de_fallo(endpoint, resultado) -> str:
+    """La categoría de un dispositivo que no recibió y se conserva."""
+    if isinstance(resultado, FalloDePush):
+        return resultado.categoria
+    if resultado == LLAVE_RECHAZADA:
+        # 401/403 sin prueba de que nuestro JWT sirva en ese servicio: no se
+        # borra (`borrables`), pero se dice qué fue.
+        return f"{proveedor_de(endpoint)}-llave-rechazada"
+    return "error-interno"
 
 
 def usuarios_con_dispositivo(supabase, user_ids) -> set:
@@ -246,26 +431,50 @@ async def enviar_push_personalizado(supabase, mensajes: dict, detallado: bool = 
         por_usuario.setdefault(s["user_id"], []).append(s)
 
     enviados = 0
-    expirados = []
-    detalle = {}
+    resultados_por_usuario = {}
     for user_id, payload in mensajes.items():
-        suscripciones = por_usuario.get(user_id, [])
-        suyo = {"enviados": 0, "fallidos": 0, "expirados": 0,
-                "sin_dispositivo": not suscripciones}
-        for sub in suscripciones:
+        resultados_por_usuario[user_id] = []
+        for sub in por_usuario.get(user_id, []):
             info = {
                 "endpoint": sub["endpoint"],
                 "keys": {"p256dh": sub["p256dh"], "auth": sub["auth"]},
             }
             resultado = await asyncio.to_thread(send_push_notification, info, payload, ttl=ttl)
-            if resultado == "expired":
-                expirados.append(sub["endpoint"])
-                suyo["expirados"] += 1
-            elif resultado is True:
+            resultados_por_usuario[user_id].append((sub["endpoint"], resultado))
+            if resultado is True:
                 enviados += 1
+
+    # Qué se borra se decide con el envío ENTERO a la vista: un 401/403 solo
+    # cuenta como llave vieja si otro dispositivo del mismo servicio de push
+    # sí recibió (`borrables`).
+    fuera = set(borrables(
+        [r for lista in resultados_por_usuario.values() for r in lista]))
+
+    detalle = {}
+    llave_vieja_total = 0
+    fallos = {}
+    for user_id, lista in resultados_por_usuario.items():
+        suyo = {"enviados": 0, "fallidos": 0, "expirados": 0, "llave_vieja": 0,
+                "sin_dispositivo": not lista}
+        motivos = []
+        for endpoint, resultado in lista:
+            if resultado is True:
                 suyo["enviados"] += 1
+            elif resultado == "expired":
+                suyo["expirados"] += 1
+            elif endpoint in fuera:
+                # Se borra: a esta persona no le queda ese dispositivo. Si era
+                # el único, el reclamo se cierra como «sin-dispositivo-vigente»
+                # y no se reintenta para siempre.
+                suyo["llave_vieja"] += 1
+                llave_vieja_total += 1
             else:
                 suyo["fallidos"] += 1
+                motivos.append(motivo_de_fallo(endpoint, resultado))
+        if motivos:
+            suyo["motivos"] = motivos
+            for m in motivos:
+                fallos[m] = fallos.get(m, 0) + 1
         detalle[user_id] = suyo
 
     # La limpieza de endpoints muertos es MANTENIMIENTO, no parte del envío.
@@ -273,16 +482,22 @@ async def enviar_push_personalizado(supabase, mensajes: dict, detallado: bool = 
     # llegaba a cerrar los reclamos: a los 5 minutos se reenviaba el aviso
     # también a quien SÍ lo recibió (quinta auditoría, hallazgo 4). Se deja
     # rastro y se sigue; la próxima vez que falle ese endpoint se reintenta.
-    if expirados:
+    if fuera:
         try:
-            supabase.table("push_subscriptions").delete().in_("endpoint", expirados).execute()
+            supabase.table("push_subscriptions").delete().in_("endpoint", sorted(fuera)).execute()
         except Exception:  # noqa: BLE001
-            logger.exception("No se pudieron borrar %d suscripciones vencidas", len(expirados))
+            logger.exception("No se pudieron borrar %d suscripciones vencidas", len(fuera))
 
     salida = {
         "enviados": enviados,
         "sin_dispositivo": len([u for u in ids if u not in por_usuario]),
     }
+    if llave_vieja_total:
+        salida["llave_vieja"] = llave_vieja_total
+    # Por qué no salió lo que no salió, contado por categoría. Va en la
+    # respuesta (queda en `net._http_response`) y en el log de la corrida.
+    if fallos:
+        salida["fallos"] = dict(sorted(fallos.items()))
     if detallado:
         salida["por_usuario"] = detalle
     return salida
