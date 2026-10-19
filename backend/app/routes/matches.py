@@ -6,7 +6,7 @@ import httpx
 from fastapi import APIRouter, Body, Depends, Header, HTTPException, Query
 from typing import Optional
 
-from app.auth import get_current_user
+from app.auth import get_current_user, require_admin
 from app.config import settings
 from app.services.live_sync import sync_live_scores
 from app.services.scoring import calculate_and_update_scores
@@ -156,8 +156,7 @@ async def notify_daily(authorization: Optional[str] = Header(default=None)):
     Va en el backend y no en una edge function a propósito: acá ya existe la
     autenticación por CRON_SECRET, ya está el envío de push, y se despliega
     solo con cada push a main. Una edge function habría que desplegarla a mano
-    —un paso que ya se olvidó una vez— y hoy no hay pg_cron en la base que la
-    dispare.
+    —un paso que ya se olvidó una vez—. Desde la migración 79 lo dispara pg_cron.
     """
     expected = settings.CRON_SECRET
     if not expected:
@@ -167,10 +166,11 @@ async def notify_daily(authorization: Optional[str] = Header(default=None)):
 
     from datetime import datetime, timezone
     from app.services.notifications import enviar_push_personalizado, estado_vapid
-    from app.services.resumen_diario import armar_mensajes, ventana_del_dia
+    from app.services.resumen_diario import ventana_del_dia
 
     supabase = get_supabase()
-    desde, hasta = ventana_del_dia(datetime.now(timezone.utc))
+    ahora = datetime.now(timezone.utc)
+    desde, hasta = ventana_del_dia(ahora)
 
     partidos = (
         supabase.table("matches")
@@ -224,13 +224,21 @@ async def notify_daily(authorization: Optional[str] = Header(default=None)):
         .in_("match_id", [p["id"] for p in partidos]).limit(20000).execute().data or []
     )
 
-    mensajes = armar_mensajes(partidos, membresias, predicciones)
-    resultado = await enviar_push_personalizado(supabase, mensajes)
+    from app.services.resumen_deduplicado import enviar_resumen_deduplicado
+    # El reclamo existente valida también membresía y cierre a T-15. No se
+    # envían avisos sin poder registrar qué unidades ganó esta ejecución.
+    abiertos = [p for p in partidos if _sigue_abierto(p, ahora)]
+    try:
+        resultado = await enviar_resumen_deduplicado(
+            supabase, abiertos, membresias, predicciones, ahora, enviar_push_personalizado,
+        )
+    except Exception as exc:
+        logger.exception("Resumen diario: no se pudo registrar o completar el envío")
+        raise HTTPException(503, "No se pudo completar el resumen diario; se puede reintentar") from exc
 
     salida = {
         "status": "ok",
         "partidos": len(partidos),
-        "personas": len(mensajes),
         # Una palabra, nunca la llave: así se ve desde `net._http_response` si
         # los envíos pueden salir (11 oct 2026: salían todos fallidos y la
         # respuesta solo decía `enviados: 0`).
@@ -861,7 +869,7 @@ async def player_stats(tournament_id: int, user: dict = Depends(get_current_user
 
 
 @router.get("/verify-scores")
-async def verify_scores(tournament_id: int, user: dict = Depends(get_current_user)):
+async def verify_scores(tournament_id: int, user: dict = Depends(require_admin)):
     """Compara nuestros marcadores contra los de UNAFUT y reporta las diferencias.
 
     ESPN ya se contradijo consigo misma en este torneo (su scoreboard decía
@@ -876,11 +884,12 @@ async def verify_scores(tournament_id: int, user: dict = Depends(get_current_use
     try:
         return await comparar_con_unafut(get_supabase(), tournament_id)
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(status_code=502, detail=f"Error comparando fuentes: {exc}")
+        logger.exception("Falló la comparación de fuentes")
+        raise HTTPException(status_code=502, detail="No se pudieron comparar los marcadores") from exc
 
 
 @router.get("/external-games")
-async def get_external_games():
+async def get_external_games(admin: dict = Depends(require_admin)):
     """Proxy para obtener los juegos de la API externa (worldcup26.ir)."""
     url = "https://worldcup26.ir/get/games"
     async with httpx.AsyncClient() as client:
@@ -889,7 +898,8 @@ async def get_external_games():
             response.raise_for_status()
             return response.json()
         except Exception as e:
-            raise HTTPException(status_code=502, detail=f"Error obteniendo API: {e}")
+            logger.exception("Falló el proveedor de respaldo del Mundial")
+            raise HTTPException(status_code=502, detail="El proveedor de respaldo no está disponible") from e
 
 
 @router.get("")

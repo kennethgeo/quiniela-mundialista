@@ -3,7 +3,8 @@ import { useState, useEffect } from 'react'
 import { motion } from 'motion/react'
 import { Zap, Info } from 'lucide-react'
 import { differenceInSeconds } from 'date-fns'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
+import { enlacePartido } from '../../lib/retornoPartido'
 import GoalCounter from './GoalCounter'
 import NeonElectricBorder from '../ui/NeonElectricBorder'
 import { crestOnError } from '../../lib/teamLogo'
@@ -12,6 +13,7 @@ import GolAnimado from './GolAnimado'
 import MatchStatusBadge from '../ui/MatchStatusBadge'
 import { kickoffDate, matchStatus, predictionDeadline } from '../../lib/matchStatus'
 import { puedeIrAPenales, tandaQueSeGuarda } from '../../lib/penales'
+import { esMarcadorExacto } from '../../lib/resumenPredicciones'
 
 const flagSrc = (url, code) => url || `https://flagcdn.com/w80/${(code || 'xx').toLowerCase()}.png`
 
@@ -38,6 +40,7 @@ function Team({ name, flag, code, align = 'left' }) {
 
 export default function MatchCard({ match, prediction, onSavePrediction, isLoading, hasReachedLimit, powerupsUsed, powerupLimit }) {
   const navigate = useNavigate()
+  const location = useLocation()
 
   const [homeGoals, setHomeGoals] = useState(prediction?.home_goals_pred ?? 0)
   const [awayGoals, setAwayGoals] = useState(prediction?.away_goals_pred ?? 0)
@@ -140,7 +143,7 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
 
   // Etiqueta y color del badge de puntos (finalizado)
   const pointsChip = (points) => {
-    if (points >= 3) return { color: '#2ED3B7', bg: 'rgba(46,211,183,.12)', label: `+${points} · EXACTO` }
+    if (esMarcadorExacto(prediction, match)) return { color: '#2ED3B7', bg: 'rgba(46,211,183,.12)', label: `+${points ?? 0} · EXACTO` }
     if (points >= 1) return { color: '#E8B75A', bg: 'rgba(232,183,90,.14)', label: `+${points} · ACIERTO` }
     return { color: '#8A8A8A', bg: 'rgba(138,138,138,.14)', label: '+0' }
   }
@@ -210,7 +213,7 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
             <span className="font-['Archivo'] font-bold text-[10px] px-2 py-[3px] rounded-[20px]" style={{ color: '#E8B75A', background: 'rgba(232,183,90,.14)' }}>PENALES</span>
           )}
           <button
-            onClick={(e) => { e.stopPropagation(); navigate(`/match/${match.id}`) }}
+            onClick={(e) => { e.stopPropagation(); navigate(enlacePartido(match.id, location.pathname), { state: { returnTo: location.pathname + location.search } }) }}
             /* El ICONO sigue siendo de 13 px, pero el área que responde al
                dedo es de 28: medido, este botón caía en 13×13 y WCAG 2.2
                §2.5.8 pide 24×24 mínimo. Fallar el toque acá abre otra cosa. */

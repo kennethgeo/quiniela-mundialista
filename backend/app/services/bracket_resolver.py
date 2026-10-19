@@ -13,6 +13,8 @@ definidos. Es idempotente: solo toca filas que siguen con un código de slot.
 
 import re
 
+MUNDIAL_TOURNAMENT_ID = 1
+
 # Asignación oficial FIFA 2026 de terceros por slot (grupos clasificados como
 # mejores terceros: B, D, E, F, I, J, K, L). Igual que en el frontend.
 FIFA_2026_THIRD_SLOT_GROUP = {
@@ -179,19 +181,17 @@ def resolve_knockout(matches):
     return resolved
 
 
-def persist_resolved_knockouts(supabase):
+def persist_resolved_knockouts(supabase, matches=None):
     """Escribe los nombres reales en los partidos de eliminatoria que siguen con
     código de slot. Idempotente. Devuelve cuántas filas actualizó."""
     cols = (
-        "id,phase,group_name,home_team,away_team,home_team_code,away_team_code,"
-        "status,home_goals_actual,away_goals_actual,goes_to_penalties,penalties_winner_real"
+        "id,tournament_id,phase,group_name,home_team,away_team,home_team_code,away_team_code,"
+        "status,score_locked,home_goals_actual,away_goals_actual,goes_to_penalties,penalties_winner_real"
     )
-    try:
-        matches = supabase.table("matches").select(cols).execute().data or []
-    except Exception:
-        # goes_to_penalties / penalties_winner_real podrían no existir
-        cols2 = "id,phase,group_name,home_team,away_team,home_team_code,away_team_code,status,home_goals_actual,away_goals_actual"
-        matches = supabase.table("matches").select(cols2).execute().data or []
+    if matches is None:
+        matches = (supabase.table("matches").select(cols)
+                   .eq("tournament_id", MUNDIAL_TOURNAMENT_ID).execute().data or [])
+    matches = [m for m in matches if m.get("tournament_id") == MUNDIAL_TOURNAMENT_ID]
 
     resolved = resolve_knockout(matches)
     by_id = {m["id"]: m for m in matches}
@@ -199,7 +199,7 @@ def persist_resolved_knockouts(supabase):
 
     for mid, entry in resolved.items():
         m = by_id.get(mid)
-        if not m:
+        if not m or m.get("score_locked") or m.get("status") != "pending":
             continue
         payload = {}
         # Solo escribir si el valor guardado sigue siendo un código de slot.
@@ -212,9 +212,12 @@ def persist_resolved_knockouts(supabase):
             if entry.get("away_team_code"):
                 payload["away_team_code"] = entry["away_team_code"]
         if payload:
-            try:
-                supabase.table("matches").update(payload).eq("id", mid).execute()
+            query = (supabase.table("matches").update(payload).eq("id", mid)
+                     .eq("tournament_id", MUNDIAL_TOURNAMENT_ID)
+                     .eq("score_locked", False).eq("status", "pending"))
+            for key in ("home_team", "away_team"):
+                query = query.eq(key, m[key])
+            if query.execute().data:
+                m.update(payload)
                 updated += 1
-            except Exception:
-                pass
     return updated

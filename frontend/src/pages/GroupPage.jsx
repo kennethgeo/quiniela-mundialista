@@ -1,6 +1,6 @@
 // Página de una quiniela (grupo): sus partidos (predecir, scoped al torneo) + tabla.
 import { useState, useMemo, useEffect, useRef } from 'react'
-import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
+import { useParams, useNavigate, useSearchParams, useLocation } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useConsultaDelUsuario } from '../hooks/useConsultaDelUsuario'
 import { motion, AnimatePresence } from 'motion/react'
@@ -40,6 +40,9 @@ import SalirDeQuiniela from '../components/tournament/SalirDeQuiniela'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
 import CuposPorFase from '../components/tournament/CuposPorFase'
 import ExportarCalendario from '../components/tournament/ExportarCalendario'
+import { resumirPredicciones } from '../lib/resumenPredicciones'
+import { enlacePartido } from '../lib/retornoPartido'
+import { cambiosPuntaje } from '../lib/cambiosPuntaje'
 
 // Clave de jornada/fase de un partido (misma lógica de agrupación que MatchList).
 function jornadaKeyOf(m) {
@@ -49,6 +52,7 @@ function jornadaKeyOf(m) {
 export default function GroupPage() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const location = useLocation()
   const { profile } = useAuth()
   const { showToast } = useToast()
   const queryClient = useQueryClient()
@@ -65,10 +69,12 @@ export default function GroupPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const tab = searchParams.get('tab') || 'home'
   const setTab = (nuevo) => {
+    if (tab === 'admin' || nuevo === 'admin') setAdminVisitado(id)
     const p = new URLSearchParams(searchParams)
     p.set('tab', nuevo)
     setSearchParams(p, { replace: true })
   }
+  const [adminVisitado, setAdminVisitado] = useState(tab === 'admin' ? id : null)
   const [copied, setCopied] = useState(false)
   const [enlaceListo, setEnlaceListo] = useState(false)
 
@@ -118,7 +124,7 @@ export default function GroupPage() {
   })
 
   // Predicciones de ESTA quiniela (por league_id, ya no compartidas por torneo).
-  const { data: predictions = [] } = useQuery({
+  const { data: predictions = [], isPending: cargandoPredicciones, isError: errorPredicciones } = useQuery({
     queryKey: ['predictions', profile?.id, id],
     enabled: !!profile?.id && !!group,
     queryFn: async () => {
@@ -446,7 +452,7 @@ export default function GroupPage() {
 
       {tab === 'home' && (
         <SummaryTab group={group} matches={resolved} predictions={predictions} leagueId={group.id}
-          profileId={profile?.id} loading={lm} onTab={setTab} onOpenMatch={(mid) => navigate(`/match/${mid}`)} />
+          profileId={profile?.id} loading={lm} onTab={setTab} onOpenMatch={(mid) => navigate(enlacePartido(mid, location.pathname), { state: { returnTo: location.pathname + location.search } })} />
       )}
 
       {tab === 'matches' && (
@@ -494,7 +500,7 @@ export default function GroupPage() {
               cupoDe={cupoDe}
               powerupUsage={powerupUsage}
               powerupCredits={powerupCredits}
-              onPredecirJornada={setJornadaRapida}
+              onPredecirJornada={cargandoPredicciones || errorPredicciones ? undefined : setJornadaRapida}
             />
             {/* Debajo de la lista, no encima: es un botón que se usa una vez
                 por torneo y estaba empujando los partidos fuera de pantalla,
@@ -520,7 +526,7 @@ export default function GroupPage() {
       {tab === 'historico' && (
         <>
           {/* Arriba de la matriz: el resumen de quién se lleva las jornadas. */}
-          <JornadasYRachas leagueId={group.id} />
+          <JornadasYRachas leagueId={group.id} nombreQuiniela={group.name} />
           <HistorialTab leagueId={group.id} matches={resolved} nombreQuiniela={group.name} />
         </>
       )}
@@ -532,9 +538,17 @@ export default function GroupPage() {
           <AllGlobalPicks tournamentId={tid} leagueId={group.id} />
         </>
       )}
-      {tab === 'admin' && puedeAdministrar && (
-        <PanelAdminQuiniela leagueId={group.id} nombreQuiniela={group.name}
-          matches={resolved} soyAdminGlobal={!!profile?.is_admin} />
+      {/* Conservar el editor montado mantiene sus borradores al cambiar de pestaña. */}
+      {(tab === 'admin' || adminVisitado === group.id) && puedeAdministrar && (
+        <div key={group.id} hidden={tab !== 'admin'} className="space-y-4">
+          <PanelAdminQuiniela leagueId={group.id} nombreQuiniela={group.name}
+            matches={resolved} soyAdminGlobal={!!profile?.is_admin} />
+          {!!group.is_admin && <>
+            <RulesPanel group={group} modoAdmin activo={tab === 'admin'} tournamentStarted={tournamentStarted} showToast={showToast}
+              onDeleted={() => { queryClient.invalidateQueries({ queryKey: ['my_groups'] }); navigate('/') }} />
+            <MiembrosYAdmins leagueId={group.id} />
+          </>}
+        </div>
       )}
 
       {tab === 'pozo' && <PozoYPagos leagueId={group.id} nombreQuiniela={group.name} />}
@@ -552,7 +566,7 @@ export default function GroupPage() {
             <span className="text-[11px] font-bold text-accent shrink-0">Ver →</span>
           </button>
           {/* Quién administra: es quién puede confirmar pagos y expulsar. */}
-          <MiembrosYAdmins leagueId={group.id} />
+          <MiembrosYAdmins leagueId={group.id} soloLectura />
           <HistorialAjustes tournamentId={tid} />
         </>
       )}
@@ -569,6 +583,7 @@ export default function GroupPage() {
           onClose={() => setJornadaRapida(null)}
           onGuardado={() => {
             queryClient.invalidateQueries({ queryKey: ['predictions', profile?.id, id] })
+            queryClient.invalidateQueries({ queryKey: ['pending-predictions'] })
             showToast(`${jornadaRapida.label} guardada.`, 'success', 3000)
           }}
         />
@@ -643,20 +658,10 @@ function timeLeft(iso) {
   return h >= 1 ? `Expira en ${h} h` : `Expira en ${m} min`
 }
 
-// Etiquetas de las reglas de puntaje (para propuestas y diffs).
-const SCORING_LABELS = {
-  points_exact: 'Marcador exacto',
-  points_correct: 'Resultado correcto',
-  powerup_limit: 'Comodines ×2 por jornada',
-  powerup_por_partidos: 'Un ×2 cada N partidos',
-  champion_points: 'Acertar campeón',
-  scorer_points: 'Acertar goleador',
-}
-
 // Panel completo de la pestaña Reglas: votación (si hay propuesta abierta),
 // puntaje, reglas de texto, historial de propuestas y zona de peligro.
-function RulesPanel({ group, tournamentStarted, showToast, onDeleted, onSalir }) {
-  const isAdmin = !!group.is_admin
+function RulesPanel({ group, tournamentStarted, showToast, onDeleted, onSalir, modoAdmin = false, activo = true }) {
+  const isAdmin = modoAdmin && !!group.is_admin
   // Borrar la quiniela sigue siendo solo de quien la creó, no de los co-admins:
   // delete_group lo rechaza igual, así que mostrarles el botón sería un engaño.
   // (?? is_admin para no esconderlo antes de que corra la migración 59.)
@@ -665,10 +670,10 @@ function RulesPanel({ group, tournamentStarted, showToast, onDeleted, onSalir })
   const { data: proposals = [], refetch } = useConsultaDelUsuario({
     queryKey: ['league_proposals', group.id],
     queryFn: () => fetchLeagueProposals(group.id),
-    enabled: !!group.id,
+    enabled: !!group.id && activo,
     // Fallback si el realtime no está habilitado: mientras haya votación abierta,
     // refrescamos el conteo cada 8 s.
-    refetchInterval: (query) => (query.state.data?.some((p) => p.status === 'open') ? 8000 : false),
+    refetchInterval: (query) => (activo && query.state.data?.some((p) => p.status === 'open') ? 8000 : false),
   })
   const openProposal = proposals.find((p) => p.status === 'open') || null
   const history = proposals.filter((p) => p.status !== 'open')
@@ -676,18 +681,18 @@ function RulesPanel({ group, tournamentStarted, showToast, onDeleted, onSalir })
 
   // Realtime: el conteo de votos se actualiza solo para todos los miembros.
   useEffect(() => {
-    if (!group.id) return
+    if (!group.id || !activo) return
     const ch = supabase.channel(`rules-${group.id}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'rule_proposals', filter: `league_id=eq.${group.id}` }, () => { refetch(); qc.invalidateQueries({ queryKey: ['my_groups'] }) })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'rule_votes' }, () => refetch())
       .subscribe()
     return () => { supabase.removeChannel(ch) }
-  }, [group.id, refetch, qc])
+  }, [group.id, refetch, qc, activo])
 
   return (
     <div className="space-y-4">
       {openProposal && (
-        <RuleVoting proposal={openProposal} group={group} isAdmin={isAdmin} onChanged={afterChange} showToast={showToast} />
+        <RuleVoting proposal={openProposal} group={group} isAdmin={!!group.is_admin} onChanged={afterChange} showToast={showToast} />
       )}
       <ScoringConfig group={group} isAdmin={isAdmin} tournamentStarted={tournamentStarted}
         hasOpenProposal={!!openProposal} onSaved={afterChange} onProposed={afterChange} showToast={showToast} />
@@ -700,7 +705,7 @@ function RulesPanel({ group, tournamentStarted, showToast, onDeleted, onSalir })
           si esa fase ya empezó. */}
       {isAdmin && (
         <CuposPorFase leagueId={group.id} limiteFijo={group.powerup_limit ?? 2}
-          valores={group.powerup_limits || {}} torneoRef={group.tournament_ref}
+          valores={group.powerup_limits ?? undefined} torneoRef={group.tournament_ref}
           hasOpenProposal={!!openProposal}
           onGuardado={afterChange} onProposed={afterChange} showToast={showToast} />
       )}
@@ -709,7 +714,7 @@ function RulesPanel({ group, tournamentStarted, showToast, onDeleted, onSalir })
       <ExtrasConfig group={group} isAdmin={isAdmin} onSaved={afterChange} showToast={showToast} />
       {history.length > 0 && <ProposalHistory items={history} />}
       {isAdmin && <AdminTools group={group} showToast={showToast} onDone={() => qc.invalidateQueries({ queryKey: ['league_medals', group.id] })} />}
-      {soyCreador && <DangerZone group={group} onDeleted={onDeleted} showToast={showToast} />}
+      {modoAdmin && soyCreador && <DangerZone group={group} onDeleted={onDeleted} showToast={showToast} />}
 
       {/* SALIR DE LA QUINIELA. Va en Reglas y no en Admin porque es una acción
           de la PERSONA, no administrativa — el mismo criterio que «Ya pagué».
@@ -720,7 +725,7 @@ function RulesPanel({ group, tournamentStarted, showToast, onDeleted, onSalir })
           hay forma de traspasar la quiniela, así que si se fuera quedaría un
           grupo sin dueño, que nadie podría administrar ni borrar. Para él la
           salida es la Zona de peligro, de ahí arriba. */}
-      {!soyCreador && onSalir && (
+      {!modoAdmin && !soyCreador && onSalir && (
         <div className="glass-card p-5">
           <h3 className="font-bold font-['Archivo'] text-[13px] text-slate-900 dark:text-[#F3F1EA] mb-1.5">
             Salir de la quiniela
@@ -800,15 +805,13 @@ function RuleVoting({ proposal, group, isAdmin, onChanged, showToast }) {
 // Resumen visual de lo que cambiaría una propuesta (puntaje: solo lo distinto).
 function ProposalDiff({ proposal, group }) {
   if (proposal.kind === 'scoring') {
-    const rows = Object.keys(SCORING_LABELS)
-      .map((k) => ({ k, from: group?.[k], to: proposal.payload?.[k] }))
-      .filter((r) => r.to != null && Number(r.to) !== Number(r.from))
+    const rows = cambiosPuntaje(proposal.payload, group)
     if (!rows.length) return <p className="text-[12.5px] text-[var(--text-muted,#8A8A8A)]">Sin cambios respecto al puntaje actual.</p>
     return (
       <div className="space-y-1.5">
         {rows.map((r) => (
-          <div key={r.k} className="flex items-center justify-between gap-3 text-[13px]">
-            <span className="text-slate-600 dark:text-[#c9c7c0]">{SCORING_LABELS[r.k]}</span>
+          <div key={r.key} className="flex items-center justify-between gap-3 text-[13px]">
+            <span className="text-slate-600 dark:text-[#c9c7c0]">{r.label}</span>
             <span className="font-['JetBrains_Mono'] font-bold">
               <span className="text-slate-400 line-through">{r.from ?? '—'}</span>
               <span className="text-slate-400 mx-1">→</span>
@@ -1431,17 +1434,7 @@ function SummaryTab({ group, matches, predictions, leagueId, profileId, loading,
     .sort((a, b) => new Date(b.kickoff_at) - new Date(a.kickoff_at))
     .slice(0, 4), [matches])
 
-  const stats = useMemo(() => {
-    let made = 0, hits = 0, exact = 0, x2 = 0
-    predictions.forEach((p) => { made++; if (p.use_powerup_x2) x2++ })
-    matches.forEach((m) => {
-      if (m.status !== 'finished') return
-      const p = predByMatch[m.id]; if (!p) return
-      if ((p.points_earned || 0) > 0) hits++
-      if (p.home_goals_pred === m.home_goals_actual && p.away_goals_pred === m.away_goals_actual) exact++
-    })
-    return { made, hits, exact, x2 }
-  }, [predictions, matches, predByMatch])
+  const stats = useMemo(() => resumirPredicciones(predictions, matches), [predictions, matches])
 
   const played = matches.filter((m) => m.status === 'finished').length
   const totalM = matches.filter((m) => m.status !== 'cancelled' && m.status !== 'postponed').length
@@ -1456,7 +1449,7 @@ function SummaryTab({ group, matches, predictions, leagueId, profileId, loading,
 
   if (loading) return <LoadingSpinner />
 
-  const eff = stats.made ? Math.round((stats.hits / stats.made) * 100) : 0
+  const eff = stats.finishedMade ? Math.round((stats.hits / stats.finishedMade) * 100) : 0
 
   return (
     <div className="space-y-4">
@@ -1464,7 +1457,7 @@ function SummaryTab({ group, matches, predictions, leagueId, profileId, loading,
       <div className="grid grid-cols-3 gap-2.5">
         <StatTile label="Posición" value={`#${group.my_rank}`} sub={`de ${group.members}`} color="#E8B75A" />
         <StatTile label="Puntos" value={group.my_points ?? 0} color="#2ED3B7" />
-        <StatTile label="Efectividad" value={`${eff}%`} sub={`${stats.hits}/${stats.made}`} color="#FF7A59" />
+        <StatTile label="Efectividad" value={`${eff}%`} sub={`${stats.hits}/${stats.finishedMade} finalizados`} color="#FF7A59" />
       </div>
 
       {/* Próximos partidos */}

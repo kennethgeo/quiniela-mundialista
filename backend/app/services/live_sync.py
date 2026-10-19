@@ -8,11 +8,10 @@ Realiza UNA pasada: actualiza status/marcador/minuto de los partidos en curso o
 finalizados y, en la transición a 'finished', calcula los puntos reusando
 calculate_and_update_scores (el motor de puntos NO se toca aquí).
 
-Notas de esquema:
-- `status` solo admite ('pending','in_progress','finished'); los partidos que
-  aún no empiezan NO se tocan.
-- El minuto se escribe en `matches.minute` de forma best-effort (tolera que la
-  columna no exista).
+Solo lee y escribe el Mundial (tournament_id=1). Una pasada sin partidos
+cercanos no consulta proveedores. La foto requiere candados y campos de
+penales completos; no hay consultas ni escrituras de respaldo que los omitan.
+Los partidos que la fuente todavía da como pendientes no se tocan.
 """
 
 from datetime import datetime, timedelta, timezone
@@ -20,7 +19,7 @@ from datetime import datetime, timedelta, timezone
 import httpx
 
 from app.services.scoring import calculate_and_update_scores
-from app.services.bracket_resolver import persist_resolved_knockouts
+from app.services.bracket_resolver import MUNDIAL_TOURNAMENT_ID, persist_resolved_knockouts
 
 ESPN_URL = "https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard"
 WORLDCUP_API_URL = "https://worldcup26.ir/get/games"
@@ -124,6 +123,7 @@ async def _fetch_espn_games():
                     winner = "home" if h.get("winner") else ("away" if a.get("winner") else None)
 
                     games.append({
+                        "kickoff_at": ev.get("date"),
                         "home": _db_team(h["team"].get("displayName") or h["team"].get("name")),
                         "away": _db_team(a["team"].get("displayName") or a["team"].get("name")),
                         "home_score": _to_int(h.get("score")),
@@ -187,55 +187,69 @@ async def _get_games():
 
 
 def _find_db_match(matches, game):
-    """Empareja por el par de equipos; desempata por grupo o por no-finalizado."""
+    """No adivina por orden: el mismo par puede repetirse en grupos y final."""
     pair = frozenset((game["home"], game["away"]))
     candidates = [
         m for m in matches
         if frozenset((m.get("home_team"), m.get("away_team"))) == pair
     ]
-    if not candidates:
-        return None
-    if len(candidates) == 1:
-        return candidates[0]
     if game.get("group"):
-        for m in candidates:
-            if m.get("group_name") == game["group"]:
-                return m
-    for m in candidates:
-        if m.get("status") != "finished":
-            return m
-    return candidates[0]
+        candidates = [m for m in candidates if m.get("phase") == "groups" and m.get("group_name") == game["group"]]
+    if game.get("kickoff_at"):
+        try:
+            source_date = datetime.fromisoformat(game["kickoff_at"].replace("Z", "+00:00"))
+            if source_date.tzinfo is None:
+                source_date = source_date.replace(tzinfo=timezone.utc)
+            cercanos = []
+            for m in candidates:
+                dt = datetime.fromisoformat(m["kickoff_at"].replace("Z", "+00:00"))
+                if dt.tzinfo is None:
+                    dt = dt.replace(tzinfo=timezone.utc)
+                if abs(dt - source_date) < timedelta(hours=36):
+                    cercanos.append(m)
+            candidates = cercanos
+        except (KeyError, AttributeError, TypeError, ValueError):
+            return None
+    return candidates[0] if len(candidates) == 1 else None
 
 
 async def sync_live_scores(supabase) -> dict:
     """Ejecuta una pasada de sincronización y devuelve un resumen."""
+    # Primero la foto COMPLETA. Sin candado ni datos de penales no se escribe
+    # nada; un error transitorio nunca justifica una lectura con menos columnas.
+    cols = (
+        "id,tournament_id,phase,group_name,matchday,kickoff_at,home_team,away_team,"
+        "home_team_code,away_team_code,status,home_goals_actual,away_goals_actual,"
+        "goes_to_penalties,penalties_winner_real,events_json,score_locked"
+    )
+    matches = (supabase.table("matches").select(cols)
+               .eq("tournament_id", MUNDIAL_TOURNAMENT_ID).execute().data or [])
+    now = datetime.now(timezone.utc)
+    def cercano(m):
+        if m.get("score_locked"):
+            return False
+        try:
+            dt = datetime.fromisoformat(m["kickoff_at"].replace("Z", "+00:00"))
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            return now - timedelta(days=4) <= dt <= now + timedelta(days=1)
+        except (KeyError, TypeError, ValueError, AttributeError):
+            return False
+    if not any(cercano(m) for m in matches):
+        return {"status": "ok", "source": "none", "games": 0, "updated": 0,
+                "finished_calculated": 0, "knockout_resolved": 0,
+                "skipped": "sin-partidos-del-mundial-en-ventana"}
     # Antes de emparejar: escribir los nombres reales en los partidos de
     # eliminatoria que ya tienen equipos definidos (la BD los guarda como "2A",
     # "W74", etc., y el matching con ESPN es por nombre). Así se pueden cuadrar
     # y puntuar. Best-effort: si algo falla, seguimos con el sync normal.
     resolved_count = 0
     try:
-        resolved_count = persist_resolved_knockouts(supabase)
+        resolved_count = persist_resolved_knockouts(supabase, matches)
     except Exception:  # noqa: BLE001
         resolved_count = 0
 
     games, source = await _get_games()
-
-    base_cols = (
-        "id,phase,group_name,matchday,home_team,away_team,"
-        "status,home_goals_actual,away_goals_actual,"
-        "goes_to_penalties,penalties_winner_real"
-    )
-    # events_json y score_locked son columnas nuevas; si la migración que las
-    # crea todavía no corrió, cae a las versiones anteriores en vez de romper
-    # el sync entero.
-    try:
-        matches = supabase.table("matches").select(base_cols + ",events_json,score_locked").execute().data or []
-    except Exception:
-        try:
-            matches = supabase.table("matches").select(base_cols + ",score_locked").execute().data or []
-        except Exception:
-            matches = supabase.table("matches").select(base_cols).execute().data or []
 
     summary = {"updated": 0, "finished_calculated": 0}
     errors = []
@@ -280,13 +294,16 @@ async def sync_live_scores(supabase) -> dict:
             payload["goes_to_penalties"] = goes_pen
         if pen_winner is not None:
             payload["penalties_winner_real"] = pen_winner
-        try:
-            supabase.table("matches").update(payload).eq("id", db_match["id"]).execute()
-        except Exception:
-            # Columnas opcionales (minute / events_json) pueden no existir aún
-            payload.pop("minute", None)
-            payload.pop("events_json", None)
-            supabase.table("matches").update(payload).eq("id", db_match["id"]).execute()
+        # Si el admin fijó o corrigió el partido mientras se pedía la fuente,
+        # no se pisa su decisión. Un conflicto no dispara el motor de puntos.
+        query = (supabase.table("matches").update(payload).eq("id", db_match["id"])
+                 .eq("tournament_id", MUNDIAL_TOURNAMENT_ID).eq("score_locked", False))
+        for key in ("status", "home_team", "away_team", "home_goals_actual", "away_goals_actual",
+                    "goes_to_penalties", "penalties_winner_real"):
+            value = db_match.get(key)
+            query = query.is_(key, "null") if value is None else query.eq(key, value)
+        if not query.execute().data:
+            return
 
         summary["updated"] += 1
 
@@ -302,7 +319,7 @@ async def sync_live_scores(supabase) -> dict:
             continue  # no tocar los que no empezaron
         try:
             db_match = _find_db_match(matches, game)
-            if not db_match:
+            if not db_match or not cercano(db_match):
                 unmatched.append(f"{game['home']} vs {game['away']}")
                 continue
             events = game.get("events") or []
@@ -316,6 +333,12 @@ async def sync_live_scores(supabase) -> dict:
                     {**e, "side": ("away" if e.get("side") == "home" else "home")}
                     for e in events
                 ]
+
+            if game["status"] != "cancelled" and any(
+                not isinstance(g, int) or g < 0 for g in (home_goals, away_goals)
+            ):
+                errors.append(f"Marcador incompleto del proveedor para el partido {db_match['id']}")
+                continue
 
             # Penales: un partido de ELIMINATORIA que termina empatado se definió
             # por penales; el ganador (quién avanza) lo marca ESPN.

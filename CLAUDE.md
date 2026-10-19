@@ -1,5 +1,27 @@
 # Quiniela Mundialista — notas del proyecto
 
+## Integración solicitada el 19 oct 2026
+
+El dueño pidió integrar el trabajo de auditoría y dejó indicada la vuelta de Claude. Punto de continuidad: `docs/ENTREGA_AUDITORIA_2026-10-19.md`. El pedido de merge sustituye el límite anterior de conservar todo solo en local; no aplica ni activa la propuesta SQL ni los cambios de datos pendientes.
+
+`CuposPorFase` usa arrays/objetos vacíos estables: un `data: fases = []` nuevo en cada render reactivaba su efecto de estado durante una lectura pendiente y producía «Maximum update depth exceeded». Tampoco pasar `group.powerup_limits || {}` desde Reglas: creaba una identidad nueva al navegar y podía borrar el borrador. Cubierto con red ficticia lenta y cambio de pestaña sin configuración previa.
+
+## Auditoría del 16 oct 2026: continuación local
+
+- Guía de pruebas manuales: `docs/GUIA_PRUEBAS_LOCALES_2026-10-16.md`. La vista a probar es localhost; los cambios todavía no están publicados en Vercel.
+- Perfil e Histórico: `leerTodasLasFilas` exige conteo exacto, orden estable por id y filas únicas; avanza por el número recibido, no por el tamaño solicitado, para soportar un límite menor del servidor. No publica un prefijo fallido ni una lista cuyo conteo cambió. Esto no promete una instantánea transaccional de campos que se editen mientras se lee.
+- El perfil pagina partidos, picks propios y globales; une por Map, conserva filas por quiniela y cuenta partidos únicos en sus estadísticas. Renderiza 50 tarjetas inicialmente con opción de ampliar; los totales usan la lista completa. Actividad mantiene el límite explícito de 50 movimientos. El componente se reinicia al cambiar de cuenta y cancela las lecturas pendientes.
+- Histórico: las predicciones se filtran por quiniela y partidos destapados de la jornada elegida, con clave de caché que incluye esos IDs y la cuenta. Un error no permite compartir una matriz parcial. No quitar filtros ni sustituirlos por una descarga general con service_role.
+- Cambios en `codex/mejoras-auditoria-seguras`, sin publicar ni ejecutar migraciones en producción. Seguimiento y límites en `docs/PLAN_MEJORAS_AUDITORIA_2026-10-16.md`.
+- Los editores de puntaje, reglas, cupos, extras y miembros están en **Admin**. Reglas es de consulta y votación. El editor de Admin se mantiene montado al cambiar de pestaña para conservar borradores; su consulta periódica y su canal de reglas se desactivan cuando está oculto. Los permisos de grupo siguen viniendo de `group.is_admin` y de las RPC; un admin global no adquiere por esto facultades de creador.
+- Cuenta: `cambiarNombre` escribe solo `display_name`, comprueba la sesión y el valor anterior, y exige una fila confirmada. El formulario se reinicia al cambiar de usuario. Contraseña utiliza el enlace de recuperación existente a `/reset-password`, no un nuevo almacén de claves ni una modificación administrativa de Auth.
+- Invitaciones: fallo visible y reintento explícito; el enlace directo usa su propio código aunque quede otro pendiente. No repetir automáticamente una invitación fallida en cada render.
+- Detalle del partido: el enlace incluye el grupo y el estado de navegación conserva la ruta con pestaña/jornada. El retorno valida que sea una ruta interna de quiniela; un acceso directo vuelve a su grupo o al Hub. Se cubre también el partido inexistente.
+- Los escudos del perfil vienen de los datos reales de partidos; si no hay dato, iniciales. No convertir las dos primeras letras del nombre en un país.
+- La tarjeta de ganador en Histórico consulta de nuevo `league_jornadas` antes de exportar. Solo jornada cerrada, ganador oficial y puntos positivos; nunca ordenar la matriz local para coronar a alguien. Incluye fecha de consulta porque una corrección posterior puede cambiarlo. Compartir requiere que la persona pulse el botón.
+- `docs/sql/actualizar_equipos_cruce.propuesta.sql` pasó un ensayo **PostgreSQL 17 real con esquema sintético**, con `es_backend` y `marcar_destape` del repositorio y dos conexiones para la concurrencia. No equivale a ensayar todo el esquema desplegado ni activa la RPC. El backend sigue sin UPDATE de respaldo si falta la función. No se asignó migración ni se aplicó en producción.
+- Contratos pendientes del simulador, chat, titularidad y aportes: `docs/EVOLUCION_PARTICIPACION_2026-10-16.md`. No se implementa otro motor de puntaje en el cliente ni se decide una devolución de dinero por suposición.
+
 ## Reglas de puntaje (fuente de verdad: `backend/app/services/scoring.py`, motor ÚNICO)
 
 > **Hubo un segundo motor en JavaScript y se borró (21 sep 2026).**
@@ -82,8 +104,24 @@ Reglas vigentes (jun 2026, cambiadas a pedido del admin):
 - `PredecirJornada.jsx` (modal desde el botón LLENAR del encabezado de jornada) manda **un solo upsert** con todos los partidos abiertos.
 - **El orden del lote importa**: `check_powerup_limit` corre fila por fila dentro del mismo INSERT y ve las filas anteriores. Comprobado contra Postgres: `[prender B, apagar A]` revienta con "Límite de comodines x2 alcanzado" aunque el estado final respete el cupo; `[apagar A, prender B]` pasa. Por eso `lib/loteJornada.js` manda **las desactivaciones primero**. No cambiar ese orden.
 - El lote es **atómico**: si el trigger rechaza algo no se guarda nada, ni los marcadores. Por eso el cupo de ×2 también se respeta en vivo en el modal.
-- La tanda de penales se sigue eligiendo en la tarjeta del partido; el lote conserva la que ya hubiera **solo si el partido puede ir a penales y el marcador sigue siendo empate** (`tandaQueSeGuarda`, auditoría 20). En una ida, o si el 1-1 pasó a 2-1, va null.
+- La tanda de penales se elige tanto en la tarjeta como en LLENAR. El lote conserva la que ya hubiera y exige una elección en los empates de eliminatoria que pueden ir a tanda (`puedeIrAPenales`/`tandaQueSeGuarda`). En una ida, o si el 1-1 pasó a 2-1, va null. Antes de enviar 0–0 nuevos sin editar se pide confirmación explícita; el lote no se abre antes de cargar las predicciones guardadas. Ante un rechazo se conserva la edición y no se anuncia éxito.
 - **La tarjeta tiene que seguir a lo GUARDADO** (13 oct 2026). Tomaba los goles de la predicción una sola vez, al montarse, y la lista se dibuja sin esperar las predicciones: si llegaban después que los partidos, la tarjeta quedaba en 0-0 diciendo «Actualizar predicción», y un toque **pisaba lo guardado**. Igual después de guardar desde LLENAR: la tarjeta seguía con lo de antes y «Actualizar» lo revertía. Ahora `MatchCard` vuelve a tomar su estado cuando cambia lo guardado de ESE partido (ajuste durante el render, no un efecto), así que una edición sin guardar no se pierde por una relectura cualquiera. Lo destapó `penales-en-la-ida.spec.js`, que fallaba una vez de cada veinte; `tarjeta-sigue-lo-guardado.spec.js` fuerza el orden y cae sin el arreglo. **Una prueba intermitente puede ser un fallo real con mala suerte, no ruido.**
+
+### Correcciones de presentación de la auditoría (16 oct 2026)
+- Plan y estado: `docs/PLAN_MEJORAS_AUDITORIA_2026-10-16.md`. Primera etapa local, sin migraciones ni llamadas a producción.
+- `lib/resumenPredicciones.js` clasifica exactos por goles, nunca por umbrales de puntos. No calcula puntos: lee `points_earned`. La efectividad de la quiniela excluye predicciones futuras y anuladas; el perfil cuenta cada partido una sola vez entre las filas de sus quinielas, sin borrar las filas del historial.
+- `lib/cambiosPuntaje.js` muestra también el asistidor y los cupos por fase antes de votar. `powerup_limits` es un reemplazo completo: quitar una fase vuelve al cupo general, no a cero.
+- Los cambios de pagos y titularidad son etapas separadas. No congelar indiscriminadamente los aplazamientos ni ejecutar la 109/110 basándose solo en estas notas.
+
+### Administración y sync revisados (16 oct 2026, segunda etapa local)
+- El respaldo manual `handleSyncAPI` del navegador se retiró: emparejaba eliminatorias por índice y podía mezclar torneos. También se retiraron el proxy de Vite y el rewrite `/api/games`. La ruta de respaldo del backend permanece solo para admins, igual que `verify-scores`.
+- `live_sync` y `persist_resolved_knockouts` se acotan al Mundial (id 1). La primera lectura requiere candado y penales; una lectura incompleta aborta. Sin partidos en [-4 días, +1 día], no se consulta al proveedor. Un par de equipos ambiguo sin fecha/grupo suficiente NO se empareja por posición ni por preferir el que esté pendiente.
+- Las escrituras del live-sync comparan resultado, equipos y candado leídos. Si otro admin los cambió mientras tanto, no escriben ni re-puntúan. Un proveedor con goles incompletos no borra los que ya hay.
+- `BracketAdmin` selecciona torneo, conserva ediciones ante errores y usa `/api/admin/update-match-teams`. El endpoint exige admin y hace una comprobación previa, pero NO escribe directo: requiere la RPC `actualizar_equipos_cruce`. La propuesta está en `docs/sql/actualizar_equipos_cruce.propuesta.sql`, pendiente de ensayo en PostgreSQL y registro como migración (Docker no tiene motor activo en esta máquina). Bloquea las escrituras de predicciones con `SHARE NOWAIT` y verifica torneo, estado, cierre y equipos esperados en una transacción; ante actividad concurrente rechaza. Si falta la RPC devuelve 503, sin UPDATE de respaldo. Un error de red ambiguo dice que no se pudo confirmar, no promete que nada cambió. No activar el guardado en producción antes de validar esta RPC.
+- `set-match-status`: una anulación manual se fija por defecto; un aplazamiento deja sincronizar de nuevo. El campo explícito `score_locked` permite decidirlo. Un resultado manual vía `update-match` queda fijado.
+- `notify-daily` reclama unidades persona/quiniela/partido/día con la bitácora existente (requiere comportamiento de la 108 para incluir a quien ya predijo). No envía sin bitácora, anuncia solo unidades nuevas y conserva el conteo de pendientes de todo el día. La garantía sigue siendo al-menos-una-vez tras caída entre push y cierre, no exactamente una vez.
+- El push de puntaje incluye equipos, marcador y enlace al partido. El motor de puntaje no cambia.
+- Todo esto está en la rama local, sin desplegar, sin migraciones y sin operaciones sobre producción. Ver resultados y condiciones de activación en el plan.
 
 ## Seguridad de la base (migración `database/61_endurecer_permisos.sql`)
 Reglas que NO se pueden volver a romper al escribir SQL nuevo:

@@ -130,11 +130,14 @@ for (const [stage, esperada] of [['Semifinal · Ida', null], ['Semifinal · Vuel
   test(`LLENAR en ${stage}: la tanda guardada va ${esperada === null ? 'null' : 'conservada'}`, async ({ page }) => {
     const guardados = await montar(page, stage, { partidos: serie(stage), predicciones: [previa] })
     await page.getByRole('button', { name: 'LLENAR' }).click()
+    const lote = page.getByRole('dialog', { name: /Predecir/ })
+    await lote.getByRole('checkbox', { name: /Confirmo los 1 marcadores/ }).check()
+    if (stage.includes('Vuelta')) await lote.getByRole('button', { name: 'Cartaginés', exact: true }).click()
     await page.getByRole('button', { name: 'Guardar los 2' }).click()
     await expect.poll(() => guardados.length).toBe(2)
     const deLaSerie = guardados.find((f) => f.match_id === ID)
     expect(deLaSerie).toMatchObject({ home_goals_pred: 1, away_goals_pred: 1, penalties_winner_pred: esperada })
-    expect(guardados.find((f) => f.match_id === SEGUNDO)).toMatchObject({ penalties_winner_pred: null })
+    expect(guardados.find((f) => f.match_id === SEGUNDO)).toMatchObject({ penalties_winner_pred: stage.includes('Vuelta') ? 'Cartaginés' : null })
   })
 }
 

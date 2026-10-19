@@ -8,6 +8,21 @@ export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
+    {
+      name: 'vista-local-sin-sync-automatico',
+      // Abrir localhost no debe disparar escrituras de marcadores en la base
+      // compartida. Solo intercepta el refresco automático del cliente en dev.
+      configureServer(server) {
+        server.middlewares.use((req, res, next) => {
+          if (req.method === 'POST' && req.url?.split('?')[0] === '/_backend/api/matches/refresh-live') {
+            res.setHeader('Content-Type', 'application/json')
+            res.end(JSON.stringify({ skipped: true, reason: 'local_preview' }))
+            return
+          }
+          next()
+        })
+      },
+    },
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'favicon.png', 'apple-touch-icon.png', 'icons/*.png'],
@@ -60,6 +75,15 @@ export default defineConfig({
       }
     })
   ],
+  server: {
+    proxy: {
+      '/_backend': {
+        target: 'http://127.0.0.1:8000',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/_backend/, ''),
+      },
+    },
+  },
   build: {
     rollupOptions: {
       output: {
@@ -81,13 +105,4 @@ export default defineConfig({
     exclude: ['**/node_modules/**', '**/dist/**', 'tests/ui/**'],
   },
 
-  server: {
-    proxy: {
-      '/_backend/api/matches/external-games': {
-        target: 'https://worldcup26.ir',
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/_backend\/api\/matches\/external-games/, '/get/games')
-      }
-    }
-  }
 })

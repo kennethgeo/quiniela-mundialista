@@ -34,14 +34,17 @@ import { fetchFasesDelTorneo, setPowerupLimits, proposeRuleChange } from '../../
    etiqueta. Ahí está el porqué y la prueba que lo sujeta. */
 import { SUGERENCIAS, sugerenciasPara, formatoConocido, nombreDeFase } from '../../lib/fasesDeTorneo'
 
+const FASES_VACIAS = Object.freeze([])
+const CUPOS_VACIOS = Object.freeze({})
+
 /* `bloqueado` apaga el editor entero. HOY NADIE LO PASA —GroupPage dejó de
    hacerlo en la 74— y se conserva solo como cierre de emergencia; el candado
    normal es por fila (`f.empezo`). Si algún día vuelve a pasarse, que sea por
    una razón escrita, no por copiar el patrón viejo. */
-export default function CuposPorFase({ leagueId, limiteFijo, valores = {}, bloqueado,
+export default function CuposPorFase({ leagueId, limiteFijo, valores = CUPOS_VACIOS, bloqueado,
                                        torneoRef, hasOpenProposal, onGuardado,
                                        onProposed, showToast }) {
-  const { data: fases = [], isLoading, error } = useQuery({
+  const { data: fases = FASES_VACIAS, isLoading, error } = useQuery({
     queryKey: ['fases_torneo', leagueId],
     queryFn: () => fetchFasesDelTorneo(leagueId),
     enabled: !!leagueId,

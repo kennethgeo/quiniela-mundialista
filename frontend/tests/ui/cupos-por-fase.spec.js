@@ -34,7 +34,7 @@ const partidos = [{
   home_goals_actual: 1, away_goals_actual: 0, events_json: [],
 }]
 
-async function montar (page, fases) {
+async function montar (page, fases, { demoraFases = 0, sinCupos = false } = {}) {
   await conSesion(page)
   await interceptarSupabase(page, {
     '/rest/v1/users': [{
@@ -42,14 +42,18 @@ async function montar (page, fases) {
       total_points: 0, points_adjustment: 0, is_admin: false,
       created_at: '2026-01-01', updated_at: '2026-01-01',
     }],
-    'rpc/my_groups': [grupo],
-    'rpc/quiniela_por_id': grupo,
+    'rpc/my_groups': [{ ...grupo, ...(sinCupos ? { powerup_limits: null } : {}) }],
+    'rpc/quiniela_por_id': { ...grupo, ...(sinCupos ? { powerup_limits: null } : {}) },
     '/rest/v1/matches': partidos,
     '/rest/v1/predictions': [],
     'rpc/cupos_por_jornada': [],
     'rpc/fases_del_torneo': fases,
   })
-  await page.goto(`/q/${LIGA}?tab=rules`)
+  if (demoraFases) await page.route('**/rest/v1/rpc/fases_del_torneo', async route => {
+    await new Promise(resolve => setTimeout(resolve, demoraFases))
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(fases) })
+  })
+  await page.goto(`/q/${LIGA}?tab=admin`)
 }
 
 // La fase regular ya empezó; la semifinal ni siquiera tiene partidos todavía.
@@ -59,6 +63,27 @@ const FASES = [
 ]
 
 const editor = (page) => page.getByRole('heading', { name: 'Comodines ×2 por fase' })
+
+test('cargar las fases con red lenta no provoca un bucle de renderizado', async ({ page }) => {
+  const errores = []
+  page.on('console', message => {
+    if (/Maximum update depth|Too many re-renders/.test(message.text())) errores.push(message.text())
+  })
+  page.on('pageerror', error => errores.push(error.message))
+  await montar(page, FASES, { demoraFases: 600 })
+  await expect(editor(page)).toBeVisible()
+  expect(errores).toEqual([])
+})
+
+test('un borrador de cupos sin configuración previa sobrevive al cambio de pestaña', async ({ page }) => {
+  await montar(page, FASES, { sinCupos: true })
+  const semifinal = page.getByRole('spinbutton').nth(1)
+  await expect(semifinal).toBeVisible()
+  await semifinal.fill('3')
+  await page.getByRole('button', { name: 'Reglas', exact: true }).click()
+  await page.getByRole('button', { name: 'Admin', exact: true }).click()
+  await expect(semifinal).toHaveValue('3')
+})
 
 test('el editor se puede usar aunque el torneo ya haya empezado', async ({ page }) => {
   await montar(page, FASES)

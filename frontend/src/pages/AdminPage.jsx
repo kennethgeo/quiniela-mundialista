@@ -91,7 +91,7 @@ export default function AdminPage() {
             <AdminSection icon={Trophy} title="Predicciones globales" desc="Campeón, goleador y asistidor reales de cada torneo.">
               <TournamentGlobalsAdmin />
             </AdminSection>
-            <AdminSection icon={Trophy} title="Bracket de eliminatoria" desc="Solo Mundial 2026.">
+            <AdminSection icon={Trophy} title="Bracket de eliminatoria" desc="Cruces por torneo, con protección de partidos cerrados y predicciones existentes.">
               <BracketAdmin />
             </AdminSection>
           </motion.div>

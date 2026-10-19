@@ -180,11 +180,11 @@ test.describe('un pago confirmado no se borra saliendo', () => {
    traspaso, así que si se fuera quedaría un grupo sin dueño. */
 test('al creador no se le ofrece salir', async ({ page }) => {
   await abrir(page, { g: grupo({ soy_creador: true, is_admin: true }) })
-  /* PRIMERO SE ESPERA A QUE LA PESTAÑA EXISTA. Sin esto, `toHaveCount(0)` se
-     evalúa sobre una página todavía vacía y pasa SIEMPRE — comprobado: con el
-     guard `!soyCreador` quitado a propósito, esta prueba seguía en verde.
-     «Eliminar quiniela» solo lo ve el creador, así que sirve de ancla: cuando
-     está, la pestaña terminó de dibujarse y la ausencia ya significa algo. */
+  // Reglas debe estar visible antes de comprobar la ausencia del botón.
+  await expect(page.getByRole('heading', { name: 'Puntaje', exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Quiero salir' })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Eliminar quiniela' })).toHaveCount(0)
+  await page.getByRole('button', { name: 'Admin', exact: true }).click()
   await expect(page.getByRole('button', { name: 'Eliminar quiniela' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Quiero salir' })).toHaveCount(0)
 })

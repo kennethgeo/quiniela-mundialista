@@ -99,6 +99,7 @@ test('lo guardado desde LLENAR se ve en la tarjeta, y «Actualizar» no lo revie
   const { enviados } = await montar(page, { partidos: [PARTIDO, OTRO] })
   await expect(actualizar(page)).toBeVisible({ timeout: 10000 })
   await page.getByRole('button', { name: 'LLENAR' }).click()
+  await page.getByRole('checkbox', { name: /Confirmo los 1 marcadores/ }).check()
   // La primera fila del lote es la de Saprissa (1–1 guardado): un gol más al local.
   await page.getByRole('button', { name: 'Un gol más' }).first().click()
   await marcador(page, 1, 1)

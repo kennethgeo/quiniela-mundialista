@@ -66,6 +66,27 @@ class MatchStatusUpdate(BaseModel):
     status: str = Field(
         description="Nuevo estado del partido: 'in_progress' o 'finished'"
     )
+    score_locked: Optional[bool] = None
+
+
+class MatchTeamsSnapshot(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    home_team: str
+    away_team: str
+    home_team_code: Optional[str]
+    away_team_code: Optional[str]
+
+
+class MatchTeamsUpdate(BaseModel):
+    """Solo identidad de un cruce futuro. No admite marcador ni estado."""
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+    match_id: int
+    tournament_id: int
+    home_team: str = Field(min_length=1, max_length=120)
+    away_team: str = Field(min_length=1, max_length=120)
+    home_team_code: str = Field(min_length=1, max_length=1024)
+    away_team_code: str = Field(min_length=1, max_length=1024)
+    expected: MatchTeamsSnapshot
 
 
 # =============================================================================

@@ -9,11 +9,58 @@ from uuid import UUID
 from fastapi import APIRouter, Body, Depends, HTTPException
 
 from app.auth import require_admin
-from app.models import MatchResultUpdate, MatchStatusUpdate
+from app.models import MatchResultUpdate, MatchStatusUpdate, MatchTeamsUpdate
 from app.services.supabase_client import get_supabase
 from app.services.scoring import calculate_and_update_scores
 
 router = APIRouter(prefix="/api/admin", tags=["Administración"])
+
+
+@router.post("/update-match-teams")
+async def update_match_teams(payload: MatchTeamsUpdate, admin: dict = Depends(require_admin)):
+    """Corrige un cruce futuro sin tocar resultados ni predicciones."""
+    from datetime import datetime, timedelta, timezone
+
+    supabase = get_supabase()
+    rows = (supabase.table("matches").select("id,status,kickoff_at,phase,score_locked,destapado_at")
+            .eq("id", payload.match_id).eq("tournament_id", payload.tournament_id).execute().data or [])
+    if not rows:
+        raise HTTPException(404, "Partido no encontrado en ese torneo")
+    match = rows[0]
+    limite = datetime.now(timezone.utc) + timedelta(minutes=15)
+    try:
+        kickoff = datetime.fromisoformat(match["kickoff_at"].replace("Z", "+00:00"))
+        if kickoff.tzinfo is None:
+            kickoff = kickoff.replace(tzinfo=timezone.utc)
+    except (KeyError, ValueError, TypeError, AttributeError):
+        raise HTTPException(409, "El partido no tiene una fecha confirmada")
+    if (match["status"] != "pending" or match["phase"] == "groups" or match.get("score_locked")
+            or match.get("destapado_at") or kickoff <= limite):
+        raise HTTPException(409, "Solo se pueden editar cruces pendientes, abiertos y sin fijar")
+    if payload.home_team == payload.away_team:
+        raise HTTPException(422, "Los dos equipos deben ser diferentes")
+    predictions = (supabase.table("predictions").select("id").eq("match_id", payload.match_id)
+                   .limit(1).execute().data or [])
+    if predictions:
+        raise HTTPException(409, "Este partido ya tiene predicciones; no se cambian sus equipos desde este panel")
+    # La comprobación anterior da errores claros; la garantía está en la RPC:
+    # bloquea inserciones de predicciones y verifica la versión en UNA transacción.
+    # Nunca volver a UPDATE directo si falta la función.
+    try:
+        result = supabase.rpc("actualizar_equipos_cruce", {"p_cambio": payload.model_dump()}).execute().data
+    except Exception as exc:
+        code = getattr(exc, "code", None)
+        if code in ("P0001", "55P03"):
+            raise HTTPException(409, "El partido o sus predicciones cambiaron. Recargá y volvé a intentar") from exc
+        if code == "P0002":
+            raise HTTPException(404, "Partido no encontrado en ese torneo") from exc
+        if code in ("PGRST202", "42883"):
+            raise HTTPException(503, "El guardado seguro de equipos no está disponible. No se modificó el cruce desde este panel") from exc
+        raise HTTPException(503, "No se pudo confirmar el guardado seguro. Recargá antes de reintentar") from exc
+    if not isinstance(result, dict) or result.get("id") != payload.match_id or result.get("tournament_id") != payload.tournament_id:
+        raise HTTPException(502, "No se pudo confirmar el guardado. Recargá antes de volver a intentar")
+    return {"match": result}
+
 
 
 @router.post("/update-match")
@@ -31,7 +78,8 @@ async def update_match_result(
             "away_goals_actual": result.away_goals_actual,
             "goes_to_penalties": result.goes_to_penalties,
             "penalties_winner_real": result.penalties_winner_real,
-            "status": "finished"
+            "status": "finished",
+            "score_locked": True,
         })
         .eq("id", result.match_id)
         .execute()
@@ -60,9 +108,16 @@ async def set_match_status(
         raise HTTPException(status_code=400, detail="Estado inválido")
 
     supabase = get_supabase()
+    changes = {"status": payload.status}
+    if payload.score_locked is not None:
+        changes["score_locked"] = payload.score_locked
+    elif payload.status in ("cancelled", "postponed"):
+        # Anulación manual definitiva: se fija. Aplazamiento: la fuente puede
+        # reanudarlo. El admin puede fijarlo explícitamente si lo necesita.
+        changes["score_locked"] = payload.status == "cancelled"
     response = (
         supabase.table("matches")
-        .update({"status": payload.status})
+        .update(changes)
         .eq("id", payload.match_id)
         .execute()
     )

@@ -46,7 +46,7 @@ async function abrirReglas (page, { esAdmin = false, torneoEmpezado = true } = {
     '/rest/v1/matches': torneoEmpezado ? [PARTIDO_JUGADO] : [],
     '/rest/v1/predictions': [],
   })
-  await page.goto(`/q/${LIGA}?tab=rules`)
+  await page.goto(`/q/${LIGA}?tab=${esAdmin ? 'admin' : 'rules'}`)
   await expect(page.getByText('Puntaje', { exact: false }).first()).toBeVisible({ timeout: 15000 })
 }
 
