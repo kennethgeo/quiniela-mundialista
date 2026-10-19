@@ -49,7 +49,7 @@ const HISTORIAL = [
    Este POZO tiene la forma de ANTES de la 110 (sin `al_dia`): así también se
    prueba que la pantalla no se rompe si el frontend llega antes que la
    migración —confirmar sigue siendo la cuota entera, de un toque—. */
-async function abrir (page, { tab = 'pozo' } = {}) {
+async function abrir (page, { tab = 'pozo', historialError = null } = {}) {
   await sinRedExterna(page)
   await conSesion(page)
   await page.addInitScript(() => {
@@ -71,6 +71,16 @@ async function abrir (page, { tab = 'pozo' } = {}) {
       : [{ pago_confirmado_at: null, pago_confirmado_monto: null, pago_confirmado_moneda: null }]),
     '/rest/v1/historial_pagos': HISTORIAL,
   })
+  const consultasHistorial = []
+  await page.route('**/rest/v1/historial_pagos*', async (r) => {
+    const campos = new URL(r.request().url()).searchParams.get('select')
+    consultasHistorial.push(campos)
+    // Esquema de la 109: monto_total no existe hasta aplicar la 110.
+    const error = historialError || (campos?.includes('monto_total')
+      ? { code: '42703', message: 'column historial_pagos.monto_total does not exist' } : null)
+    return r.fulfill({ status: error ? 400 : 200, contentType: 'application/json',
+      body: JSON.stringify(error || HISTORIAL) })
+  })
   const confirmaciones = []
   await page.route('**/rest/v1/rpc/confirmar_pago*', async (r) => {
     confirmaciones.push(JSON.parse(r.request().postData() || '{}'))
@@ -84,7 +94,7 @@ async function abrir (page, { tab = 'pozo' } = {}) {
   await page.goto(`/q/${LIGA}?tab=${tab}`)
   if (tab === 'pozo') await expect(page.getByText('Pozo y pagos')).toBeVisible()
   else await expect(page.getByRole('button', { name: 'Sacar de la quiniela' }).first()).toBeVisible()
-  return { confirmaciones, expulsiones }
+  return { confirmaciones, expulsiones, consultasHistorial, recuperarHistorial: () => { historialError = null } }
 }
 
 const filaDelPozo = (page, nombre) => page.locator('div.flex.items-center.gap-2.py-1')
@@ -181,4 +191,56 @@ test('el historial muestra quién hizo qué, también con gente que ya no está'
   const lista = page.getByRole('list', { name: 'Movimientos de pagos' })
   await expect(lista.getByText('Prueba confirmó el pago de Beto')).toBeVisible()
   await expect(lista.getByText(/sacó de la quiniela a alguien que ya no está/)).toBeVisible()
+})
+
+for (const code of ['PGRST205', '42P01']) {
+  test(`antes de la 109 no muestra ni promete un historial inexistente (${code})`, async ({ page }) => {
+    await abrir(page, { historialError: { code, message: 'historial_pagos no existe' } })
+    await expect(page.getByText('El historial de pagos todavía no está disponible en esta quiniela.')).toBeVisible()
+    await expect(page.locator('summary').filter({ hasText: 'Historial de pagos' })).toHaveCount(0)
+    await filaDelPozo(page, 'Beto').getByRole('button', { name: 'quitar' }).click()
+    const dialogo = page.getByRole('dialog', { name: 'Quitar el pago de Beto' })
+    await expect(dialogo.getByText(/No hay un historial de pagos verificado/)).toBeVisible()
+    await expect(dialogo.getByText(/Queda registrado en el historial/)).toHaveCount(0)
+  })
+}
+
+test('un error temporal no se confunde con historial inexistente y permite comprobar de nuevo', async ({ page }) => {
+  const { recuperarHistorial } = await abrir(page, { historialError: { code: 'XX000', message: 'Servicio temporalmente no disponible' } })
+  const error = page.getByRole('alert').filter({ hasText: 'No pudimos comprobar el historial de pagos' })
+  await expect(error).toBeVisible()
+  await expect(page.getByText('El historial de pagos todavía no está disponible en esta quiniela.')).toHaveCount(0)
+  recuperarHistorial()
+  await error.getByRole('button').click()
+  await page.getByText('Historial de pagos', { exact: true }).click()
+  await expect(page.getByRole('list', { name: 'Movimientos de pagos' })).toBeVisible()
+})
+
+test('expulsar no promete historial cuando aún falta la 109', async ({ page }) => {
+  await abrir(page, { tab: 'admin', historialError: { code: 'PGRST205', message: 'No existe la tabla' } })
+  await page.getByRole('button', { name: 'Sacar de la quiniela' }).first().click()
+  const dialogo = page.getByRole('dialog', { name: 'Sacar a Beto' })
+  await expect(dialogo.getByText(/No hay un historial de pagos verificado/)).toBeVisible()
+  await expect(dialogo.getByText(/quedará registrado en el historial/)).toHaveCount(0)
+})
+
+test('si falla comprobar el pago, bloquea la expulsión y permite reintentar', async ({ page }) => {
+  const { expulsiones } = await abrir(page, { tab: 'admin' })
+  let falla = true
+  await page.route('**/rest/v1/league_members*', (r) => r.fulfill({
+    status: falla ? 500 : 200, contentType: 'application/json',
+    body: JSON.stringify(falla ? { message: 'Fallo de lectura' } : [{
+      pago_confirmado_at: '2026-09-21T18:10:00+00:00', pago_confirmado_monto: 10000, pago_confirmado_moneda: 'CRC',
+    }]),
+  }))
+  await page.getByRole('button', { name: 'Sacar de la quiniela' }).first().click()
+  const dialogo = page.getByRole('dialog', { name: 'Sacar a Beto' })
+  await expect(dialogo.getByRole('button', { name: 'Reintentar' })).toBeVisible({ timeout: 15_000 })
+  await expect(dialogo.getByRole('button', { name: 'Sacar', exact: true })).toBeDisabled()
+  expect(expulsiones).toEqual([])
+  falla = false
+  await dialogo.getByRole('button', { name: 'Reintentar' }).click()
+  await expect(dialogo.getByText(/pago confirmado de/)).toBeVisible()
+  await expect(dialogo.getByRole('button', { name: 'Sacar', exact: true })).toBeEnabled()
+  expect(expulsiones).toEqual([])
 })
