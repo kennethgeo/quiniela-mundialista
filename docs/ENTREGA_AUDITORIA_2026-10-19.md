@@ -29,4 +29,8 @@ Trabajo preparado en `codex/mejoras-auditoria-seguras`, desde `9e33076`, para in
 
 ## Comprobaciones de integración
 
-Se registrarán aquí los resultados actuales de backend, frontend, interfaz y CI antes de completar el merge. No se aplicarán migraciones ni se harán recálculos de producción para validar esta entrega.
+Integración mediante [PR #205](https://github.com/kennethgeo/quiniela-mundialista/pull/205). El estado de sus checks y el commit de merge son la referencia actual para retomar el trabajo en main.
+
+Comprobaciones locales del 19 de octubre: 549 pruebas de backend (incluidas 23 de PostgreSQL sintético), 405 unitarias de frontend, lint sin errores y compilación/PWA correctas. La suite móvil completa se repite antes del merge y su resultado se registra en el PR, junto con el CI de GitHub.
+
+No se aplican migraciones ni se hacen recálculos de producción para validar esta entrega. El servidor PostgreSQL sintético se detuvo después de sus pruebas.
