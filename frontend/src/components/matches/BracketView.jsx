@@ -2,7 +2,8 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'motion/react'
 import { Swords } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
+import { enlacePartido } from '../../lib/retornoPartido'
 import { supabase } from '../../lib/supabase'
 import { resolveKnockoutTeams } from '../../lib/bracketResolver'
 import LoadingSpinner from '../ui/LoadingSpinner'
@@ -29,6 +30,7 @@ const isSlot = (n) => !n || n === 'TBD' || /^[123WL][A-Z0-9]/.test(n)
 
 function BracketMatch({ match, isFinal }) {
   const navigate = useNavigate()
+  const location = useLocation()
   const home = match.home_team_resolved || match.home_team
   const away = match.away_team_resolved || match.away_team
   const tbdH = isSlot(home)
@@ -59,7 +61,7 @@ function BracketMatch({ match, isFinal }) {
   }
 
   return (
-    <button onClick={() => navigate(`/match/${match.id}`)}
+    <button onClick={() => navigate(enlacePartido(match.id, location.pathname), { state: { returnTo: location.pathname + location.search } })}
       className="text-left rounded-[11px] px-2.5 py-2.5 flex flex-col gap-1.5 transition-transform active:scale-[0.98] hover:brightness-125"
       style={{ background: '#161616', border: `1px solid ${border}` }}>
       <Row name={home} tbd={tbdH} goals={match.home_goals_actual} win={homeWins} pen={homePen} />
@@ -73,7 +75,7 @@ export default function BracketView() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    supabase.from('matches').select('*').order('kickoff_at', { ascending: true })
+    supabase.from('matches').select('*').eq('tournament_id', 1).order('kickoff_at', { ascending: true })
       .then(({ data }) => { setAllMatches(data || []); setLoading(false) })
   }, [])
 

@@ -21,7 +21,7 @@ import { Zap, X, Loader2, Check, ListChecks } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { friendlySaveError } from '../../lib/saveError'
 import { ordenarLote } from '../../lib/loteJornada'
-import { tandaQueSeGuarda } from '../../lib/penales'
+import { puedeIrAPenales, tandaQueSeGuarda } from '../../lib/penales'
 
 const teamLabel = (t) => (t || '—')
 
@@ -44,11 +44,15 @@ export default function PredecirJornada({
         away: p?.away_goals_pred ?? 0,
         x2: !!p?.use_powerup_x2,
         yaEstaba: !!p,
+        editada: false,
+        penaltiesWinner: [m.home_team, m.away_team].includes(p?.penalties_winner_pred)
+          ? p.penalties_winner_pred : '',
       }
     }),
   )
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState(null)
+  const [confirmarCeros, setConfirmarCeros] = useState(false)
 
   // Comodines de la jornada: los de esta lista + los que ya estaban puestos en
   // partidos que no se ven acá (otros filtros, o ya cerrados).
@@ -56,9 +60,14 @@ export default function PredecirJornada({
   const x2Total = powerupsUsedFuera + x2Aca
   const sinCupo = x2Total >= powerupLimit
 
-  const set = (i, patch) => setFilas((f) => f.map((x, j) => (j === i ? { ...x, ...patch } : x)))
+  const cerosSinRevisar = filas.filter((f) => !f.yaEstaba && !f.editada).length
+  const faltaTanda = filas.some((f) => puedeIrAPenales(f.match) && f.home === f.away && !f.penaltiesWinner)
+  const incompleto = faltaTanda || (cerosSinRevisar > 0 && !confirmarCeros)
+  const set = (i, patch) => setFilas((f) => f.map((x, j) => (j === i
+    ? { ...x, ...patch, editada: x.editada || patch.home != null || patch.away != null } : x)))
 
   const guardar = async () => {
+    if (guardando || incompleto || !filas.length) return
     try {
       setGuardando(true); setError(null)
       const lote = ordenarLote(filas.map((f) => ({
@@ -68,13 +77,10 @@ export default function PredecirJornada({
         prediction_type: 'Marcador',
         home_goals_pred: f.home,
         away_goals_pred: f.away,
-        // La tanda de penales se sigue eligiendo en la tarjeta del partido: acá
-        // no cabe sin volver la lista un formulario, y solo aplica a empates de
-        // eliminatoria que pueden ir a penales (no a una ida). Se conserva lo
-        // que ya hubiera, con la misma regla que la tarjeta (lib/penales.js):
-        // si el partido no puede ir a penales o ya no es un empate, va null.
+        // Misma regla que en la tarjeta: una ida o un marcador sin empate no
+        // guarda tanda, aunque se hubiera elegido antes de cambiar los goles.
         penalties_winner_pred: tandaQueSeGuarda(f.match, f.home, f.away,
-          previas[f.match.id]?.penalties_winner_pred),
+          f.penaltiesWinner),
         use_powerup_x2: f.x2,
       })))
       const { error } = await supabase.from('predictions')
@@ -99,6 +105,7 @@ export default function PredecirJornada({
         <motion.div
           initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
           transition={{ type: 'spring', stiffness: 320, damping: 28 }}
+          role="dialog" aria-modal="true" aria-label={`Predecir ${label}`}
           className="pointer-events-auto w-full max-w-md rounded-[18px] bg-white dark:bg-[#161616] border border-slate-200 dark:border-[#262626] shadow-2xl max-h-[84vh] flex flex-col overflow-hidden">
 
           <div className="flex items-center gap-2 px-4 py-3 border-b border-slate-200 dark:border-[#262626]">
@@ -120,19 +127,27 @@ export default function PredecirJornada({
             </button>
           </div>
 
-          <div className="flex-1 overflow-y-auto px-3 py-2">
+          <fieldset disabled={guardando} className="flex-1 min-h-0 overflow-y-auto px-3 py-2">
             {filas.map((f, i) => (
               <Fila key={f.match.id} f={f} i={i} set={set} sinCupo={sinCupo} />
             ))}
-          </div>
+          </fieldset>
 
           <div className="px-4 py-3 border-t border-slate-200 dark:border-[#262626]">
-            {error && <p className="text-[11px] text-rose-500 mb-2">{error}</p>}
+            {error && <p role="alert" className="text-[11px] text-rose-500 mb-2">{error}</p>}
+            {cerosSinRevisar > 0 && (
+              <label className="flex gap-2 items-start text-[11px] text-slate-700 dark:text-slate-300 mb-2">
+                <input type="checkbox" checked={confirmarCeros} disabled={guardando}
+                  onChange={(e) => setConfirmarCeros(e.target.checked)} />
+                Confirmo los {cerosSinRevisar} marcadores 0–0 sin editar.
+              </label>
+            )}
+            {faltaTanda && <p className="text-[11px] text-amber-700 dark:text-amber-400 mb-2">Elegí quién gana en penales en cada empate de eliminatoria.</p>}
             <p className="text-[10.5px] text-[var(--text-muted,#8A8A8A)] mb-2">
               Se guardan los {filas.length} de una sola vez. Podés seguir editando cada
               uno por separado después.
             </p>
-            <button onClick={guardar} disabled={guardando}
+            <button onClick={guardar} disabled={guardando || incompleto || !filas.length}
               className="w-full rounded-xl py-2.5 font-['Archivo'] font-bold text-[13px] text-[#06231d] bg-accent disabled:opacity-50 flex items-center justify-center gap-1.5">
               {guardando ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />}
               {guardando ? 'Guardando…' : `Guardar los ${filas.length}`}
@@ -175,6 +190,22 @@ function Fila({ f, i, set, sinCupo }) {
         <span className="text-[11px] text-[var(--text-muted,#8A8A8A)]">:</span>
         <Contador value={f.away} onChange={(v) => set(i, { away: v })} />
       </div>
+      {puedeIrAPenales(f.match) && f.home === f.away && (
+        <div className="mt-2">
+          <p className="text-[11px] text-slate-600 dark:text-slate-300 mb-1">¿Quién gana en penales?</p>
+          <div className="flex gap-2">
+            {[f.match.home_team, f.match.away_team].map((team) => (
+              <button key={team} type="button" aria-pressed={f.penaltiesWinner === team}
+                onClick={() => set(i, { penaltiesWinner: team })}
+                className={`flex-1 min-w-0 rounded-lg px-2 py-1.5 text-[11px] truncate ${f.penaltiesWinner === team
+                  ? 'bg-accent text-[#06231d] font-bold'
+                  : 'bg-slate-100 dark:bg-[#222] text-slate-700 dark:text-slate-300'}`}>
+                {team}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

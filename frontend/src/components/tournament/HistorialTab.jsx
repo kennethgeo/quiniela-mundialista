@@ -15,6 +15,8 @@ import { useState, useMemo } from 'react'
 import { motion, useReducedMotion } from 'motion/react'
 import { useConsultaDelUsuario } from '../../hooks/useConsultaDelUsuario'
 import { ChevronLeft, ChevronRight, Zap, Share2, Loader2 } from 'lucide-react'
+import { ErrorState } from '../ui/StatePanel'
+import { leerTodasLasFilas } from '../../lib/lecturaCompleta'
 import { supabase } from '../../lib/supabase'
 import { kickoffDate, predictionDeadline } from '../../lib/matchStatus'
 import { fetchGroupStandings } from '../../lib/groups'
@@ -77,24 +79,10 @@ export default function HistorialTab({ leagueId, matches = [], nombreQuiniela = 
   const [compartiendo, setCompartiendo] = useState(false)
   const ahora = Date.now()
 
-  const { data: miembros = [], isLoading: cargandoMiembros } = useConsultaDelUsuario({
+  const { data: miembros = [], isLoading: cargandoMiembros, isError: errorMiembros, refetch: recargarMiembros } = useConsultaDelUsuario({
     queryKey: ['group_standings', leagueId],
     queryFn: () => fetchGroupStandings(leagueId),
     enabled: !!leagueId,
-  })
-
-  const { data: predicciones = [], isLoading: cargandoPreds } = useConsultaDelUsuario({
-    queryKey: ['historial_predictions', leagueId],
-    enabled: !!leagueId,
-    staleTime: 1000 * 60,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('predictions')
-        .select('user_id, match_id, home_goals_pred, away_goals_pred, use_powerup_x2, points_earned')
-        .eq('league_id', leagueId)
-      if (error) throw error
-      return data || []
-    },
   })
 
   const jornadas = useMemo(() => {
@@ -115,6 +103,18 @@ export default function HistorialTab({ leagueId, matches = [], nombreQuiniela = 
     : jornadas.length ? jornadas[jornadas.length - 1].label : null
   const idxActiva = jornadas.findIndex((j) => j.label === labelActiva)
   const jornada = idxActiva >= 0 ? jornadas[idxActiva] : null
+
+  const idsVisibles = jornada?.partidos.map(m => m.id) || []
+  const { data: predicciones = [], isLoading: cargandoPreds, isError: errorPreds, refetch: recargarPreds } = useConsultaDelUsuario({
+    queryKey: ['historial_predictions', leagueId, idsVisibles],
+    enabled: !!leagueId && idsVisibles.length > 0,
+    staleTime: 1000 * 60,
+    retry: false,
+    queryFn: ({ signal }) => leerTodasLasFilas(() => supabase
+      .from('predictions')
+      .select('id,user_id,match_id,home_goals_pred,away_goals_pred,use_powerup_x2,points_earned', { count: 'exact' })
+      .eq('league_id', leagueId).in('match_id', idsVisibles).order('id'), { signal }),
+  })
 
   const predPorClave = useMemo(() => {
     const o = {}
@@ -176,6 +176,9 @@ export default function HistorialTab({ leagueId, matches = [], nombreQuiniela = 
     }
   }
 
+  if (errorMiembros || errorPreds) return <ErrorState title="No pudimos cargar el Histórico completo"
+    description="Reintentá para ver la jornada. No mostramos una tabla parcial ni la exportamos."
+    onRetry={() => { recargarMiembros(); recargarPreds() }} />
   if (cargandoMiembros || cargandoPreds) return <LoadingSpinner />
 
   if (!jornadas.length) {
@@ -198,7 +201,7 @@ export default function HistorialTab({ leagueId, matches = [], nombreQuiniela = 
     <div className="max-w-3xl mx-auto">
       {/* Navegación de jornada */}
       <div className="flex items-center gap-2 mb-3">
-        <NavBtn disabled={idxActiva <= 0} onClick={() => setJornadaSel(jornadas[idxActiva - 1]?.label)}>
+        <NavBtn label="Jornada anterior" disabled={idxActiva <= 0} onClick={() => setJornadaSel(jornadas[idxActiva - 1]?.label)}>
           <ChevronLeft size={15} />
         </NavBtn>
         <div className="flex-1 min-w-0 text-center">
@@ -207,7 +210,7 @@ export default function HistorialTab({ leagueId, matches = [], nombreQuiniela = 
             {n} {n === 1 ? 'partido' : 'partidos'} · {filas.length} {filas.length === 1 ? 'jugador' : 'jugadores'}
           </p>
         </div>
-        <NavBtn disabled={idxActiva >= jornadas.length - 1} onClick={() => setJornadaSel(jornadas[idxActiva + 1]?.label)}>
+        <NavBtn label="Jornada siguiente" disabled={idxActiva >= jornadas.length - 1} onClick={() => setJornadaSel(jornadas[idxActiva + 1]?.label)}>
           <ChevronRight size={15} />
         </NavBtn>
         <button onClick={compartir} disabled={compartiendo}
@@ -361,9 +364,9 @@ function Celda({ celda, reduce, orden }) {
   )
 }
 
-function NavBtn({ disabled, onClick, children }) {
+function NavBtn({ label, disabled, onClick, children }) {
   return (
-    <button onClick={onClick} disabled={disabled}
+    <button aria-label={label} onClick={onClick} disabled={disabled}
       className="w-[30px] h-[30px] shrink-0 rounded-[9px] bg-white dark:bg-[#161616] border border-slate-200 dark:border-[#262626] grid place-items-center text-[var(--text-muted,#8A8A8A)] disabled:opacity-30 disabled:pointer-events-none">
       {children}
     </button>

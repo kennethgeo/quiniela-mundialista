@@ -11,9 +11,10 @@ import { conLimite } from '../../lib/loginResiliente'
 import { ErrorState } from '../ui/StatePanel'
 
 export default function ProtectedRoute({ children }) {
-  const { user, loading: authLoading } = useAuth()
+  const { user, loading: authLoading, signOut } = useAuth()
   const [reenviando, setReenviando] = useState(false)
   const [reenviado, setReenviado] = useState(false)
+  const [errorCorreo, setErrorCorreo] = useState(null)
 
   /* Antes esto consultaba public.users.email_confirmed_at, una columna que NO
      EXISTE: la consulta fallaba siempre, caía al catch y ahí hacía
@@ -35,11 +36,12 @@ export default function ProtectedRoute({ children }) {
     if (!user?.email || reenviando) return
     try {
       setReenviando(true)
+      setErrorCorreo(null)
       const { error } = await supabase.auth.resend({ type: 'signup', email: user.email })
       if (error) throw error
       setReenviado(true)
     } catch {
-      /* Si falla, queda el botón de recargar. */
+      setErrorCorreo('No pudimos reenviar el correo. Revisá tu conexión y volvé a intentar.')
     } finally {
       setReenviando(false)
     }
@@ -86,14 +88,15 @@ export default function ProtectedRoute({ children }) {
               <Mail size={28} className="text-slate-950" />
             </motion.div>
 
-            <h2 className="text-2xl font-bold text-white mb-2">Email no verificado</h2>
-            <p className="text-slate-300 mb-2 text-sm">
+            <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">Email no verificado</h2>
+            <p className="text-slate-700 dark:text-slate-300 mb-2 text-sm">
               Por favor, verifica tu correo electrónico para acceder a la Quiniela.
             </p>
-            <p className="text-slate-500 text-xs mb-6">
+            <p className="text-slate-600 dark:text-slate-400 text-xs mb-6">
               Revisa tu bandeja de entrada (o spam) para encontrar el link de verificación.
             </p>
 
+            {errorCorreo && <p role="alert" className="text-sm text-rose-700 dark:text-rose-300 mb-3">{errorCorreo}</p>}
             <div className="flex flex-col gap-2.5 items-center">
               {/* "Recargar" no sirve de nada si el correo nunca llegó. */}
               <motion.button
@@ -107,10 +110,15 @@ export default function ProtectedRoute({ children }) {
               </motion.button>
               <button
                 onClick={() => window.location.reload()}
-                className="inline-flex items-center gap-1.5 text-slate-400 text-xs font-semibold"
+                className="inline-flex items-center gap-1.5 text-slate-600 dark:text-slate-300 text-xs font-semibold"
               >
                 <RefreshCw size={13} />
                 Ya lo verifiqué, recargar
+              </button>
+              <button onClick={async () => {
+                try { await signOut() } catch { setErrorCorreo('No pudimos cerrar la sesión. Volvé a intentar.') }
+              }} className="text-sm font-semibold text-slate-700 dark:text-slate-300 py-2">
+                Cerrar sesión
               </button>
             </div>
           </div>

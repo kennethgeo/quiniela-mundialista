@@ -15,6 +15,7 @@
 import { fotoDeEstadio } from './estadios'
 import { plata as plataCard } from './historialPagos'
 import { estadoDe as estadoDelPozo, repartoDe as repartoDelPozo, resumen as resumenDelPozo } from './pozo'
+import { ganadorParaCompartir } from './ganadorJornada'
 
 const FONDO = '#0C0C0C'
 const BORDE = '#262626'
@@ -839,6 +840,47 @@ export async function renderPozoCard({ nombreQuiniela, pozo }) {
   return new Promise((resolve, reject) => {
     canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('No se pudo generar la imagen'))), 'image/png')
   })
+}
+
+export async function renderGanadorJornadaCard({ nombreQuiniela, jornada, fecha = new Date() }) {
+  const ganador = ganadorParaCompartir(jornada)
+  if (!ganador) throw new Error('La jornada no tiene un ganador confirmado.')
+  await esperarFuentes()
+  const foto = await cargarImagen(ganador.avatar_url)
+  const canvas = document.createElement('canvas')
+  canvas.width = 1080; canvas.height = 1080
+  const ctx = canvas.getContext('2d')
+  ctx.fillStyle = FONDO; ctx.fillRect(0, 0, 1080, 1080)
+  rect(ctx, 40, 40, 1000, 1000, 36, '#161616')
+  ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic'
+  ctx.fillStyle = TEAL; ctx.font = "bold 28px 'Archivo', sans-serif"
+  ctx.fillText(recortar(ctx, nombreQuiniela || 'Mi quiniela', 900), 540, 120)
+  ctx.fillStyle = TEXTO; ctx.font = "bold 52px 'Unbounded', sans-serif"
+  ctx.fillText('Ganó la jornada', 540, 218)
+  ctx.fillStyle = MUTED; ctx.font = "28px 'Archivo', sans-serif"
+  ctx.fillText(recortar(ctx, jornada.label || 'Jornada', 900), 540, 272)
+  ctx.save()
+  ctx.beginPath(); ctx.arc(540, 420, 100, 0, Math.PI * 2); ctx.clip()
+  if (foto) dibujarCubriendo(ctx, foto, 440, 320, 200, 200)
+  else {
+    ctx.fillStyle = '#283c36'; ctx.fillRect(440, 320, 200, 200)
+    ctx.fillStyle = TEAL; ctx.font = "bold 88px 'Archivo', sans-serif"
+    ctx.fillText(ganador.display_name[0].toUpperCase(), 540, 450)
+  }
+  ctx.restore()
+  ctx.strokeStyle = ORO; ctx.lineWidth = 5
+  ctx.beginPath(); ctx.arc(540, 420, 100, 0, Math.PI * 2); ctx.stroke()
+  ctx.fillStyle = TEXTO; ctx.font = "bold 48px 'Archivo', sans-serif"
+  ctx.fillText(recortar(ctx, ganador.display_name, 900), 540, 606)
+  ctx.fillStyle = ORO; ctx.font = "bold 92px 'JetBrains Mono', monospace"
+  ctx.fillText(`${Number(ganador.puntos)} pts`, 540, 742)
+  ctx.fillStyle = MUTED; ctx.font = "24px 'Archivo', sans-serif"
+  ctx.fillText('Jornada cerrada · Desempate oficial de la quiniela', 540, 820)
+  ctx.fillText(`Consultado: ${fecha.toLocaleString('es-CR', { timeZone: 'America/Costa_Rica', dateStyle: 'short', timeStyle: 'short' })}`, 540, 872)
+  ctx.fillText('El resultado puede cambiar si se corrige un marcador.', 540, 914)
+  ctx.fillStyle = TEAL; ctx.font = "bold 30px 'JetBrains Mono', monospace"
+  ctx.fillText('TICO GAMES', 540, 995)
+  return new Promise((resolve, reject) => canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('No se pudo generar la imagen')), 'image/png'))
 }
 
 export async function compartirImagen(blob, nombreArchivo, titulo, texto) {

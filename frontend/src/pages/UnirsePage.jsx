@@ -20,7 +20,13 @@ export default function UnirsePage() {
   const navigate = useNavigate()
   const { user, loading } = useAuth()
   const [error, setError] = useState(null)
-  const yaIntentado = useRef(false)
+  const yaIntentado = useRef(null)
+  const [intento, setIntento] = useState(0)
+  const cuentaActual = useRef(user?.id)
+  useEffect(() => {
+    cuentaActual.current = user?.id
+    return () => { cuentaActual.current = null }
+  }, [user?.id])
 
   useEffect(() => {
     const limpio = normalizarCodigo(codigo)
@@ -28,28 +34,32 @@ export default function UnirsePage() {
 
     // Se guarda siempre, haya sesión o no: si la hay se consume enseguida, y
     // si no, sobrevive al registro y a la verificación del correo.
-    guardarInvitacion(limpio)
+    if (!user) guardarInvitacion(limpio)
 
     if (loading) return
     if (!user) { navigate('/auth', { replace: true }); return }
 
     // React monta dos veces en desarrollo (StrictMode); sin esta guarda se
     // llamaría a join_group_by_code dos veces por cada visita.
-    if (yaIntentado.current) return
-    yaIntentado.current = true
+    const clave = `${user.id}:${limpio}:${intento}`
+    if (yaIntentado.current === clave) return
+    yaIntentado.current = clave
+    setError(null)
 
     ;(async () => {
       try {
-        const res = await joinGroupByCode(tomarInvitacion() || limpio)
+        tomarInvitacion()
+        const res = await joinGroupByCode(limpio)
         const id = res?.id ?? res?.league_id ?? (Array.isArray(res) ? res[0]?.id : null)
+        if (cuentaActual.current !== user.id || yaIntentado.current !== clave) return
         navigate(id ? `/q/${id}` : '/', { replace: true })
       } catch (e) {
         // Puede ser un código que no existe, o que ya seas miembro. En los dos
         // casos el hub es mejor destino que una pantalla muerta.
-        setError(e?.message || 'No se pudo entrar con ese enlace.')
+        if (cuentaActual.current === user.id && yaIntentado.current === clave) setError(e?.message || 'No se pudo entrar con ese enlace.')
       }
     })()
-  }, [codigo, user, loading, navigate])
+  }, [codigo, user, loading, navigate, intento])
 
   return (
     <div className="min-h-dvh bg-primary flex items-center justify-center px-6">
@@ -62,6 +72,10 @@ export default function UnirsePage() {
               No se pudo usar el enlace
             </h2>
             <p className="text-[12.5px] text-[var(--text-muted,#8A8A8A)] mb-5">{error}</p>
+            {normalizarCodigo(codigo) && user && <button onClick={() => { setError(null); setIntento(n => n + 1) }}
+              className="w-full rounded-xl py-3 mb-2 font-semibold text-sm text-emerald-800 bg-emerald-100 dark:text-emerald-200 dark:bg-emerald-900">
+              Reintentar invitación
+            </button>}
             <button onClick={() => navigate('/', { replace: true })}
               className="w-full rounded-xl py-2.5 font-['Archivo'] font-bold text-[12.5px]"
               style={{ background: 'rgba(46,211,183,.12)', color: '#2ED3B7' }}>

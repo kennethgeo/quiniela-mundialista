@@ -11,14 +11,23 @@ import PushNotificationToggle from '../components/ui/PushNotificationToggle'
 import BadgeShowcase, { MedalStrip } from '../components/medals/BadgeShowcase'
 import { fetchMyMedals, aggregateMedals } from '../lib/medals'
 import { refreshApplication } from '../lib/appUpdate'
-import { EmptyState } from '../components/ui/StatePanel'
+import { leerTodasLasFilas } from '../lib/lecturaCompleta'
+import { EmptyState, ErrorState } from '../components/ui/StatePanel'
+import ConfiguracionCuenta from '../components/auth/ConfiguracionCuenta'
+import { initialsDataUri, crestOnError } from '../lib/teamLogo'
+import { resumirPredicciones } from '../lib/resumenPredicciones'
 
 const AVATAR_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp'])
 const MAX_AVATAR_SOURCE_BYTES = 12 * 1024 * 1024
 const MAX_AVATAR_UPLOAD_BYTES = 1024 * 1024
 
 export default function ProfilePage() {
-  const { profile, signOut, fetchProfile } = useAuth()
+  const { user } = useAuth()
+  return <ContenidoPerfil key={user?.id || 'sin-sesion'} />
+}
+
+function ContenidoPerfil() {
+  const { user, profile, signOut, fetchProfile } = useAuth()
   const navigate = useNavigate()
   const { theme, toggleTheme } = useTheme()
   const [activeTab, setActiveTab] = useState('predictions')
@@ -26,6 +35,9 @@ export default function ProfilePage() {
   const [predictions, setPredictions] = useState([])
   const [logs, setLogs] = useState([])
   const [loading, setLoading] = useState(true)
+  const [errorDatos, setErrorDatos] = useState(null)
+  const [recarga, setRecarga] = useState(0)
+  const [visibles, setVisibles] = useState(50)
   const [globalPredictions, setGlobalPredictions] = useState([])
   
   const [stats, setStats] = useState({
@@ -93,101 +105,99 @@ export default function ProfilePage() {
   }
 
   useEffect(() => {
-    if (profile?.id) {
-      fetchData()
-    }
-  }, [profile?.id])
+    if (!profile?.id || profile.id !== user?.id) return
+    const controller = new AbortController()
+    let vigente = true
+    const fetchData = async () => {
+      try {
+        setLoading(true)
+        setErrorDatos(null)
 
-  const fetchData = async () => {
-    try {
-      setLoading(true)
+        // Son fuentes independientes: arrancarlas juntas evita una cascada de
+        // esperas perceptible en redes móviles lentas.
+        const [matchesData, predsData, logsResult, statsResult, globalRows, medalRows] = await Promise.all([
+          leerTodasLasFilas(() => supabase.from('matches')
+            .select('id,kickoff_at,status,phase,group_name,home_team,away_team,home_goals_actual,away_goals_actual,home_team_code,away_team_code,home_flag_url,away_flag_url', { count: 'exact' })
+            .order('id'), { signal: controller.signal }),
+          leerTodasLasFilas(() => supabase.from('predictions')
+            .select('id,match_id,home_goals_pred,away_goals_pred,use_powerup_x2,points_earned', { count: 'exact' })
+            .eq('user_id', profile.id).order('id'), { signal: controller.signal }),
+          supabase.from('prediction_logs')
+            .select('id,match_id,changed_at,action,old_data,new_data')
+            .eq('user_id', profile.id)
+            .order('changed_at', { ascending: false })
+            .limit(50),
+          supabase.from('user_stats_view')
+            .select('talisman_team,maldito_team').eq('user_id', profile.id).maybeSingle(),
+          /* SIN `.maybeSingle()`: desde la migración 71 las globales son POR
+             QUINIELA (`UNIQUE (user_id, league_id)`), así que una persona en dos
+             quinielas tiene dos filas y `.maybeSingle()` devuelve ERROR. Medido
+             en producción el 21 sep 2026: 21 filas, 4 personas con más de una.
+             A esas cuatro el perfil les decía «Sin predicciones globales»
+             teniéndolas puestas. */
+          leerTodasLasFilas(() => supabase.from('tournament_predictions')
+            .select('id,league_id,champion_team,top_scorer_name,top_assist_name,leagues(name)', { count: 'exact' })
+            .eq('user_id', profile.id).order('id'), { signal: controller.signal }),
+          fetchMyMedals().catch(() => []),
+        ])
 
-      // Son fuentes independientes: arrancarlas juntas evita una cascada de
-      // esperas perceptible en redes móviles lentas.
-      const [matchesResult, predictionsResult, logsResult, statsResult, globalResult, medalRows] = await Promise.all([
-        supabase.from('matches')
-          .select('id,kickoff_at,status,phase,group_name,home_team,away_team,home_goals_actual,away_goals_actual'),
-        supabase.from('predictions')
-          .select('id,match_id,home_goals_pred,away_goals_pred,use_powerup_x2,points_earned')
-          .eq('user_id', profile.id),
-        supabase.from('prediction_logs')
-          .select('id,match_id,changed_at,action,old_data,new_data')
-          .eq('user_id', profile.id)
-          .order('changed_at', { ascending: false })
-          .limit(50),
-        supabase.from('user_stats_view')
-          .select('talisman_team,maldito_team').eq('user_id', profile.id).maybeSingle(),
-        /* SIN `.maybeSingle()`: desde la migración 71 las globales son POR
-           QUINIELA (`UNIQUE (user_id, league_id)`), así que una persona en dos
-           quinielas tiene dos filas y `.maybeSingle()` devuelve ERROR. Medido
-           en producción el 21 sep 2026: 21 filas, 4 personas con más de una.
-           A esas cuatro el perfil les decía «Sin predicciones globales»
-           teniéndolas puestas. */
-        supabase.from('tournament_predictions')
-          .select('league_id,champion_team,top_scorer_name,top_assist_name,leagues(name)')
-          .eq('user_id', profile.id),
-        fetchMyMedals().catch(() => []),
-      ])
-
-      if (matchesResult.error) throw matchesResult.error
-      if (predictionsResult.error) throw predictionsResult.error
-      const matchesData = matchesResult.data || []
-      const predsData = predictionsResult.data || []
+        if (!vigente) return
+        for (const result of [logsResult, statsResult]) if (result.error) throw result.error
+        const matchesPorId = new Map(matchesData.map(m => [m.id, m]))
       
-      if (matchesData.length || predsData.length) {
-        const enrichedPreds = predsData.map(p => ({
-          ...p,
-          match: matchesData.find(m => m.id === p.match_id)
-        })).filter(p => p.match)
+        {
+          const enrichedPreds = predsData.map(p => ({
+            ...p,
+            match: matchesPorId.get(p.match_id)
+          })).filter(p => p.match)
         
-        enrichedPreds.sort((a,b) => new Date(b.match.kickoff_at) - new Date(a.match.kickoff_at))
-        setPredictions(enrichedPreds)
+          enrichedPreds.sort((a,b) => new Date(b.match.kickoff_at) - new Date(a.match.kickoff_at))
+          setPredictions(enrichedPreds)
 
-        let exact = 0, correct = 0, miss = 0, powerups = 0, totalFinished = 0
-        enrichedPreds.forEach(pred => {
-          if (pred.use_powerup_x2) powerups++
-          if (pred.match.status === 'finished') {
-            totalFinished++
-            const pts = pred.points_earned || 0
-            // Exacto = 3 pts (o 6 con x2). Acierto ganador = 1 pt (o 2 con x2).
-            // Lo demás (0 pts) es fallo. Antes los aciertos de 1 pt caían como
-            // fallo y los exactos sin x2 contaban como acierto ganador.
-            if (pts === 3 || pts === 6) exact++
-            else if (pts > 0) correct++
-            else miss++
+          const resumen = resumirPredicciones(predsData, matchesData)
+          setStats({
+            exact: resumen.exact,
+            correct: resumen.correct,
+            miss: resumen.miss,
+            powerups: resumen.x2,
+            totalFinished: resumen.finishedMade,
+            predictedCount: resumen.made,
+          })
+        }
+
+        const logsData = logsResult.data || []
+        if (logsData && matchesData) {
+          const enrichedLogs = logsData.map(l => ({
+            ...l,
+            match: matchesPorId.get(l.match_id)
+          })).filter(l => l.match)
+          setLogs(enrichedLogs)
+        }
+
+        setMedalsAgg(aggregateMedals(medalRows))
+        const avanzadas = statsResult.data
+        const logo = (nombre) => {
+          for (const m of matchesData) {
+            const lado = m.home_team === nombre ? 'home' : m.away_team === nombre ? 'away' : null
+            if (!lado) continue
+            if (m[`${lado}_flag_url`]) return m[`${lado}_flag_url`]
+            const codigo = m[`${lado}_team_code`]
+            if (/^[a-z]{2}$/i.test(codigo || '') && codigo !== 'xx') return `https://flagcdn.com/w40/${codigo.toLowerCase()}.png`
           }
-        })
-        setStats({
-          exact,
-          correct,
-          miss,
-          powerups,
-          totalFinished,
-          predictedCount: enrichedPreds.length
-        })
-      }
-
-      const logsData = logsResult.data || []
-      if (logsData && matchesData) {
-        const enrichedLogs = logsData.map(l => ({
-          ...l,
-          match: matchesData.find(m => m.id === l.match_id)
-        })).filter(l => l.match)
-        setLogs(enrichedLogs)
-      }
-
-      setMedalsAgg(aggregateMedals(medalRows))
-      setAdvancedStats(statsResult.data || null)
-      setGlobalPredictions(globalResult.data || [])
+          return initialsDataUri(nombre)
+        }
+        setAdvancedStats(avanzadas ? { ...avanzadas, talisman_logo: logo(avanzadas.talisman_team), maldito_logo: logo(avanzadas.maldito_team) } : null)
+        setGlobalPredictions(globalRows)
         
-      // Bloqueo: manual (admin) o automático al iniciar el primer partido del torneo
-
-    } catch (err) {
-      console.error('Error fetching profile data', err)
-    } finally {
-      setLoading(false)
+      } catch (err) {
+        if (vigente) setErrorDatos(err.message || 'No pudimos cargar todos los datos. Volvé a intentar.')
+      } finally {
+        if (vigente) setLoading(false)
+      }
     }
-  }
+    fetchData()
+    return () => { vigente = false; controller.abort() }
+  }, [profile?.id, user?.id, recarga])
 
   return (
     <div className="px-4 py-5 relative">
@@ -258,9 +268,12 @@ export default function ProfilePage() {
 
         {/* Arriba y no al fondo: abajo de las medallas nadie lo veía. */}
         <PushNotificationToggle />
+      {user?.id && profile?.id === user.id && <ConfiguracionCuenta key={user.id} user={user} profile={profile} onSaved={fetchProfile} />}
 
+        {errorDatos && <ErrorState title="No pudimos cargar el perfil completo" description={errorDatos}
+          onRetry={() => setRecarga(n => n + 1)} />}
         {/* Métricas / Dashboard */}
-        {!loading && (
+        {!loading && !errorDatos && (
           <motion.div
             initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
             className="grid grid-cols-3 gap-2 mt-5"
@@ -335,7 +348,7 @@ export default function ProfilePage() {
                   <div className="flex w-full sm:w-auto justify-around flex-1 gap-4 pt-3 sm:pt-0 border-t border-slate-200 dark:border-white/10 sm:border-t-0">
                     {advancedStats.talisman_team && (
                       <div className="flex items-center gap-2">
-                        <img src={`https://flagcdn.com/w20/${advancedStats.talisman_team.substring(0,2).toLowerCase()}.png`} alt="Talisman" className="w-5 h-5 rounded-full object-cover" onError={(e) => { e.target.style.display = 'none' }} />
+                        <img src={advancedStats.talisman_logo} alt="Talisman" className="w-5 h-5 rounded-full object-cover" onError={crestOnError(advancedStats.talisman_team)} />
                         <div>
                           <p className="text-xs font-bold text-emerald-600 dark:text-emerald-400">{advancedStats.talisman_team}</p>
                           <p className="text-[9px] text-slate-500 uppercase font-bold">Tu Talismán</p>
@@ -344,7 +357,7 @@ export default function ProfilePage() {
                     )}
                     {advancedStats.maldito_team && (
                       <div className="flex items-center gap-2">
-                        <img src={`https://flagcdn.com/w20/${advancedStats.maldito_team.substring(0,2).toLowerCase()}.png`} alt="Maldito" className="w-5 h-5 rounded-full object-cover" onError={(e) => { e.target.style.display = 'none' }} />
+                        <img src={advancedStats.maldito_logo} alt="Maldito" className="w-5 h-5 rounded-full object-cover" onError={crestOnError(advancedStats.maldito_team)} />
                         <div>
                           <p className="text-xs font-bold text-rose-600 dark:text-rose-400">{advancedStats.maldito_team}</p>
                           <p className="text-[9px] text-slate-500 uppercase font-bold">Tu Maldición</p>
@@ -457,14 +470,14 @@ export default function ProfilePage() {
       <div className="relative z-10 pb-20">
         {loading ? (
           <div className="text-center py-10 text-slate-400 text-sm">Cargando datos...</div>
-        ) : (
+        ) : errorDatos ? null : (
           <AnimatePresence mode="wait">
             {activeTab === 'predictions' && (
               <motion.div key="preds" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }} className="space-y-4">
                 {predictions.length === 0 ? (
                    <EmptyState title="Todavía no hiciste predicciones" description="Entrá a una quiniela y elegí un marcador antes del cierre." />
                 ) : (
-                  predictions.map(pred => {
+                  predictions.slice(0, visibles).map(pred => {
                     const match = pred.match
                     const isFinished = match.status === 'finished'
                     const pts = pred.points_earned !== null ? pred.points_earned : 0
@@ -504,6 +517,10 @@ export default function ProfilePage() {
                     )
                   })
                 )}
+                {predictions.length > visibles && <button onClick={() => setVisibles(n => n + 50)}
+                  className="w-full py-3 text-sm font-semibold text-emerald-700 dark:text-emerald-300">
+                  Mostrar más predicciones ({Math.min(visibles, predictions.length)} de {predictions.length})
+                </button>}
               </motion.div>
             )}
 
@@ -580,6 +597,7 @@ export default function ProfilePage() {
 
             {activeTab === 'history' && (
               <motion.div key="logs" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }}>
+                <p className="text-xs text-slate-600 dark:text-slate-400 mb-4">Se muestran hasta 50 movimientos recientes.</p>
                 {logs.length === 0 ? (
                   <EmptyState title="Sin actividad todavía" description="Tus cambios de predicción aparecerán acá." />
                 ) : (

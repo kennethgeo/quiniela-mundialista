@@ -21,7 +21,7 @@ import { Users, Crown, Shield, Loader2, UserMinus, AlertTriangle } from 'lucide-
 import { supabase } from '../../lib/supabase'
 import { plata } from '../../lib/historialPagos'
 
-export default function MiembrosYAdmins({ leagueId }) {
+export default function MiembrosYAdmins({ leagueId, soloLectura = false }) {
   const qc = useQueryClient()
   const [porExpulsar, setPorExpulsar] = useState(null)
   const [error, setError] = useState(null)
@@ -87,8 +87,8 @@ export default function MiembrosYAdmins({ leagueId }) {
   if (isLoading) return null
 
   const yo = gente.find((g) => g.soy_yo)
-  const soyCreador = !!yo?.es_creador
-  const soyAdmin = !!yo?.es_admin
+  const soyCreador = !soloLectura && !!yo?.es_creador
+  const soyAdmin = !soloLectura && !!yo?.es_admin
   const admins = gente.filter((g) => g.es_admin).length
 
   return (

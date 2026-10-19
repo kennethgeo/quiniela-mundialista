@@ -45,7 +45,7 @@ const HISTORIAL = [
     por: USUARIO.id, created_at: '2026-09-20T18:10:00+00:00', sembrada: false },
 ]
 
-/* El pozo vive en su pestaña desde el 13 oct 2026; expulsar sigue en Reglas.
+/* El pozo vive en su pestaña desde el 13 oct 2026; expulsar está en Admin.
    Este POZO tiene la forma de ANTES de la 110 (sin `al_dia`): así también se
    prueba que la pantalla no se rompe si el frontend llega antes que la
    migración —confirmar sigue siendo la cuota entera, de un toque—. */
@@ -125,7 +125,7 @@ test.describe('«quitar» un pago confirmado', () => {
 
 test.describe('expulsar a quien pagó', () => {
   test('el aviso dice que tiene un pago confirmado, con el monto, y que queda en el historial', async ({ page }) => {
-    await abrir(page, { tab: 'rules' })
+    await abrir(page, { tab: 'admin' })
     await page.getByRole('button', { name: 'Sacar de la quiniela' }).first().click()
     const dialogo = page.getByRole('dialog', { name: 'Sacar a Beto' })
     await expect(dialogo).toBeVisible()
@@ -134,7 +134,7 @@ test.describe('expulsar a quien pagó', () => {
   })
 
   test('mientras no se sabe si pagó, «Sacar» no se puede tocar', async ({ page }) => {
-    const { expulsiones } = await abrir(page, { tab: 'rules' })
+    const { expulsiones } = await abrir(page, { tab: 'admin' })
     /* La red lenta es justo cuando el aviso llega tarde: si «Sacar» estuviera
        habilitado, el admin expulsaría sin haber visto que esa persona pagó. */
     let soltar
@@ -160,7 +160,7 @@ test.describe('expulsar a quien pagó', () => {
   })
 
   test('a quien no pagó no se le inventa un pago', async ({ page }) => {
-    const { expulsiones } = await abrir(page, { tab: 'rules' })
+    const { expulsiones } = await abrir(page, { tab: 'admin' })
     await page.getByRole('button', { name: 'Sacar de la quiniela' }).nth(1).click()
     const dialogo = page.getByRole('dialog', { name: 'Sacar a Caro' })
     await expect(dialogo).toBeVisible()

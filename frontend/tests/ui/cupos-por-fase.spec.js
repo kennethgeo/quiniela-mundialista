@@ -49,7 +49,7 @@ async function montar (page, fases) {
     'rpc/cupos_por_jornada': [],
     'rpc/fases_del_torneo': fases,
   })
-  await page.goto(`/q/${LIGA}?tab=rules`)
+  await page.goto(`/q/${LIGA}?tab=admin`)
 }
 
 // La fase regular ya empezó; la semifinal ni siquiera tiene partidos todavía.

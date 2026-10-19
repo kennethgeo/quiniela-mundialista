@@ -4,8 +4,9 @@
    la pestaña Torneos (TournamentMatchesAdmin). */
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
+import { crestOnError } from '../../lib/teamLogo'
 
-import { Save, Clock, Search, X, RefreshCw, Lock } from 'lucide-react'
+import { Save, Clock, Search, X, Lock } from 'lucide-react'
 import MatchEventsEditor from './MatchEventsEditor'
 
 /* Recalcula los puntos de un partido EN EL BACKEND.
@@ -36,7 +37,6 @@ export default function MatchResultsAdmin() {
   const [saving, setSaving] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [editingId, setEditingId] = useState(null)
-  const [syncing, setSyncing] = useState(false)
   const [formState, setFormState] = useState({})
 
   useEffect(() => {
@@ -119,98 +119,6 @@ export default function MatchResultsAdmin() {
     }
   }
 
-  // Respaldo manual, solo Mundial (worldcup26.ir con alias de equipos fijos).
-  // El sync automático (cron -> /matches/sync-live, ESPN) ya cubre todos los
-  // torneos; esto queda como último recurso si esa fuente falla.
-  const handleSyncAPI = async () => {
-    try {
-      setSyncing(true)
-      const res = await fetch('/_backend/api/matches/external-games')
-      if (!res.ok) throw new Error('Error al conectar con el servidor')
-      const apiData = await res.json()
-      const apiGames = apiData.games || []
-
-      const teamAlias = {
-        'Czech Republic': 'Czechia',
-        'Bosnia and Herzegovina': 'Bosnia-Herzegovina',
-        'Democratic Republic of the Congo': 'DR Congo',
-        'United States': 'USA',
-        'Ivory Coast': 'Ivory Coast',
-        'Curaçao': 'Curaçao',
-        'Saudi Arabia': 'Saudi Arabia'
-      }
-
-      const getSupabaseTeam = (name) => teamAlias[name] || name
-
-      let updatedCount = 0
-
-      const apiGroups = apiGames.filter(g => g.type === 'group')
-      for (const apiGame of apiGroups) {
-        const dbMatch = matches.find(m =>
-          m.phase === 'groups' &&
-          m.group_name === apiGame.group &&
-          m.matchday === parseInt(apiGame.matchday) &&
-          (m.home_team === getSupabaseTeam(apiGame.home_team_name_en) || m.away_team === getSupabaseTeam(apiGame.home_team_name_en))
-        )
-
-        if (dbMatch) {
-          const newStatus = apiGame.finished === "TRUE" ? 'finished' : (apiGame.time_elapsed !== 'notstarted' ? 'in_progress' : 'pending')
-          const newHomeGoals = apiGame.home_score ? parseInt(apiGame.home_score) : null
-          const newAwayGoals = apiGame.away_score ? parseInt(apiGame.away_score) : null
-
-          const hasChanged = dbMatch.status !== newStatus || dbMatch.home_goals_actual !== newHomeGoals || dbMatch.away_goals_actual !== newAwayGoals
-
-          if (hasChanged) {
-            await supabase.from('matches').update({
-              status: newStatus,
-              home_goals_actual: newHomeGoals,
-              away_goals_actual: newAwayGoals
-            }).eq('id', dbMatch.id)
-
-            await recalcMatch(dbMatch.id)
-            updatedCount++
-          }
-        }
-      }
-
-      const apiKnockouts = apiGames.filter(g => g.type !== 'group').sort((a, b) => parseInt(a.id) - parseInt(b.id))
-      const dbKnockouts = matches.filter(m => m.phase !== 'groups').sort((a, b) => a.id - b.id)
-
-      for (let i = 0; i < apiKnockouts.length; i++) {
-        const apiGame = apiKnockouts[i]
-        const dbMatch = dbKnockouts[i]
-
-        if (apiGame && dbMatch) {
-          const newStatus = apiGame.finished === "TRUE" ? 'finished' : (apiGame.time_elapsed !== 'notstarted' ? 'in_progress' : 'pending')
-          const newHomeGoals = apiGame.home_score ? parseInt(apiGame.home_score) : null
-          const newAwayGoals = apiGame.away_score ? parseInt(apiGame.away_score) : null
-
-          const hasChanged = dbMatch.status !== newStatus || dbMatch.home_goals_actual !== newHomeGoals || dbMatch.away_goals_actual !== newAwayGoals
-
-          if (hasChanged) {
-            await supabase.from('matches').update({
-              status: newStatus,
-              home_goals_actual: newHomeGoals,
-              away_goals_actual: newAwayGoals
-            }).eq('id', dbMatch.id)
-
-            await recalcMatch(dbMatch.id)
-            updatedCount++
-          }
-        }
-      }
-
-      alert(`Sincronización completada. Se actualizaron ${updatedCount} partidos.`)
-      await fetchMatches()
-
-    } catch (err) {
-      console.error('Error syncing:', err)
-      alert('Error sincronizando la API: ' + err.message)
-    } finally {
-      setSyncing(false)
-    }
-  }
-
   const filteredMatches = matches
     .filter(m => !tid || m.tournament_id === tid)
     .filter(m =>
@@ -240,15 +148,7 @@ export default function MatchResultsAdmin() {
             className="w-full bg-slate-100 dark:bg-slate-900/50 border border-slate-200 dark:border-white/10 rounded-xl pl-9 pr-4 py-2.5 text-sm text-slate-900 dark:text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-accent"
           />
         </div>
-        <button
-          onClick={handleSyncAPI}
-          disabled={syncing}
-          title="Respaldo manual, solo Mundial. El sync automático (ESPN) ya cubre todos los torneos cada pocos minutos."
-          className="w-full md:w-auto px-3 py-2 bg-slate-200 dark:bg-white/5 hover:bg-slate-300 dark:hover:bg-white/10 disabled:opacity-50 text-slate-600 dark:text-slate-300 font-semibold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-colors"
-        >
-          <RefreshCw size={13} className={syncing ? 'animate-spin' : ''} />
-          {syncing ? 'Sincronizando…' : 'Respaldo Mundial'}
-        </button>
+
       </div>
 
       {/* Matches List */}
@@ -288,7 +188,7 @@ export default function MatchResultsAdmin() {
 
                 <div className="flex items-center justify-between gap-4">
                   <div className="flex items-center gap-2 flex-1">
-                    <img src={`https://flagcdn.com/w40/${match.home_team_code}.png`} alt="" className="w-6 h-4 rounded-sm object-cover" />
+                    <img src={match.home_flag_url || (match.home_team_code?.startsWith('https://') ? match.home_team_code : `https://flagcdn.com/w40/${match.home_team_code || 'xx'}.png`)} onError={crestOnError(match.home_team)} alt="" className="w-6 h-6 object-contain" />
                     <span className="text-sm font-bold text-slate-900 dark:text-white truncate">{match.home_team}</span>
                   </div>
 
@@ -300,7 +200,7 @@ export default function MatchResultsAdmin() {
 
                   <div className="flex items-center gap-2 flex-1 justify-end">
                     <span className="text-sm font-bold text-slate-900 dark:text-white truncate text-right">{match.away_team}</span>
-                    <img src={`https://flagcdn.com/w40/${match.away_team_code}.png`} alt="" className="w-6 h-4 rounded-sm object-cover" />
+                    <img src={match.away_flag_url || (match.away_team_code?.startsWith('https://') ? match.away_team_code : `https://flagcdn.com/w40/${match.away_team_code || 'xx'}.png`)} onError={crestOnError(match.away_team)} alt="" className="w-6 h-6 object-contain" />
                   </div>
                 </div>
 

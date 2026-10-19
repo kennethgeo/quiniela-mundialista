@@ -14,15 +14,19 @@
 import { useState } from 'react'
 import { motion, useReducedMotion } from 'motion/react'
 import { useConsultaDelUsuario } from '../../hooks/useConsultaDelUsuario'
-import { Trophy, Flame, ChevronDown } from 'lucide-react'
+import { Trophy, Flame, ChevronDown, Share2 } from 'lucide-react'
 import { ErrorState } from '../ui/StatePanel'
 import { supabase } from '../../lib/supabase'
+import { ganadorParaCompartir } from '../../lib/ganadorJornada'
+import { renderGanadorJornadaCard, compartirImagen } from '../../lib/shareCard'
 
 const ORO = '#E8B75A'
 const ACENTO = '#2ED3B7'
 
-export default function JornadasYRachas({ leagueId }) {
+export default function JornadasYRachas({ leagueId, nombreQuiniela = '' }) {
   const [abierto, setAbierto] = useState(false)
+  const [compartiendo, setCompartiendo] = useState(false)
+  const [aviso, setAviso] = useState(null)
   const sinMovimiento = useReducedMotion()
 
   const { data, isError, refetch } = useConsultaDelUsuario({
@@ -39,11 +43,30 @@ export default function JornadasYRachas({ leagueId }) {
   const jornadas = data?.jornadas || []
   const cerradas = jornadas.filter((j) => j.cerrada)
 
+  const compartir = async (jkey) => {
+    if (compartiendo) return
+    setCompartiendo(true); setAviso(null)
+    try {
+      // Refrescar justo antes de exportar: una corrección puede cambiar tanto
+      // el ganador como el cierre. No fabricar uno a partir de la tabla local.
+      const actual = await refetch()
+      if (actual.error) throw actual.error
+      const jornada = actual.data?.jornadas?.find(j => j.jkey === jkey)
+      if (!ganadorParaCompartir(jornada)) throw new Error('La jornada ya no tiene un ganador confirmado. Revisá el detalle actualizado.')
+      const blob = await renderGanadorJornadaCard({ nombreQuiniela, jornada })
+      const estado = await compartirImagen(blob, 'ganador-jornada.png', `${nombreQuiniela} · ${jornada.label}`)
+      if (estado === 'descargado') setAviso({ texto: 'Imagen descargada.' })
+    } catch (error) { setAviso({ error: true, texto: error.message || 'No pudimos generar la tarjeta. Volvé a intentar.' }) }
+    finally { setCompartiendo(false) }
+  }
+
   if (isError) return <ErrorState compact title="No pudimos cargar las jornadas"
     description="Revisá tu conexión y reintentá." onRetry={refetch} />
 
   // Sin ninguna jornada cerrada no hay nada honesto que decir todavía.
-  if (cerradas.length === 0) return null
+  if (cerradas.length === 0) return aviso
+    ? <p role="alert" className="text-sm text-rose-700 dark:text-rose-300 p-4">{aviso.texto}</p>
+    : null
 
   const conGanadas = rachas.filter((r) => r.ganadas > 0)
   const ultima = cerradas[cerradas.length - 1]
@@ -85,6 +108,12 @@ export default function JornadasYRachas({ leagueId }) {
           ? <>ganó <strong className="text-slate-700 dark:text-[#F3F1EA]">{ultima.ganador.display_name}</strong> con {Number(ultima.ganador.puntos)} pts</>
           : 'sin ganador'}
       </p>
+
+      {ganadorParaCompartir(ultima) && <button onClick={() => compartir(ultima.jkey)} disabled={compartiendo}
+        className="mt-3 flex items-center gap-2 py-2 text-sm font-semibold text-emerald-700 dark:text-emerald-300 disabled:opacity-50">
+        <Share2 size={15} /> {compartiendo ? 'Preparando tarjeta…' : 'Compartir ganador de jornada'}
+      </button>}
+      {aviso && <p role={aviso.error ? 'alert' : 'status'} className={`text-sm mt-2 ${aviso.error ? 'text-rose-700 dark:text-rose-300' : 'text-slate-700 dark:text-slate-300'}`}>{aviso.texto}</p>}
 
       <button onClick={() => setAbierto(!abierto)}
         className="mt-2 flex items-center gap-1 text-[11px] font-bold text-accent">

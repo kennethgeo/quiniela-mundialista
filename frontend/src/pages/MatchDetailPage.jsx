@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useLocation } from 'react-router-dom'
+import { retornoPartido } from '../lib/retornoPartido'
 import { motion } from 'motion/react'
 import { ArrowLeft, Clock, Calendar, MapPin, ShieldAlert, Star, TrendingUp, HelpCircle } from 'lucide-react'
 import { supabase } from '../lib/supabase'
@@ -17,6 +18,8 @@ import { fetchGroupStandings, fetchMyGroups } from '../lib/groups'
 export default function MatchDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const location = useLocation()
+  const volver = () => navigate(retornoPartido(location.state?.returnTo, new URLSearchParams(location.search).get('group')), { replace: true })
   const { profile } = useAuth()
   
   const [match, setMatch] = useState(null)
@@ -238,7 +241,7 @@ export default function MatchDetailPage() {
       <div className="flex-1 flex flex-col items-center justify-center h-[50vh] text-slate-400">
         <ShieldAlert size={48} className="text-rose-500 mb-4" />
         <p>Partido no encontrado.</p>
-        <button onClick={() => navigate('/matches')} className="mt-4 text-accent hover:underline">
+        <button onClick={volver} className="mt-4 text-accent hover:underline">
           Volver a Partidos
         </button>
       </div>
@@ -255,8 +258,9 @@ export default function MatchDetailPage() {
       {/* ── Header: Botón de regresar ── */}
       <div className="flex items-center gap-3">
         <button
-          onClick={() => navigate(-1)}
-          className="p-2 rounded-full glass hover:bg-white/10 transition-colors text-slate-400 hover:text-white"
+          onClick={volver}
+          aria-label="Volver a la quiniela"
+          className="p-2 rounded-full glass hover:bg-slate-100 dark:hover:bg-white/10 transition-colors text-slate-600 dark:text-slate-300"
         >
           <ArrowLeft size={20} />
         </button>
@@ -336,9 +340,9 @@ export default function MatchDetailPage() {
                   <span className="text-slate-600 text-3xl">VS</span>
                 ) : isFinished || match.status === 'in_progress' ? (
                   <>
-                    <span className="text-white">{match.home_goals_actual ?? 0}</span>
+                    <span className={fotoEstadio ? 'text-white' : 'text-slate-900 dark:text-white'}>{match.home_goals_actual ?? 0}</span>
                     <span className="text-slate-600">-</span>
-                    <span className="text-white">{match.away_goals_actual ?? 0}</span>
+                    <span className={fotoEstadio ? 'text-white' : 'text-slate-900 dark:text-white'}>{match.away_goals_actual ?? 0}</span>
                   </>
                 ) : (
                   <span className="text-slate-600 text-3xl">VS</span>

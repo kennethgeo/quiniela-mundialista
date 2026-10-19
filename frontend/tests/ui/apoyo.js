@@ -47,15 +47,28 @@ export async function interceptarSupabase(page, datos = {}) {
     const url = route.request().url()
     for (const [trozo, cuerpo] of Object.entries(datos)) {
       if (url.includes(trozo)) {
-        return route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify(typeof cuerpo === 'function' ? cuerpo(url) : cuerpo),
-        })
+        return route.fulfill(respuestaFilas(route.request(), typeof cuerpo === 'function' ? cuerpo(url) : cuerpo))
       }
     }
-    return route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
+    return route.fulfill(respuestaFilas(route.request(), []))
   })
+}
+
+// PostgREST expone conteo y rango: las listas ficticias también deben hacerlo
+// para comprobar lecturas completas, sin depender de su límite de producción.
+export function respuestaFilas(request, cuerpo, { limiteServidor = Infinity } = {}) {
+  const respuesta = { status: 200, contentType: 'application/json', body: JSON.stringify(cuerpo) }
+  if (request.method() !== 'GET' || !Array.isArray(cuerpo) || !request.headers().prefer?.includes('count=exact')) return respuesta
+  const params = new URL(request.url()).searchParams
+  const ids = params.get('match_id')?.match(/^in\.\((.*)\)$/)?.[1]?.split(',').map(s => s.replaceAll('"', ''))
+  const filtradas = ids ? cuerpo.filter(f => ids.includes(String(f.match_id))) : cuerpo
+  const desde = Number(params.get('offset') || 0)
+  const limite = Math.min(Number(params.get('limit') || 500), limiteServidor)
+  const filas = filtradas.slice(desde, desde + limite).map((f, i) => ({ ...f, id: f.id ?? `ficticio-${desde + i}` }))
+  return { ...respuesta, body: JSON.stringify(filas), headers: {
+    'content-range': `${filas.length ? `${desde}-${desde + filas.length - 1}` : '*'}/${filtradas.length}`,
+    'access-control-expose-headers': 'content-range',
+  } }
 }
 
 /* Corta cualquier salida a internet que no sea Supabase: escudos, fuentes,

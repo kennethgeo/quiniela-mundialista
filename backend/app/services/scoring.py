@@ -531,9 +531,9 @@ async def calculate_and_update_scores(supabase, match_id: int) -> dict:
         await broadcast_push_to_users(
             supabase, 
             users_with_positive_delta, 
-            title="¡Tus puntos se han actualizado!", 
-            body=f"El partido {match_id} ha finalizado. Revisa tu posición en el ranking.",
-            url="/ranking"
+            title=f"Final · {match['home_team']} {match['home_goals_actual']} - {match['away_goals_actual']} {match['away_team']}",
+            body="Sumaste puntos en este partido. Mirá cómo quedó la tabla.",
+            url=f"/match/{match_id}"
         )
 
     return {

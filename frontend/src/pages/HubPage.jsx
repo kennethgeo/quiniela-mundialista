@@ -32,27 +32,32 @@ export default function HubPage() {
   const [modal, setModal] = useState(null) // 'create' | 'join' | null
   const invitacionUsada = useRef(false)
 
-  /* Alguien que abrió un enlace /unirse/XXXX sin cuenta se registró, confirmó
-     el correo y llegó acá: el código quedó guardado y este es el momento de
-     usarlo. Sin esto, el enlace solo serviría para quien ya tenía sesión.
-     Si falla —código vencido, ya sos miembro— no se muestra nada: el hub ya
-     es el destino correcto y el código se consumió, así que no reintenta. */
+  const [invitacionFallida, setInvitacionFallida] = useState(null)
+  const cuentaActual = useRef(userId)
   useEffect(() => {
-    if (invitacionUsada.current || !profile?.id) return
+    cuentaActual.current = userId
+    return () => { cuentaActual.current = null }
+  }, [userId])
+
+  // Se consume una vez. Si falla, el código queda visible para reintentarlo
+  // expresamente; no se inicia un ciclo de reintentos automáticos.
+  useEffect(() => {
+    if (invitacionUsada.current || !profile?.id || profile.id !== userId) return
     const codigo = tomarInvitacion()
     if (!codigo) return
     invitacionUsada.current = true
     ;(async () => {
       try {
         const res = await joinGroupByCode(codigo)
+        if (cuentaActual.current !== userId) return
         const id = res?.id ?? res?.league_id ?? (Array.isArray(res) ? res[0]?.id : null)
         if (id) navigate(`/q/${id}`, { replace: true })
-      } catch {
-        /* Silencio a propósito: ver el hub es mejor que un error que no se
-           puede accionar. */
+        else throw new Error('No pudimos confirmar la quiniela. Revisá tus grupos antes de reintentar.')
+      } catch (e) {
+        if (cuentaActual.current === userId) setInvitacionFallida({ userId, codigo, error: e.message || 'No pudimos usar la invitación.' })
       }
     })()
-  }, [profile?.id, navigate])
+  }, [profile?.id, userId, navigate])
 
   const load = useCallback(async () => {
     if (!userId) return
@@ -97,6 +102,12 @@ export default function HubPage() {
           style={{ background: 'linear-gradient(135deg,#2ED3B7,#1a8f7c)' }}>{initial}</div>
       </motion.div>
 
+      {invitacionFallida?.userId === userId && (
+        <div role="alert" className="glass-card p-4 mb-4 text-slate-800 dark:text-slate-200">
+          <p className="text-sm">Invitación {invitacionFallida.codigo}: {invitacionFallida.error}</p>
+          <button onClick={() => setModal('join')} className="font-semibold text-sm py-2 underline">Reintentar invitación</button>
+        </div>
+      )}
       {/* LAS QUINIELAS VAN PRIMERAS EN EL DOM. En móvil la grilla se apila en el
           orden del documento, y con la columna de actividad delante había que
           bajar por el aviso, «Me falta predecir» y el ranking antes de ver la
@@ -174,7 +185,7 @@ export default function HubPage() {
 
       <AnimatePresence>
         {modal === 'create' && <CreateModal onClose={() => setModal(null)} onDone={() => { setModal(null); load() }} />}
-        {modal === 'join' && <JoinModal onClose={() => setModal(null)} onDone={() => { setModal(null); load() }} />}
+        {modal === 'join' && <JoinModal key={userId} initialCode={invitacionFallida?.userId === userId ? invitacionFallida.codigo : ''} onClose={() => setModal(null)} onDone={(id) => { setInvitacionFallida(null); setModal(null); if (id) navigate(`/q/${id}`); else load() }} />}
       </AnimatePresence>
     </div>
   )
@@ -296,19 +307,23 @@ function CreateModal({ onClose, onDone }) {
   )
 }
 
-function JoinModal({ onClose, onDone }) {
-  const [code, setCode] = useState('')
+function JoinModal({ onClose, onDone, initialCode = '' }) {
+  const [code, setCode] = useState(initialCode)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState(null)
   const submit = async () => {
     if (!code.trim()) { setErr('Escribí el código'); return }
-    try { setBusy(true); setErr(null); await joinGroupByCode(code); onDone() }
+    try {
+      setBusy(true); setErr(null)
+      const res = await joinGroupByCode(code)
+      onDone(res?.id ?? res?.league_id ?? (Array.isArray(res) ? res[0]?.id : null))
+    }
     catch (e) { setErr(e.message.includes('inválido') ? 'Código inválido' : e.message) } finally { setBusy(false) }
   }
   return (
     <Sheet title="Unirme por código" onClose={onClose}>
       <p className="text-sm text-slate-500 dark:text-slate-400 mb-3">Pedile el código a quien creó la quiniela.</p>
-      <input value={code} onChange={e => setCode(e.target.value.toUpperCase())} maxLength={6} placeholder="ABC123"
+      <input value={code} onChange={e => setCode(e.target.value.toUpperCase())} maxLength={24} aria-label="Código de invitación" disabled={busy} placeholder="ABC123"
         className="w-full tracking-[0.4em] text-center font-['JetBrains_Mono'] font-bold text-xl bg-slate-100 dark:bg-[#161616] border-[1.5px] border-slate-200 dark:border-[#262626] rounded-xl px-4 py-3.5 text-slate-900 dark:text-[#F3F1EA] focus:outline-none focus:border-accent mb-4" />
       {err && <p className="text-sm text-[#FF7A59] mb-3">{err}</p>}
       <button onClick={submit} disabled={busy}
