@@ -33,4 +33,6 @@ Integración mediante [PR #205](https://github.com/kennethgeo/quiniela-mundialis
 
 Comprobaciones locales del 19 de octubre: 549 pruebas de backend (incluidas 23 de PostgreSQL sintético), 405 unitarias de frontend, lint sin errores y compilación/PWA correctas. La suite móvil completa se repite antes del merge y su resultado se registra en el PR, junto con el CI de GitHub.
 
+La repetición local detectó un bucle de renderizado en Admin durante la carga de fases. Se reprodujo con una respuesta ficticia de 600 ms: el array vacío por defecto cambiaba en cada render y reactivaba la copia al estado. Se estabilizaron los valores vacíos y se quitó el objeto vacío nuevo que pasaba Reglas al editor; también evita reiniciar un borrador de cupos al cambiar de pestaña sin configuración previa. Las dos regresiones nuevas y los casos de fechas/cupos pasaron (33 pruebas). No se ocultó el error ni se añadieron reintentos para hacerlo pasar.
+
 No se aplican migraciones ni se hacen recálculos de producción para validar esta entrega. El servidor PostgreSQL sintético se detuvo después de sus pruebas.

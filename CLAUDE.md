@@ -4,6 +4,8 @@
 
 El dueño pidió integrar el trabajo de auditoría y dejó indicada la vuelta de Claude. Punto de continuidad: `docs/ENTREGA_AUDITORIA_2026-10-19.md`. El pedido de merge sustituye el límite anterior de conservar todo solo en local; no aplica ni activa la propuesta SQL ni los cambios de datos pendientes.
 
+`CuposPorFase` usa arrays/objetos vacíos estables: un `data: fases = []` nuevo en cada render reactivaba su efecto de estado durante una lectura pendiente y producía «Maximum update depth exceeded». Tampoco pasar `group.powerup_limits || {}` desde Reglas: creaba una identidad nueva al navegar y podía borrar el borrador. Cubierto con red ficticia lenta y cambio de pestaña sin configuración previa.
+
 ## Auditoría del 16 oct 2026: continuación local
 
 - Guía de pruebas manuales: `docs/GUIA_PRUEBAS_LOCALES_2026-10-16.md`. La vista a probar es localhost; los cambios todavía no están publicados en Vercel.
