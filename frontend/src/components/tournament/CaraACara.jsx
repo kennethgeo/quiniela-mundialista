@@ -11,6 +11,8 @@ import { useConsultaDelUsuario } from '../../hooks/useConsultaDelUsuario'
 import { X, Zap, Trophy } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { kickoffDate } from '../../lib/matchStatus'
+import { leerTodasLasFilas } from '../../lib/lecturaCompleta'
+import { ErrorState } from '../ui/StatePanel'
 
 const jornadaKeyOf = (m) =>
   m.stage || (m.matchday ? `Jornada ${m.matchday}` : (m.phase ? m.phase.replace(/_/g, ' ') : 'Partidos'))
@@ -23,26 +25,33 @@ const esExacto = (p, m) =>
   p && m.home_goals_actual != null &&
   p.home_goals_pred === m.home_goals_actual && p.away_goals_pred === m.away_goals_actual
 
+const partidosJugados = (matches) => (matches || [])
+  .filter((m) => m.status === 'finished' && !esAnulado(m))
+  .sort((a, b) => kickoffMs(a) - kickoffMs(b))
+
 export default function CaraACara({ leagueId, matches = [], yo, rival, onClose }) {
-  // Comparte caché con la pestaña Histórico: misma clave, misma consulta.
-  const { data: predicciones = [], isLoading } = useConsultaDelUsuario({
-    queryKey: ['historial_predictions', leagueId],
-    enabled: !!leagueId,
+  /* Solo las predicciones de ESTAS dos personas en partidos jugados, leídas
+     completas y paginadas (lib/lecturaCompleta). Antes se leía la quiniela
+     entera sin paginar: Bundestica llegó a 980 filas con el tope de PostgREST
+     en 1.000, y al pasarlo el resumen se habría cortado sin aviso. Tampoco
+     comparte ya la caché con el Histórico, que lee por jornada destapada.
+     Un error se dice: un resumen a medias en una quiniela por plata engaña. */
+  const jugados = useMemo(() => partidosJugados(matches), [matches])
+  const idsJugados = useMemo(() => jugados.map((m) => m.id).sort((x, y) => x - y), [jugados])
+  const personas = [yo?.user_id, rival?.user_id].filter(Boolean)
+  const { data: predicciones = [], isLoading, isError, refetch } = useConsultaDelUsuario({
+    queryKey: ['cara_a_cara', leagueId, ...personas, idsJugados],
+    enabled: !!leagueId && personas.length === 2 && idsJugados.length > 0,
     staleTime: 1000 * 60,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('predictions')
-        .select('user_id, match_id, home_goals_pred, away_goals_pred, use_powerup_x2, points_earned')
-        .eq('league_id', leagueId)
-      if (error) throw error
-      return data || []
-    },
+    retry: false,
+    queryFn: ({ signal }) => leerTodasLasFilas(() => supabase
+      .from('predictions')
+      .select('id,user_id,match_id,home_goals_pred,away_goals_pred,use_powerup_x2,points_earned', { count: 'exact' })
+      .eq('league_id', leagueId).in('user_id', personas).in('match_id', idsJugados).order('id'), { signal }),
   })
 
   const datos = useMemo(() => {
-    const jugados = (matches || [])
-      .filter((m) => m.status === 'finished' && !esAnulado(m))
-      .sort((a, b) => kickoffMs(a) - kickoffMs(b))
+    if (!yo || !rival) return { jornadas: [], a: null, b: null, duelos: { a: 0, b: 0, empate: 0 } }
 
     const porClave = {}
     for (const p of predicciones) porClave[`${p.user_id}|${p.match_id}`] = p
@@ -86,9 +95,12 @@ export default function CaraACara({ leagueId, matches = [], yo, rival, onClose }
     )
 
     return { jornadas: lista, a, b, duelos }
-  }, [predicciones, matches, yo, rival])
+  }, [predicciones, jugados, yo, rival])
 
   const { a, b, duelos, jornadas } = datos
+  /* Quien no juega esta quiniela (el admin global mirando) no tiene un «yo»
+     contra quien comparar: antes reventaba leyendo yo.user_id. */
+  if (!yo || !rival) return null
   const gano = a.pts > b.pts ? 'a' : b.pts > a.pts ? 'b' : null
 
   /* Ventana centrada, no hoja desde abajo. Pegada al borde inferior chocaba
@@ -131,7 +143,10 @@ export default function CaraACara({ leagueId, matches = [], yo, rival, onClose }
         </div>
 
         <div className="overflow-y-auto flex-1 px-4 py-3">
-          {isLoading ? (
+          {isError ? (
+            <ErrorState compact title="No pudimos cargar el cara a cara"
+              description="Sin todas las predicciones el resumen no sería cierto." onRetry={refetch} />
+          ) : isLoading && idsJugados.length > 0 ? (
             <p className="text-center text-[12px] text-[var(--text-muted,#8A8A8A)] py-6">Cargando…</p>
           ) : jornadas.length === 0 ? (
             <p className="text-center text-[12px] text-[var(--text-muted,#8A8A8A)] py-6">Todavía no hay partidos jugados.</p>

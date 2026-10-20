@@ -1715,7 +1715,7 @@ function StandingsTab({ leagueId, matches = [], nombreQuiniela = '' }) {
           <PerfilEnQuiniela key="perfil-quiniela" leagueId={leagueId} userId={perfil.user_id}
             nombreQuiniela={nombreQuiniela}
             onClose={() => setPerfil(null)}
-            onCaraACara={() => setRival(perfil)} />
+            onCaraACara={rows.some((x) => x.is_me) ? () => setRival(perfil) : undefined} />
         )}
         {rival && (
           <CaraACara key="cara-a-cara" leagueId={leagueId} matches={matches}
