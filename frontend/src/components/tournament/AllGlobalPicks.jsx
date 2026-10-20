@@ -1,10 +1,11 @@
 // Predicciones de campeón/goleador/asistidor de TODOS los miembros de la
-// quiniela — solo una vez que las predicciones del torneo están bloqueadas
-// (mismo criterio que GlobalPicksBoard), para que nadie copie antes de tiempo.
+// quiniela — solo una vez que las predicciones del torneo están cerradas según
+// tournament_predictions_open (la regla de la RLS), para que nadie copie antes.
 import { useConsultaDelUsuario } from '../../hooks/useConsultaDelUsuario'
 import { motion } from 'motion/react'
 import { Users, Crown, Target, Handshake } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
+import { ErrorState } from '../ui/StatePanel'
 
 const AVATAR_GRADIENTS = [
   'from-violet-500 to-purple-600', 'from-sky-500 to-blue-600',
@@ -19,16 +20,19 @@ function gradientFor(name = '') {
 }
 
 export default function AllGlobalPicks({ tournamentId, leagueId }) {
-  const { data, isLoading } = useConsultaDelUsuario({
+  const { data, isLoading, isError, refetch } = useConsultaDelUsuario({
     queryKey: ['all_global_picks', leagueId],
     enabled: !!tournamentId && !!leagueId,
     queryFn: async () => {
-      const { data: t } = await supabase.from('tournaments').select('predictions_locked').eq('id', tournamentId).single()
-      if (!t?.predictions_locked) return { locked: false, rows: [] }
-      const [{ data: preds }, { data: users }] = await Promise.all([
+      // La misma regla que la RLS usa para destapar las ajenas.
+      const { data: abiertas, error } = await supabase.rpc('tournament_predictions_open', { p_tid: tournamentId })
+      if (error) throw error
+      if (abiertas !== false) return { locked: false, rows: [] }
+      const [{ data: preds, error: e1 }, { data: users, error: e2 }] = await Promise.all([
         supabase.from('tournament_predictions').select('*').eq('league_id', leagueId),
         supabase.from('users').select('id, display_name'),
       ])
+      if (e1 || e2) throw e1 || e2
       const nameById = {}
       ;(users || []).forEach((u) => { nameById[u.id] = u.display_name })
       const rows = (preds || [])
@@ -40,6 +44,7 @@ export default function AllGlobalPicks({ tournamentId, leagueId }) {
     },
   })
 
+  if (isError) return <div className="mt-4"><ErrorState compact title="No pudimos cargar las predicciones de la quiniela" onRetry={refetch} /></div>
   if (isLoading || !data?.locked || data.rows.length === 0) return null
 
   return (

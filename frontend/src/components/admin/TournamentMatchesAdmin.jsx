@@ -86,12 +86,6 @@ export default function TournamentMatchesAdmin() {
     } finally { setBusy(false) }
   }
 
-  const del = async (m) => {
-    if (!confirm(`¿Borrar ${m.home_team} vs ${m.away_team}?`)) return
-    try { setBusy(true); await callAdmin('delete-match', { match_id: m.id }); setMatches(prev => prev.filter(x => x.id !== m.id)) }
-    catch (e) { flash('error', e.message) } finally { setBusy(false) }
-  }
-
   return (
     <div className="glass-card p-5 mt-4">
       <div className="flex items-center gap-2 mb-4 border-b border-white/10 pb-3">
@@ -154,7 +148,11 @@ export default function TournamentMatchesAdmin() {
             <div key={m.id} className="flex items-center gap-2 text-sm py-1.5 px-2.5 rounded-lg bg-slate-50 dark:bg-white/5">
               <span className="flex-1 truncate text-slate-800 dark:text-slate-100">{m.home_team} vs {m.away_team}{m.matchday ? ` · J${m.matchday}` : ''}</span>
               <span className="text-[10px] text-slate-400">{new Date(m.kickoff_at).toLocaleDateString([], { day: '2-digit', month: '2-digit' })}</span>
-              <button onClick={() => del(m)} disabled={busy} className="p-1 text-rose-500 hover:bg-rose-500/10 rounded"><Trash2 size={13} /></button>
+              {/* Borrar está deshabilitado en el backend (409, sin DELETE): arrastraría
+                  predicciones, bitácoras, auditoría y avisos. Se dice acá también. */}
+              <button disabled aria-label={`Borrar ${m.home_team} vs ${m.away_team} (deshabilitado)`}
+                title="Borrar partidos está deshabilitado: se perdería su historia. Si no se jugó, marcalo como suspendido o no disputado en Resultados."
+                className="p-1 text-rose-500 rounded opacity-40 cursor-not-allowed"><Trash2 size={13} /></button>
             </div>
           ))}
         </div>

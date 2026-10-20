@@ -52,10 +52,32 @@ test('un partido EN CURSO sin reabrir no deja tocar el marcador', async ({ page 
   await expect(contadores(page)).toHaveCount(0)
 })
 
-test('REABIERTO: aparecen los controles y se puede cambiar el marcador', async ({ page }) => {
-  await montar(page, { predictions_force_open: true })
+test('REABIERTO (sigue pendiente con el saque pasado): aparecen los controles y se puede cambiar el marcador', async ({ page }) => {
+  /* El caso real de la reapertura: ESPN trajo mal la hora y el partido quedó
+     cerrado sin haber empezado. La base lo deja escribir solo mientras siga
+     `pending` (rama forzada de la 105). */
+  await montar(page, { status: 'pending', home_goals_actual: null, away_goals_actual: null, predictions_force_open: true })
   await expect(page.getByText('AEK Athens', { exact: true })).toBeVisible({ timeout: 10000 })
   // Dos «sumar gol»: local y visita. Con el bug había CERO.
   await expect(contadores(page)).toHaveCount(2)
   await contadores(page).first().click()
+})
+
+test('con la casilla marcada pero el partido YA EN VIVO no se ofrece editar: la base lo rechazaría', async ({ page }) => {
+  /* Esta prueba afirmaba antes que sí. La rama forzada de la RLS exige
+     status = 'pending' (leído en producción el 20 oct 2026): en vivo, los +/−
+     y el botón terminaban en 42501. */
+  await montar(page, { predictions_force_open: true })
+  await expect(page.getByText('AEK Athens', { exact: true })).toBeVisible({ timeout: 10000 })
+  await expect(contadores(page)).toHaveCount(0)
+  await expect(page.getByRole('button', { name: /(Guardar|Actualizar) predicción/ })).toHaveCount(0)
+})
+
+test('YA DESTAPADO y con el saque atrasado: cerrado aunque falte para el saque (106)', async ({ page }) => {
+  await montar(page, { status: 'pending', kickoff_at: '2027-01-10T16:45:00Z', destapado_at: '2026-09-08T16:30:00Z',
+    home_goals_actual: null, away_goals_actual: null, predictions_force_open: false })
+  await expect(page.getByText('AEK Athens', { exact: true })).toBeVisible({ timeout: 10000 })
+  await expect(page.getByText(/Predicciones cerradas/)).toBeVisible()
+  await expect(contadores(page)).toHaveCount(0)
+  await expect(page.getByRole('button', { name: /(Guardar|Actualizar) predicción/ })).toHaveCount(0)
 })

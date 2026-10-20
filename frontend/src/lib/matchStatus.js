@@ -18,18 +18,17 @@ export function kickoffDate(value) {
    solo para cuando el cierre fue un error de los datos: ESPN trae mal la hora
    del saque, o el partido se reprograma.
 
-   SOLO VALE MIENTRAS EL PARTIDO ESTÁ EN CURSO. En uno finalizado no es
-   reabrir, es dejar predecir con el marcador puesto — así que la reapertura se
-   apaga sola al terminar el partido y nadie tiene que acordarse de nada.
-   Cancelado o pospuesto tampoco: ahí no hay nada que predecir y
-   `void_cancelled_match` ya anuló lo que hubiera.
+   SOLO VALE MIENTRAS EL PARTIDO SIGUE `pending` en la base: es lo que exige la
+   rama forzada de la RLS desde la migración 105 (`predictions_force_open AND
+   status = 'pending'`, leído en producción el 20 oct 2026). En cuanto el sync
+   lo marca en vivo, la base deja de aceptar el guardado: decir «Reabierto» ahí
+   era ofrecer +/− y un botón que respondía 42501. Antes esta función solo
+   excluía terminado/cancelado/pospuesto (lo reprodujo Codex).
 
-   La pantalla NO es la que manda: la política RLS comprueba exactamente lo
-   mismo. Esto solo evita que la casilla se vea apagada. */
-const CERRADOS = ['finished', 'cancelled', 'canceled', 'postponed']
-
+   La pantalla NO es la que manda: la política RLS decide. Esto solo hace que
+   la pantalla diga lo mismo que la base. */
 function reabierto(match, status) {
-  return match?.predictions_force_open === true && !CERRADOS.includes(status)
+  return match?.predictions_force_open === true && status === 'pending'
 }
 
 function estadoNormal(match, now, status) {
@@ -57,6 +56,14 @@ function estadoNormal(match, now, status) {
     }
     return { key: 'started', label: 'En juego', tone: 'live', canPredict: false }
   }
+  /* YA DESTAPADO (migración 106): la base guarda el primer destape en
+     `destapado_at` y desde ahí la rama normal no deja escribir, aunque después
+     se atrase el saque — todos ya vieron las predicciones de todos. Sin esto
+     la pantalla decía «Abierto» con el saque atrasado y la base rechazaba el
+     guardado (y LLENAR fallaba entero). Solo la reapertura explícita del
+     admin lo vuelve a abrir. Una consulta que no pida la columna la trae
+     `undefined`: eso no es destapado. */
+  if (match?.destapado_at) return { key: 'locked', label: 'Cerrado', tone: 'warning', canPredict: false }
   if (minutesUntilKickoff <= PREDICTION_CLOSE_MINUTES) return { key: 'locked', label: 'Cerrado', tone: 'warning', canPredict: false }
   if (minutesUntilKickoff <= 60) return { key: 'closing', label: 'Cierra pronto', tone: 'warning', canPredict: true }
   return { key: 'open', label: 'Abierto', tone: 'success', canPredict: true }

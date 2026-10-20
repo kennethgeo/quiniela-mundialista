@@ -19,6 +19,9 @@ const partidos = [
   { ...base, id: 2, home_team: 'Real Madrid', away_team: 'Inter',
     status: 'finished', kickoff_at: '2026-09-07T16:45:00Z',
     home_goals_actual: 2, away_goals_actual: 1 },
+  { ...base, id: 3, home_team: 'Club Brugge', away_team: 'Aston Villa',
+    status: 'pending', kickoff_at: '2026-09-08T19:00:00Z',
+    home_goals_actual: null, away_goals_actual: null },
 ]
 
 async function abrirResultados (page) {
@@ -61,11 +64,21 @@ async function editar (page, equipo) {
 
 const CASILLA = /Reabrir predicciones de este partido/
 
-test('en un partido EN CURSO la casilla está, y una sola vez', async ({ page }) => {
+test('en un partido PENDIENTE la casilla está, y una sola vez', async ({ page }) => {
   await abrirResultados(page)
-  const tarjeta = await editar(page, 'AEK Athens')
+  const tarjeta = await editar(page, 'Club Brugge')
   // `toHaveCount(1)` es el punto: con la copia duplicada daba 2.
   await expect(tarjeta.getByText(CASILLA)).toHaveCount(1)
+})
+
+test('en un partido EN CURSO la casilla NO se ofrece: la RLS exige pending (105)', async ({ page }) => {
+  /* Esta prueba afirmaba lo contrario. Con el partido en vivo la rama forzada
+     de la política no acepta el guardado (leído en producción el 20 oct
+     2026): la casilla guardaba y no hacía nada. */
+  await abrirResultados(page)
+  const tarjeta = await editar(page, 'AEK Athens')
+  await expect(tarjeta.getByText(CASILLA)).toHaveCount(0)
+  await expect(tarjeta.getByText(/Fijar este resultado/)).toHaveCount(1)
 })
 
 test('en un partido FINALIZADO la casilla NO se ofrece', async ({ page }) => {

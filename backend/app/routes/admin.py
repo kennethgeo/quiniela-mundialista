@@ -834,13 +834,25 @@ async def delete_match(
     match_id: int = Body(..., embed=True),
     admin: dict = Depends(require_admin),
 ):
-    """Borra un partido (y sus predicciones en cascada). Solo para torneos que
-    cargaste a mano; usar con cuidado."""
-    supabase = get_supabase()
-    res = supabase.table("matches").delete().eq("id", match_id).execute()
-    if not res.data:
-        raise HTTPException(status_code=404, detail="Partido no encontrado")
-    return {"status": "ok", "deleted": match_id}
+    """BLOQUEADO (20 oct 2026): responde 409 y no toca la base.
+
+    Un DELETE en `matches` arrastra en cascada predicciones, su bitácora
+    (prediction_logs), la auditoría de correcciones (match_audit), las alertas
+    de puntaje y los avisos enviados, y deja sin origen los créditos ×2
+    (powerup_credits.source_match_id → SET NULL). Leído en pg_constraint de
+    producción. Antes este endpoint borraba cualquier partido sin mirar nada.
+
+    Ninguna comprobación hecha desde acá es atómica frente a una fila nueva:
+    contar y después borrar deja una ventana, y un DELETE con filtros no ve lo
+    que se inserte en el medio. Hasta que exista una vía TRANSACCIONAL
+    desplegada que preserve todas esas dependencias, no se borra nada. Un
+    partido que no se jugó se marca suspendido/no disputado: eso lo anula sin
+    perder historia. Desbloquearlo es un pendiente explícito, no esto.
+    """
+    raise HTTPException(status_code=409, detail=(
+        "Borrar partidos está deshabilitado: se perderían predicciones, bitácoras, "
+        "auditoría y avisos asociados. Si el partido no se jugó, marcalo como "
+        "suspendido o no disputado en Resultados."))
 
 
 @router.post("/sync-espn")
