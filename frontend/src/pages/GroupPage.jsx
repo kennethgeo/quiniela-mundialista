@@ -534,7 +534,9 @@ export default function GroupPage() {
       {tab === 'bracket' && tid === 1 && <BracketView />}
       {tab === 'global' && (
         <>
-          <TournamentGlobalCard tournamentId={tid} teams={teams} leagueId={group.id} championPoints={group.champion_points ?? 12} scorerPoints={group.scorer_points ?? 12} assistPoints={group.assist_points ?? 12} />
+          {/* key por cuenta, quiniela y torneo: un cambio de cualquiera monta un
+              editor nuevo y nunca muestra el borrador de otro (como el Perfil). */}
+          <TournamentGlobalCard key={`${profile?.id}|${group.id}|${tid}`} tournamentId={tid} teams={teams} leagueId={group.id} championPoints={group.champion_points ?? 12} scorerPoints={group.scorer_points ?? 12} assistPoints={group.assist_points ?? 12} />
           <AllGlobalPicks tournamentId={tid} leagueId={group.id} />
         </>
       )}

@@ -78,11 +78,14 @@ test('si no se puede leer lo guardado, no hay formulario ni guardado que lo pise
 test('abiertas de verdad: se ve lo guardado y se guarda con los tres campos', async ({ page }) => {
   const { escrituras } = await abrir(page, { abiertas: true, candadoColumna: false })
   await expect(page.getByRole('button', { name: /Guardar predicción/ })).toBeVisible()
-  await expect(page.locator('select')).toHaveValue('')  // Real Madrid no está en la lista de equipos de esta prueba
+  // Real Madrid NO está en los equipos de ESPN de esta prueba: igual se ve,
+  // porque el campeón guardado entra como opción de respaldo.
+  await expect(page.locator('select')).toHaveValue('Real Madrid')
   await expect(page.locator('input').first()).toHaveValue('Kylian Mbappé')
   await page.getByRole('button', { name: /Guardar predicción/ }).click()
   await expect.poll(() => escrituras.length).toBe(1)
-  expect(escrituras[0]).toMatchObject({ top_scorer_name: 'Kylian Mbappé', top_assist_name: 'Jude Bellingham', league_id: LIGA })
+  expect(escrituras[0]).toMatchObject({ champion_team: 'Real Madrid', top_scorer_name: 'Kylian Mbappé',
+    top_assist_name: 'Jude Bellingham', league_id: LIGA })
   // Mientras siguen abiertas, la lista de los demás no se muestra.
   await expect(page.getByText('Robert Lewandowski')).toHaveCount(0)
 })

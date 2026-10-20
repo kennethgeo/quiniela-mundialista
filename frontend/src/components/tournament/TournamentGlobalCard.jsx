@@ -24,6 +24,7 @@ export default function TournamentGlobalCard({ tournamentId, teams = [], leagueI
   const [showSug, setShowSug] = useState(false)
   const [showSugA, setShowSugA] = useState(false)
   const [errorLectura, setErrorLectura] = useState(null)
+  const [campeonGuardado, setCampeonGuardado] = useState('')
   const [intento, setIntento] = useState(0)
 
   // Lista de equipos: une los de los partidos cargados con los de la tabla oficial
@@ -41,10 +42,14 @@ export default function TournamentGlobalCard({ tournamentId, teams = [], leagueI
     return () => { alive = false }
   }, [tournamentId])
 
+  /* El campeón GUARDADO va siempre entre las opciones, aunque ESPN o los
+     partidos todavía no lo traigan (revisión de Codex del 20 oct): si no, el
+     select se veía vacío teniendo un campeón puesto, y parecía que se había
+     perdido. */
   const teamOptions = useMemo(() => {
-    const s = new Set([...(teams || []), ...standingsTeams])
+    const s = new Set([...(teams || []), ...standingsTeams, ...(campeonGuardado ? [campeonGuardado] : [])])
     return [...s].sort((a, b) => a.localeCompare(b))
-  }, [teams, standingsTeams])
+  }, [teams, standingsTeams, campeonGuardado])
 
   // Sugerencias de goleador: jugadores cuyo nombre EMPIEZA por lo escrito.
   const scorerSuggestions = useMemo(() => {
@@ -88,6 +93,7 @@ export default function TournamentGlobalCard({ tournamentId, teams = [], leagueI
       setLocked(!abiertas.data)
       setPlayers(pl.data || [])
       setChampion(pred.data?.champion_team || '')
+      setCampeonGuardado(pred.data?.champion_team || '')
       setScorer(pred.data?.top_scorer_name || '')
       setAssist(pred.data?.top_assist_name || '')
       setLoading(false)
@@ -96,7 +102,7 @@ export default function TournamentGlobalCard({ tournamentId, teams = [], leagueI
   }, [tournamentId, profile?.id, leagueId, intento])
 
   const save = async () => {
-    if (errorLectura || locked) return
+    if (errorLectura || locked || loading || saving) return
     try {
       setSaving(true); setMsg(null)
       const { error } = await supabase.from('tournament_predictions').upsert(
