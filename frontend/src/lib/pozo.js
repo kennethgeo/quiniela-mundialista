@@ -145,7 +145,10 @@ export function repartoParaGuardar (valores, modo) {
     return { reparto: montos.map((monto, i) => ({ puesto: i + 1, monto })) }
   }
   if (usados.some((p) => p > 100)) return { error: 'Un porcentaje no puede pasar de 100' }
-  if (usados.reduce((s, p) => s + p, 0) > 100) return { error: 'Los porcentajes suman más de 100' }
+  const suma = usados.reduce((s, p) => s + p, 0)
+  // 0.2 + 83.9 + 15.9 puede dar 100.00000000000001 en JavaScript.
+  // El JSON conserva los valores originales; PostgreSQL los suma en numeric.
+  if (suma - 100 > Number.EPSILON * 100 * usados.length) return { error: 'Los porcentajes suman más de 100' }
   return { reparto: usados.map((porcentaje, i) => ({ puesto: i + 1, porcentaje })) }
 }
 

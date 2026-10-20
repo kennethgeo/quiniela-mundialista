@@ -141,6 +141,14 @@ describe('el editor del reparto', () => {
     expect(repartoParaGuardar(['60', '50'], 'porcentajes').error).toMatch(/más de 100/)
   })
 
+  it('conserva un reparto decimal que suma exactamente 100 sin tolerar un exceso real', () => {
+    const valores = ['0.2', '83.9', '15.9']
+    expect(repartoParaGuardar(valores, 'porcentajes')).toEqual({
+      reparto: valores.map((valor, i) => ({ puesto: i + 1, porcentaje: Number(valor) })),
+    })
+    expect(repartoParaGuardar(['0.2', '83.9', '15.900001'], 'porcentajes').error).toMatch(/más de 100/)
+  })
+
   it('un puesto vacío entre dos con premio es un error; todo vacío es sin reparto', () => {
     expect(repartoParaGuardar(['100000', '', '20000'], 'montos').error).toMatch(/2º quedó sin monto/)
     expect(repartoParaGuardar(['', ''], 'montos')).toEqual({ reparto: null })

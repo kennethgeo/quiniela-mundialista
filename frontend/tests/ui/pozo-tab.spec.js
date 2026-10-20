@@ -65,6 +65,11 @@ async function abrir (page, { soyAdmin = false, yo, reparto, rpc = {} } = {}) {
     await page.route(`**/rest/v1/rpc/${nombre}*`, async (r) => {
       llamadas.push({ nombre, cuerpo: JSON.parse(r.request().postData() || '{}') })
       if (rpc[nombre]) return r.fulfill(rpc[nombre])
+      if (nombre === 'confirmar_abono' && !Object.hasOwn(llamadas.at(-1).cuerpo, 'p_aviso_visto')) {
+        return r.fulfill({ status: 404, contentType: 'application/json', body: JSON.stringify({
+          code: 'PGRST202', message: 'confirmar_abono requiere los cinco parámetros de la migración 110',
+        }) })
+      }
       return r.fulfill({ status: 200, contentType: 'application/json', body: 'null' })
     })
   }
@@ -138,7 +143,7 @@ test('un admin confirma lo que avisó alguien, con el total que vio', async ({ p
   await expect.poll(() => llamadas.length).toBe(1)
   expect(llamadas[0]).toEqual({
     nombre: 'confirmar_abono',
-    cuerpo: { p_league_id: LIGA, p_user_id: DANI, p_monto: 5000, p_total_visto: 0 },
+    cuerpo: { p_league_id: LIGA, p_user_id: DANI, p_monto: 5000, p_total_visto: 0, p_aviso_visto: 5000 },
   })
 })
 
@@ -150,7 +155,19 @@ test('un admin registra el resto de quien pagó la mitad', async ({ page }) => {
   await expect.poll(() => llamadas.length).toBe(1)
   expect(llamadas[0]).toEqual({
     nombre: 'confirmar_abono',
-    cuerpo: { p_league_id: LIGA, p_user_id: CARO, p_monto: 5000, p_total_visto: 5000 },
+    cuerpo: { p_league_id: LIGA, p_user_id: CARO, p_monto: 5000, p_total_visto: 5000, p_aviso_visto: null },
+  })
+})
+
+test('un aviso pendiente permite registrar otro monto y conserva el aviso visto para el control de concurrencia', async ({ page }) => {
+  const { llamadas } = await abrir(page, { soyAdmin: true })
+  await fila(page, 'Dani').getByRole('button', { name: 'gestionar' }).click()
+  await page.getByRole('radio', { name: 'Otro monto' }).click()
+  await page.getByRole('spinbutton', { name: 'Monto' }).fill('2500')
+  await page.getByRole('button', { name: 'Confirmar', exact: true }).click()
+  await expect.poll(() => llamadas.length).toBe(1)
+  expect(llamadas[0].cuerpo).toEqual({
+    p_league_id: LIGA, p_user_id: DANI, p_monto: 2500, p_total_visto: 0, p_aviso_visto: 5000,
   })
 })
 
@@ -162,6 +179,35 @@ test('si la base rechaza (otro admin ya lo confirmó), se dice por qué', async 
   })
   await fila(page, 'Dani').getByRole('button', { name: /confirmar ₡5\D?000/ }).click()
   await expect(page.getByRole('alert').filter({ hasText: 'cambió mientras tanto' })).toBeVisible()
+})
+
+test('un aviso retirado o cambiado se rechaza sin confirmar la cuota por otra vía', async ({ page }) => {
+  const { llamadas } = await abrir(page, {
+    soyAdmin: true,
+    rpc: { confirmar_abono: { status: 400, contentType: 'application/json', body: JSON.stringify({
+      code: 'P0001', message: 'El aviso cambió. Actualizá antes de confirmar.',
+    }) } },
+  })
+  await fila(page, 'Dani').getByRole('button', { name: /confirmar ₡5\D?000/ }).click()
+  await expect(page.getByRole('alert').filter({ hasText: 'El aviso cambió' })).toBeVisible()
+  expect(llamadas.map(x => x.nombre)).toEqual(['confirmar_abono'])
+  expect(llamadas[0].cuerpo.p_aviso_visto).toBe(5000)
+})
+
+test('si falta confirmar_abono no se sustituye por confirmar_pago y el borrador queda', async ({ page }) => {
+  const { llamadas } = await abrir(page, {
+    soyAdmin: true,
+    rpc: { confirmar_abono: { status: 404, contentType: 'application/json', body: JSON.stringify({
+      code: 'PGRST202', message: 'Función no disponible.',
+    }) } },
+  })
+  await fila(page, 'Caro').getByRole('button', { name: 'registrar' }).click()
+  await page.getByRole('radio', { name: 'Otro monto' }).click()
+  await page.getByRole('spinbutton', { name: 'Monto' }).fill('2500')
+  await page.getByRole('button', { name: 'Confirmar', exact: true }).click()
+  await expect(page.getByRole('alert').filter({ hasText: 'Función no disponible' })).toBeVisible()
+  await expect(page.getByRole('spinbutton', { name: 'Monto' })).toHaveValue('2500')
+  expect(llamadas.map(x => x.nombre)).toEqual(['confirmar_abono'])
 })
 
 test('el pozo se comparte como imagen', async ({ page }) => {
@@ -236,4 +282,15 @@ test('un puesto vacío en el medio no se guarda', async ({ page }) => {
   await expect(page.getByRole('alert').filter({ hasText: /2º quedó sin monto/ })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Guardar' })).toBeDisabled()
   expect(llamadas).toEqual([])
+})
+
+test('ir y volver entre modos de reparto conserva los montos originales y ambos borradores', async ({ page }) => {
+  await abrir(page, { soyAdmin: true, reparto: [{ puesto: 1, monto: 12345.67 }, { puesto: 2, monto: 10000 }] })
+  await page.getByTitle('Configurar').click()
+  await page.getByRole('radio', { name: 'Porcentajes' }).click()
+  await page.getByLabel('Porcentaje del 1º puesto').fill('40.25')
+  await page.getByRole('radio', { name: 'Montos fijos' }).click()
+  await expect(page.getByLabel('Monto del 1º puesto')).toHaveValue('12345.67')
+  await page.getByRole('radio', { name: 'Porcentajes' }).click()
+  await expect(page.getByLabel('Porcentaje del 1º puesto')).toHaveValue('40.25')
 })
