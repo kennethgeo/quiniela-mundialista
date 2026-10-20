@@ -4,12 +4,13 @@ import logging
 
 import httpx
 from fastapi import APIRouter, Body, Depends, Header, HTTPException, Query
+from fastapi.responses import JSONResponse
 from typing import Optional
 
 from app.auth import get_current_user, require_admin
 from app.config import settings
 from app.services.live_sync import sync_live_scores
-from app.services.scoring import calculate_and_update_scores
+from app.services.scoring import recalcular_partidos, resumen_de_recalculo
 from app.services.supabase_client import get_supabase
 
 logger = logging.getLogger(__name__)
@@ -38,22 +39,11 @@ async def recalc_scores(authorization: Optional[str] = Header(default=None)):
     finished = (
         supabase.table("matches").select("id").eq("status", "finished").execute().data or []
     )
-    updated_matches = 0
-    errors = []
-    for m in finished:
-        try:
-            r = await calculate_and_update_scores(supabase, m["id"])
-            if r.get("predictions_updated"):
-                updated_matches += 1
-        except Exception as exc:  # noqa: BLE001
-            errors.append(f"match {m['id']}: {exc}")
-
-    return {
-        "status": "ok",
-        "finished": len(finished),
-        "matches_with_changes": updated_matches,
-        "errors": errors,
-    }
+    # Misma clasificación que el panel y la recuperación: un `status: error`
+    # del motor es un error, y la respuesta no es «ok» si hubo alguno.
+    r = await recalcular_partidos(supabase, [m["id"] for m in finished])
+    codigo, cuerpo = resumen_de_recalculo(len(finished), r)
+    return JSONResponse(status_code=codigo, content=cuerpo)
 
 
 # -----------------------------------------------------------------------------

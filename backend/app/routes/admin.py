@@ -7,11 +7,17 @@ from typing import Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Body, Depends, HTTPException
+from fastapi.responses import JSONResponse
 
 from app.auth import require_admin
 from app.models import MatchResultUpdate, MatchStatusUpdate, MatchTeamsUpdate
 from app.services.supabase_client import get_supabase
-from app.services.scoring import calculate_and_update_scores
+from app.services.scoring import (
+    calculate_and_update_scores,
+    estado_del_puntaje,
+    recalcular_partidos,
+    resumen_de_recalculo,
+)
 
 router = APIRouter(prefix="/api/admin", tags=["Administración"])
 
@@ -1018,6 +1024,16 @@ async def admin_recalc_match(
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=f"Error recalculando: {exc}")
 
+    # El motor DEVUELVE sus fallos (`status: error`, `stale`) además de
+    # lanzarlos; antes todo salía como «ok» y el panel decía que se había
+    # recalculado un partido sin resultado o sin terminar.
+    estado = estado_del_puntaje(result)
+    if estado == "stale":
+        raise HTTPException(status_code=409, detail=(
+            "El resultado cambió mientras se recalculaba y no se escribió nada. Volvé a intentarlo."))
+    if estado != "ok":
+        motivo = (result or {}).get("message") if isinstance(result, dict) else None
+        raise HTTPException(status_code=409, detail=f"No se recalculó: {motivo or 'el motor no confirmó el puntaje'}.")
     return {"status": "ok", "match_id": match_id, "result": result}
 
 
@@ -1040,21 +1056,11 @@ async def admin_recalc_scores(admin: dict = Depends(require_admin)):
         .data
         or []
     )
-    recalculated = 0
-    errors = []
-    for m in finished:
-        try:
-            await calculate_and_update_scores(supabase, m["id"])
-            recalculated += 1
-        except Exception as exc:  # noqa: BLE001
-            errors.append(f"match {m['id']}: {exc}")
-
-    return {
-        "status": "ok",
-        "finished": len(finished),
-        "recalculated": recalculated,
-        "errors": errors,
-    }
+    # Antes contaba como recalculado todo lo que no lanzara, aunque el motor
+    # devolviera `status: error`, y respondía «ok» con errores adentro.
+    r = await recalcular_partidos(supabase, [m["id"] for m in finished])
+    codigo, cuerpo = resumen_de_recalculo(len(finished), r)
+    return JSONResponse(status_code=codigo, content=cuerpo)
 
 
 @router.post("/optimize-avatars")
