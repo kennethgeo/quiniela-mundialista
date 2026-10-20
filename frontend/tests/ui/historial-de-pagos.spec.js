@@ -97,7 +97,7 @@ async function abrir (page, { tab = 'pozo', historialError = null } = {}) {
   return { confirmaciones, expulsiones, consultasHistorial, recuperarHistorial: () => { historialError = null } }
 }
 
-const filaDelPozo = (page, nombre) => page.locator('div.flex.items-center.gap-2.py-1')
+const filaDelPozo = (page, nombre) => page.locator('[data-persona]')
   .filter({ hasText: nombre }).filter({ has: page.getByRole('button', { name: /quitar|confirmar/ }) })
 
 test.describe('«quitar» un pago confirmado', () => {

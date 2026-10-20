@@ -42,6 +42,9 @@ describe('estado y montos de cada persona', () => {
 })
 
 describe('qué montos se ofrecen', () => {
+  it('la mitad de una cuota con centavos no se redondea a un dólar entero', () => {
+    expect(opcionesDeMonto({ cuota: 25.5, falta: 25.5 })).toContainEqual({ clave: 'mitad', etiqueta: 'La mitad', monto: 12.75 })
+  })
   it('a quien no pagó nada: la cuota completa y la mitad', () => {
     expect(opcionesDeMonto({ cuota: 10000, falta: 10000 })).toEqual([
       { clave: 'todo', etiqueta: 'La cuota completa', monto: 10000 },
@@ -159,5 +162,6 @@ describe('el editor del reparto', () => {
     expect(convertirReparto(['65', '35'], 'montos', 170000)).toEqual(['110500', '59500'])
     expect(convertirReparto(['110500', '59500'], 'porcentajes', 170000)).toEqual(['65', '35'])
     expect(convertirReparto(['65'], 'montos', 0)).toEqual([''])
+    expect(convertirReparto(['50'], 'montos', 25.5)).toEqual(['12.75'])
   })
 })

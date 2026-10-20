@@ -13,7 +13,7 @@ import { llaveDeCupo } from '../lib/powerups'
 import { zonaDe, zonasDe, esFinDeZona } from '../lib/zonasDeTabla'
 import { kickoffDate } from '../lib/matchStatus'
 import { aplicarFiltro, contarFiltros, filtroEfectivo } from '../lib/filtroPartidos'
-import { fetchCuposPorJornada, fetchMyGroups, fetchGroupStandings, fetchTeamStandings, acceptGroupRules, setGroupRules, setGroupScoring, deleteGroup, proposeRuleChange, castRuleVote, cancelRuleProposal, fetchLeagueProposals, fetchMyPowerupCredits, setGroupExtras } from '../lib/groups'
+import { fetchCuposPorJornada, fetchMyGroups, fetchGroupStandings, fetchTeamStandings, acceptGroupRules, setGroupRules, deleteGroup, proposeRuleChange, castRuleVote, cancelRuleProposal, fetchLeagueProposals, fetchMyPowerupCredits, setGroupExtras } from '../lib/groups'
 import { initialsDataUri, crestOnError } from '../lib/teamLogo'
 import { enlaceDeInvitacion } from '../lib/invitacion'
 import { renderTablaCard, compartirImagen } from '../lib/shareCard'
@@ -39,6 +39,7 @@ import PanelAdminQuiniela from '../components/tournament/PanelAdminQuiniela'
 import SalirDeQuiniela from '../components/tournament/SalirDeQuiniela'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
 import CuposPorFase from '../components/tournament/CuposPorFase'
+import ScoringConfig from '../components/tournament/ScoringConfig'
 import ExportarCalendario from '../components/tournament/ExportarCalendario'
 import { resumirPredicciones } from '../lib/resumenPredicciones'
 import { enlacePartido } from '../lib/retornoPartido'
@@ -371,9 +372,9 @@ export default function GroupPage() {
   return (
     <div className="max-w-3xl mx-auto">
       {/* Header */}
-      <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="mb-4">
+      <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="quiniela-heading mb-4">
         <div className="flex items-center gap-2.5">
-          <button onClick={() => navigate('/')}
+          <button onClick={() => navigate('/')} aria-label="Volver a mis quinielas"
             className="w-[30px] h-[30px] rounded-[9px] bg-white dark:bg-[#161616] border border-slate-200 dark:border-[#262626] grid place-items-center shrink-0 text-slate-600 dark:text-[#F3F1EA] hover:border-accent transition-colors">
             <ArrowLeft size={15} />
           </button>
@@ -405,7 +406,7 @@ export default function GroupPage() {
       </motion.div>
 
       {/* Tabs — Partidos y Tabla siempre; Bracket y Torneo solo en copas */}
-      <div className="flex gap-1.5 mb-4 overflow-x-auto scrollbar-hide">
+      <div className="quiniela-navigation flex gap-1.5 mb-4 overflow-x-auto scrollbar-hide" role="navigation" aria-label="Secciones de la quiniela">
         <TabBtn active={tab === 'home'} onClick={() => setTab('home')} icon={Home} label="Resumen" innerRef={tab === 'home' ? pestanaActiva : null} />
         <TabBtn active={tab === 'matches'} onClick={() => setTab('matches')} icon={CalendarDays} label="Partidos" innerRef={tab === 'matches' ? pestanaActiva : null} />
         <TabBtn active={tab === 'table'} onClick={() => setTab('table')} icon={ListOrdered} label="Tabla" innerRef={tab === 'table' ? pestanaActiva : null} />
@@ -492,9 +493,10 @@ export default function GroupPage() {
               </p>
             )}
             <MatchList
+              key={`${profile?.id}|${group.id}`}
               matches={shownMatches}
               predictions={predictions}
-              onSavePrediction={(p) => saveMutation.mutate(p)}
+              onSavePrediction={(p) => saveMutation.mutateAsync(p)}
               isLoading={saveMutation.isPending}
               powerupLimit={powerupLimit}
               cupoDe={cupoDe}
@@ -694,7 +696,7 @@ function RulesPanel({ group, tournamentStarted, showToast, onDeleted, onSalir, m
   return (
     <div className="space-y-4">
       {openProposal && (
-        <RuleVoting proposal={openProposal} group={group} isAdmin={!!group.is_admin} onChanged={afterChange} showToast={showToast} />
+        <RuleVoting key={openProposal.id} proposal={openProposal} group={group} isAdmin={!!group.is_admin} onChanged={afterChange} showToast={showToast} />
       )}
       <ScoringConfig group={group} isAdmin={isAdmin} tournamentStarted={tournamentStarted}
         hasOpenProposal={!!openProposal} onSaved={afterChange} onProposed={afterChange} showToast={showToast} />
@@ -749,18 +751,23 @@ function RulesPanel({ group, tournamentStarted, showToast, onDeleted, onSalir, m
 // Tarjeta de la propuesta abierta: muestra el cambio, los votos y permite votar.
 function RuleVoting({ proposal, group, isAdmin, onChanged, showToast }) {
   const [busy, setBusy] = useState(null) // 'yes' | 'no' | 'cancel'
+  const [error, setError] = useState(null)
   const vote = async (v) => {
-    try { setBusy(v ? 'yes' : 'no'); await castRuleVote(proposal.id, v); onChanged() }
-    catch (e) { showToast(e.message, 'error', 6000); setBusy(null) }
+    if (busy) return
+    try { setBusy(v ? 'yes' : 'no'); setError(null); await castRuleVote(proposal.id, v); onChanged() }
+    catch (e) { setError(e.message || 'No se guardó tu voto. Podés reintentarlo.') }
+    finally { setBusy(null) }
   }
   const cancel = async () => {
-    try { setBusy('cancel'); await cancelRuleProposal(proposal.id); showToast('Propuesta cancelada.', 'success', 3000); onChanged() }
-    catch (e) { showToast(e.message, 'error', 6000); setBusy(null) }
+    if (busy) return
+    try { setBusy('cancel'); setError(null); await cancelRuleProposal(proposal.id); showToast('Propuesta cancelada.', 'success', 3000); onChanged() }
+    catch (e) { setError(e.message || 'No se canceló la propuesta. Podés reintentarlo.') }
+    finally { setBusy(null) }
   }
   const needed = Math.floor((proposal.members || 0) / 2) + 1
 
   return (
-    <div className="rounded-2xl bg-white dark:bg-[#161616] border-2 border-accent/50 p-5">
+    <div className="league-sheet voting-sheet" aria-busy={!!busy}>
       <div className="flex items-center gap-2 mb-1">
         <Vote size={18} className="text-accent" />
         <h3 className="font-bold font-['Unbounded'] text-slate-900 dark:text-[#F3F1EA] text-[15px] flex-1">Propuesta en votación</h3>
@@ -774,25 +781,25 @@ function RuleVoting({ proposal, group, isAdmin, onChanged, showToast }) {
       {proposal.note && <p className="text-[12.5px] italic text-slate-600 dark:text-[#c9c7c0] mt-3 border-l-2 border-accent/40 pl-3">“{proposal.note}”</p>}
 
       {/* Contador de votos */}
-      <div className="flex items-center gap-4 mt-4 mb-3 text-[13px]">
-        <span className="flex items-center gap-1.5 font-bold text-[#2ED3B7]"><ThumbsUp size={15} /> {proposal.yes_count} a favor</span>
-        <span className="flex items-center gap-1.5 font-bold text-[#FF7A59]"><ThumbsDown size={15} /> {proposal.no_count} en contra</span>
+      <div className="voting-counts">
+        <span><ThumbsUp size={15} /> <b>{proposal.yes_count}</b> a favor</span>
+        <span><ThumbsDown size={15} /> <b>{proposal.no_count}</b> en contra</span>
+        <span>{Math.max(0, (proposal.members || 0) - (proposal.yes_count || 0) - (proposal.no_count || 0))} sin votar</span>
       </div>
 
       {/* Botones de voto */}
       <div className="flex gap-2">
-        <button onClick={() => vote(true)} disabled={!!busy}
-          className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl font-bold text-sm transition-colors disabled:opacity-60 ${
-            proposal.my_vote === true ? 'bg-[#2ED3B7] text-[#06231d]' : 'bg-[#2ED3B7]/12 text-[#2ED3B7] border border-[#2ED3B7]/30'}`}>
+        <button onClick={() => vote(true)} disabled={!!busy} aria-pressed={proposal.my_vote === true}
+          className={`league-button vote-yes flex-1 ${proposal.my_vote === true ? 'vote-selected' : ''}`}>
           {busy === 'yes' ? <Loader2 size={15} className="animate-spin" /> : <ThumbsUp size={15} />} A favor
         </button>
-        <button onClick={() => vote(false)} disabled={!!busy}
-          className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl font-bold text-sm transition-colors disabled:opacity-60 ${
-            proposal.my_vote === false ? 'bg-[#FF7A59] text-white' : 'bg-[#FF7A59]/12 text-[#FF7A59] border border-[#FF7A59]/30'}`}>
+        <button onClick={() => vote(false)} disabled={!!busy} aria-pressed={proposal.my_vote === false}
+          className={`league-button vote-no flex-1 ${proposal.my_vote === false ? 'vote-selected' : ''}`}>
           {busy === 'no' ? <Loader2 size={15} className="animate-spin" /> : <ThumbsDown size={15} />} En contra
         </button>
       </div>
-      {proposal.my_vote != null && <p className="text-[11px] text-[var(--text-muted,#8A8A8A)] mt-2 text-center">Ya votaste. Podés cambiar tu voto mientras la propuesta siga abierta.</p>}
+      {proposal.my_vote != null && <p className="scoring-footnote mt-3">Tu voto: <strong>{proposal.my_vote ? 'a favor' : 'en contra'}</strong>. Podés cambiar tu voto mientras la propuesta siga abierta.</p>}
+      {error && <p role="alert" className="league-error mt-3">{error}</p>}
 
       {isAdmin && (
         <button onClick={cancel} disabled={!!busy}
@@ -862,139 +869,6 @@ function ProposalHistory({ items }) {
   )
 }
 
-function ScoringConfig({ group, isAdmin, tournamentStarted, hasOpenProposal, onSaved, onProposed, showToast }) {
-  const [editing, setEditing] = useState(false)
-  const [busy, setBusy] = useState(false)
-  const [note, setNote] = useState('')
-  const [cfg, setCfg] = useState({
-    points_exact: group.points_exact ?? 3,
-    points_correct: group.points_correct ?? 1,
-    powerup_limit: group.powerup_limit ?? 2,
-    powerup_por_partidos: group.powerup_por_partidos ?? '',
-    champion_points: group.champion_points ?? 12,
-    scorer_points: group.scorer_points ?? 12,
-    assist_points: group.assist_points ?? 12,
-  })
-  // Con el torneo iniciado, editar = proponer a votación (no guardar directo).
-  const propose = tournamentStarted
-  const rows = [
-    ['points_exact', 'Marcador exacto', 'pts'],
-    ['points_correct', 'Resultado correcto', 'pts'],
-    ['powerup_limit', 'Comodines ×2 por jornada', 'mínimo'],
-    ['powerup_por_partidos', 'Un ×2 cada N partidos', 'vacío = fijo'],
-    ['champion_points', 'Acertar campeón', 'pts'],
-    ['scorer_points', 'Acertar goleador', 'pts'],
-    ['assist_points', 'Acertar asistidor', 'pts'],
-  ]
-  const save = async () => {
-    const parsed = {
-      points_exact: parseInt(cfg.points_exact) || 0,
-      points_correct: parseInt(cfg.points_correct) || 0,
-      powerup_limit: parseInt(cfg.powerup_limit) || 0,
-      // Vacío = cupo fijo, que es el comportamiento de siempre. Un 0 o un
-      // negativo los rechaza la propia base (restricción de la migración 67).
-      powerup_por_partidos: cfg.powerup_por_partidos === '' ? null : (parseInt(cfg.powerup_por_partidos) || null),
-      champion_points: parseInt(cfg.champion_points) || 0,
-      scorer_points: parseInt(cfg.scorer_points) || 0,
-      assist_points: parseInt(cfg.assist_points) || 0,
-    }
-    try {
-      setBusy(true)
-      if (propose) {
-        await proposeRuleChange(group.id, 'scoring', parsed, note)
-        showToast('Propuesta de puntaje enviada a votación del grupo.', 'success', 5000)
-        setNote('')
-        onProposed?.()
-      } else {
-        await setGroupScoring(group.id, parsed)
-        showToast('Reglas de puntaje actualizadas.', 'success', 4000)
-        onSaved()
-      }
-      setEditing(false)
-    } catch (e) { showToast(e.message, 'error', 6000) } finally { setBusy(false) }
-  }
-  return (
-    <div className="rounded-2xl bg-white dark:bg-[#161616] border border-slate-200 dark:border-[#262626] p-5">
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2">
-          <BarChart3 size={18} className="text-accent" />
-          <h3 className="font-bold font-['Unbounded'] text-slate-900 dark:text-[#F3F1EA] text-[15px]">Puntaje</h3>
-        </div>
-        {isAdmin && !editing && !propose && (
-          <button onClick={() => setEditing(true)} className="flex items-center gap-1.5 text-[12px] font-bold text-accent bg-accent/10 border border-accent/25 rounded-lg px-2.5 py-1.5">
-            <Pencil size={13} /> Editar
-          </button>
-        )}
-        {isAdmin && !editing && propose && !hasOpenProposal && (
-          <button onClick={() => setEditing(true)} className="flex items-center gap-1.5 text-[12px] font-bold text-accent bg-accent/10 border border-accent/25 rounded-lg px-2.5 py-1.5">
-            <Vote size={13} /> Proponer cambio
-          </button>
-        )}
-        {isAdmin && propose && hasOpenProposal && (
-          <span className="flex items-center gap-1.5 text-[11px] font-bold text-[var(--text-muted,#8A8A8A)] bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-[#262626] rounded-lg px-2.5 py-1.5">
-            <Vote size={12} /> En votación
-          </span>
-        )}
-      </div>
-      <div className="space-y-2.5">
-        {rows.map(([k, label, unit]) => (
-          <div key={k} className="flex items-center justify-between gap-3">
-            <span className="text-[13px] text-slate-600 dark:text-[#c9c7c0]">{label}</span>
-            {editing ? (
-              <input type="number" min="0" value={cfg[k]}
-                onChange={(e) => setCfg({ ...cfg, [k]: e.target.value })}
-                className="w-20 text-center bg-slate-50 dark:bg-[#0C0C0C] border border-slate-200 dark:border-[#262626] rounded-lg px-2 py-1.5 text-sm font-bold text-slate-900 dark:text-[#F3F1EA] focus:outline-none focus:border-accent" />
-            ) : (
-              <span className="font-['JetBrains_Mono'] font-bold text-[14px] text-slate-900 dark:text-[#F3F1EA]">{group[k] ?? '—'}{unit ? <span className="text-[10px] text-slate-400 ml-1">{unit}</span> : null}</span>
-            )}
-          </div>
-        ))}
-      </div>
-      {editing && (
-        <>
-          {propose && (
-            <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} placeholder="Motivo del cambio (opcional) — se muestra al grupo al votar"
-              className="w-full mt-4 bg-slate-50 dark:bg-[#0C0C0C] border border-slate-200 dark:border-[#262626] rounded-xl p-3 text-[12.5px] text-slate-800 dark:text-[#F3F1EA] focus:outline-none focus:border-accent resize-none" />
-          )}
-          <div className="flex gap-2 mt-4">
-            <button onClick={() => setEditing(false)} className="flex-1 py-2.5 rounded-xl font-bold text-sm text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-[#262626]">Cancelar</button>
-            <button onClick={save} disabled={busy} className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl font-bold text-sm text-[#06231d] bg-gradient-to-r from-[#2ED3B7] to-[#26bfa5] disabled:opacity-60">
-              {busy ? <Loader2 size={15} className="animate-spin" /> : propose ? <Vote size={15} /> : <Check size={15} />} {propose ? 'Enviar a votación' : 'Guardar'}
-            </button>
-          </div>
-        </>
-      )}
-      {/* EL CANDADO ES PARA TODO EL GRUPO, no solo para quien puede abrirlo.
-          Antes este cartel iba detrás de `isAdmin`, así que un miembro veía los
-          números del puntaje sin ninguna pista de que están bloqueados ni de
-          que se cambian VOTANDO — y es justo quien va a votar. El hecho lo lee
-          todo el mundo; lo que cambia es a quién le toca actuar. */}
-      {propose && !editing && (
-        <p className="text-[11px] text-[var(--text-muted,#8A8A8A)] mt-3 flex items-start gap-1.5">
-          <Lock size={12} className="mt-0.5 shrink-0" />
-          {isAdmin
-            ? 'El torneo ya inició: el puntaje queda bloqueado. Para cambiarlo, proponé el cambio y el grupo lo vota.'
-            : 'El torneo ya inició: el puntaje queda bloqueado. Para cambiarlo, un admin tiene que proponerlo y lo vota el grupo.'}
-        </p>
-      )}
-      {/* ESTE TEXTO MANDABA A UNA PUERTA CERRADA. Decía «corré "Recalcular
-          puntajes" en el Panel Admin», y eso era falso de cuatro formas
-          distintas, todas comprobadas el 21 sep 2026:
-            · el botón no se llama así (es «Recalcular puntos (eliminatoria)»);
-            · no está en el panel de la quiniela sino en /admin, el GLOBAL, al
-              que un admin de quiniela ni siquiera puede entrar desde que
-              existe `AdminRoute`;
-            · solo recalcula partidos de ELIMINATORIA (`.neq("phase","groups")`),
-              así que no arreglaría la fase regular aunque se llegara a él;
-            · y `set_group_scoring` no vuelve a puntuar nada — comprobado
-              leyendo la función en producción.
-          Lo que sí es cierto es lo que dice ahora: cambiar el puntaje no toca
-          lo ya jugado. Mejor eso que una instrucción que no se puede seguir. */}
-      {isAdmin && !propose && <p className="text-[11px] text-[var(--text-muted,#8A8A8A)] mt-3">Ojo: cambiar el puntaje <strong>no vuelve a puntuar</strong> los partidos ya jugados — conservan los puntos que sacaron con las reglas viejas. Re-puntuarlos es cosa del admin de la app.</p>}
-    </div>
-  )
-}
-
 function RulesTab({ group, isAdmin, tournamentStarted, hasOpenProposal, onSaved, onProposed, showToast }) {
   const [editing, setEditing] = useState(false)
   const [text, setText] = useState(group.rules || '')
@@ -1020,7 +894,7 @@ function RulesTab({ group, isAdmin, tournamentStarted, hasOpenProposal, onSaved,
   }
 
   return (
-    <div className="rounded-2xl bg-white dark:bg-[#161616] border border-slate-200 dark:border-[#262626] p-5">
+    <div className="league-sheet rules-text-sheet">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           <ScrollText size={18} className="text-accent" />

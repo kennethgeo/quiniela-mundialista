@@ -14,6 +14,7 @@ import MatchStatusBadge from '../ui/MatchStatusBadge'
 import { kickoffDate, matchStatus, predictionDeadline } from '../../lib/matchStatus'
 import { puedeIrAPenales, tandaQueSeGuarda } from '../../lib/penales'
 import { esMarcadorExacto } from '../../lib/resumenPredicciones'
+import { friendlySaveError } from '../../lib/saveError'
 
 const flagSrc = (url, code) => url || `https://flagcdn.com/w80/${(code || 'xx').toLowerCase()}.png`
 
@@ -46,6 +47,7 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
   const [awayGoals, setAwayGoals] = useState(prediction?.away_goals_pred ?? 0)
   const [usePowerup, setUsePowerup] = useState(prediction?.use_powerup_x2 || false)
   const [penaltiesWinner, setPenaltiesWinner] = useState(prediction?.penalties_winner_pred || '')
+  const [saveError, setSaveError] = useState(null)
   /* Lo de arriba es el estado de EDICIÓN y nace de lo guardado. Si lo guardado
      cambia después, se vuelve a tomar: la lista se dibuja sin esperar las
      predicciones, y si llegaban tarde la tarjeta quedaba en 0-0 diciendo
@@ -62,6 +64,7 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
   const [guardadoVisto, setGuardadoVisto] = useState(guardado)
   if (guardado !== guardadoVisto) {
     setGuardadoVisto(guardado)
+    setSaveError(null)
     setHomeGoals(prediction?.home_goals_pred ?? 0)
     setAwayGoals(prediction?.away_goals_pred ?? 0)
     setUsePowerup(prediction?.use_powerup_x2 || false)
@@ -129,16 +132,17 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
     return () => clearInterval(timer)
   }, [match.kickoff_at, isFinished, isInProgress])
 
-  const handleSave = () => {
-    if ((isLocked || isFinished) && !isReopened) return
-    onSavePrediction({
+  const handleSave = async () => {
+    if (isLoading || ((isLocked || isFinished) && !isReopened)) return
+    setSaveError(null)
+    try { await onSavePrediction({
       match_id: match.id,
       prediction_type: 'Marcador',
       home_goals_pred: homeGoals,
       away_goals_pred: awayGoals,
       penalties_winner_pred: tandaQueSeGuarda(match, homeGoals, awayGoals, penaltiesWinner),
       use_powerup_x2: usePowerup,
-    })
+    }) } catch (error) { setSaveError(friendlySaveError(error)) }
   }
 
   // Etiqueta y color del badge de puntos (finalizado)
@@ -339,6 +343,10 @@ export default function MatchCard({ match, prediction, onSavePrediction, isLoadi
           {countdown && <span className="shrink-0 font-['JetBrains_Mono'] font-bold text-[9px] text-[var(--text-muted,#8A8A8A)]">cierra en {countdown}</span>}
         </div>
       )}
+
+      {saveError && <p role="alert" className="match-save-error">
+        <strong>No se guardó tu predicción.</strong> {saveError} Tu marcador sigue acá para reintentar.
+      </p>}
 
       {/* Footer: partido no disputado (suspendido / cancelado) */}
       {isCancelled && (

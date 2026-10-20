@@ -8,7 +8,10 @@
 
 export const plata = (n, moneda) => {
   const v = Number(n || 0)
-  const txt = v.toLocaleString('es-CR', { maximumFractionDigits: 0 })
+  const txt = v.toLocaleString('es-CR', {
+    minimumFractionDigits: moneda === 'USD' ? 2 : 0,
+    maximumFractionDigits: 2,
+  })
   return moneda === 'USD' ? `$${txt}` : `₡${txt}`
 }
 
