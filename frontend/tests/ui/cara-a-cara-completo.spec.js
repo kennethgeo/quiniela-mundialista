@@ -84,7 +84,11 @@ test('si una página intermedia falla, se dice y se puede reintentar; no se mues
   await abrir(page, { fallarPagina: (desde) => fallar && desde === 400 })
   await page.getByRole('button', { name: 'Cara a cara contra vos' }).click()
   await expect(page.getByRole('alert').filter({ hasText: 'No pudimos cargar el cara a cara' })).toBeVisible()
-  await expect(dialogo(page)).not.toContainText('1800')
+  // Ninguna cifra que parezca resultado: ni 1800, ni un parcial de 600/200, ni
+  // el 0-0 que la cabecera pintaba durante la carga o el error (revisión de
+  // Codex). Los nombres y el error no llevan dígitos, así que basta mirar eso.
+  await expect(dialogo(page)).not.toContainText(/\d/)
+  await expect(page.getByTestId('duelos-jornadas')).toHaveCount(0)
   fallar = false
   await page.getByRole('button', { name: 'Reintentar' }).click()
   await expect(dialogo(page)).toContainText('1800')

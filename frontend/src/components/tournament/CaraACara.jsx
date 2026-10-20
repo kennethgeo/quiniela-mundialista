@@ -39,7 +39,7 @@ export default function CaraACara({ leagueId, matches = [], yo, rival, onClose }
   const jugados = useMemo(() => partidosJugados(matches), [matches])
   const idsJugados = useMemo(() => jugados.map((m) => m.id).sort((x, y) => x - y), [jugados])
   const personas = [yo?.user_id, rival?.user_id].filter(Boolean)
-  const { data: predicciones = [], isLoading, isError, refetch } = useConsultaDelUsuario({
+  const { data: predicciones = [], isError, isSuccess, refetch } = useConsultaDelUsuario({
     queryKey: ['cara_a_cara', leagueId, ...personas, idsJugados],
     enabled: !!leagueId && personas.length === 2 && idsJugados.length > 0,
     staleTime: 1000 * 60,
@@ -104,7 +104,12 @@ export default function CaraACara({ leagueId, matches = [], yo, rival, onClose }
   /* Quien no juega esta quiniela (el admin global mirando) no tiene un «yo»
      contra quien comparar: antes reventaba leyendo yo.user_id. */
   if (!yo || !rival) return null
-  const gano = a.pts > b.pts ? 'a' : b.pts > a.pts ? 'b' : null
+  /* Cifras SOLO con una lectura completa y exitosa (revisión de Codex del 20
+     oct): durante la carga o tras un fallo, la cabecera pintaba 0 contra 0 y
+     «0-0» jornadas —o lo cacheado antes del fallo—, que parecen resultados.
+     Sin partidos jugados no hay nada que leer y el 0 sí es cierto. */
+  const lecturaOk = !isError && (idsJugados.length === 0 || isSuccess)
+  const gano = !lecturaOk ? null : a.pts > b.pts ? 'a' : b.pts > a.pts ? 'b' : null
 
   /* Ventana centrada, no hoja desde abajo. Pegada al borde inferior chocaba
      con la barra de navegación (z-50) y con el botón flotante del chat
@@ -131,27 +136,29 @@ export default function CaraACara({ leagueId, matches = [], yo, rival, onClose }
 
           {/* Marcador general */}
           <div className="flex items-center gap-3 mt-3">
-            <Lado persona={yo} pts={a.pts} gana={gano === 'a'} />
-            <div className="shrink-0 text-center">
-              <div className="font-['JetBrains_Mono'] text-[9px] text-[var(--text-muted,#8A8A8A)] uppercase tracking-[0.1em]">jornadas</div>
-              <div className="font-['JetBrains_Mono'] font-bold text-[13px] text-slate-700 dark:text-slate-300 tabular-nums">
-                {duelos.a}<span className="text-[var(--text-muted,#8A8A8A)] mx-1">-</span>{duelos.b}
+            <Lado persona={yo} pts={lecturaOk ? a.pts : null} gana={gano === 'a'} />
+            {lecturaOk && (
+              <div className="shrink-0 text-center" data-testid="duelos-jornadas">
+                <div className="font-['JetBrains_Mono'] text-[9px] text-[var(--text-muted,#8A8A8A)] uppercase tracking-[0.1em]">jornadas</div>
+                <div className="font-['JetBrains_Mono'] font-bold text-[13px] text-slate-700 dark:text-slate-300 tabular-nums">
+                  {duelos.a}<span className="text-[var(--text-muted,#8A8A8A)] mx-1">-</span>{duelos.b}
+                </div>
+                {duelos.empate > 0 && (
+                  <div className="font-['JetBrains_Mono'] text-[10px] text-[var(--text-muted,#8A8A8A)]">{duelos.empate} iguales</div>
+                )}
               </div>
-              {duelos.empate > 0 && (
-                <div className="font-['JetBrains_Mono'] text-[10px] text-[var(--text-muted,#8A8A8A)]">{duelos.empate} iguales</div>
-              )}
-            </div>
-            <Lado persona={rival} pts={b.pts} gana={gano === 'b'} derecha />
+            )}
+            <Lado persona={rival} pts={lecturaOk ? b.pts : null} gana={gano === 'b'} derecha />
           </div>
         </div>
 
         <div className="overflow-y-auto flex-1 px-4 py-3">
-          {isError ? (
+          {isError || !lecturaOk ? (isError ? (
             <ErrorState compact title="No pudimos cargar el cara a cara"
               description="Sin todas las predicciones el resumen no sería cierto." onRetry={refetch} />
-          ) : isLoading && idsJugados.length > 0 ? (
+          ) : (
             <p className="text-center text-[12px] text-[var(--text-muted,#8A8A8A)] py-6">Cargando…</p>
-          ) : jornadas.length === 0 ? (
+          )) : jornadas.length === 0 ? (
             <p className="text-center text-[12px] text-[var(--text-muted,#8A8A8A)] py-6">Todavía no hay partidos jugados.</p>
           ) : (
             <>
@@ -205,12 +212,13 @@ function Lado({ persona, pts, gana, derecha }) {
         <p className="font-['Archivo'] font-semibold text-[12px] text-slate-800 dark:text-[#F3F1EA] truncate">
           {persona?.display_name}
         </p>
-        <p className="font-['JetBrains_Mono'] font-bold text-[17px] leading-none tabular-nums flex items-center gap-1"
+        {/* Sin una lectura completa no se dibuja ninguna cifra (ni un 0). */}
+        {pts != null && <p className="font-['JetBrains_Mono'] font-bold text-[17px] leading-none tabular-nums flex items-center gap-1"
           style={{ color: gana ? '#E8B75A' : 'inherit' }}>
           {derecha && gana && <Trophy size={11} />}
           {pts}
           {!derecha && gana && <Trophy size={11} />}
-        </p>
+        </p>}
       </div>
     </div>
   )
