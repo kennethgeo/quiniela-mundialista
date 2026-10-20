@@ -10,6 +10,7 @@
    datos tienen la forma de `league_pozo` con la migración 110. */
 import { readFileSync } from 'node:fs'
 import { expect, test } from '@playwright/test'
+import { env } from 'node:process'
 import { conSesion, interceptarSupabase, sinRedExterna, USUARIO } from './apoyo.js'
 
 const LIGA = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaab'
@@ -21,7 +22,8 @@ const grupo = (esAdmin) => ({
   id: LIGA, name: 'Bundestica', tournament_id: 2, invitation_code: '6BE60F',
   powerup_limit: 2, points_exact: 3, points_correct: 1, champion_points: 12,
   scorer_points: 12, assist_points: 12, rules: 'Reglas.', rules_accepted: true,
-  soy_creador: esAdmin, is_admin: esAdmin, members_count: 4,
+  soy_creador: esAdmin, is_admin: esAdmin, members_count: 4, members: 4,
+  tournament_name: 'Primera División de Costa Rica',
   tournament_kind: 'league', tournament_status: 'active', tournament_ref: 'crc.1',
 })
 
@@ -42,7 +44,7 @@ const pozo = ({ soyAdmin, yo = {}, reparto = [{ puesto: 1, porcentaje: 65 }, { p
   ],
 })
 
-async function abrir (page, { soyAdmin = false, yo, reparto, rpc = {} } = {}) {
+async function abrir (page, { soyAdmin = false, yo, reparto, rpc = {}, pozoExtra = {} } = {}) {
   await sinRedExterna(page)
   await conSesion(page)
   await page.addInitScript(() => {
@@ -57,7 +59,7 @@ async function abrir (page, { soyAdmin = false, yo, reparto, rpc = {} } = {}) {
       points_adjustment: 0, is_admin: false, created_at: '2026-01-01', updated_at: '2026-01-01',
     },
     'rpc/my_groups': [grupo(soyAdmin)], 'rpc/quiniela_por_id': grupo(soyAdmin),
-    'rpc/league_pozo': pozo({ soyAdmin, yo, reparto }),
+    'rpc/league_pozo': { ...pozo({ soyAdmin, yo, reparto }), ...pozoExtra },
     '/rest/v1/historial_pagos': [],
   })
   const llamadas = []
@@ -82,6 +84,37 @@ async function abrir (page, { soyAdmin = false, yo, reparto, rpc = {} } = {}) {
 }
 
 const fila = (page, nombre) => page.locator(`[data-persona="${nombre}"]`)
+
+test('el pozo en dólares conserva centavos en resumen, premios y aviso de la mitad', async ({ page }) => {
+  const { llamadas } = await abrir(page, { pozoExtra: {
+    cuota: 25.5, moneda: 'USD', recaudado: 38.25, pozo_total: 102, faltan: 63.75,
+    reparto: [{ puesto: 1, monto: 63.75 }, { puesto: 2, monto: 25.5 }],
+    gente: [
+      persona(BETO, 'Beto', { confirmado: true, monto: 25.5, falta: 0, al_dia: true, estado: 'pagado' }),
+      persona(CARO, 'Caro', { confirmado: true, monto: 12.75, falta: 12.75, estado: 'parcial' }),
+      persona(DANI, 'Dani', { aviso: true, aviso_monto: 12.75, falta: 25.5 }),
+      persona(USUARIO.id, 'Prueba', { soy_yo: true, falta: 25.5 }),
+    ],
+  } })
+  await expect(page.locator('.pozo-collected')).toContainText('$38,25')
+  await expect(page.locator('.pozo-targets')).toContainText('$25,50')
+  await expect(page.locator('[data-puesto="1"]')).toContainText('$63,75')
+  await expect(fila(page, 'Caro')).toContainText('$12,75')
+  if (env.QUINIELA_CAPTURAS) {
+    for (const width of [390, 960]) {
+      await page.setViewportSize({ width, height: 900 })
+      for (const theme of ['light', 'dark']) {
+        await page.evaluate(theme => document.documentElement.classList.toggle('dark', theme === 'dark'), theme)
+        await page.locator('.pozo-sheet').screenshot({ path: `node_modules/.cache/identidad-visual/pozo-${width}-${theme}.png`, animations: 'disabled' })
+      }
+    }
+  }
+  await page.getByRole('button', { name: 'Avisar un pago' }).click()
+  await page.getByRole('radio', { name: 'La mitad · $12,75' }).click()
+  await page.getByRole('button', { name: 'Avisar', exact: true }).click()
+  await expect.poll(() => llamadas.length).toBe(1)
+  expect(llamadas[0]).toEqual({ nombre: 'avisar_abono', cuerpo: { p_league_id: LIGA, p_monto: 12.75 } })
+})
 
 test('el pozo tiene su pestaña y ya no vive en Reglas', async ({ page }) => {
   await abrir(page)
@@ -213,7 +246,7 @@ test('si falta confirmar_abono no se sustituye por confirmar_pago y el borrador 
 test('el pozo se comparte como imagen', async ({ page }) => {
   await abrir(page)
   const descarga = page.waitForEvent('download')
-  await page.getByRole('button', { name: 'COMPARTIR' }).click()
+  await page.getByRole('button', { name: 'Compartir', exact: true }).click()
   const d = await descarga
   expect(d.suggestedFilename()).toBe('pozo-bundestica.png')
   const bytes = readFileSync(await d.path())
@@ -229,8 +262,8 @@ const premios = (page) => page.locator('[data-reparto]')
 test('los premios en montos fijos se ven tal cual, sin porcentaje', async ({ page }) => {
   await abrir(page, { reparto: [{ puesto: 1, monto: 25000 }, { puesto: 2, monto: 10000 }] })
   await expect(premios(page).getByText('Premios', { exact: true })).toBeVisible()
-  await expect(premios(page).locator('[data-puesto="1"]')).toHaveText(/1º\s*₡25\D?000/)
-  await expect(premios(page).locator('[data-puesto="2"]')).toHaveText(/2º\s*₡10\D?000/)
+  await expect(premios(page).locator('[data-puesto="1"]')).toHaveText(/1ºPrimer puesto₡25\D?000/)
+  await expect(premios(page).locator('[data-puesto="2"]')).toHaveText(/2ºPuesto 2₡10\D?000/)
   await expect(premios(page).getByText('Montos acordados por el grupo.')).toBeVisible()
   await expect(premios(page).getByText('%')).toHaveCount(0)
   // 35 000 de un pozo completo de 40 000: no se avisa nada.
@@ -245,7 +278,7 @@ test('si los premios pasan el pozo completo, se avisa', async ({ page }) => {
 test('los porcentajes de antes se siguen viendo como reparto estimado', async ({ page }) => {
   await abrir(page)
   await expect(premios(page).getByText('Reparto estimado')).toBeVisible()
-  await expect(premios(page).locator('[data-puesto="1"]')).toHaveText(/1º\s*·\s*65%\s*₡26\D?000/)
+  await expect(premios(page).locator('[data-puesto="1"]')).toHaveText(/1ºPrimer puesto65% del pozo₡26\D?000/)
 })
 
 test('un admin pasa el reparto a montos fijos y se guardan los montos', async ({ page }) => {

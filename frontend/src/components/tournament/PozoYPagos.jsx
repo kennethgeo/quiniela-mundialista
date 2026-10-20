@@ -118,19 +118,21 @@ export default function PozoYPagos({ leagueId, nombreQuiniela = 'Quiniela' }) {
   }
 
   return (
-    <div className="rounded-[14px] bg-white dark:bg-[#161616] border border-slate-200 dark:border-[#262626] p-4">
-      <div className="flex items-center gap-2 mb-1">
-        <Wallet size={15} className="text-accent" />
-        <h3 className="font-bold font-['Archivo'] text-[13px] text-slate-900 dark:text-[#F3F1EA]">Pozo y pagos</h3>
+    <div className="league-sheet pozo-sheet">
+      <div className="league-sheet-heading pozo-heading">
+        <div className="flex items-center gap-2.5">
+          <Wallet size={21} className="league-ink" />
+          <h3>Pozo y pagos</h3>
+        </div>
         {!sinConfigurar && !editando && (
           <button onClick={compartir} disabled={compartiendo}
-            className="ml-auto flex items-center gap-1 font-['JetBrains_Mono'] font-bold text-[10px] text-accent bg-accent/10 rounded-lg px-2 py-1 disabled:opacity-50">
-            {compartiendo ? <Loader2 size={11} className="animate-spin" /> : <Share2 size={11} />} COMPARTIR
+            className="league-button league-button-quiet ml-auto">
+            {compartiendo ? <Loader2 size={14} className="animate-spin" /> : <Share2 size={14} />} Compartir
           </button>
         )}
         {soy_admin && !editando && (
-          <button onClick={() => setEditando(true)} className={`${sinConfigurar ? 'ml-auto' : ''} text-accent p-1`} title="Configurar">
-            <Pencil size={13} />
+          <button onClick={() => setEditando(true)} className={`league-button league-button-quiet ${sinConfigurar ? 'ml-auto' : ''}`} title="Configurar" aria-label="Configurar el pozo">
+            <Pencil size={15} />
           </button>
         )}
       </div>
@@ -155,25 +157,30 @@ export default function PozoYPagos({ leagueId, nombreQuiniela = 'Quiniela' }) {
         </p>
       ) : (
         <>
-          <p className="text-[11px] text-[var(--text-muted,#8A8A8A)] mb-3">
+          <p className="scoring-footnote mb-4">
             La app no cobra ni reparte: solo lleva la cuenta. El pago es entre ustedes.
           </p>
 
           {/* Números del pozo */}
-          <div className="grid grid-cols-3 gap-2 mb-2">
-            <Dato etiqueta="Cuota" valor={plata(cuota, moneda)} />
-            <Dato etiqueta="Recaudado" valor={plata(r.recaudado, moneda)} color="#2ED3B7" />
-            <Dato etiqueta="Si pagan todos" valor={plata(r.total, moneda)} />
+          <div className="pozo-board">
+            <div className="pozo-collected">
+              <span>Recaudado</span>
+              <strong>{plata(r.recaudado, moneda)}</strong>
+            </div>
+            <div className="pozo-targets">
+              <Dato etiqueta="Si pagan todos" valor={plata(r.total, moneda)} />
+              <Dato etiqueta="Cuota" valor={plata(cuota, moneda)} />
+            </div>
           </div>
-          <div className="h-1.5 rounded-full bg-slate-100 dark:bg-white/5 overflow-hidden mb-2"
+          <div className="pozo-progress"
             role="progressbar" aria-label="Recaudado del pozo"
             aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(r.avance * 100)}>
-            <div className="h-full bg-accent rounded-full" style={{ width: `${r.avance * 100}%` }} />
+            <div style={{ width: `${r.avance * 100}%` }} />
           </div>
 
-          <p className="font-['JetBrains_Mono'] text-[10px] text-[var(--text-muted,#8A8A8A)] mb-3">
-            {r.alDia} de {r.miembros} al día
-            {r.faltan > 0 && ` · faltan ${plata(r.faltan, moneda)}`}
+          <p className="pozo-progress-copy">
+            <span><strong>{r.alDia} de {r.miembros}</strong> al día</span>
+            {r.faltan > 0 && <span> · faltan {plata(r.faltan, moneda)}</span>}
           </p>
 
           {/* Premios: montos acordados o porcentajes del pozo */}
@@ -189,7 +196,8 @@ export default function PozoYPagos({ leagueId, nombreQuiniela = 'Quiniela' }) {
           )}
 
           {/* Quién está al día */}
-          <div className="space-y-0.5" aria-label="Pagos del grupo">
+          <div className="pozo-roster" aria-label="Pagos del grupo">
+            <h4>Pagos del grupo <span>{r.miembros} personas</span></h4>
             {(gente || []).map((g) => (
               <div key={g.user_id}>
                 <Fila g={g} cuota={cuota} moneda={moneda}>
@@ -284,7 +292,7 @@ function MiPago({ yo, cuota, moneda, abonos, abierto, onAbrir, onCerrar, pendien
   if (estado === 'pagado') {
     return (
       <p className="mb-3 rounded-xl py-2.5 px-3 text-center font-['Archivo'] font-bold text-[12px]"
-        style={{ background: 'rgba(46,211,183,.12)', color: '#2ED3B7' }}>
+        style={{ background: 'rgba(46,211,183,.12)', color: 'var(--league-green)' }}>
         <Check size={13} className="inline -mt-0.5" /> Estás al día
       </p>
     )
@@ -303,7 +311,7 @@ function MiPago({ yo, cuota, moneda, abonos, abierto, onAbrir, onCerrar, pendien
   if (yo.aviso) {
     return (
       <div className="mb-3 rounded-xl py-2.5 px-3" style={{ background: 'rgba(232,183,90,.14)' }}>
-        <p className="text-center font-['Archivo'] font-bold text-[12px]" style={{ color: '#E8B75A' }}>
+        <p className="text-center font-['Archivo'] font-bold text-[12px]" style={{ color: 'var(--league-gold)' }}>
           {abonos
             ? `Avisaste ${plata(montoDelAviso(yo, cuota), moneda)} · falta que lo confirme un admin`
             : 'Avisaste que pagaste · falta que lo confirmen'}
@@ -324,7 +332,7 @@ function MiPago({ yo, cuota, moneda, abonos, abierto, onAbrir, onCerrar, pendien
   return (
     <button onClick={() => (abonos ? onAbrir() : onAvisar(null))} disabled={pendiente}
       className="w-full mb-3 rounded-xl py-2.5 font-['Archivo'] font-bold text-[12px] disabled:opacity-50"
-      style={{ background: 'rgba(46,211,183,.12)', color: '#2ED3B7' }}>
+      style={{ background: 'rgba(46,211,183,.12)', color: 'var(--league-green)' }}>
       {pendiente ? '…' : estado === 'parcial'
         ? `Avisar otro pago · te falta ${plata(falta, moneda)}`
         : abonos ? 'Avisar un pago' : 'Ya pagué'}
@@ -395,14 +403,13 @@ function Chip({ activo, onClick, children }) {
 function Fila({ g, cuota, moneda, children }) {
   const detalle = detalleDe(g, cuota, moneda)
   return (
-    <div className="flex items-center gap-2 py-1" data-persona={g.display_name}>
-      <div className="w-6 h-6 rounded-full grid place-items-center text-[9px] font-bold text-white overflow-hidden shrink-0"
-        style={{ background: g.soy_yo ? 'linear-gradient(135deg,#2ED3B7,#1a8f7c)' : 'linear-gradient(135deg,#5a2d8a,#3a1c5c)' }}>
+    <div className="pozo-person" data-persona={g.display_name}>
+      <div className={`pozo-avatar ${g.soy_yo ? 'pozo-avatar-me' : ''}`}>
         {g.avatar_url ? <img src={g.avatar_url} alt="" className="w-full h-full object-cover" /> : (g.display_name?.[0] || '?').toUpperCase()}
       </div>
       <div className="flex-1 min-w-0">
-        <p className="font-['Archivo'] text-[12px] text-slate-800 dark:text-[#F3F1EA] truncate">
-          {g.display_name}{g.soy_yo && <span className="text-accent font-bold"> (vos)</span>}
+        <p className="pozo-person-name">
+          {g.display_name}{g.soy_yo && <span className="league-ink font-bold"> (vos)</span>}
         </p>
         {detalle && <p className="font-['JetBrains_Mono'] text-[9.5px] text-[var(--text-muted,#8A8A8A)] truncate">{detalle}</p>}
       </div>
@@ -417,7 +424,7 @@ function Fila({ g, cuota, moneda, children }) {
 function AccionAdmin({ g, cuota, moneda, abonos, pendiente, onConfirmarAviso, onConfirmarCompleto, onGestionar, onQuitar }) {
   const estado = estadoDe(g)
   const estilo = (activo) => (activo
-    ? { color: '#2ED3B7', background: 'rgba(46,211,183,.12)' }
+    ? { color: 'var(--league-green)', background: 'rgba(46,211,183,.12)' }
     : { color: 'var(--text-muted,#8A8A8A)', background: 'rgba(127,127,127,.12)' })
   const clase = 'shrink-0 text-[10px] font-bold px-2 py-1 rounded-lg disabled:opacity-50'
 
@@ -498,9 +505,9 @@ function ListaHistorial({ leagueId, gente, abonos }) {
 function Estado({ g, moneda }) {
   const e = etiquetaDe(g, moneda)
   const estilos = {
-    pagado: { color: '#2ED3B7', background: 'rgba(46,211,183,.14)' },
-    parcial: { color: '#E8B75A', background: 'rgba(232,183,90,.14)' },
-    aviso: { color: '#E8B75A', background: 'rgba(232,183,90,.14)' },
+    pagado: { color: 'var(--league-green)', background: 'rgba(46,211,183,.14)' },
+    parcial: { color: 'var(--league-gold)', background: 'rgba(232,183,90,.14)' },
+    aviso: { color: 'var(--league-gold)', background: 'rgba(232,183,90,.14)' },
   }
   return (
     <span className={`shrink-0 flex items-center gap-1 font-['JetBrains_Mono'] ${e.tipo === 'pendiente' ? '' : 'font-bold'} text-[9px] px-1.5 py-0.5 rounded-[20px] ${e.tipo === 'pendiente' ? 'text-[var(--text-muted,#8A8A8A)]' : ''}`}
@@ -512,11 +519,11 @@ function Estado({ g, moneda }) {
   )
 }
 
-function Dato({ etiqueta, valor, color }) {
+function Dato({ etiqueta, valor }) {
   return (
-    <div className="rounded-xl bg-slate-50 dark:bg-[#0C0C0C] border border-slate-200 dark:border-[#262626] p-2 text-center">
-      <div className="font-['JetBrains_Mono'] font-bold text-[13px]" style={color ? { color } : undefined}>{valor}</div>
-      <div className="font-['Archivo'] text-[10px] uppercase tracking-wide text-[var(--text-muted,#8A8A8A)] mt-0.5">{etiqueta}</div>
+    <div className="pozo-target">
+      <span>{etiqueta}</span>
+      <strong>{valor}</strong>
     </div>
   )
 }
@@ -525,18 +532,18 @@ function Premios({ reparto, moneda }) {
   if (!reparto.filas.length) return null
   const montos = reparto.modo === 'montos'
   return (
-    <div className="rounded-xl bg-slate-50 dark:bg-[#0C0C0C] border border-slate-200 dark:border-[#262626] p-2.5 mb-3"
+    <div className="pozo-prizes"
       data-reparto={reparto.modo}>
-      <p className="font-['JetBrains_Mono'] text-[9px] uppercase tracking-[0.12em] text-[var(--text-muted,#8A8A8A)] mb-1.5">
+      <h4>
         {montos ? 'Premios' : 'Reparto estimado'}
-      </p>
+      </h4>
       {reparto.filas.map((x) => (
-        <div key={x.puesto} className="flex items-center justify-between py-0.5" data-puesto={x.puesto}>
-          <span className="text-[11.5px] text-slate-700 dark:text-slate-300">
-            {ordinal(x.puesto)}
-            {x.porcentaje != null && <span className="text-[var(--text-muted,#8A8A8A)]"> · {x.porcentaje}%</span>}
+        <div key={x.puesto} className="pozo-prize-row" data-puesto={x.puesto}>
+          <span className="pozo-place">{ordinal(x.puesto)}</span>
+          <span className="pozo-prize-label">{x.puesto === 1 ? 'Primer puesto' : `Puesto ${x.puesto}`}
+            {x.porcentaje != null && <small>{x.porcentaje}% del pozo</small>}
           </span>
-          <span className="font-['JetBrains_Mono'] font-bold text-[12px] text-slate-900 dark:text-[#F3F1EA]">
+          <span className="pozo-prize-amount">
             {plata(x.monto, moneda)}
           </span>
         </div>

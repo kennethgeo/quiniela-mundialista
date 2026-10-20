@@ -13,6 +13,12 @@ const fila = (extra) => ({
 })
 
 describe('historial de pagos', () => {
+  it('conserva los centavos en dólares y colones, también en la bitácora', () => {
+    expect(plata(12.75, 'USD')).toBe('$12,75')
+    expect(plata(12, 'USD')).toBe('$12,00')
+    expect(plata(10000.25, 'CRC')).toMatch(/^₡10\D000,25$/)
+    expect(describirMovimiento(fila({ monto: 12.75, moneda: 'USD' }), nombres).monto).toBe('$12,75')
+  })
   it('dice quién confirmó, a quién y cuánto', () => {
     const m = describirMovimiento(fila(), nombres)
     expect(m.texto).toBe('Ana confirmó el pago de Beto')

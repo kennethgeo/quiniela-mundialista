@@ -54,7 +54,7 @@ export function opcionesDeMonto ({ cuota, falta }) {
   const f = Number(falta || 0)
   if (f <= 0) return []
   const opciones = [{ clave: 'todo', etiqueta: f >= c ? 'La cuota completa' : 'Lo que falta', monto: f }]
-  const mitad = Math.round(c / 2)
+  const mitad = Math.round(c * 50) / 100
   if (mitad > 0 && mitad < f) opciones.push({ clave: 'mitad', etiqueta: 'La mitad', monto: mitad })
   return opciones
 }
@@ -161,7 +161,7 @@ export function convertirReparto (valores, haciaModo, total) {
     const n = Number(String(v ?? '').trim())
     if (!t || !Number.isFinite(n) || n <= 0) return ''
     return haciaModo === 'montos'
-      ? String(Math.round(t * n / 100))
+      ? String(Math.round(t * n) / 100)
       : String(Math.round(n / t * 1000) / 10)
   })
 }
