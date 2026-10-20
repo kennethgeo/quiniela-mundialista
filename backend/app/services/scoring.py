@@ -254,23 +254,84 @@ async def puntuar_pendientes(supabase) -> dict:
         return {"pendientes": 0, "puntuados": [], "reintentar": [],
                 "errores": [{"match_id": None, "error": f"{type(exc).__name__}: {exc}"}]}
     pendientes = sorted({f if isinstance(f, int) else next(iter(f.values())) for f in filas})
+    r = await recalcular_partidos(supabase, pendientes)
+    return {"pendientes": len(pendientes), **r}
+
+
+def estado_del_puntaje(r) -> str:
+    """`ok`, `stale` o `error`, según lo que devolvió el motor.
+
+    Lo ÚNICO que cuenta como éxito es `status: ok`. `stale` (el resultado
+    cambió durante el cálculo, no se escribió nada) se reintenta. Cualquier
+    otra cosa —`error`, un estado desconocido, una respuesta vacía— es un
+    error. La usan la recuperación y los recálculos del panel y del cron, que
+    antes devolvían «ok» aunque el motor dijera `error` (revisión del 20 oct
+    2026)."""
+    estado = r.get("status") if isinstance(r, dict) else None
+    return estado if estado in ("ok", "stale") else "error"
+
+
+async def recalcular_partidos(supabase, ids) -> dict:
+    """Corre el motor partido por partido y clasifica cada resultado con
+    `estado_del_puntaje`. Un partido que falla no tapa a los demás."""
     puntuados, reintentar, errores = [], [], []
-    for mid in pendientes:
+    for mid in ids:
         try:
             r = await calculate_and_update_scores(supabase, mid)
         except Exception as exc:  # noqa: BLE001 - un partido no tapa a los demás
-            _log.exception("Falló el puntaje pendiente del partido %s", mid)
+            _log.exception("Falló el puntaje del partido %s", mid)
             errores.append({"match_id": mid, "error": f"{type(exc).__name__}: {exc}"})
             continue
-        estado = (r or {}).get("status")
+        estado = estado_del_puntaje(r)
         if estado == "ok":
-            puntuados.append({"match_id": mid, "status": estado})
+            cambiadas = r.get("predictions_updated")
+            puntuados.append({"match_id": mid, "status": estado,
+                              # Cuántas predicciones cambiaron de verdad (0 si ya
+                              # estaban bien); el cron lo informa aparte.
+                              "predictions_updated": cambiadas if isinstance(cambiadas, int) else 0})
         elif estado == "stale":
             reintentar.append({"match_id": mid, "status": estado})
         else:
-            errores.append({"match_id": mid, "error": (r or {}).get("message") or str(estado)})
-    return {"pendientes": len(pendientes), "puntuados": puntuados,
-            "reintentar": reintentar, "errores": errores}
+            # `r` puede no ser un dict (una cadena, una lista, None): leerlo con
+            # `.get` reventaba y se llevaba el lote entero (revisión de Codex).
+            if isinstance(r, dict):
+                motivo = r.get("message") or f"status {r.get('status')!r}"
+            else:
+                motivo = f"respuesta inesperada del motor: {type(r).__name__}"
+            errores.append({"match_id": mid, "error": str(motivo)})
+    return {"puntuados": puntuados, "reintentar": reintentar, "errores": errores}
+
+
+def resumen_de_recalculo(revisados: int, r: dict) -> tuple[int, dict]:
+    """Código HTTP y cuerpo para los recálculos en lote (panel y cron).
+
+    `ok` y 200 SOLO si todos se puntuaron. Con errores, 500; si lo único que
+    quedó son partidos cuyo resultado cambió durante el cálculo, 409 (se
+    vuelve a correr). El cuerpo lleva `detail` en texto porque el panel lo
+    muestra tal cual, y `errors` como lista de textos, como antes."""
+    errores = [f"match {e['match_id']}: {e['error']}" for e in r["errores"]]
+    reintentar = [x["match_id"] for x in r["reintentar"]]
+    cuerpo = {
+        "status": "ok",
+        "finished": revisados,
+        "recalculated": len(r["puntuados"]),
+        # Contrato que ya tenía el cron: partidos puntuados en los que cambió
+        # al menos una predicción. `recalculated` cuenta todos los puntuados.
+        "matches_with_changes": sum(1 for x in r["puntuados"] if x.get("predictions_updated")),
+        "reintentar": reintentar,
+        "errors": errores,
+    }
+    if not errores and not reintentar:
+        return 200, cuerpo
+    cuerpo["status"] = "error" if errores else "stale"
+    partes = [f"Recalculados {len(r['puntuados'])} de {revisados}."]
+    if errores:
+        partes.append(f"{len(errores)} con error: {', '.join(str(e['match_id']) for e in r['errores'])}.")
+    if reintentar:
+        partes.append(f"{len(reintentar)} cambiaron durante el cálculo y no se escribieron: "
+                      f"{', '.join(str(m) for m in reintentar)}; volvé a correrlo.")
+    cuerpo["detail"] = " ".join(partes)
+    return (500 if errores else 409), cuerpo
 
 
 # Cuánto puede esperar un puntaje antes de avisar. Bien adentro de los
@@ -424,7 +485,9 @@ async def calculate_and_update_scores(supabase, match_id: int) -> dict:
         result = supabase.rpc("void_cancelled_match", {"p_match_id": match_id}).execute()
         data = result.data or {}
         return {
-            "status": data.get("status", "ok"),
+            # Sin respuesta de la base no consta que se haya anulado: eso es un
+            # error, no un `ok` por defecto (antes `data.get("status", "ok")`).
+            "status": data.get("status") or "error",
             "message": "Partido no disputado; puntos anulados y comodines devueltos/arrastrados",
             "predictions_zeroed": data.get("zeroed", 0),
             "powerups_refunded": data.get("refunded", 0),

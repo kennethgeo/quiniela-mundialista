@@ -54,6 +54,14 @@ class _Q:
         self.filtros.append(lambda f, c=col, v=val: f.get(c) == v)
         return self
 
+    def neq(self, col, val):
+        # Como SQL: `phase <> 'groups'` no deja pasar un NULL.
+        self.filtros.append(lambda f, c=col, v=val: f.get(c) is not None and f.get(c) != v)
+        return self
+
+    def limit(self, _n):
+        return self
+
     def in_(self, col, vals):
         vals = list(vals)
         self.filtros.append(lambda f, c=col, v=vals: f.get(c) in v)

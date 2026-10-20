@@ -25,8 +25,9 @@ Claude consultó Supabase desde su app y confirmó migraciones hasta la 108. Es 
 
 - RPC de cruces: `docs/sql/actualizar_equipos_cruce.propuesta.sql` pasó pruebas sintéticas de PostgreSQL, no la interacción completa con producción/PostgREST. Sin función, el endpoint rechaza el guardado. Revisar, registrar migración y preparar respaldo/restauración antes de habilitarla.
 - ~~Cara a cara para admin global no miembro~~ · corregido en PR #207: sin fila propia en la Tabla no se ofrece el duelo, y el componente no calcula sin las dos personas.
-- Recalc-match: revisar que un resultado de error del motor no termine presentado como `status: ok`.
-- Respaldo semanal: `scripts/respaldo/consultas.sql` enumera columnas de partidos y no incluye `destapado_at`; la lista explícita de torneos también requiere contrastarse con el esquema vigente. El MD semanal no certifica por sí solo una restauración completa del esquema.
+- ~~Recalc-match: revisar que un resultado de error del motor no termine presentado como `status: ok`~~ · corregido en la rama de Claude del 20 oct: `recalc-match` responde 409 con el motivo, y los dos `recalc-scores` responden 200 solo si todo se puntuó (500 con errores, 409 si quedó algo `stale`). Usan la misma clasificación que la recuperación (`estado_del_puntaje`).
+- Respaldo semanal: ~~enumeraba columnas y no incluía `destapado_at`~~ · la consulta ahora es dinámica y el generador se niega a escribir si falta una tabla. **Sigue pendiente** el respaldo restaurable (dump + restauración verificada con huella): queda fuera de esta ronda por decisión del dueño (sin cambios de base ni restauración de datos privados en destinos externos). El plan está en `docs/RESPALDO_RESTAURABLE_2026-10-20.md`. El MD no certifica una restauración.
+- `verificar_estado.sql`: incluye `_aviso_de_pago_vigente` y la §32 (funciones internas ejecutables por el cliente; hoy vacía en producción).
 - Voto después de votar, errores próximos a la fila y presentación de dólares: revalidar sobre main antes de tratarlos como arreglados.
 - Simulador, chat por grupo, titularidad y política de aportes/devoluciones: contratos y decisiones en `EVOLUCION_PARTICIPACION_2026-10-16.md`; sin implementación nueva en estas entregas.
 
