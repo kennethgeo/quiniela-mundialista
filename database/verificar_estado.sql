@@ -148,6 +148,7 @@ FROM unnest(ARRAY[
   'soltar_alertas_de_puntaje',         -- 106, solo backend
   'registrar_historial_pago',          -- 109, función de trigger
   'historial_pagos_no_se_toca',        -- 109, función de trigger
+  '_aviso_de_pago_vigente',            -- 110, interna (sin EXECUTE para nadie)
   'prediccion_modificada',
   'partidos_pendientes_de_puntaje'
 ]::text[]) x
@@ -267,6 +268,7 @@ WHERE n.nspname = 'public'
   'soltar_alertas_de_puntaje',         -- 106, solo backend
   'registrar_historial_pago',          -- 109, función de trigger
   'historial_pagos_no_se_toca',        -- 109, función de trigger
+  '_aviso_de_pago_vigente',            -- 110, interna (sin EXECUTE para nadie)
   'prediccion_modificada',
   'partidos_pendientes_de_puntaje'
 ]::text[])
@@ -861,3 +863,26 @@ WHERE schemaname = 'public' AND tablename = 'predictions'
   AND NOT ('service_role' = ANY (roles))
   AND ( COALESCE(with_check, '') NOT ILIKE '%in_progress%'
      OR (cmd IN ('UPDATE', 'ALL') AND COALESCE(qual, '') NOT ILIKE '%in_progress%') );
+
+\echo '=== 32. Funciones INTERNAS que el cliente puede ejecutar (tiene que salir VACÍA) ==='
+-- Ayudantes que solo llaman otras funciones SECURITY DEFINER o el backend con
+-- service_role. Si `authenticated` o `anon` las pueden ejecutar, una regla que
+-- vive adentro (el aviso vigente del pozo, la cuenta del ×2, la llave de cupo,
+-- el puntaje atómico) queda al alcance del navegador. Las que todavía no
+-- existen (la 110 sin aplicar) no salen: se mira lo que hay, no lo que falta.
+SELECT p.proname AS interna, r.rol AS puede_ejecutar
+FROM pg_proc p
+JOIN pg_namespace n ON n.oid = p.pronamespace AND n.nspname = 'public'
+CROSS JOIN (VALUES ('authenticated'), ('anon')) AS r(rol)
+WHERE p.proname = ANY (ARRAY[
+    '_aviso_de_pago_vigente',   -- 110
+    '_x2_cuenta',               -- 97
+    'llave_cupo',               -- 73
+    'fase_ya_empezo',           -- 74
+    'es_admin_global',          -- 66
+    'aplicar_puntaje',          -- 90, solo backend
+    'partidos_pendientes_de_puntaje',  -- 92, solo backend
+    'claim_notification_deliveries'    -- 82, solo backend
+  ]::text[])
+  AND has_function_privilege(r.rol, p.oid, 'EXECUTE')
+ORDER BY 1, 2;

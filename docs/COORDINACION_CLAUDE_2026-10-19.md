@@ -100,12 +100,12 @@ Proyecto `wifjwtbzstbuiistcxkf`; no se usaron otros proyectos.
 ## Pendientes explícitos (no los resuelve este PR ni su merge)
 
 1. **Migraciones 109 y 110**.
-   - Orden: frontend compatible (ya en `main` por el #206) → 109 → 110 → humo.
+   - Orden: frontend compatible (ya en `main` por el #206) → 109 → 110, con controles de solo lectura en producción. La humo corre solo en una copia aislada o con datos ficticios (escribe y borra). Plan: `docs/RESPALDO_RESTAURABLE_2026-10-20.md`.
    - Antes de aplicarlas:
      - ventana sin partidos comprobada en ese momento;
      - respaldo privado **restaurable** y probado;
      - inspección de esquema y privilegios del día;
-     - validación completa (ensayo revertido + humo).
+     - validación completa sobre una copia aislada (humo incluida, nunca en producción).
    - La aplica el dueño: la confirmación de lo «destructivo» de la herramienta no llega a esta sesión y no se esquiva.
 2. **RPC de cruces** (`docs/sql/actualizar_equipos_cruce.propuesta.sql`). Sigue siendo una propuesta probada en PostgreSQL 17 con un esquema sintético. Falta:
    - registrarla como migración;
