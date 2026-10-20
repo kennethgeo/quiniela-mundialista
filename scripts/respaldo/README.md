@@ -21,7 +21,7 @@ La consulta 2 es **dinámica**: recorre todas las tablas de `public` con todas s
 - De `matches`: `events_json`, `minute` y las URLs de escudos (los vuelve a traer el sync).
 
 ## Huella por tabla
-`huella_por_tabla.sql` (solo lectura, sin datos de personas) da filas y md5 de cada tabla de `public`, más los conteos de `auth.users`, `auth.identities`, `storage.objects` y `cron.job`. Se corre en producción y en la copia restaurada: tienen que coincidir. Una restauración que no dio error no es una restauración verificada.
+`huella_por_tabla.sql` (solo lectura, sin datos de personas) da filas y md5 de cada tabla de `public`, más los conteos de `auth.users`, `auth.identities`, `storage.objects` y `cron.job`. Se corre dentro de la MISMA instantánea que usó el volcado (`SET TRANSACTION SNAPSHOT`) y en la copia restaurada: tienen que coincidir. Una huella tomada aparte, con la base viva, no prueba nada, y una restauración que no dio error no es una restauración verificada. Ver «Captura consistente» en `docs/RESPALDO_RESTAURABLE_2026-10-20.md`.
 
 ## Restaurar
 Nunca sobre producción a ciegas: cargar el JSON de cada tabla en una base aparte, comparar y copiar solo lo que falte. Para reconstruir la base entera hace falta el dump (ver el documento de arriba).

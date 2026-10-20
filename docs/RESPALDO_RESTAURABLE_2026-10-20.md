@@ -27,58 +27,78 @@ Sin el esquema, el JSON no se puede cargar en ningún lado, y hoy no hay ninguna
 | Triggers sobre `auth.users` | `on_auth_user_created`, `on_auth_user_ban_check` |
 | Huella | `scripts/respaldo/huella_por_tabla.sql` corre en producción (por ejemplo, `predictions` 1341 filas y `matches` 429) |
 
-## Bloqueos concretos (no los resuelvo desde esta sesión)
+## Entorno: qué herramientas hay y dónde
 
-1. **Credencial**: el dump necesita la contraseña de la base (conexión directa o *session pooler*). No está en esta sesión, no se pide por chat y no va al repositorio.
-2. **Herramienta**:
-   - Lo que recomienda Supabase es `supabase db dump`, que filtra los esquemas internos y los roles reservados. Esa CLI corre `pg_dump` dentro de **Docker**.
-   - En este contenedor la CLI existe (`npx supabase` 2.121.0) pero **no hay demonio de Docker**.
-   - El `pg_dump` local es la versión **16**, y `pg_dump` se niega a volcar un servidor más nuevo (17.6).
-   - En resumen: hace falta Docker funcionando o un `pg_dump`/`psql` de la versión **17** o superior.
-3. **Destino aislado** donde restaurar. **Nunca** se restaura sobre producción. Con la decisión del 20 oct, tampoco en un destino externo: los datos reales solo van a una base que controle el dueño (por ejemplo, `supabase start` en su máquina, que también necesita Docker) y solo cuando él lo habilite. Un segundo proyecto de Supabase sería un destino externo con datos personales; queda descartado salvo decisión expresa. La opción «Restore to a new project» es solo para planes pagos.
-4. **El cron viaja con la copia.**
-   - Si la restauración trae `cron.job` y los dos secretos de Vault, la copia llama al backend de producción cada minuto, y el resumen de las 6 a. m. se dispara desde dos bases.
-   - En la copia, antes de cualquier otra cosa:
-     - `cron.unschedule` de las cuatro tareas;
-     - borrar los secretos de Vault;
-     - comprobar que `cron.job` da 0, que es la última fila de la huella.
-   - Supabase recomienda lo mismo para pg_net y pg_cron en una copia.
+- **Este contenedor** (sesión de Claude): `psql`/`pg_dump` **16**. `pg_dump` se niega a volcar un servidor más nuevo (17.6), así que desde acá no se puede hacer el volcado. La CLI de Supabase existe (`npx supabase` 2.121.0), pero `supabase db dump` corre `pg_dump` dentro de Docker y aquí no hay demonio de Docker. En este contenedor solo se ensaya con datos ficticios.
+- **La máquina Windows del dueño**: Codex comprobó que ya tiene `C:/Program Files/PostgreSQL/17/bin/pg_dump.exe` y `psql.exe`. Con esas herramientas nativas **no hace falta Docker**. El procedimiento de abajo usa `pg_dump`/`psql` 17 directamente, no `supabase db dump`, porque la CLI no deja pasar `--snapshot` y la captura consistente lo necesita.
+- **Credencial**: el volcado necesita la contraseña de la base. Hoy no hay `SUPABASE_DB_URL` configurada, no se pide por chat y no va al repositorio.
 
-## Procedimiento propuesto (a correr por quien tenga la credencial)
+## Reglas que no se negocian
 
-1. **Ventana**: comprobar en ese momento que no hay partidos en curso ni por empezar en las próximas 2 horas (la 109 lo exige en su encabezado).
-2. **Volcado**, con la CLI de Supabase y Docker funcionando. Son tres archivos, como en la guía oficial (*Restore a Platform Project to Self-Hosted*):
-   ```sh
-   supabase db dump --db-url "$DB_URL" -f roles.sql --role-only
-   supabase db dump --db-url "$DB_URL" -f schema.sql
-   supabase db dump --db-url "$DB_URL" -f data.sql --use-copy --data-only
+1. **La humo NO se corre en producción.** `database/humo_rutas_del_cliente.sql` escribe y borra dentro de subbloques revertidos (pagos, cuentas, quinielas), y la confirmación de Supabase para lo «destructivo» existe justo por eso. Solo se corre en una copia aislada o con datos ficticios. En producción, solo controles de lectura: `verificar_estado.sql`, `huella_por_tabla.sql` y `SELECT` puntuales.
+2. **El destino nunca puede ejecutar trabajos ni salir a la red.** Esto vale **ANTES** de restaurar, no después: si la restauración trae `cron.job` y Vault a una base con pg_cron activo, las tareas pueden correr en el instante del `COMMIT`, antes de que nadie las desactive. Y el `sync-en-vivo` de producción corre cada minuto y llama al backend de producción con el secreto de Vault. Por eso:
+   - el destino es un PostgreSQL 17 **sin pg_cron ni pg_net instalados** (no están en `shared_preload_libraries` ni como extensión disponible), y con las **salidas de red bloqueadas** a nivel del sistema o firewall;
+   - el volcado **excluye** `cron`, `net` y `vault` (`--exclude-schema`), así que la copia ni siquiera recibe las tareas ni los secretos;
+   - después de restaurar se **valida** lo anterior: `select extname from pg_extension where extname in ('pg_cron','pg_net','supabase_vault')` sale vacío, y en la huella `cron.job` dice `no-existe`.
+3. **Una restauración con diferencias sin resolver no está verificada.** No se explica una diferencia para darla por buena: se repite la captura.
+4. **Destino aislado y del dueño.** Nunca sobre producción. Por la decisión del 20 oct, tampoco en un destino externo: los datos reales van solo a una base que controle el dueño (su PostgreSQL 17 local), y solo cuando él lo habilite. Un segundo proyecto de Supabase sería un destino externo con datos personales, así que queda descartado salvo decisión expresa.
+
+## Captura consistente
+
+Tres volcados separados (roles, esquema, datos), más una huella tomada después con la base viva, no prueban que la copia sea igual a ningún momento real de producción: el cron escribe cada minuto (`live_sync_state`, `matches`, `notification_deliveries`…). Hay dos formas válidas.
+
+**A. Instantánea compartida (preferida: no escribe nada en producción)**
+
+1. Sesión 1, por la **conexión directa** (con el *session pooler* habría que comprobar antes que la sesión se mantiene en el mismo servidor). Esta sesión queda abierta durante todo el proceso:
+   ```sql
+   BEGIN ISOLATION LEVEL REPEATABLE READ;
+   SELECT pg_export_snapshot();   -- p. ej. 00000003-0000001B-1
    ```
-   - `$DB_URL` se carga en el entorno de quien lo corre; nunca se escribe en un archivo del repo.
-   - Los tres archivos contienen datos personales y hashes de contraseñas: se guardan cifrados, fuera del repo.
-   - Además se descargan los 21 objetos del bucket `avatars`, que no van en el dump. El dueño pidió no tocar avatares por SQL; esto es una descarga, no una escritura.
-3. **Huella de origen**: correr `huella_por_tabla.sql` en producción **inmediatamente después** del volcado y guardar el resultado. Algunas tablas cambian solas (`live_sync_state`, `match_details_cache`, `notification_deliveries`); hay que anotar cuáles se movieron entre la huella y el volcado.
-4. **Restaurar** en el destino aislado:
+2. Esquema y datos en **un solo** `pg_dump` con esa instantánea (formato `custom`, que guarda las dos cosas juntas):
    ```sh
-   psql --single-transaction -v ON_ERROR_STOP=1 \
-     -f roles.sql -f schema.sql -c 'SET session_replication_role = replica' -f data.sql \
-     -d "$DESTINO_URL"
+   pg_dump "$DB_URL" --snapshot=<id> -Fc \
+     --schema=public --schema=auth --schema=storage \
+     --exclude-schema=cron --exclude-schema=net --exclude-schema=vault \
+     -f quiniela-AAAA-MM-DD.dump
    ```
-   Si el destino no es PostgreSQL 17, puede fallar `SET transaction_timeout`. La guía oficial indica cómo resolverlo; conviene que el destino también sea 17.
-5. **Desactivar el cron y Vault en la copia** (punto 4 de los bloqueos). Eso se hace antes de cualquier otra cosa.
-6. **Verificar**:
-   - la huella de la copia tiene que coincidir con la de origen, tabla por tabla (filas y md5);
-   - `auth.users` y `auth.identities`, mismo conteo;
-   - `verificar_estado.sql` tiene que dar lo mismo que en producción (§32 vacía).
+   Los roles se sacan aparte con `pg_dumpall --roles-only --no-role-passwords`. No van en la instantánea, pero no cambian con el uso de la app.
+3. Huella de origen **dentro de la misma instantánea**, en una segunda sesión:
+   ```sql
+   BEGIN ISOLATION LEVEL REPEATABLE READ;
+   SET TRANSACTION SNAPSHOT '<id>';
+   \i scripts/respaldo/huella_por_tabla.sql
+   COMMIT;
+   ```
+4. Recién entonces se cierra la sesión 1 (`COMMIT`).
 
-   Recién entonces el respaldo cuenta como **restaurable y verificado**. Se anota la fecha, el SHA-256 de los tres archivos y el resultado.
-7. **Ensayo sobre la COPIA** (no en producción):
-   1. `humo_rutas_del_cliente.sql` como línea base.
-   2. 109 → humo → 110 → humo. Cada migración tiene que correr dos veces seguidas sin error.
-   3. `verificar_estado.sql`: §29, §30, §31 y §32 tienen que salir vacías, y la §1 no puede listar `_aviso_de_pago_vigente`.
-   4. La RPC de cruces (`docs/sql/actualizar_equipos_cruce.propuesta.sql`), con su concurrencia probada en dos conexiones y la ruta `/api/admin/update-match-teams` apuntando a la copia.
+Ensayado en un PostgreSQL 16 local con datos ficticios:
+- se exportó la instantánea;
+- se escribió en dos tablas **después** de exportarla;
+- se volcó con `--snapshot`;
+- se restauró en otra base.
 
-   En la copia la humo sí puede borrar dentro de sus subbloques revertidos. Ahí no hay datos reales en riesgo, y es justo lo que la confirmación de Supabase para lo «destructivo» no deja hacer desde esta sesión contra producción.
-8. **Producción**: solo después del ensayo verde, con la misma ventana y un volcado nuevo del día. El orden es 109 → humo → 110 → humo, y después la RPC de cruces registrada como migración. Lo aplica el dueño o quien él designe, con `SELECT` antes y después.
+La huella de la copia coincide con la de la instantánea en todas las tablas. La única diferencia es `cron.job` (`no-existe`, excluido a propósito). Una huella tomada con la base viva después del volcado **no** coincidía (`historial_pagos` 2001 contra 2000, y `users`). Ese es justo el falso negativo, o falso positivo, que evita la instantánea compartida.
+
+**B. Congelamiento operativo explícito**
+
+Pausar las cuatro tareas de pg_cron y pedir que nadie use la app durante el volcado. Eso **es una escritura en producción** (`cron.alter_job`), así que queda excluida mientras siga la decisión del dueño de no hacer cambios de base. Solo sirve si él lo decide, y hay que volver a activar las tareas al terminar.
+
+## Procedimiento (para cuando el dueño lo habilite; no es de esta ronda)
+
+1. **Ventana**: comprobar en ese momento que no hay partidos en curso ni por empezar en las próximas 2 horas.
+2. **Destino preparado ANTES de restaurar** (regla 2): PostgreSQL 17 sin pg_cron ni pg_net, salidas de red bloqueadas, y los roles de Supabase creados (`anon`, `authenticated`, `service_role`, `supabase_auth_admin`, `supabase_storage_admin`…) para que las políticas y los `GRANT` se restauren tal cual.
+3. **Captura consistente** (A).
+   - Los archivos contienen datos personales y hashes de contraseñas: se guardan cifrados, fuera del repo, y se anota su SHA-256.
+   - Los 21 objetos del bucket `avatars` no van en el volcado. Se descargan aparte; es una lectura, no una escritura.
+4. **Restaurar** en el destino (primero los roles, después `pg_restore --single-transaction --exit-on-error`). Cualquier error se investiga; no se sigue «porque el resto entró».
+5. **Validar el destino**: sin pg_cron, pg_net ni Vault; `cron.job` `no-existe`.
+6. **Verificar**: la huella de la copia tiene que coincidir con la huella de origen, tomada en la misma instantánea, en todas las filas salvo `cron.job`, incluidos `auth.users`, `auth.identities` y `storage.objects`. Con cualquier diferencia sin explicar, **no está verificada** (regla 3). Si coincide, se anotan la fecha, el id de la instantánea, el SHA-256 de los archivos y el resultado.
+7. **Ensayo sobre la COPIA**:
+   1. `humo_rutas_del_cliente.sql` como línea base (en la copia sí; ver regla 1).
+   2. 109 → humo → 110 → humo, y cada migración corre dos veces seguidas sin error.
+   3. `verificar_estado.sql`: §29, §30, §31 y §32 vacías, y la §1 no lista `_aviso_de_pago_vigente`.
+   4. La RPC de cruces (`docs/sql/actualizar_equipos_cruce.propuesta.sql`), con su concurrencia probada en dos conexiones.
+8. **Producción**, solo después del ensayo verde y con una captura nueva del día. Lo aplica el dueño o quien él designe: 109 → 110 → RPC de cruces registrada como migración. Antes y después solo se corren **controles de lectura** (`verificar_estado.sql`, `huella_por_tabla.sql`, `SELECT` de las filas tocadas). **No la humo** (regla 1).
 
 ## Qué cambió en el repo en esta ronda
 
@@ -95,9 +115,9 @@ Sin el esquema, el JSON no se puede cargar en ningún lado, y hoy no hay ninguna
   - Si una tabla de `public` no viene ni está excluida, **no escribe** el MD y sale con código 2.
   - El MD dice explícitamente que no es restaurable.
 - `scripts/respaldo/huella_por_tabla.sql` (nuevo):
-  - Filas y md5 por tabla, sin datos de personas.
-  - Probado en local: dos bases restauradas con `pg_dump` dan la misma huella, y cambiar un solo nombre cambia el md5 de `users`.
-  - Corre en producción.
+  - Filas y md5 por tabla de `public`, `auth.users`, `auth.identities`, `storage.buckets`, `storage.objects` y `cron.job`, sin datos de personas. Una tabla que no existe sale como `no-existe`.
+  - Probado en local: con una instantánea compartida, la copia coincide con la captura aunque haya escrituras durante el volcado; con la base viva, no; y cambiar un solo nombre cambia el md5 de `users`.
+  - La versión anterior (solo `public` y conteos) corrió en producción con un `SELECT`.
 - `database/verificar_estado.sql`: `_aviso_de_pago_vigente` entra al inventario (§1 y §2), y la §32 nueva lista las funciones internas que `authenticated` o `anon` pueden ejecutar. Hoy sale vacía en producción.
 - `backend/tests/test_respaldo_semanal.py` (5 pruebas). Mutaciones comprobadas:
   - generador sin el control de tablas: caen 2;

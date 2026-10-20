@@ -284,12 +284,21 @@ async def recalcular_partidos(supabase, ids) -> dict:
             continue
         estado = estado_del_puntaje(r)
         if estado == "ok":
-            puntuados.append({"match_id": mid, "status": estado})
+            cambiadas = r.get("predictions_updated")
+            puntuados.append({"match_id": mid, "status": estado,
+                              # Cuántas predicciones cambiaron de verdad (0 si ya
+                              # estaban bien); el cron lo informa aparte.
+                              "predictions_updated": cambiadas if isinstance(cambiadas, int) else 0})
         elif estado == "stale":
             reintentar.append({"match_id": mid, "status": estado})
         else:
-            errores.append({"match_id": mid,
-                            "error": (r or {}).get("message") or str((r or {}).get("status"))})
+            # `r` puede no ser un dict (una cadena, una lista, None): leerlo con
+            # `.get` reventaba y se llevaba el lote entero (revisión de Codex).
+            if isinstance(r, dict):
+                motivo = r.get("message") or f"status {r.get('status')!r}"
+            else:
+                motivo = f"respuesta inesperada del motor: {type(r).__name__}"
+            errores.append({"match_id": mid, "error": str(motivo)})
     return {"puntuados": puntuados, "reintentar": reintentar, "errores": errores}
 
 
@@ -306,6 +315,9 @@ def resumen_de_recalculo(revisados: int, r: dict) -> tuple[int, dict]:
         "status": "ok",
         "finished": revisados,
         "recalculated": len(r["puntuados"]),
+        # Contrato que ya tenía el cron: partidos puntuados en los que cambió
+        # al menos una predicción. `recalculated` cuenta todos los puntuados.
+        "matches_with_changes": sum(1 for x in r["puntuados"] if x.get("predictions_updated")),
         "reintentar": reintentar,
         "errors": errores,
     }

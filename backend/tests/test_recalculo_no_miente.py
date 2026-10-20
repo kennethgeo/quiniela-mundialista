@@ -107,7 +107,8 @@ def test_recalc_scores_del_panel_todo_bien_es_ok(monkeypatch):
     db = _base(_partido(id=7, phase="knockout"), _partido(id=9, phase="groups"))
     r = _como_admin(monkeypatch, db, "/api/admin/recalc-scores")
     assert r.status_code == 200, r.text
-    assert r.json() == {"status": "ok", "finished": 1, "recalculated": 1, "reintentar": [], "errors": []}
+    assert r.json() == {"status": "ok", "finished": 1, "recalculated": 1, "matches_with_changes": 1,
+                        "reintentar": [], "errors": []}
 
 
 # --- recalc-scores del cron ---------------------------------------------------
@@ -133,6 +134,40 @@ def test_recalc_scores_del_cron_cuenta_un_status_error_como_error(monkeypatch):
     assert r.status_code == 500
     assert [e.split(":")[0] for e in r.json()["errors"]] == ["match 8"]
     assert r.json()["recalculated"] == 1
+
+
+@pytest.mark.parametrize("malformada", ["raro", ["ok"], None, 7])
+def test_una_respuesta_malformada_no_tapa_el_lote(monkeypatch, malformada):
+    """Revisión de Codex: `estado_del_puntaje` ya trataba una respuesta que no
+    es dict como error, pero el registro del error hacía `(r or {}).get(...)`
+    y con una cadena o una lista reventaba y se llevaba el lote entero."""
+    db = _base(_partido(id=7), _partido(id=8))
+    real = scoring.calculate_and_update_scores
+
+    async def motor(supabase, mid):
+        if mid == 7:
+            return malformada
+        return await real(supabase, mid)
+    monkeypatch.setattr(scoring, "calculate_and_update_scores", motor)
+    r = _como_cron(monkeypatch, db)
+    assert r.status_code == 500
+    cuerpo = r.json()
+    assert [e.split(":")[0] for e in cuerpo["errors"]] == ["match 7"]
+    assert cuerpo["recalculated"] == 1
+    # El 8, que venía después, se puntuó igual.
+    assert {p["match_id"]: p["points_earned"] for p in db.tablas["predictions"]} == {7: 0, 8: 3}
+
+
+def test_el_cron_conserva_matches_with_changes_sin_confundirlo_con_recalculated(monkeypatch):
+    """El cron devolvía `matches_with_changes` (partidos donde cambió alguna
+    predicción). Un partido que ya estaba bien se recalcula, pero no cambia."""
+    ya_bien = _partido(id=7)
+    db = _base(ya_bien, _partido(id=8))
+    db.tablas["predictions"][0]["points_earned"] = 3  # la del 7 ya tenía sus 3
+    r = _como_cron(monkeypatch, db)
+    assert r.status_code == 200, r.text
+    assert r.json()["recalculated"] == 2
+    assert r.json()["matches_with_changes"] == 1
 
 
 # --- el motor ------------------------------------------------------------------
