@@ -17,6 +17,7 @@
 import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useConsultaDelUsuario } from '../../hooks/useConsultaDelUsuario'
+import { useHistorialPagosDisponible } from '../../hooks/useHistorialPagosDisponible'
 import { Wallet, Check, Clock, Loader2, Pencil, X, AlertTriangle, History, Share2 } from 'lucide-react'
 import { ErrorState } from '../ui/StatePanel'
 import { supabase } from '../../lib/supabase'
@@ -53,6 +54,7 @@ export default function PozoYPagos({ leagueId, nombreQuiniela = 'Quiniela' }) {
     qc.invalidateQueries({ queryKey: ['league_pozo', leagueId] })
     qc.invalidateQueries({ queryKey: ['historial_pagos', leagueId] })
   }
+  const historial = useHistorialPagosDisponible(leagueId, !!data)
 
   // Avisar: con monto (110) o, con el servidor de antes, el botón de siempre.
   const avisar = useMutation({
@@ -69,13 +71,14 @@ export default function PozoYPagos({ leagueId, nombreQuiniela = 'Quiniela' }) {
      otro admin confirmó lo mismo en el medio, la base lo rechaza en vez de
      sumarlo dos veces. Con el servidor de antes, el confirmar de siempre. */
   const confirmar = useMutation({
-    mutationFn: async ({ userId, monto, totalVisto, quitar, completo }) => {
+    mutationFn: async ({ userId, monto, totalVisto, avisoVisto, quitar, completo }) => {
       const { error } = quitar
         ? await supabase.rpc('confirmar_pago', { p_league_id: leagueId, p_user_id: userId, p_confirmado: false })
         : completo
           ? await supabase.rpc('confirmar_pago', { p_league_id: leagueId, p_user_id: userId, p_confirmado: true })
           : await supabase.rpc('confirmar_abono', {
             p_league_id: leagueId, p_user_id: userId, p_monto: monto, p_total_visto: totalVisto,
+            p_aviso_visto: avisoVisto,
           })
       if (error) throw error
     },
@@ -195,6 +198,7 @@ export default function PozoYPagos({ leagueId, nombreQuiniela = 'Quiniela' }) {
                       pendiente={confirmar.isPending}
                       onConfirmarAviso={() => confirmar.mutate({
                         userId: g.user_id, monto: montoDelAviso(g, cuota), totalVisto: montoDe(g),
+                        avisoVisto: g.aviso ? montoDelAviso(g, cuota) : null,
                       })}
                       onConfirmarCompleto={() => confirmar.mutate({ userId: g.user_id, completo: true })}
                       onGestionar={() => setGestionando(gestionando === g.user_id ? null : g.user_id)}
@@ -209,7 +213,8 @@ export default function PozoYPagos({ leagueId, nombreQuiniela = 'Quiniela' }) {
                     </p>
                     <FormMonto cuota={cuota} falta={faltaDe(g, cuota)} moneda={moneda}
                       accion="Confirmar" pendiente={confirmar.isPending}
-                      onEnviar={(monto) => confirmar.mutate({ userId: g.user_id, monto, totalVisto: montoDe(g) })}
+                      onEnviar={(monto) => confirmar.mutate({ userId: g.user_id, monto, totalVisto: montoDe(g),
+                        avisoVisto: g.aviso ? montoDelAviso(g, cuota) : null })}
                       onCancelar={() => setGestionando(null)} />
                     {g.confirmado && (
                       <button onClick={() => { setGestionando(null); setPorQuitar(g) }}
@@ -239,8 +244,10 @@ export default function PozoYPagos({ leagueId, nombreQuiniela = 'Quiniela' }) {
                 <p className="text-[11.5px] text-slate-700 dark:text-slate-200">
                   ¿Quitar el pago confirmado de <strong>{porQuitar.display_name}</strong>
                   {montoDe(porQuitar) > 0 && <> ({plata(montoDe(porQuitar), moneda)})</>}? Va a figurar como
-                  pendiente y lo recaudado baja. Queda registrado en el historial quién lo quitó y cuándo;
-                  si después se vuelve a confirmar, cuenta como un pago nuevo.
+                  pendiente y lo recaudado baja. {historial.data === true
+                    ? 'Queda registrado en el historial quién lo quitó y cuándo; '
+                    : 'No hay un historial de pagos verificado disponible para este cambio. '}
+                  Si después se vuelve a confirmar, cuenta como un pago nuevo.
                 </p>
               </div>
               <div className="flex gap-2">
@@ -257,7 +264,12 @@ export default function PozoYPagos({ leagueId, nombreQuiniela = 'Quiniela' }) {
             </div>
           )}
 
-          <HistorialPagos leagueId={leagueId} gente={gente} />
+          {historial.data === true && <HistorialPagos leagueId={leagueId} gente={gente} abonos={abonos} />}
+          {historial.data === false && <p className="mt-3 text-[11px] text-[var(--text-muted,#8A8A8A)]">
+            El historial de pagos todavía no está disponible en esta quiniela.
+          </p>}
+          {historial.isError && <ErrorState compact title="No pudimos comprobar el historial de pagos"
+            description="Volvé a comprobarlo antes de consultar los movimientos." onRetry={historial.refetch} />}
         </>
       )}
     </div>
@@ -420,36 +432,39 @@ function AccionAdmin({ g, cuota, moneda, abonos, pendiente, onConfirmarAviso, on
   }
   if (g.aviso) {
     return (
-      <button onClick={onConfirmarAviso} disabled={pendiente} className={clase} style={estilo(true)}
-        title={`Confirmar lo que avisó: ${plata(montoDelAviso(g, cuota), moneda)}`}>
-        confirmar {plata(montoDelAviso(g, cuota), moneda)}
-      </button>
+      <div className="flex items-center gap-1">
+        <button onClick={onConfirmarAviso} disabled={pendiente} className={clase} style={estilo(true)}
+          title={`Confirmar lo que avisó: ${plata(montoDelAviso(g, cuota), moneda)}`}>
+          confirmar {plata(montoDelAviso(g, cuota), moneda)}
+        </button>
+        <button onClick={onGestionar} disabled={pendiente} className={clase} style={estilo(false)}>gestionar</button>
+      </div>
     )
   }
   return <button onClick={onGestionar} disabled={pendiente} className={clase} style={estilo(true)}>registrar</button>
 }
 
-/* Lo carga recién cuando alguien lo abre: casi nadie lo mira, y así un error
-   (por ejemplo, la 109 sin aplicar) aparece solo a quien lo pidió, dicho. */
-function HistorialPagos({ leagueId, gente }) {
+/* La disponibilidad ya se comprobó con id; las filas del historial se cargan
+   recién al abrirlo. Solo la 110 permite seleccionar también monto_total. */
+function HistorialPagos({ leagueId, gente, abonos }) {
   const [abierto, setAbierto] = useState(false)
   return (
     <details className="mt-3" onToggle={(e) => setAbierto(e.currentTarget.open)}>
       <summary className="cursor-pointer flex items-center gap-1.5 font-['JetBrains_Mono'] text-[10px] uppercase tracking-[0.12em] text-[var(--text-muted,#8A8A8A)]">
         <History size={11} /> Historial de pagos
       </summary>
-      {abierto && <ListaHistorial leagueId={leagueId} gente={gente} />}
+      {abierto && <ListaHistorial leagueId={leagueId} gente={gente} abonos={abonos} />}
     </details>
   )
 }
 
-function ListaHistorial({ leagueId, gente }) {
+function ListaHistorial({ leagueId, gente, abonos }) {
   const { data: filas = [], isLoading, isError, refetch } = useConsultaDelUsuario({
-    queryKey: ['historial_pagos', leagueId],
+    queryKey: ['historial_pagos', leagueId, abonos],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('historial_pagos')
-        .select('id, user_id, accion, monto, monto_total, moneda, por, created_at, sembrada')
+        .select(`id, user_id, accion, monto, moneda, por, created_at, sembrada${abonos ? ', monto_total' : ''}`)
         .eq('league_id', leagueId)
         .order('created_at', { ascending: false })
         .limit(50)
@@ -555,6 +570,7 @@ function Config({ leagueId, inicial, onListo, onCancelar }) {
     return v.length ? v : ['', '', '']
   })
   const [error, setError] = useState(null)
+  const [borradores, setBorradores] = useState({})
   const total = Number(inicial.total || 0)
 
   const listo = repartoParaGuardar(valores, modo)
@@ -575,7 +591,8 @@ function Config({ leagueId, inicial, onListo, onCancelar }) {
 
   const cambiarModo = (nuevo) => {
     if (nuevo === modo) return
-    setValores(convertirReparto(valores, nuevo, total))
+    setBorradores({ ...borradores, [modo]: valores })
+    setValores(borradores[nuevo] ?? convertirReparto(valores, nuevo, total))
     setModo(nuevo)
     setError(null)
   }

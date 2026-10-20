@@ -17,6 +17,7 @@
 import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useConsultaDelUsuario } from '../../hooks/useConsultaDelUsuario'
+import { useHistorialPagosDisponible } from '../../hooks/useHistorialPagosDisponible'
 import { Users, Crown, Shield, Loader2, UserMinus, AlertTriangle } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { plata } from '../../lib/historialPagos'
@@ -83,6 +84,7 @@ export default function MiembrosYAdmins({ leagueId, soloLectura = false }) {
   })
   const pago = pagoDeQuienSale.data
   const conPago = !!pago?.pago_confirmado_at
+  const historial = useHistorialPagosDisponible(leagueId, !!porExpulsar && !soloLectura)
 
   if (isLoading) return null
 
@@ -173,13 +175,16 @@ export default function MiembrosYAdmins({ leagueId, soloLectura = false }) {
           )}
           {pagoDeQuienSale.isError && (
             <p role="alert" className="text-[11px] text-rose-500 mb-2">
-              No pudimos comprobar si tiene un pago confirmado. Si lo tiene, igual queda registrado en el historial de pagos.
+              No pudimos comprobar si tiene un pago confirmado. Reintentá la consulta antes de sacarlo.{' '}
+              <button onClick={() => pagoDeQuienSale.refetch()} className="font-bold underline">Reintentar</button>
             </p>
           )}
           {conPago && (
             <p className="text-[11.5px] font-bold text-rose-600 dark:text-rose-400 mb-2">
-              {porExpulsar.display_name} tiene un pago confirmado de {plata(pago.pago_confirmado_monto, pago.pago_confirmado_moneda)}:
-              quedará registrado en el historial de pagos, pero deja de contar en lo recaudado.
+              {porExpulsar.display_name} tiene un pago confirmado de {plata(pago.pago_confirmado_monto, pago.pago_confirmado_moneda)}:{' '}
+              {historial.data === true
+                ? 'quedará registrado en el historial de pagos, pero deja de contar en lo recaudado.'
+                : 'deja de contar en lo recaudado. No hay un historial de pagos verificado disponible para este cambio.'}
             </p>
           )}
           <div className="flex gap-2">
@@ -188,7 +193,7 @@ export default function MiembrosYAdmins({ leagueId, soloLectura = false }) {
               Cancelar
             </button>
             <button onClick={() => expulsar.mutate(porExpulsar.user_id)}
-              disabled={expulsar.isPending || pagoDeQuienSale.isLoading}
+              disabled={expulsar.isPending || pagoDeQuienSale.isLoading || pagoDeQuienSale.isError}
               className="flex-1 rounded-xl py-2 font-['Archivo'] font-bold text-[12px] text-white bg-rose-500 disabled:opacity-50 flex items-center justify-center gap-1.5">
               {expulsar.isPending ? <Loader2 size={13} className="animate-spin" /> : null} Sacar
             </button>
