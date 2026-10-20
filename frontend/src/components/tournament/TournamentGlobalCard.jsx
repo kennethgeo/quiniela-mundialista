@@ -5,6 +5,7 @@ import { Crown, Target, Save, Lock, Loader2, CheckCircle2, Handshake } from 'luc
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import { fetchTeamStandings } from '../../lib/groups'
+import { ErrorState } from '../ui/StatePanel'
 
 // normaliza para comparar sin acentos ni mayúsculas
 const norm = (s) => (s || '').toString().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim()
@@ -22,6 +23,8 @@ export default function TournamentGlobalCard({ tournamentId, teams = [], leagueI
   const [msg, setMsg] = useState(null)
   const [showSug, setShowSug] = useState(false)
   const [showSugA, setShowSugA] = useState(false)
+  const [errorLectura, setErrorLectura] = useState(null)
+  const [intento, setIntento] = useState(0)
 
   // Lista de equipos: une los de los partidos cargados con los de la tabla oficial
   // (ESPN), así el selector de campeón funciona aunque aún no haya partidos.
@@ -60,22 +63,40 @@ export default function TournamentGlobalCard({ tournamentId, teams = [], leagueI
     if (!tournamentId || !profile?.id || !leagueId) return
     let alive = true
     ;(async () => {
-      setLoading(true)
-      const [{ data: t }, { data: pl }, { data: pred }] = await Promise.all([
-        supabase.from('tournaments').select('predictions_locked').eq('id', tournamentId).single(),
+      setLoading(true); setErrorLectura(null)
+      /* El cierre lo decide la MISMA regla que usa la base para dejar escribir
+         y para destapar (tournament_predictions_open: sin candado y, o forzado,
+         o antes del primer saque). Mirar solo `predictions_locked` dejaba el
+         formulario abierto en un torneo ya empezado (LaLiga y Premier, 19 oct
+         2026) y la RLS rechazaba el guardado. */
+      const [abiertas, pl, pred] = await Promise.all([
+        supabase.rpc('tournament_predictions_open', { p_tid: tournamentId }),
         supabase.from('players').select('name, team').eq('tournament_id', tournamentId).order('name'),
-        supabase.from('tournament_predictions').select('*').eq('user_id', profile.id).eq('tournament_id', tournamentId).eq('league_id', leagueId).maybeSingle(),
+        supabase.from('tournament_predictions').select('champion_team, top_scorer_name, top_assist_name')
+          .eq('user_id', profile.id).eq('tournament_id', tournamentId).eq('league_id', leagueId).maybeSingle(),
       ])
       if (!alive) return
-      setLocked(!!t?.predictions_locked)
-      setPlayers(pl || [])
-      if (pred) { setChampion(pred.champion_team || ''); setScorer(pred.top_scorer_name || ''); setAssist(pred.top_assist_name || '') }
+      /* Si no se sabe qué hay guardado (o si se puede guardar), NO se ofrece el
+         formulario: antes salía vacío y «Guardar» pisaba campeón, goleador y
+         asistidor con null. Los jugadores son solo sugerencias: su fallo no
+         bloquea. */
+      if (abiertas.error || typeof abiertas.data !== 'boolean' || pred.error) {
+        setErrorLectura('No pudimos leer tus predicciones globales ni si siguen abiertas.')
+        setLoading(false)
+        return
+      }
+      setLocked(!abiertas.data)
+      setPlayers(pl.data || [])
+      setChampion(pred.data?.champion_team || '')
+      setScorer(pred.data?.top_scorer_name || '')
+      setAssist(pred.data?.top_assist_name || '')
       setLoading(false)
     })()
     return () => { alive = false }
-  }, [tournamentId, profile?.id, leagueId])
+  }, [tournamentId, profile?.id, leagueId, intento])
 
   const save = async () => {
+    if (errorLectura || locked) return
     try {
       setSaving(true); setMsg(null)
       const { error } = await supabase.from('tournament_predictions').upsert(
@@ -88,6 +109,10 @@ export default function TournamentGlobalCard({ tournamentId, teams = [], leagueI
   }
 
   if (loading) return <div className="glass-card p-6 text-center text-slate-400 text-sm">Cargando…</div>
+  if (errorLectura) {
+    return <ErrorState title="Predicciones globales" description={`${errorLectura} No se puede guardar hasta leerlas.`}
+      onRetry={() => setIntento((i) => i + 1)} />
+  }
 
   return (
     <div className="glass-card p-5">
