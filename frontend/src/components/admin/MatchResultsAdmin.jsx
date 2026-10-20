@@ -316,7 +316,10 @@ export default function MatchResultsAdmin() {
                         la política RLS lo ignora, así que mostrar la casilla
                         sería ofrecer un interruptor que guarda y no hace nada
                         —el fallo silencioso que este repo ya pagó dos veces. */}
-                    {!['finished', 'cancelled', 'postponed'].includes(formState.status) && (
+                    {/* Solo con el partido PENDIENTE: la rama forzada de la RLS exige
+                        status = 'pending' (migración 105). En vivo la casilla
+                        guardaba y no hacía nada. */}
+                    {formState.status === 'pending' && (
                       <label className="flex items-start gap-2 cursor-pointer bg-slate-100 dark:bg-black/20 p-3 rounded-xl">
                         <input
                           type="checkbox"
@@ -332,8 +335,9 @@ export default function MatchResultsAdmin() {
                             Para cuando el cierre fue un error de los datos: la hora del saque
                             vino mal o el partido se reprogramó. Mientras dure, todos pueden
                             corregir la suya y <b>las predicciones ajenas se vuelven a tapar</b>,
-                            para que nadie copie al vecino. <b>Se apaga sola al finalizar el
-                            partido</b>: en uno terminado no tiene efecto.
+                            para que nadie copie al vecino. <b>Vale solo mientras el partido
+                            siga Pendiente</b>: en cuanto pasa a En vivo la base deja de
+                            aceptar cambios, aunque la casilla siga marcada.
                           </span>
                         </span>
                       </label>
@@ -352,9 +356,9 @@ export default function MatchResultsAdmin() {
                     <span className="flex items-center gap-1.5">
                       <Clock size={10} />
                       {new Date(match.kickoff_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
-                      {match.predictions_force_open && !['finished', 'cancelled', 'postponed'].includes(match.status) && (
+                      {match.predictions_force_open && match.status === 'pending' && (
                         <span className="flex items-center gap-0.5 font-bold text-[10px] text-[#FF7A59]"
-                          title="Predicciones reabiertas: todos pueden corregir la suya hasta que termine">
+                          title="Predicciones reabiertas: todos pueden corregir la suya mientras siga pendiente">
                           🔓 reabierto
                         </span>
                       )}

@@ -61,10 +61,15 @@ describe('predictions_force_open', () => {
     expect(matchStatus(enCurso()).canPredict).toBe(false)
   })
 
-  it('con la reapertura, un partido en curso SÍ acepta', () => {
-    const r = matchStatus(enCurso({ predictions_force_open: true }))
-    expect(r.canPredict).toBe(true)
-    expect(r.key).toBe('reopened')
+  it('con la reapertura, un partido YA EN VIVO no acepta: la RLS exige pending (105)', () => {
+    // Antes este caso afirmaba lo contrario y la base rechazaba el guardado
+    // con 42501. La expectativa vieja se contrastó con la política de
+    // producción (20 oct 2026), no se conservó para que la prueba pasara.
+    for (const status of ['in_progress', 'live']) {
+      const r = matchStatus(enCurso({ status, predictions_force_open: true }))
+      expect(r.canPredict, status).toBe(false)
+      expect(r.key, status).toBe('live')
+    }
   })
 
   it('también sirve si el saque ya pasó pero el estado sigue pendiente', () => {
@@ -99,6 +104,19 @@ describe('predictions_force_open', () => {
     expect(matchStatus(enCurso({ predictions_force_open: undefined })).canPredict).toBe(false)
     expect(matchStatus(enCurso({ predictions_force_open: null })).canPredict).toBe(false)
     expect(matchStatus(enCurso({ predictions_force_open: 'true' })).canPredict).toBe(false)
+  })
+
+  it('un partido ya destapado (106) no se predice aunque el saque se haya atrasado', () => {
+    const atrasado = { status: 'pending', kickoff_at: new Date(Date.now() + 3 * 3600000).toISOString(),
+      destapado_at: new Date(Date.now() - 60 * 60000).toISOString() }
+    const r = matchStatus(atrasado)
+    expect(r.canPredict).toBe(false)
+    expect(r.key).toBe('locked')
+    // Solo la reapertura explícita lo vuelve a abrir (rama forzada de la RLS).
+    expect(matchStatus({ ...atrasado, predictions_force_open: true }).canPredict).toBe(true)
+    // Sin la columna (undefined) o en null, nada cambia.
+    expect(matchStatus({ ...atrasado, destapado_at: null }).key).toBe('open')
+    expect(matchStatus({ ...atrasado, destapado_at: undefined }).key).toBe('open')
   })
 
   it('no altera un partido que todavía no empezó', () => {

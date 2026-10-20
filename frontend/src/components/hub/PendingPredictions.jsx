@@ -9,7 +9,7 @@ import Button from '../ui/Button'
 import MatchStatusBadge from '../ui/MatchStatusBadge'
 import { EmptyState, ErrorState } from '../ui/StatePanel'
 
-const MATCH_FIELDS = 'id,tournament_id,home_team,away_team,home_team_code,away_team_code,home_flag_url,away_flag_url,kickoff_at,status,stage,matchday,phase,predictions_force_open'
+const MATCH_FIELDS = 'id,tournament_id,home_team,away_team,home_team_code,away_team_code,home_flag_url,away_flag_url,kickoff_at,status,stage,matchday,phase,predictions_force_open,destapado_at'
 
 async function fetchPending(groups, userId) {
   const active = groups.filter((group) => group.tournament_status !== 'finished')
@@ -23,7 +23,11 @@ async function fetchPending(groups, userId) {
     .select(MATCH_FIELDS)
     .in('tournament_id', tournamentIds)
     .eq('status', 'pending')
-    .gt('kickoff_at', closesAfter)
+    /* También los REABIERTOS por el admin (saque cercano o pasado): la RLS los
+       deja predecir y antes no llegaban nunca a «Me falta predecir». Quién
+       entra de verdad lo decide matchStatus (destapado, reabierto, cierre),
+       que es la misma regla que la tarjeta. */
+    .or(`kickoff_at.gt.${closesAfter},predictions_force_open.is.true`)
     .order('kickoff_at', { ascending: true })
   if (matchesError) throw matchesError
   if (!matches?.length) return []
@@ -118,7 +122,7 @@ export default function PendingPredictions({ groups = [], userId }) {
                   <MatchStatusBadge match={item} now={now} className="shrink-0" />
                 </div>
                 <p className="mt-1 break-words text-xs text-slate-500 dark:text-slate-400">
-                  {item.league_name} · cierra en {timeUntilDeadline(item.kickoff_at, now)}
+                  {item.league_name} · {matchStatus(item, now).key === 'reopened' ? 'reabierto por el admin' : `cierra en ${timeUntilDeadline(item.kickoff_at, now)}`}
                 </p>
               </div>
               <ArrowRight size={15} className="shrink-0 text-[#FF7A59]" aria-hidden="true" />
