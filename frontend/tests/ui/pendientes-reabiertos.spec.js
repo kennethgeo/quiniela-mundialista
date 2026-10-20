@@ -31,7 +31,7 @@ function filtrar (url) {
   if (or) filas = filas.filter((m) => m.kickoff_at > or[1] || m.predictions_force_open === true)
   if (p.get('or') && !or) throw new Error(`filtro or inesperado: ${p.get('or')}`)
   const cols = p.get('select')?.split(',')
-  return filas.map(({ saque, ...m }) => cols ? Object.fromEntries(cols.map((c) => [c, m[c]])) : m)
+  return filas.map(({ saque: _saque, ...m }) => cols ? Object.fromEntries(cols.map((c) => [c, m[c]])) : m)
 }
 
 test('un reabierto aparece en «Me falta predecir» y un destapado no', async ({ page }) => {

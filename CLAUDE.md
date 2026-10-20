@@ -6,6 +6,10 @@ El dueño pidió integrar el trabajo de auditoría y dejó indicada la vuelta de
 
 `CuposPorFase` usa arrays/objetos vacíos estables: un `data: fases = []` nuevo en cada render reactivaba su efecto de estado durante una lectura pendiente y producía «Maximum update depth exceeded». Tampoco pasar `group.powerup_limits || {}` desde Reglas: creaba una identidad nueva al navegar y podía borrar el borrador. Cubierto con red ficticia lenta y cambio de pestaña sin configuración previa.
 
+## Ronda Claude ↔ Codex del 19–20 oct 2026 (PR #207)
+
+Informe: `docs/COORDINACION_CLAUDE_2026-10-19.md`. Cara a cara lee completo y con `.retry(false)` (postgrest-js reintenta 503 por dentro). Las globales deciden con `tournament_predictions_open`, y una lectura fallida no ofrece guardar. Reabierto exige `pending` y destapado = cerrado, igual que la RLS. **`/api/admin/delete-match` está bloqueado (409, sin DELETE)**: `matches` tiene 6 FK en CASCADE y 1 SET NULL. Desbloquearlo exige una vía atómica desplegada y un respaldo restaurable. Sin SQL aplicado: 109, 110 y la RPC de cruces siguen pendientes.
+
 ## Auditoría del 16 oct 2026: continuación local
 
 - Guía de pruebas manuales: `docs/GUIA_PRUEBAS_LOCALES_2026-10-16.md`. La vista a probar es localhost; los cambios todavía no están publicados en Vercel.
