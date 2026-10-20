@@ -56,7 +56,7 @@ async function abrir (page, { soyMiembro = true, fallarPagina = () => false } = 
     const desde = Number(params.get('offset') || 0)
     lecturas.push(desde)
     if (fallarPagina(desde)) {
-      return route.fulfill({ status: 400, contentType: 'application/json', body: '{"message":"intermedia caída"}' })
+      return route.fulfill({ status: 503, contentType: 'application/json', body: '{"message":"intermedia caída"}' })
     }
     return route.fulfill(respuestaFilas(req, PREDICCIONES, { limiteServidor: 200 }))
   })

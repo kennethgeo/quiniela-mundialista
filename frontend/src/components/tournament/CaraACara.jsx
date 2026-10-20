@@ -47,7 +47,10 @@ export default function CaraACara({ leagueId, matches = [], yo, rival, onClose }
     queryFn: ({ signal }) => leerTodasLasFilas(() => supabase
       .from('predictions')
       .select('id,user_id,match_id,home_goals_pred,away_goals_pred,use_powerup_x2,points_earned', { count: 'exact' })
-      .eq('league_id', leagueId).in('user_id', personas).in('match_id', idsJugados).order('id'), { signal }),
+      .eq('league_id', leagueId).in('user_id', personas).in('match_id', idsJugados).order('id')
+      // postgrest-js reintenta solo los 503/520 (1 s, 2 s, 4 s): acá el error
+      // se muestra enseguida y el reintento lo decide la persona.
+      .retry(false), { signal }),
   })
 
   const datos = useMemo(() => {
