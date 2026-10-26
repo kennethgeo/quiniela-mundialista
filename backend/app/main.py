@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
-from app.routes import admin, leaderboard, matches
+from app.routes import admin, leaderboard, matches, propuestas
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +33,7 @@ app.add_middleware(
 app.include_router(matches.router)
 app.include_router(admin.router)
 app.include_router(leaderboard.router)
+app.include_router(propuestas.router)
 # /api/leagues se borró (auditoría 20): nadie la llamaba y escribía `leagues` y
 # `league_members` con service_role, fuera de las RPC que las protegen.
 
