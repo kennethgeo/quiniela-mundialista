@@ -327,3 +327,57 @@ test('ir y volver entre modos de reparto conserva los montos originales y ambos 
   await page.getByRole('radio', { name: 'Porcentajes' }).click()
   await expect(page.getByLabel('Porcentaje del 1º puesto')).toHaveValue('40.25')
 })
+
+/* EL PENÚLTIMO RECUPERA SU CUOTA (pedido del dueño, 2 nov 2026). Un premio
+   contado desde el final se guarda como `desde_el_final` y la posición sale de
+   los miembros de ahora: con 4, el penúltimo es el 3.º. */
+test('el penúltimo se ve con su posición de hoy y suma al total', async ({ page }) => {
+  await abrir(page, { reparto: [{ puesto: 1, monto: 25000 }, { puesto: 2, monto: 5000 }, { desde_el_final: 2, monto: 10000 }] })
+  await expect(premios(page).locator('[data-desde-el-final="2"]')).toHaveText(/3ºPenúltimopuesto 3 de 4₡10\D?000/)
+  // 25 000 + 5 000 + 10 000 = el pozo completo (40 000): no se avisa nada.
+  await expect(premios(page).getByText(/pozo completo es/)).toHaveCount(0)
+  await expect(premios(page).getByText(/cae en un puesto que ya tiene premio/)).toHaveCount(0)
+})
+
+test('un admin agrega el penúltimo y se guarda con su propia clave', async ({ page }) => {
+  const { llamadas } = await abrir(page, { soyAdmin: true, reparto: [{ puesto: 1, monto: 25000 }, { puesto: 2, monto: 5000 }] })
+  await page.getByTitle('Configurar').click()
+  await page.getByRole('button', { name: '+ agregar desde el final' }).click()
+  // Arranca en «Penúltimo», que es el caso que lo motivó.
+  await expect(page.getByLabel('Qué puesto desde el final')).toHaveValue('2')
+  await expect(page.getByText('Hoy, con 4 miembros, es el 3º.', { exact: false })).toBeVisible()
+  await page.getByLabel('Monto del penúltimo puesto').fill('10000')
+  await expect(page.getByText(/Suman ₡40\D?000 · el pozo completo es ₡40\D?000/)).toBeVisible()
+  await page.getByRole('button', { name: 'Guardar' }).click()
+  await expect.poll(() => llamadas.length).toBe(1)
+  expect(llamadas[0].cuerpo.p_reparto).toEqual([
+    { puesto: 1, monto: 25000 }, { puesto: 2, monto: 5000 }, { desde_el_final: 2, monto: 10000 },
+  ])
+})
+
+test('al editar, el penúltimo guardado vuelve a su fila y no se cuela como 3.º', async ({ page }) => {
+  const { llamadas } = await abrir(page, { soyAdmin: true,
+    reparto: [{ puesto: 1, monto: 25000 }, { puesto: 2, monto: 5000 }, { desde_el_final: 2, monto: 10000 }] })
+  await page.getByTitle('Configurar').click()
+  await expect(page.getByLabel('Monto del penúltimo puesto')).toHaveValue('10000')
+  // Los de arriba son exactamente 1.º y 2.º: el penúltimo no se coló como 3.º.
+  await expect(page.getByLabel(/^Monto del \dº puesto$/)).toHaveCount(2)
+  await page.getByRole('button', { name: 'Guardar' }).click()
+  await expect.poll(() => llamadas.length).toBe(1)
+  expect(llamadas[0].cuerpo.p_reparto).toEqual([
+    { puesto: 1, monto: 25000 }, { puesto: 2, monto: 5000 }, { desde_el_final: 2, monto: 10000 },
+  ])
+})
+
+test('el mismo puesto desde el final dos veces no se guarda', async ({ page }) => {
+  const { llamadas } = await abrir(page, { soyAdmin: true, reparto: [{ puesto: 1, monto: 25000 }] })
+  await page.getByTitle('Configurar').click()
+  await page.getByRole('button', { name: '+ agregar desde el final' }).click()
+  await page.getByLabel('Monto del penúltimo puesto').fill('1000')
+  await page.getByRole('button', { name: '+ agregar desde el final' }).click()
+  await page.getByLabel('Qué puesto desde el final').nth(1).selectOption('2')
+  await page.getByLabel('Monto del penúltimo puesto').nth(1).fill('2000')
+  await expect(page.getByRole('alert').filter({ hasText: 'El penúltimo está dos veces' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Guardar' })).toBeDisabled()
+  expect(llamadas).toEqual([])
+})

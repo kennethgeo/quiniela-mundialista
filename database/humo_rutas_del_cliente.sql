@@ -888,9 +888,10 @@ BEGIN
   -- tal cual y el pozo lo devuelve; mezclarlo con porcentajes se rechaza.
   BEGIN
     PERFORM set_config('request.jwt.claims', json_build_object('sub', v_creador, 'role','authenticated')::text, true);
-    PERFORM public.set_league_pozo(v_liga, v_cuota, v_moneda, '[{"puesto":1,"monto":12345},{"puesto":2,"monto":678.5}]'::jsonb);
+    -- Con un premio contado desde el final (el penúltimo recupera su cuota).
+    PERFORM public.set_league_pozo(v_liga, v_cuota, v_moneda, '[{"puesto":1,"monto":12345},{"puesto":2,"monto":678.5},{"desde_el_final":2,"monto":100}]'::jsonb);
     IF (public.league_pozo(v_liga)->'reparto')
-       IS DISTINCT FROM '[{"puesto":1,"monto":12345},{"puesto":2,"monto":678.5}]'::jsonb THEN
+       IS DISTINCT FROM '[{"puesto":1,"monto":12345},{"puesto":2,"monto":678.5},{"desde_el_final":2,"monto":100}]'::jsonb THEN
       RAISE EXCEPTION 'el reparto en montos no quedó o el pozo no lo devuelve: %', public.league_pozo(v_liga)->'reparto'; END IF;
     BEGIN PERFORM public.set_league_pozo(v_liga, v_cuota, v_moneda, '[{"puesto":1,"monto":100},{"puesto":2,"porcentaje":10}]'::jsonb);
       RAISE EXCEPTION 'HUMO_ABIERTO';
@@ -898,7 +899,7 @@ BEGIN
       RAISE EXCEPTION 'mezcla: %', sqlerrm; END IF; END;
     RAISE EXCEPTION 'HUMO_OK';
   EXCEPTION WHEN others THEN
-    IF sqlerrm = 'HUMO_OK' THEN r := r || E'✓ reparto en montos fijos: se guarda, el pozo lo devuelve, mezclado no\n'; ok := ok + 1;
+    IF sqlerrm = 'HUMO_OK' THEN r := r || E'✓ reparto en montos fijos (con penúltimo): se guarda, el pozo lo devuelve, mezclado no\n'; ok := ok + 1;
     ELSE r := r || '✗ reparto en montos: ' || sqlerrm || E'\n'; mal := mal + 1; END IF;
     SET LOCAL ROLE authenticated; END;
 

@@ -96,7 +96,29 @@ export async function proposeRuleChange(leagueId, kind, payload, note) {
     p_league_id: leagueId, p_kind: kind, p_payload: payload, p_note: note ?? null,
   })
   if (error) throw error
+  // Sin await a propósito: la propuesta ya quedó y se vota igual aunque el
+  // aviso falle o tarde.
+  if (data) avisarPropuesta(data)
   return data
+}
+
+/* Push al padrón de la votación cuando se propone un cambio (pedido del
+   dueño, 26 oct 2026). Lo decide y deduplica el backend
+   (`/api/propuestas/avisar`): una vez por persona y propuesta. Es un extra:
+   nunca lanza, para que un aviso caído no parezca una propuesta fallida. */
+export async function avisarPropuesta(proposalId) {
+  try {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session?.access_token) return
+    const res = await fetch('/_backend/api/propuestas/avisar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({ proposal_id: proposalId }),
+    })
+    if (!res.ok) console.warn('No se pudo avisar la propuesta', res.status)
+  } catch (e) {
+    console.warn('No se pudo avisar la propuesta', e?.message)
+  }
 }
 
 // Votar una propuesta abierta (a favor / en contra).

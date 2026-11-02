@@ -464,6 +464,14 @@ END; $function$;
 -- (Bundestica: 65 % y 35 %) NO se toca: lo cambia el admin desde el editor.
 -- La suma de los montos no se ata al pozo en la base —el pozo cambia con cada
 -- persona que entra o sale—; la pantalla avisa si se pasa.
+--
+-- PUESTOS DESDE EL FINAL (pedido del dueño, 2 nov 2026: «el penúltimo
+-- recupera los ₡10.000 que puso»). Un premio lleva `puesto` (1 = primero)
+-- O `desde_el_final` (1 = último, 2 = penúltimo), nunca los dos. Se guarda
+-- así y no como número de puesto porque «penúltimo» es el 16.º con 17
+-- miembros y el 17.º si entra uno más: la posición la resuelve la pantalla
+-- con la cantidad de miembros del momento. Los repetidos se cuentan por
+-- lado: un 2.º puesto y un penúltimo pueden convivir.
 CREATE OR REPLACE FUNCTION public.set_league_pozo(p_league_id uuid, p_cuota numeric, p_moneda text, p_reparto jsonb)
 RETURNS void
 LANGUAGE plpgsql
@@ -495,10 +503,14 @@ BEGIN
 
     IF EXISTS (SELECT 1 FROM jsonb_array_elements(p_reparto) e
                WHERE jsonb_typeof(e) <> 'object'
+                  -- Uno y solo uno: contado desde arriba o desde el final.
+                  OR ((e ? 'puesto') = (e ? 'desde_el_final'))
                   -- NÚMEROS de JSON, no textos (revisión del 13 oct): con el
                   -- texto, "01" pasaba como un 1.º puesto distinto de 1.
-                  OR jsonb_typeof(e->'puesto') IS DISTINCT FROM 'number'
-                  OR (e->>'puesto') !~ '^[0-9]{1,4}$' OR (e->>'puesto')::int < 1
+                  OR ((e ? 'puesto') AND (jsonb_typeof(e->'puesto') IS DISTINCT FROM 'number'
+                        OR (e->>'puesto') !~ '^[0-9]{1,4}$' OR (e->>'puesto')::int < 1))
+                  OR ((e ? 'desde_el_final') AND (jsonb_typeof(e->'desde_el_final') IS DISTINCT FROM 'number'
+                        OR (e->>'desde_el_final') !~ '^[0-9]{1,4}$' OR (e->>'desde_el_final')::int < 1))
                   -- Uno y solo uno de los dos.
                   OR ((e ? 'porcentaje') = (e ? 'monto'))
                   OR ((e ? 'porcentaje') AND (jsonb_typeof(e->'porcentaje') IS DISTINCT FROM 'number'
@@ -508,10 +520,11 @@ BEGIN
                         OR (e->>'monto') !~ '^[0-9]+(\.[0-9]{1,2})?$'
                         OR (e->>'monto')::numeric <= 0
                         OR (e->>'monto')::numeric > 100000000))) THEN
-      RAISE EXCEPTION 'Cada puesto necesita un número entero >= 1 y, o un porcentaje entre 0 y 100, o un monto mayor que cero';
+      RAISE EXCEPTION 'Cada premio necesita un puesto (o un puesto desde el final) entero >= 1 y, o un porcentaje entre 0 y 100, o un monto mayor que cero';
     END IF;
 
-    SELECT count(*), count(DISTINCT (e->>'puesto')::int),
+    SELECT count(*),
+           count(DISTINCT (e->>'puesto')::int) + count(DISTINCT (e->>'desde_el_final')::int),
            count(*) FILTER (WHERE e ? 'monto'), count(*) FILTER (WHERE e ? 'porcentaje'),
            COALESCE(SUM((e->>'porcentaje')::numeric) FILTER (WHERE e ? 'porcentaje'), 0)
       INTO v_n, v_distintos, v_con_monto, v_con_porcentaje, v_suma

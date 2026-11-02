@@ -183,3 +183,32 @@ test('un guardado rechazado señala su partido y conserva el marcador aunque se 
   expect(enviados[0]).toMatchObject({ match_id: 10, home_goals_pred: 2, away_goals_pred: 0, league_id: LIGA, user_id: USUARIO.id })
   expect(enviados[2]).toEqual(enviados[0])
 })
+
+test('al proponer un cambio se pide el aviso al grupo, una vez y con la sesión', async ({ page }) => {
+  const { guardados } = await abrir(page)
+  const avisos = []
+  await page.route('**/_backend/api/propuestas/avisar', route => {
+    avisos.push({ cuerpo: route.request().postDataJSON(), auth: route.request().headers().authorization })
+    return route.fulfill({ json: { status: 'ok', personas: 4 } })
+  })
+  await editor(page).click()
+  await puntaje(page).getByLabel('Marcador exacto', { exact: true }).fill('5')
+  await puntaje(page).getByRole('button', { name: 'Enviar a votación' }).click()
+  await expect.poll(() => avisos.length).toBe(1)
+  expect(avisos[0].cuerpo).toEqual({ proposal_id: PROPUESTA })
+  expect(avisos[0].auth).toMatch(/^Bearer \S+/)
+  expect(guardados).toHaveLength(1)
+})
+
+test('si el aviso falla, la propuesta igual queda enviada', async ({ page }) => {
+  const { guardados } = await abrir(page)
+  let pedidos = 0
+  await page.route('**/_backend/api/propuestas/avisar', route => { pedidos += 1; return route.fulfill({ status: 503, json: { detail: 'caído' } }) })
+  await editor(page).click()
+  await puntaje(page).getByLabel('Marcador exacto', { exact: true }).fill('5')
+  await puntaje(page).getByRole('button', { name: 'Enviar a votación' }).click()
+  await expect.poll(() => pedidos).toBe(1)
+  await expect(page.getByText('Propuesta de puntaje enviada a votación del grupo.')).toBeVisible()
+  await expect(puntaje(page).getByRole('alert')).toHaveCount(0)
+  expect(guardados).toHaveLength(1)
+})

@@ -704,7 +704,11 @@ export async function renderPozoCard({ nombreQuiniela, pozo }) {
   const moneda = pozo?.moneda
   const gente = Array.isArray(pozo?.gente) ? pozo.gente : []
   const premios = repartoDelPozo(pozo)
-  const reparto = premios.filas
+  // Los de arriba y después los contados desde el final («Penúltimo · 16º»).
+  const reparto = [
+    ...premios.filas.map((x) => ({ ...x, etiqueta: `${x.puesto}º` })),
+    ...(premios.finales || []).map((x) => ({ ...x, etiqueta: x.lugar != null ? `${x.nombre} · ${x.lugar}º` : x.nombre })),
+  ]
 
   const Y_CAJA = 208
   const ALTO_CAJA = 196
@@ -778,7 +782,7 @@ export async function renderPozoCard({ nombreQuiniela, pozo }) {
       ctx.textAlign = 'left'
       ctx.fillStyle = TEXTO
       ctx.font = "600 24px 'Archivo', sans-serif"
-      ctx.fillText(x.porcentaje != null ? `${x.puesto}º · ${x.porcentaje}%` : `${x.puesto}º`, MARGEN, y)
+      ctx.fillText(x.porcentaje != null ? `${x.etiqueta} · ${x.porcentaje}%` : x.etiqueta, MARGEN, y)
       ctx.textAlign = 'right'
       ctx.fillStyle = ORO
       ctx.font = "bold 26px 'JetBrains Mono', monospace"

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   conAbonos, convertirReparto, detalleDe, estadoDe, etiquetaDe, faltaDe, montoDelAviso, opcionesDeMonto,
-  repartoDe, repartoParaGuardar, resumen, textoParaCompartir, validarMonto,
+  nombreDesdeElFinal, repartoDe, repartoParaGuardar, resumen, textoParaCompartir, validarMonto,
 } from './pozo'
 
 /* Las filas tienen la forma de `league_pozo` con la migración 110 (y sin ella,
@@ -163,5 +163,59 @@ describe('el editor del reparto', () => {
     expect(convertirReparto(['110500', '59500'], 'porcentajes', 170000)).toEqual(['65', '35'])
     expect(convertirReparto(['65'], 'montos', 0)).toEqual([''])
     expect(convertirReparto(['50'], 'montos', 25.5)).toEqual(['12.75'])
+  })
+})
+
+describe('premios contados desde el final (el penúltimo recupera su cuota)', () => {
+  // Bundestica: 17 miembros × ₡10.000; 1.º ₡110.000, 2.º ₡50.000 y el
+  // penúltimo recupera sus ₡10.000. Suma exactamente el pozo.
+  const bundestica = {
+    pozo_total: 170000, miembros: 17,
+    reparto: [{ puesto: 1, monto: 110000 }, { puesto: 2, monto: 50000 }, { desde_el_final: 2, monto: 10000 }],
+  }
+
+  it('el penúltimo se resuelve con los miembros de ahora y suma al total', () => {
+    const r = repartoDe(bundestica)
+    expect(r.filas).toEqual([
+      { puesto: 1, monto: 110000, porcentaje: null },
+      { puesto: 2, monto: 50000, porcentaje: null },
+    ])
+    expect(r.finales).toEqual([{ desdeElFinal: 2, nombre: 'Penúltimo', lugar: 16, monto: 10000, porcentaje: null }])
+    expect(r).toMatchObject({ suma: 170000, excede: false, cruza: false })
+    // Si entra uno más, el penúltimo pasa a ser el 17.º.
+    expect(repartoDe({ ...bundestica, miembros: 18 }).finales[0].lugar).toBe(17)
+  })
+
+  it('con pocos miembros avisa que el penúltimo es un puesto que ya tiene premio', () => {
+    expect(repartoDe({ ...bundestica, miembros: 3 }).cruza).toBe(true)
+    expect(repartoDe({ ...bundestica, miembros: 4 }).cruza).toBe(false)
+  })
+
+  it('en porcentajes se pasa a plata con el pozo completo', () => {
+    const r = repartoDe({ pozo_total: 170000, miembros: 17, reparto: [{ puesto: 1, porcentaje: 60 }, { desde_el_final: 1, porcentaje: 10 }] })
+    expect(r.finales).toEqual([{ desdeElFinal: 1, nombre: 'Último', lugar: 17, monto: 17000, porcentaje: 10 }])
+  })
+
+  it('se guarda con su propia clave, nunca como un puesto de arriba', () => {
+    expect(repartoParaGuardar(['110000', '50000'], 'montos', [{ desdeElFinal: 2, valor: '10000' }])).toEqual({
+      reparto: [{ puesto: 1, monto: 110000 }, { puesto: 2, monto: 50000 }, { desde_el_final: 2, monto: 10000 }],
+    })
+    // Solo el de abajo, y una fila de abajo vacía no cuenta.
+    expect(repartoParaGuardar(['', ''], 'montos', [{ desdeElFinal: 1, valor: '5000' }, { desdeElFinal: 2, valor: '' }]))
+      .toEqual({ reparto: [{ desde_el_final: 1, monto: 5000 }] })
+  })
+
+  it('no deja el mismo puesto dos veces, ni cero, ni pasar de 100 % contando los de abajo', () => {
+    expect(repartoParaGuardar([], 'montos', [{ desdeElFinal: 2, valor: '1' }, { desdeElFinal: 2, valor: '2' }]).error)
+      .toBe('El penúltimo está dos veces')
+    expect(repartoParaGuardar([], 'montos', [{ desdeElFinal: 2, valor: '0' }]).error).toMatch(/penúltimo lleva un número/)
+    expect(repartoParaGuardar(['95'], 'porcentajes', [{ desdeElFinal: 2, valor: '10' }]).error).toMatch(/más de 100/)
+    expect(repartoParaGuardar(['90'], 'porcentajes', [{ desdeElFinal: 2, valor: '10' }])).toEqual({
+      reparto: [{ puesto: 1, porcentaje: 90 }, { desde_el_final: 2, porcentaje: 10 }],
+    })
+  })
+
+  it('los nombres', () => {
+    expect([1, 2, 3, 4].map(nombreDesdeElFinal)).toEqual(['Último', 'Penúltimo', 'Antepenúltimo', '4º desde el final'])
   })
 })
