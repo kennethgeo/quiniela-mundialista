@@ -24,7 +24,7 @@ import { supabase } from '../../lib/supabase'
 import { describirMovimiento, plata } from '../../lib/historialPagos'
 import {
   conAbonos, convertirReparto, detalleDe, estadoDe, etiquetaDe, faltaDe, montoDe, montoDelAviso,
-  opcionesDeMonto, repartoDe, repartoParaGuardar, resumen, textoParaCompartir, validarMonto,
+  nombreDesdeElFinal, opcionesDeMonto, repartoDe, repartoParaGuardar, resumen, textoParaCompartir, validarMonto,
 } from '../../lib/pozo'
 import { renderPozoCard, compartirImagen } from '../../lib/shareCard'
 
@@ -147,7 +147,7 @@ export default function PozoYPagos({ leagueId, nombreQuiniela = 'Quiniela' }) {
           }} />
       </div>}
       {editando ? (
-        <Config leagueId={leagueId} inicial={{ cuota, moneda, reparto, total: r.total }}
+        <Config leagueId={leagueId} inicial={{ cuota, moneda, reparto, total: r.total, miembros: r.miembros }}
           onListo={() => { setEditando(false); refrescar() }} onCancelar={() => setEditando(false)} />
       ) : sinConfigurar ? (
         <p className="text-[11.5px] text-[var(--text-muted,#8A8A8A)] mt-1">
@@ -529,7 +529,7 @@ function Dato({ etiqueta, valor }) {
 }
 
 function Premios({ reparto, moneda }) {
-  if (!reparto.filas.length) return null
+  if (!reparto.filas.length && !reparto.finales?.length) return null
   const montos = reparto.modo === 'montos'
   return (
     <div className="pozo-prizes"
@@ -548,11 +548,29 @@ function Premios({ reparto, moneda }) {
           </span>
         </div>
       ))}
+      {(reparto.finales || []).map((x) => (
+        <div key={`f${x.desdeElFinal}`} className="pozo-prize-row" data-desde-el-final={x.desdeElFinal}>
+          <span className="pozo-place">{x.lugar != null ? ordinal(x.lugar) : '—'}</span>
+          <span className="pozo-prize-label">{x.nombre}
+            <small>{x.lugar != null ? `puesto ${x.lugar} de ${x.lugar + x.desdeElFinal - 1}` : 'contado desde el final'}
+              {x.porcentaje != null && ` · ${x.porcentaje}% del pozo`}</small>
+          </span>
+          <span className="pozo-prize-amount">
+            {plata(x.monto, moneda)}
+          </span>
+        </div>
+      ))}
       <p className="text-[9.5px] text-[var(--text-muted,#8A8A8A)] mt-1">
         {montos
           ? 'Montos acordados por el grupo.'
           : 'Calculado sobre el pozo completo, asumiendo que pagan todos.'}
       </p>
+      {reparto.cruza && (
+        <p className="flex items-start gap-1 text-[10.5px] text-amber-600 dark:text-amber-400 mt-1">
+          <AlertTriangle size={12} className="mt-px shrink-0" />
+          Con los miembros de ahora, un premio contado desde el final cae en un puesto que ya tiene premio.
+        </p>
+      )}
       {reparto.excede && (
         <p className="flex items-start gap-1 text-[10.5px] text-amber-600 dark:text-amber-400 mt-1">
           <AlertTriangle size={12} className="mt-px shrink-0" />
@@ -572,15 +590,23 @@ function Config({ leagueId, inicial, onListo, onCancelar }) {
     guardado.length && !guardado.some((x) => x?.monto != null) ? 'porcentajes' : 'montos',
   )
   const [valores, setValores] = useState(() => {
-    const v = [...guardado].sort((a, b) => Number(a.puesto) - Number(b.puesto))
+    const v = guardado.filter((x) => x?.desde_el_final == null)
+      .sort((a, b) => Number(a.puesto) - Number(b.puesto))
       .map((x) => String(x?.monto ?? x?.porcentaje ?? ''))
     return v.length ? v : ['', '', '']
   })
+  // Premios contados desde el final («el penúltimo recupera su cuota»): cada
+  // fila dice QUÉ puesto es, así que no hay huecos que cuidar.
+  const [finales, setFinales] = useState(() => guardado
+    .filter((x) => x?.desde_el_final != null)
+    .sort((a, b) => Number(b.desde_el_final) - Number(a.desde_el_final))
+    .map((x) => ({ desdeElFinal: Number(x.desde_el_final), valor: String(x?.monto ?? x?.porcentaje ?? '') })))
   const [error, setError] = useState(null)
   const [borradores, setBorradores] = useState({})
   const total = Number(inicial.total || 0)
+  const miembros = Number(inicial.miembros || 0)
 
-  const listo = repartoParaGuardar(valores, modo)
+  const listo = repartoParaGuardar(valores, modo, finales)
   const guardar = useMutation({
     mutationFn: async () => {
       if (listo.error) throw new Error(listo.error)
@@ -598,13 +624,17 @@ function Config({ leagueId, inicial, onListo, onCancelar }) {
 
   const cambiarModo = (nuevo) => {
     if (nuevo === modo) return
-    setBorradores({ ...borradores, [modo]: valores })
-    setValores(borradores[nuevo] ?? convertirReparto(valores, nuevo, total))
+    setBorradores({ ...borradores, [modo]: { valores, finales } })
+    const previo = borradores[nuevo]
+    setValores(previo?.valores ?? convertirReparto(valores, nuevo, total))
+    const convertidos = convertirReparto(finales.map((f) => f.valor), nuevo, total)
+    setFinales(previo?.finales ?? finales.map((f, i) => ({ ...f, valor: convertidos[i] })))
     setModo(nuevo)
     setError(null)
   }
+  const libres = [1, 2, 3].filter((k) => !finales.some((f) => f.desdeElFinal === k))
   const sumaMontos = modo === 'montos' && listo.reparto ? listo.reparto.reduce((s, x) => s + x.monto, 0) : 0
-  const sumaPorc = valores.reduce((s, v) => s + (Number(v) || 0), 0)
+  const sumaPorc = [...valores, ...finales.map((f) => f.valor)].reduce((s, v) => s + (Number(v) || 0), 0)
 
   return (
     <div className="mt-2 space-y-2.5">
@@ -651,6 +681,42 @@ function Config({ leagueId, inicial, onListo, onCancelar }) {
         ))}
         <button type="button" onClick={() => setValores([...valores, ''])}
           className="text-[11px] font-bold text-accent">+ agregar puesto</button>
+
+        {finales.length > 0 && (
+          <p className="block text-[10px] font-bold text-[var(--text-muted,#8A8A8A)] uppercase mt-3 mb-1">Desde el final</p>
+        )}
+        {finales.map((f, i) => {
+          const nombre = nombreDesdeElFinal(f.desdeElFinal).toLowerCase()
+          const lugar = miembros >= f.desdeElFinal ? miembros - f.desdeElFinal + 1 : null
+          return (
+            <div key={i} className="mb-1.5">
+              <div className="flex items-center gap-2">
+                <select value={f.desdeElFinal} aria-label="Qué puesto desde el final"
+                  onChange={(e) => setFinales(finales.map((x, j) => j === i ? { ...x, desdeElFinal: Number(e.target.value) } : x))}
+                  className="w-[118px] bg-slate-100 dark:bg-[#0C0C0C] border border-slate-200 dark:border-[#262626] rounded-lg px-1.5 py-1.5 text-[12px] text-slate-900 dark:text-white focus:outline-none focus:border-accent">
+                  {[1, 2, 3].map((k) => <option key={k} value={k}>{nombreDesdeElFinal(k)}</option>)}
+                </select>
+                {modo === 'montos' && <span className="text-[12px] text-[var(--text-muted,#8A8A8A)]">{moneda === 'USD' ? '$' : '₡'}</span>}
+                <input type="number" inputMode="decimal" min="0" step="any" value={f.valor}
+                  aria-label={`${modo === 'montos' ? 'Monto' : 'Porcentaje'} del ${nombre} puesto`}
+                  onChange={(e) => setFinales(finales.map((x, j) => j === i ? { ...x, valor: e.target.value } : x))}
+                  className="flex-1 min-w-0 bg-slate-100 dark:bg-[#0C0C0C] border border-slate-200 dark:border-[#262626] rounded-lg px-2 py-1.5 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-accent" />
+                {modo === 'porcentajes' && <span className="text-[12px] text-[var(--text-muted,#8A8A8A)]">%</span>}
+                <button type="button" onClick={() => setFinales(finales.filter((_, j) => j !== i))}
+                  className="text-rose-500 p-1" aria-label={`Quitar el ${nombre} puesto`}><X size={13} /></button>
+              </div>
+              {lugar != null && (
+                <p className="text-[10px] text-[var(--text-muted,#8A8A8A)] mt-0.5 ml-1">
+                  Hoy, con {miembros} miembros, es el {ordinal(lugar)}. Si entra o sale alguien, se corre solo.
+                </p>
+              )}
+            </div>
+          )
+        })}
+        {libres.length > 0 && (
+          <button type="button" onClick={() => setFinales([...finales, { desdeElFinal: libres.includes(2) ? 2 : libres[0], valor: '' }])}
+            className="block text-[11px] font-bold text-accent mt-1">+ agregar desde el final</button>
+        )}
         <p className="text-[10.5px] text-[var(--text-muted,#8A8A8A)] mt-1">
           {modo === 'montos'
             ? `Suman ${plata(sumaMontos, moneda)}${total > 0 ? ` · el pozo completo es ${plata(total, moneda)}` : ''}.`

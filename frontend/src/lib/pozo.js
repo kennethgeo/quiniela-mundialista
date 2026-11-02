@@ -106,19 +106,39 @@ export function detalleDe (g, cuota, moneda) {
  *  —el pozo cambia con cada persona que entra o sale—, así que se avisa. */
 export function repartoDe (pozo) {
   const total = Number(pozo?.pozo_total || 0)
+  const miembros = Number(pozo?.miembros || 0)
   const crudo = Array.isArray(pozo?.reparto) ? pozo.reparto : []
   const modo = crudo.some((x) => x?.monto != null) ? 'montos' : 'porcentajes'
+  const aPlata = (x) => (modo === 'montos'
+    ? { monto: Number(x?.monto || 0), porcentaje: null }
+    : { monto: total * Number(x?.porcentaje || 0) / 100, porcentaje: Number(x?.porcentaje || 0) })
   const filas = crudo
-    .map((x) => {
-      const puesto = Number(x?.puesto)
-      if (modo === 'montos') return { puesto, monto: Number(x?.monto || 0), porcentaje: null }
-      const porcentaje = Number(x?.porcentaje || 0)
-      return { puesto, monto: total * porcentaje / 100, porcentaje }
-    })
+    .filter((x) => x?.desde_el_final == null)
+    .map((x) => ({ puesto: Number(x?.puesto), ...aPlata(x) }))
     .filter((x) => x.puesto > 0 && x.monto > 0)
     .sort((a, b) => a.puesto - b.puesto)
-  const suma = filas.reduce((s, x) => s + x.monto, 0)
-  return { modo, filas, suma, total, excede: modo === 'montos' && total > 0 && suma > total }
+  // Contados desde el final (el penúltimo recupera su cuota, pedido del
+  // dueño del 2 nov 2026). La posición sale de los miembros de AHORA: con 17,
+  // el penúltimo es el 16.º; si entra uno más, el 17.º.
+  const finales = crudo
+    .filter((x) => x?.desde_el_final != null)
+    .map((x) => {
+      const desdeElFinal = Number(x.desde_el_final)
+      const lugar = miembros >= desdeElFinal ? miembros - desdeElFinal + 1 : null
+      return { desdeElFinal, nombre: nombreDesdeElFinal(desdeElFinal), lugar, ...aPlata(x) }
+    })
+    .filter((x) => Number.isInteger(x.desdeElFinal) && x.desdeElFinal > 0 && x.monto > 0)
+    .sort((a, b) => b.desdeElFinal - a.desdeElFinal)
+  const suma = [...filas, ...finales].reduce((s, x) => s + x.monto, 0)
+  // Con pocos miembros, «penúltimo» puede ser el mismo puesto que uno de
+  // arriba (con 3, el penúltimo es el 2.º): se avisa, no se bloquea.
+  const cruza = finales.some((x) => x.lugar != null && filas.some((f) => f.puesto >= x.lugar))
+  return { modo, filas, finales, suma, total, cruza, excede: modo === 'montos' && total > 0 && suma > total }
+}
+
+/** «Último», «Penúltimo», «Antepenúltimo» o «4.º desde el final». */
+export function nombreDesdeElFinal (k) {
+  return ['Último', 'Penúltimo', 'Antepenúltimo'][k - 1] || `${k}º desde el final`
 }
 
 /** Del editor a lo que guarda `set_league_pozo`. `valores` son los textos de
@@ -127,7 +147,40 @@ export function repartoDe (pozo) {
  *  una vacía en el medio es un error, porque dejaría un puesto sin premio
  *  entre dos que sí tienen. Devuelve { reparto } (null = sin reparto) o
  *  { error }. */
-export function repartoParaGuardar (valores, modo) {
+export function repartoParaGuardar (valores, modo, finales = []) {
+  const arriba = repartoDeArriba(valores, modo)
+  if (arriba.error) return arriba
+  // Los de abajo: [{ desdeElFinal, valor }]. Una fila vacía se ignora (no
+  // hay huecos posibles: cada fila dice qué puesto es).
+  const usadosAbajo = (finales || []).filter((f) => String(f?.valor ?? '').trim() !== '')
+  const nombres = usadosAbajo.map((f) => Number(f.desdeElFinal))
+  const repetido = nombres.find((k, i) => nombres.indexOf(k) !== i)
+  if (repetido) return { error: `El ${nombreDesdeElFinal(repetido).toLowerCase()} está dos veces` }
+  const abajo = []
+  for (const f of usadosAbajo) {
+    const n = Number(String(f.valor).trim())
+    const nombre = nombreDesdeElFinal(Number(f.desdeElFinal)).toLowerCase()
+    if (!Number.isFinite(n) || n <= 0) return { error: `El ${nombre} lleva un número mayor que cero` }
+    if (modo === 'montos') {
+      const monto = Math.round(n * 100) / 100
+      if (monto > 100000000) return { error: 'Un monto está fuera de rango' }
+      abajo.push({ desde_el_final: Number(f.desdeElFinal), monto })
+    } else {
+      if (n > 100) return { error: 'Un porcentaje no puede pasar de 100' }
+      abajo.push({ desde_el_final: Number(f.desdeElFinal), porcentaje: n })
+    }
+  }
+  const todo = [...(arriba.reparto || []), ...abajo]
+  if (modo === 'porcentajes') {
+    const suma = todo.reduce((s, x) => s + x.porcentaje, 0)
+    // 0.2 + 83.9 + 15.9 puede dar 100.00000000000001 en JavaScript.
+    // El JSON conserva los valores originales; PostgreSQL los suma en numeric.
+    if (suma - 100 > Number.EPSILON * 100 * todo.length) return { error: 'Los porcentajes suman más de 100' }
+  }
+  return { reparto: todo.length ? todo : null }
+}
+
+function repartoDeArriba (valores, modo) {
   const nums = (valores || []).map((v) => {
     const t = String(v ?? '').trim()
     return t === '' ? 0 : Number(t)
@@ -145,10 +198,6 @@ export function repartoParaGuardar (valores, modo) {
     return { reparto: montos.map((monto, i) => ({ puesto: i + 1, monto })) }
   }
   if (usados.some((p) => p > 100)) return { error: 'Un porcentaje no puede pasar de 100' }
-  const suma = usados.reduce((s, p) => s + p, 0)
-  // 0.2 + 83.9 + 15.9 puede dar 100.00000000000001 en JavaScript.
-  // El JSON conserva los valores originales; PostgreSQL los suma en numeric.
-  if (suma - 100 > Number.EPSILON * 100 * usados.length) return { error: 'Los porcentajes suman más de 100' }
   return { reparto: usados.map((porcentaje, i) => ({ puesto: i + 1, porcentaje })) }
 }
 
